@@ -7,7 +7,7 @@ export const site = {
   shortName: 'Little Characters',
   tagline: 'Every person has a story worth telling.',
   description:
-    'Theater classes, camps, workshops and shows for ages 4 to 100 in Athens and Winterville, Georgia.',
+    'Theater classes, camps, workshops and shows for ages 4 to 100 in Athens, Georgia. Encouraging creative hearts through theater since 2022.',
   url: 'https://www.littlecharacters.org',
   founded: 2022,
 
@@ -37,10 +37,10 @@ export const site = {
    */
   portal: {
     mode: 'studio-director' as 'studio-director' | 'native',
-    // TODO(hannah): paste the real Studio Director portal links.
+    // The live MyStudioDirector portal, as linked from the current Fall 2026 classes page.
     studioDirector: {
-      login: 'https://app.thestudiodirector.com/littlecharacters/portal.sd?page=Login',
-      enroll: 'https://app.thestudiodirector.com/littlecharacters/portal.sd?page=Enroll',
+      login: 'https://app.thestudiodirector.com/littlecharacterstheater/portal.sd',
+      enroll: 'https://app.thestudiodirector.com/littlecharacterstheater/portal.sd?page=Enroll',
     },
     native: {
       login: '/account',
@@ -54,7 +54,10 @@ export const site = {
     newsletterAction: '',
   },
 
+  // TODO: the current giving page has no payment form yet; point this at a real donation link.
   givingUrl: 'https://www.littlecharacters.org/giving-page',
+  wishListUrl: 'https://a.co/510Gges',
+  mapUrl: 'https://maps.app.goo.gl/2sAZXSFJ3HkdCYsn9',
 } as const;
 
 export const nav = [

@@ -12,8 +12,8 @@ const { current } = Astro.props;
 const steps = [
   { title: 'Find', body: 'Pick your child’s age and see every class, camp and workshop that fits.' },
   { title: 'Pick a time', body: 'Choose the day and place that work. Spots left are shown up front.' },
-  { title: 'Enroll & pay', body: 'Add your student’s details once. Sibling and multi-class discounts apply automatically.' },
-  { title: 'You’re in', body: 'Get a confirmation with dates for your calendar, what to bring, and showcase details.' },
+  { title: 'Enroll & pay', body: 'Register in our family portal. New students’ first class is free, and multi-student or multi-class families save 15%.' },
+  { title: 'You’re in', body: 'Get your confirmation, then join us at HQ. Every class ends with a show, and each student gets 2 free tickets.' },
 ];
 ---
 
@@ -67,7 +67,7 @@ const steps = [
     font-weight: 800;
     font-size: 1.2rem;
   }
-  .journey__step[aria-current='step'] .journey__num { background: var(--amber); }
+  .journey__step[aria-current='step'] .journey__num { background: var(--orange); }
   h3 { font-size: var(--step-1); font-stretch: 90%; margin-bottom: 0.25rem; }
   p { color: var(--ink-soft); font-size: var(--step--1); line-height: 1.5; }
 

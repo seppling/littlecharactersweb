@@ -4,144 +4,183 @@ import ProgramCard from '@/components/ProgramCard.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
 import FaqList from '@/components/FaqList.astro';
 import Character from '@/components/Character.astro';
-import { programs, ageBands } from '@/data/programs';
+import { programs, programBySlug, ageBands } from '@/data/programs';
 import { faqs } from '@/data/faqs';
 import { locationById } from '@/data/locations';
 import { ageLabel, dateRange } from '@/lib/format';
+import campShowStage from '@/assets/photos/camp-show-stage.webp';
 
-const camps = programs.filter((p) => p.kind === 'camp');
-const holiday = camps.filter((p) => p.sessions.some((s) => s.term.includes('2026')));
-const summer = camps.filter((p) => p.sessions.some((s) => s.term === 'Summer 2027'));
+const camps = programs.filter((p) => p.kind === 'camp' || p.kind === 'workshop');
 
-// Build the week-by-week grid from session data.
-type Slot = { program: (typeof camps)[number]; locationId: string; startDate: string };
+// Week-by-week summer grid. It fills itself in once summer sessions labeled
+// "Week 1", "Week 2"… are added to src/data/programs.ts.
+type Slot = { program: (typeof camps)[number]; locationId: string };
 const weeks = new Map<string, { label: string; start: string; end: string; slots: Slot[] }>();
-for (const program of summer) {
+for (const program of camps) {
   for (const s of program.sessions) {
-    if (s.term !== 'Summer 2027' || !s.label?.startsWith('Week')) continue;
+    if (!s.term.startsWith('Summer') || !s.label?.startsWith('Week')) continue;
     const week = weeks.get(s.label) ?? { label: s.label, start: s.startDate, end: s.endDate, slots: [] };
-    week.slots.push({ program, locationId: s.locationId, startDate: s.startDate });
+    week.slots.push({ program, locationId: s.locationId });
     weeks.set(s.label, week);
   }
 }
-// Multi-day extras that don't span a full week slot into the week they fall in.
-for (const program of summer) {
-  for (const s of program.sessions) {
-    if (s.term !== 'Summer 2027' || s.label?.startsWith('Week') || s.label === 'Summer Mondays') continue;
-    const week = [...weeks.values()].find((w) => s.startDate >= w.start && s.startDate <= w.end);
-    week?.slots.push({ program, locationId: s.locationId, startDate: s.startDate });
-  }
-}
 const weekList = [...weeks.values()].sort((a, b) => a.start.localeCompare(b.start));
-const campFaqs = faqs.filter((f) => f.group === 'Camps' || f.q.includes('scholarship') || f.q.includes('sibling'));
 
+const campFaqs = faqs.filter((f) => f.group === 'Camps & parties' || f.q.includes('discounts') || f.q.includes('scholarships'));
+
+// Past mini camps and workshops, from the events archive on the current site.
+const recent = [
+  { when: 'Mar 2026', title: 'Into the Woods Workshop', gel: 'teal' },
+  { when: 'Nov 2025', title: 'KPop-a-Palooza Workshop', gel: 'red' },
+  { when: 'Nov 2025', title: 'Prop Making Workshop', gel: 'orange' },
+  { when: 'Sep 2025', title: 'NEWSIES! Musical Theater Workshop', gel: 'yellow' },
+  { when: 'Jan 2025', title: 'Family Improv Workshop (MLK Day)', gel: 'purple' },
+  { when: 'Oct 2024', title: 'Fall Break Storybook Camp', gel: 'teal' },
+  { when: 'Nov 2023', title: 'Here We Come A-Caroling: Thanksgiving Mini Camp', gel: 'red' },
+] as const;
+
+// A camp day, from the summer camp pages on the current site.
 const day = [
-  { time: '8:45', what: 'Drop-off & warm welcome', detail: 'Name tags, a quick check-in, and a game while everyone arrives.' },
-  { time: '9:00', what: 'Warm-ups', detail: 'Voice, body and focus games to get the whole cast awake.' },
-  { time: '9:45', what: 'Create', detail: 'Story building, script writing, costume and prop making.' },
-  { time: '10:45', what: 'Snack break', detail: 'Snacks are on us. Bring a water bottle.' },
-  { time: '11:00', what: 'Rehearse', detail: 'Blocking scenes and practicing for the big day.' },
-  { time: '12:30', what: 'Share-out', detail: 'Each group shows what they made today.' },
-  { time: '1:00', what: 'Pickup', detail: 'Friday pickup is showtime, so come a little early.' },
+  { time: '9:00', what: 'Camp starts', detail: 'Warm-ups and games. Campers are split up by age for different activities.' },
+  { time: 'Morning', what: 'Act, improvise, create', detail: 'Acting and improv, emotions and characters, and lots of crafts. Some weeks we write our own show.' },
+  { time: 'Midday', what: 'Snack break', detail: 'Snacks and materials are included. Bring a lunch.' },
+  { time: '12:30 Fri', what: 'The performance', detail: 'On the last day, campers perform for parents and friends.' },
+  { time: '1:00', what: 'Pickup', detail: 'Or stay for after-camp until 3:00, Monday to Thursday, for $30 a day.' },
 ];
+
+const summer = programBySlug('summer-camp')!;
+const mini = programBySlug('mini-camps-and-workshops')!;
+const free = programBySlug('free-community-class')!;
 ---
 
-<Base title="Summer & holiday camps" description="Theater camps for ages 4 to 17 in Athens and Winterville, GA: summer production, improv and tech camps, plus holiday mini camps.">
+<Base title="Camps & workshops" description="Summer theater camp for ages 4 to 17, holiday mini camps and weekend workshops from Little Characters in Athens, GA.">
   <section class="camp-hero">
     <div class="wrap camp-hero__grid">
       <div class="stack" style="--stack: var(--space-l)">
-        <p class="eyebrow">Theater camps in Athens & Winterville, GA</p>
-        <h1>Write it Monday. <span class="u">Perform it Friday.</span></h1>
+        <p class="eyebrow">Theater camps in Athens, GA</p>
+        <h1>A week of theater. <span class="u">A show on Friday.</span></h1>
         <p class="lede">
-          Each summer we run 3 to 5 weeks of camp for ages 4 to 17, from writing and performing an original show to improv and technical theater. Holiday mini camps fill the school breaks in between.
+          Each summer we offer 3–5 weeks of camp for students 4–17, from performing an original show to improv and technical theater. During the school year, we run half-day workshops and mini camps on CCSD school holidays.
         </p>
         <dl class="camp-facts">
           <div><dt>Hours</dt><dd>9 am – 1 pm</dd></div>
-          <div><dt>Ratio</dt><dd>8 campers : 1 counselor</dd></div>
           <div><dt>Cost</dt><dd>About $50 a day</dd></div>
-          <div><dt>To hold a spot</dt><dd>$50 deposit</dd></div>
+          <div><dt>After-camp</dt><dd>Until 3 pm, $30/day</dd></div>
+          <div><dt>The finale</dt><dd>A show for families</dd></div>
         </dl>
         <div class="camp-hero__ctas">
-          <a class="btn btn--primary" href="#summer">See summer 2027 <span class="arrow" aria-hidden="true">→</span></a>
-          <a class="btn btn--outline" href="#holiday">Holiday mini camps</a>
+          <a class="btn btn--primary" href="#summer">Summer 2027 <span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn--outline" href="#mini">Mini camps & workshops</a>
         </div>
       </div>
-      <PhotoFrame shape="arch" ratio="4 / 5" gel="cyan" class="camp-hero__photo" eager image={{ alt: 'Campers mid-performance on the Marigold Auditorium stage', placeholder: 'Friday show at Marigold' }} />
+      <PhotoFrame shape="arch" ratio="4 / 5" gel="teal" class="camp-hero__photo" eager sizes="(max-width: 960px) 70vw, 420px" image={{ src: campShowStage, alt: 'Campers performing a dance number for families on stage', position: '55% 40%' }} />
     </div>
   </section>
 
-  <section class="section section--hall" id="holiday" aria-labelledby="holiday-title">
+  <section class="section section--hall" id="summer" aria-labelledby="summer-title">
     <div class="wrap">
-      <div class="section-head">
-        <span class="tape" data-gel="green">Registration open</span>
-        <h2 id="holiday-title">Holiday mini camps</h2>
-        <p class="lede">Mornings of theater games, crafts and a mini show on the last day, while Clarke County schools are out.</p>
-      </div>
-      <div class="grid" style="--min: 320px">
-        {holiday.map((p) => <ProgramCard program={p} />)}
-      </div>
-    </div>
-  </section>
-
-  <section class="section" id="summer" aria-labelledby="summer-title">
-    <div class="wrap">
-      <div class="section-head section-head--split">
-        <div class="stack">
-          <span class="tape" data-gel="lilac">Registration opens soon</span>
-          <h2 id="summer-title">Summer 2027 at a glance</h2>
-          <p class="lede">Pick your camper’s age to see which weeks work for them.</p>
-        </div>
-        <div class="age-filter" role="group" aria-label="Highlight camps for age">
-          <button class="chip" type="button" data-age="" aria-pressed="true">All ages</button>
-          {ageBands.slice(0, 4).map((b) => (
-            <button class="chip" type="button" data-age={b.id} data-min={b.min} data-max={b.max} aria-pressed="false">{b.label}</button>
-          ))}
-        </div>
-      </div>
-
-      <div class="weeks">
-        {
-          weekList.map((w) => (
-            <div class="week">
-              <div class="week__when">
-                <strong>{w.label}</strong>
-                <span class="script">{dateRange(w.start, w.end)}</span>
+      {
+        weekList.length > 0 ? (
+          <>
+            <div class="section-head section-head--split">
+              <div class="stack">
+                <span class="tape" data-gel="teal">Registration open</span>
+                <h2 id="summer-title">Summer at a glance</h2>
+                <p class="lede">Pick your camper’s age to see which weeks work for them.</p>
               </div>
-              <ul class="week__camps">
-                {w.slots.map((slot) => (
-                  <li data-gel={slot.program.gel} data-min={slot.program.ages.min} data-max={slot.program.ages.max ?? 120}>
-                    <a href={`/programs/${slot.program.slug}`}>
-                      <span class="week__name">{slot.program.title}</span>
-                      <span class="week__meta script">
-                        {ageLabel(slot.program.ages)} · {locationById(slot.locationId)?.shortName}
-                      </span>
-                    </a>
-                  </li>
+              <div class="age-filter" role="group" aria-label="Highlight camps for age">
+                <button class="chip" type="button" data-age="" aria-pressed="true">All ages</button>
+                {ageBands.slice(0, 4).map((b) => (
+                  <button class="chip" type="button" data-age={b.id} data-min={b.min} data-max={b.max} aria-pressed="false">{b.label}</button>
                 ))}
+              </div>
+            </div>
+            <div class="weeks">
+              {weekList.map((w) => (
+                <div class="week">
+                  <div class="week__when">
+                    <strong>{w.label}</strong>
+                    <span class="script">{dateRange(w.start, w.end)}</span>
+                  </div>
+                  <ul class="week__camps">
+                    {w.slots.map((slot) => (
+                      <li data-gel={slot.program.gel} data-min={slot.program.ages.min} data-max={slot.program.ages.max ?? 120}>
+                        <a href={`/programs/${slot.program.slug}`}>
+                          <span class="week__name">{slot.program.title}</span>
+                          <span class="week__meta script">
+                            {ageLabel(slot.program.ages, slot.program.agesLabel)} · {locationById(slot.locationId)?.shortName}
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div class="soon">
+            <div class="soon__text stack" style="--stack: var(--space-l)">
+              <span class="tape" data-gel="purple">Dates coming soon</span>
+              <h2 id="summer-title">Summer camp 2027</h2>
+              <p class="lede">{summer.summary}</p>
+              <ul class="formats">
+                <li data-gel="orange">
+                  <strong>Ages 4–10: camp weeks</strong>
+                  <span>Monday to Friday, 9 am – 1 pm. Acting and improv, emotions and characters, crafts and games, and some weeks we write our own show. About $250 a week with snacks and materials.</span>
+                </li>
+                <li data-gel="purple">
+                  <strong>Ages 11–17: Geode intensives</strong>
+                  <span>Shorter, deeper camps for tweens and teens, like our three-day improv and writing intensive, ending in a performance of their own work.</span>
+                </li>
               </ul>
             </div>
-          ))
-        }
-      </div>
-      <p class="weeks__note">
-        Plus <a href="/programs/fun-mondays">Fun Mondays with CC</a>: drop-in summer afternoons at HQ, 1–5 pm, that pair with any morning camp.
-      </p>
+            <form class="notify-card" action="" method="post">
+              <Character name="artist" size={72} />
+              <h3>Get first dibs on summer</h3>
+              <p>We’ll email you as soon as summer 2027 dates and registration open.</p>
+              <label class="sr-only" for="summer-email">Email address</label>
+              <input class="input" id="summer-email" type="email" name="email" autocomplete="email" placeholder="you@example.com" required />
+              <button class="btn btn--primary btn--block" type="submit">Notify me</button>
+              <p class="notify-card__small">Scholarships are available for every camp. <a href="/contact?topic=scholarship">Ask us</a>.</p>
+            </form>
+          </div>
+        )
+      }
+    </div>
+  </section>
 
-      <div class="summer-cards">
-        <h3>All summer camps</h3>
-        <div class="grid" style="--min: 280px">
-          {summer.map((p) => <ProgramCard program={p} />)}
+  <section class="section" id="mini" aria-labelledby="mini-title">
+    <div class="wrap mini">
+      <div class="stack" style="--stack: var(--space-l)">
+        <p class="eyebrow">School holidays & weekends</p>
+        <h2 id="mini-title">Mini camps & workshops</h2>
+        <p class="lede">{mini.summary} Most cost about $50 a day and end with a short show at pickup.</p>
+        <div class="mini__cards">
+          <ProgramCard program={mini} />
+          <ProgramCard program={free} />
         </div>
       </div>
+      <aside class="recent" aria-labelledby="recent-title">
+        <h3 id="recent-title">Recent favorites</h3>
+        <ul>
+          {recent.map((r) => (
+            <li data-gel={r.gel}>
+              <span class="script">{r.when}</span>
+              <strong>{r.title}</strong>
+            </li>
+          ))}
+        </ul>
+      </aside>
     </div>
   </section>
 
   <section class="section section--stage" aria-labelledby="day-title">
     <div class="wrap day">
       <div class="stack day__intro">
-        <p class="eyebrow">Sample schedule</p>
+        <p class="eyebrow">Summer camp</p>
         <h2 id="day-title">A day at camp</h2>
-        <p class="lede">Every camp week builds toward Friday, when families come to see the show.</p>
+        <p class="lede">Every camp week builds toward the last day, when families come to see the show.</p>
         <div class="day__cast" aria-hidden="true">
           <Character name="artist" size={80} />
           <Character name="professor" size={76} />
@@ -191,7 +230,7 @@ const day = [
   .camp-hero { padding-block: var(--space-2xl); overflow: hidden; }
   .camp-hero__grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: var(--space-2xl); align-items: center; }
   .camp-hero h1 { font-size: var(--step-5); }
-  .u { background: linear-gradient(transparent 62%, var(--cyan) 62% 90%, transparent 90%); }
+  .u { background: linear-gradient(transparent 62%, var(--teal) 62% 90%, transparent 90%); }
   .camp-hero :global(.camp-hero__photo) { width: 100%; max-width: 420px; justify-self: end; }
   .camp-facts {
     display: grid;
@@ -201,66 +240,71 @@ const day = [
     padding-top: var(--space-m);
     border-top: 2px solid var(--ink);
   }
-  .camp-facts dt { font-family: var(--font-script); font-weight: 700; font-size: var(--step--1); text-transform: uppercase; color: var(--cyan-ink); }
+  .camp-facts dt { font-family: var(--font-script); font-weight: 700; font-size: var(--step--1); text-transform: uppercase; color: var(--teal-ink); }
   .camp-facts dd { margin: 0.2rem 0 0; font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; font-stretch: 92%; }
   .camp-hero__ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; }
 
+  .soon { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: var(--space-2xl); align-items: start; }
+  .soon h2 { font-size: var(--step-4); }
+  .formats { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-m); }
+  .formats li { display: grid; gap: 0.3rem; padding: 1.1rem 1.3rem; background: var(--paper); border-radius: var(--r-md); border-left: 6px solid var(--gel); }
+  .formats strong { font-family: var(--font-display); font-size: 1.2rem; font-stretch: 92%; }
+  .formats span { color: var(--ink-soft); }
+  .notify-card {
+    display: grid;
+    gap: var(--space-m);
+    justify-items: start;
+    padding: var(--space-xl);
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    border-radius: var(--r-lg);
+    box-shadow: 8px 8px 0 var(--orange);
+  }
+  .notify-card h3 { font-size: var(--step-2); }
+  .notify-card p { color: var(--ink-soft); }
+  .notify-card .input { width: 100%; }
+  .notify-card__small { font-size: var(--step--1); }
+
   .age-filter { display: flex; flex-wrap: wrap; gap: 0.45rem; }
   .age-filter .chip { min-height: 40px; font-size: 0.95rem; }
-
   .weeks { border-top: 2px solid var(--ink); }
-  .week {
-    display: grid;
-    grid-template-columns: 11rem 1fr;
-    gap: var(--space-l);
-    padding-block: var(--space-l);
-    border-bottom: 1.5px solid var(--line-strong);
-  }
+  .week { display: grid; grid-template-columns: 11rem 1fr; gap: var(--space-l); padding-block: var(--space-l); border-bottom: 1.5px solid var(--line-strong); }
   .week__when { display: grid; gap: 0.2rem; align-content: start; }
   .week__when strong { font-family: var(--font-display); font-size: var(--step-2); font-stretch: 85%; line-height: 1; }
   .week__when .script { color: var(--ink-soft); }
   .week__camps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.75rem; }
   .week__camps li { transition: opacity 180ms; }
   .week__camps li.is-dim { opacity: 0.28; }
-  .week__camps a {
-    display: grid;
-    gap: 0.2rem;
-    height: 100%;
-    padding: 0.8rem 1rem;
-    background: var(--gel-tint);
-    border-left: 6px solid var(--gel);
-    border-radius: var(--r-sm) var(--r-md) var(--r-md) var(--r-sm);
-    color: var(--ink);
-    text-decoration: none;
-  }
-  .week__camps a:hover { background: color-mix(in srgb, var(--gel) 30%, var(--paper)); }
+  .week__camps a { display: grid; gap: 0.2rem; height: 100%; padding: 0.8rem 1rem; background: var(--gel-tint); border-left: 6px solid var(--gel); border-radius: var(--r-sm) var(--r-md) var(--r-md) var(--r-sm); color: var(--ink); text-decoration: none; }
   .week__name { font-family: var(--font-display); font-weight: 750; font-size: 1.1rem; font-stretch: 90%; }
   .week__meta { font-size: var(--step--1); color: var(--ink-soft); }
-  .weeks__note { margin-top: var(--space-l); color: var(--ink-soft); }
-  .summer-cards { margin-top: var(--space-3xl); }
-  .summer-cards h3 { font-size: var(--step-3); margin-bottom: var(--space-xl); }
+
+  .mini { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.7fr); gap: var(--space-2xl); align-items: start; }
+  .mini h2 { font-size: var(--step-4); }
+  .mini__cards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-l); }
+  .recent { padding: var(--space-l); background: var(--hall); border-radius: var(--r-lg); }
+  .recent h3 { font-size: var(--step-1); margin-bottom: var(--space-m); }
+  .recent ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+  .recent li { display: grid; gap: 0.1rem; padding-left: 0.9rem; border-left: 4px solid var(--gel); }
+  .recent .script { font-size: var(--step--1); color: var(--ink-mute); }
+  .recent strong { font-family: var(--font-display); font-stretch: 92%; font-weight: 700; line-height: 1.25; }
 
   .day { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--space-2xl); align-items: start; }
   .day h2 { color: var(--on-stage); }
   .day__cast { display: flex; align-items: flex-end; gap: 0.5rem; padding-top: var(--space-l); }
   .timeline { list-style: none; margin: 0; padding: 0; display: grid; }
-  .timeline li {
-    display: grid;
-    grid-template-columns: 4.5rem 1fr;
-    gap: var(--space-m);
-    padding-block: 0.9rem;
-    border-bottom: 1.5px dashed var(--stage-line);
-  }
-  .timeline__time { color: var(--amber); font-weight: 700; font-size: 1.05rem; }
+  .timeline li { display: grid; grid-template-columns: 5.5rem 1fr; gap: var(--space-m); padding-block: 0.9rem; border-bottom: 1.5px dashed var(--stage-line); }
+  .timeline__time { color: var(--yellow); font-weight: 700; font-size: 1.05rem; }
   .timeline strong { color: var(--on-stage); font-family: var(--font-display); font-size: 1.15rem; font-stretch: 92%; }
   .timeline p { color: var(--on-stage-mute); font-size: var(--step--1); }
 
   @media (max-width: 960px) {
-    .camp-hero__grid, .day { grid-template-columns: 1fr; }
+    .camp-hero__grid, .day, .soon, .mini { grid-template-columns: 1fr; }
     .camp-hero :global(.camp-hero__photo) { justify-self: start; max-width: 320px; order: -1; }
     .camp-facts { grid-template-columns: 1fr 1fr; }
   }
-  @media (max-width: 600px) {
+  @media (max-width: 640px) {
     .week { grid-template-columns: 1fr; gap: 0.75rem; }
+    .mini__cards { grid-template-columns: 1fr; }
   }
 </style>

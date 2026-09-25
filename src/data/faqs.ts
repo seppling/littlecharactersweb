@@ -1,78 +1,94 @@
 import type { Faq } from './types';
 
 /*
- * Answers marked "from current site" are migrated policy. The rest are
- * drafted for Hannah to confirm (see docs/content-inventory.md).
+ * From the live FAQ page, the Fall 2026 classes page, the Fall 2026 tuition
+ * guidelines and the parking guide (captured Sep 25, 2026).
  */
 export const faqs: Faq[] = [
   // Getting started
   {
     group: 'Getting started',
-    q: 'Is the first class really free?',
-    a: 'Yes. A new student’s first class is always free, so your child can try it before you commit.',
+    q: 'Who do you serve?',
+    a: 'We offer camps, classes and workshops to students in pre-K through 5th grade through Little Characters, and to students in grades 6–12 and adults through Geode. Some of our students have been acting for years and some are tiptoeing on stage for the first time. Our hope is to create a sense of belonging for everyone.',
   },
   {
     group: 'Getting started',
-    q: 'My child has never done theater. Is that okay?',
-    a: 'Absolutely. Most of our students start with no experience. Teachers meet every student where they are, whether they are made for the stage or more interested in what happens behind the scenes.',
+    q: 'Can my child try a class first?',
+    a: 'Yes! A new student’s first class is always free. Select “trial/drop-in” in the registration portal, and no tuition is due until after that first class.',
   },
   {
     group: 'Getting started',
     q: 'Can you support my child’s specific needs?',
-    a: 'We do everything we can to cater to the specific needs of every student, and rich communication with parents is key to how we work. Tell us about your child when you register or reach out anytime. We also offer Ovation, a monthly class for people with special needs.',
+    a: 'Inclusivity is one of our core values. All of our staff have experience working with kids of all ages and abilities, and we partner with the UGA Speech and Hearing Clinic to pair students with higher needs with a one-on-one class buddy at no cost to parents. Tell us about your child and we’ll make sure everyone feels safe and welcome.',
   },
   {
     group: 'Getting started',
-    q: 'Where are classes held?',
-    a: 'Weekly classes, workshops and parties are at our HQ, 1635 W Broad St in Athens. Production camps and showcases are at Marigold Auditorium in Winterville.',
+    q: 'Where are you, and where do I park?',
+    a: 'We’re at 1635 W Broad St, between Rocksprings and Alps on the south side of Broad. Park on Minor St and walk your child to the front door, where a teacher checks them in. After 5 pm you can drop off from the car via the neighbor’s circle driveway at 1655 W Hancock Ave. The back lot is staff-only, and doors lock 5 minutes after class starts.',
   },
   // Classes
   {
     group: 'Classes',
     q: 'How big are classes?',
-    a: 'All classes follow a deep enrichment model of about 7 students per teacher, and classes are capped at 20 students or fewer depending on the subject.',
+    a: 'Classes tend to be around 8–12 kids, and camps and workshops around 12–20. We keep about 7–8 students per teacher and add teachers if any of our friends need a little extra attention. A class needs 5 students to run.',
   },
   {
     group: 'Classes',
-    q: 'How does class tuition work?',
-    a: 'Weekly classes are billed monthly: $85/month for 45-minute classes, $95/month for 1-hour classes and $115/month for 1¼-hour classes.',
+    q: 'How much do classes cost?',
+    a: 'Our typical breakdown is $85/month for 45-minute classes, $95/month for 1-hour classes, $115/month for 1¼-hour classes and $125/month for 1½-hour classes. Some classes run as 8-week sessions with a single price. Each class also has a one-time performance or materials fee that pays teachers for extra writing and rehearsal time, costumes, props and facility rentals.',
   },
   {
     group: 'Classes',
-    q: 'What should my child wear?',
-    a: 'Comfortable clothes they can move in and closed-toe shoes. Bring a water bottle with their name on it.',
-  },
-  // Camps
-  {
-    group: 'Camps',
-    q: 'How does camp registration and payment work?',
-    a: 'A $50 non-refundable deposit is due at registration to hold your spot. The rest of the camp payment is due the week before the first day of camp.',
+    q: 'When is tuition due?',
+    a: 'If you sign up for the full semester, the first month’s tuition is due at registration to hold your spot. After that, tuition is due on the 1st of each month; you can choose auto-draft or pay manually. Tuition paid after the 10th has a $15 late fee. Performance fees are one-time and due October 1.',
   },
   {
-    group: 'Camps',
-    q: 'What is the camper-to-counselor ratio?',
-    a: 'All camps follow a deep enrichment model of 8 campers to 1 counselor.',
+    group: 'Classes',
+    q: 'What if I need to unenroll?',
+    a: 'Let us know at least 5 days before the next billing cycle. We can’t refund tuition for missed classes or for a student who drops mid-semester after paying.',
   },
   {
-    group: 'Camps',
-    q: 'Is lunch provided?',
-    a: 'Snacks and materials are included. Lunch is not, so pack one if your camper is staying for an afternoon add-on.',
+    group: 'Classes',
+    q: 'What happens if a class doesn’t fill?',
+    a: 'Classes need 5 students to run. If a class doesn’t have 5 by September 1, it’s cancelled for the semester and students can move to a different class. Students who choose not to move are only charged for the first month.',
   },
   // Payments & discounts
   {
     group: 'Payments & discounts',
-    q: 'Do you offer sibling or multi-class discounts?',
-    a: 'Yes. We offer a 15% sibling discount and a 15% multiple-class discount for families taking more than one class per week.',
+    q: 'Do you offer discounts?',
+    a: 'Yes. Pay for the semester in full and get 10% off. We also offer a 15% multi-class or multi-student discount.',
   },
   {
     group: 'Payments & discounts',
     q: 'Do you offer scholarships?',
-    a: 'Yes. We never want cost to keep a student from joining our programs. Reach out and let us know you are interested in a scholarship; the conversation stays between us.',
+    a: 'We never want cost to keep students from joining our programs. We’re happy to arrange a pay-what-you-can rate for families who need it. Email littlecharacterstheater@gmail.com for the scholarship application.',
+  },
+  {
+    group: 'Payments & discounts',
+    q: 'How can I pay?',
+    a: 'Through the registration portal by credit card (3% fee per transaction) or bank account (1% fee). Cash, check, Zelle or Venmo add $5 per month.',
   },
   // Performances
   {
     group: 'Performances',
     q: 'Will my child perform?',
-    a: 'Most classes and camps end with a performance for families: camps on the last day, and weekly classes in our end-of-term LC Variety Show at Marigold Auditorium.',
+    a: 'Yes! All classes have a mid-semester showcase and end with a big show at the end of the term. Each family receives 2 free tickets per student.',
+  },
+  // Camps & parties
+  {
+    group: 'Camps & parties',
+    q: 'How do camps work?',
+    a: 'Camps run about $50 a day, usually 9 am to 1 pm with snacks and materials included (bring a lunch). Summer camp weeks end with a performance for parents and friends. We also run mini camps on CCSD school holidays and weekend workshops 1–2 times a semester.',
+  },
+  {
+    group: 'Camps & parties',
+    q: 'Do you offer parties?',
+    a: 'Heck yeah we do! Name the occasion, and we’ll make it happen. Two-hour parties on evenings or weekends include customizable theater games, your own Teacher/Party Coordinator, a stage for dance parties and present opening, and tables and chairs for cake and snacks.',
+  },
+  // Supporting LC
+  {
+    group: 'Supporting LC',
+    q: 'How can I support Little Characters?',
+    a: 'Volunteer with classes, camps, shows or events; give to our scholarship fund; donate costumes, props or set pieces; or pick something from our Amazon Wish List. Email littlecharacterstheater@gmail.com to get started.',
   },
 ];

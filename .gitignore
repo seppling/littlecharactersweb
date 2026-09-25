@@ -5,5 +5,9 @@ dist/
 .env.*
 !.env.example
 .DS_Store
-# Raw Squarespace JSON dumps are large; the .md versions next to them are what we migrate from.
+# Scrape output: the Markdown pages and JSON manifests are committed; the raw
+# Squarespace JSON dumps, full image set (~54 MB) and PDFs are not. Re-create
+# them with `npm run scrape`. Photos used on the site live in src/assets/.
 content/scraped/pages/*.json
+content/scraped/images/
+content/scraped/docs/

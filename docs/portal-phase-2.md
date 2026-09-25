@@ -58,6 +58,34 @@ Net effect: a returning parent taps **Enroll** on a class page and lands on the 
 
 Waitlists: when a session is full, the Enroll button becomes "Join waitlist" in the same spot, and families can see their position. When a spot opens, the next family is offered it by email or text and has 24–48 hours to claim it in one tap.
 
+## Current billing rules the portal has to handle
+
+These come from the Fall 2026 tuition guidelines, and the Phase 2 flow has to support all of them.
+
+- **Trials.** A first class is free: families pick "trial/drop-in", and no tuition is due until after that class.
+- **When tuition is due.**
+  - Full-semester sign-ups pay the first month at registration.
+  - After that, tuition is due on the 1st of each month, by auto-draft or manual payment.
+  - Payments after the 10th carry a $15 late fee.
+  - Students are paused from class if the balance isn't paid by the 15th.
+- **Proration.** Late starters are prorated. Some 8-week classes have a single session price instead of monthly tuition.
+- **One-time fees.** Performance and materials fees ($20–$50) are due Oct 1.
+- **Discounts and scholarships.**
+  - 10% off for paying the semester in full.
+  - 15% off for multiple classes or multiple students.
+  - Pay-what-you-can rates through a scholarship application.
+- **Payment method surcharges.**
+  - Card: 3%.
+  - Bank: 1%.
+  - Cash, check, Zelle or Venmo: +$5 a month.
+
+  Show these before checkout; with Stripe, card fees are lower and bank (ACH) payments cost less than 1%.
+- **Minimum class size.** A class needs 5 students by Sep 1 to run, otherwise students are moved to another class or charged only the first month.
+- **Withdrawals.** Families must give notice 5 days before the next billing cycle, and there are no refunds for missed classes.
+- **Show tickets.** Each student gets 2 free tickets to their shows. This could be a ticket allotment attached to the student's enrollment.
+
+Parents' Night Out and adult improv currently register through Google Forms. Phase 2 folds them into the same checkout.
+
 ## Migration from Studio Director
 
 1. Export families, students, enrollments and open balances as CSV.

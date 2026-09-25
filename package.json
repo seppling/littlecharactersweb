@@ -9,7 +9,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "scrape": "node scripts/scrape-squarespace.mjs"
+    "scrape": "NODE_USE_ENV_PROXY=1 node scripts/scrape-squarespace.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",

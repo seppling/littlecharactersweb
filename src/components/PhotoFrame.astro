@@ -4,6 +4,7 @@
  * designed placeholder that names the shot we need, so the layout can be
  * reviewed before photography is migrated.
  */
+import { Image } from 'astro:assets';
 import type { Gel, ImageRef } from '@/data/types';
 
 interface Props {
@@ -13,15 +14,36 @@ interface Props {
   ratio?: string;
   class?: string;
   eager?: boolean;
+  /** The `sizes` attribute: how wide the frame renders, for responsive images. */
+  sizes?: string;
 }
 
-const { image, gel = 'amber', shape = 'rounded', ratio = '4 / 3', class: className = '', eager = false } = Astro.props;
+const {
+  image,
+  gel = 'orange',
+  shape = 'rounded',
+  ratio = '4 / 3',
+  class: className = '',
+  eager = false,
+  sizes = '(max-width: 720px) 100vw, 480px',
+} = Astro.props;
+const style = image?.position ? `object-position: ${image.position}` : undefined;
 ---
 
 <figure class:list={['frame', `frame--${shape}`, className]} data-gel={gel} style={`--ratio: ${ratio}`}>
   {
-    image?.src ? (
-      <img src={image.src} alt={image.alt} loading={eager ? 'eager' : 'lazy'} decoding="async" />
+    image?.src && typeof image.src === 'object' ? (
+      <Image
+        src={image.src}
+        alt={image.alt}
+        widths={[360, 640, 960, 1280].filter((w) => w <= (image.src as ImageMetadata).width)}
+        sizes={sizes}
+        loading={eager ? 'eager' : 'lazy'}
+        fetchpriority={eager ? 'high' : undefined}
+        style={style}
+      />
+    ) : image?.src ? (
+      <img src={image.src as string} alt={image.alt} loading={eager ? 'eager' : 'lazy'} decoding="async" style={style} />
     ) : (
       <div class="frame__placeholder" role="img" aria-label={image?.alt ?? 'Photo coming soon'}>
         <span class="frame__caption">
