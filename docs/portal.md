@@ -42,7 +42,7 @@ Implemented in `src/lib/pricing.ts` (pure functions, unit-tested in `tests/unit/
 - **Price conflicts** on the old site resolved to the monthly price.
 
 **Not built yet** (decide first, see `todo.md`):
-- Charging the $15 late fee automatically, and the "paused after the 15th" rule. Staff can see unpaid months on `/admin/billing` today.
+- The "paused from class after the 15th" rule. Staff can see unpaid months on `/admin/billing`.
 - A self-serve "update my card" button. Today a family pays a failed month with a new card (which becomes the saved card), or emails us.
 - Payment-method surcharges. We recommend dropping these: Stripe's ACH is 0.8%, and card surcharges carry disclosure rules.
 - Waitlist offer emails.
@@ -51,7 +51,7 @@ Implemented in `src/lib/pricing.ts` (pure functions, unit-tested in `tests/unit/
 
 ## Monthly autopay
 
-Decided Sep 2026: charge monthly tuition automatically on the 1st.
+Decided Sep 2026: charge monthly tuition automatically on the 1st, retry failed charges on the 4th and 7th, and add a $15 late fee to months still unpaid on the 11th.
 
 **What the family agrees to.**
 - The review page states it plainly: "$95 today, then charged automatically on the 1st of each month", plus the exact months.
@@ -66,7 +66,12 @@ Decided Sep 2026: charge monthly tuition automatically on the 1st.
 4. **A failed charge** emails the family a link to pay with any card, and is retried automatically on the 4th and the 7th.
    - Cards whose bank insists on approval by the cardholder (3-D Secure) aren't retried; only the family can finish those.
    - After 3 tries it waits for the family and shows on `/admin/billing`.
-5. **Withdrawals:** staff click **Stop payments**, and the remaining months are cancelled. Refunds are issued in the Stripe dashboard.
+   - The failure email says to pay by the 10th to avoid the late fee.
+5. **Late fee** (decided Sep 2026): a month still unpaid on the **11th** gets a one-time **$15** fee, added by that morning's run.
+   - The family is emailed the new total and a pay link. The next charge or payment collects tuition and fee together.
+   - A family who opened "pay now" before the 11th and pays the tuition alone isn't charged the fee.
+   - Staff can **Waive late fee** on `/admin/billing`.
+6. **Withdrawals:** staff click **Stop payments**, and the remaining months are cancelled. Refunds are issued in the Stripe dashboard.
 
 **Never charges twice.**
 - Each charge is claimed in the database before Stripe is called.
@@ -75,6 +80,18 @@ Decided Sep 2026: charge monthly tuition automatically on the 1st.
 - While a family has the pay-now form open, automatic retries pause; they resume if the form expires unused.
 
 All of this is covered by unit tests (`tests/unit/billing.test.ts`), including two runs overlapping.
+
+**Tested with Stripe (test mode, Sep 25 2026).** Three families with Stripe's test cards, charged by the real billing run:
+
+| Test card | Oct 1 | Oct 4 | Oct 7 | Oct 11 |
+|---|---|---|---|---|
+| 4242 (works) | charged $95, receipt emailed | — | — | — |
+| 0341 (declines) | declined, email with pay link | retried, declined | retried, declined, waits for family | $15 late fee, email |
+| 3184 (needs cardholder approval) | failed, email with pay link | not retried | not retried | $15 late fee, email |
+
+- "Pay now" created a Stripe checkout for $110 ($95 tuition + $15 late fee as its own line).
+- Stripe's webhooks (`payment_intent.succeeded`, `checkout.session.expired`) arrived through the Stripe CLI, passed signature checks and returned 200.
+- Not covered here: typing a card into Stripe's form in a browser. That's Stripe's own page, and it doesn't load reliably through this development environment's network proxy. Do one real test enrollment on the preview site before launch.
 
 **Why not Stripe subscriptions?** Stripe Billing would do the scheduling and retries, but:
 - it adds 0.7% of billing volume on top of card fees;

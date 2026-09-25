@@ -7,20 +7,16 @@
  * clearly labeled test-payment button instead. That path is refused in
  * production.
  */
-import Stripe from 'stripe';
 import { eq } from 'drizzle-orm';
 import { config, isProd, paymentsMode } from './env';
 import { getDb, schema } from './db';
 import type { OrderLine } from './db/schema';
 import { fulfillOrder } from './family';
-import { markInstallmentPaid, type Charger, type ChargeResult } from './billing';
+import { markInstallmentPaid } from './billing';
+import { getStripe, stripeCharger } from './stripe';
 
-let stripe: Stripe | undefined;
-export function getStripe() {
-  if (!config.stripeSecretKey) throw new Error('Stripe is not configured');
-  stripe ??= new Stripe(config.stripeSecretKey);
-  return stripe;
-}
+export { getStripe, stripeCharger };
+
 
 export { paymentsMode };
 
@@ -111,7 +107,10 @@ export async function createInstallmentCheckout(opts: {
     ui_mode: 'embedded_page',
     mode: 'payment',
     customer,
-    line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: i.amountCents, product_data: { name: i.label } } }],
+    line_items: [
+      { quantity: 1, price_data: { currency: 'usd', unit_amount: i.amountCents, product_data: { name: i.label } } },
+      ...(i.lateFeeCents ? [{ quantity: 1, price_data: { currency: 'usd', unit_amount: i.lateFeeCents, product_data: { name: 'Late fee (unpaid after the 10th)' } } }] : []),
+    ],
     return_url: `${config.siteUrl}/account/pay/${i.id}?checkout={CHECKOUT_SESSION_ID}`,
     metadata: { installmentId: i.id, householdId: i.householdId },
     payment_intent_data: { metadata: { installmentId: i.id }, setup_future_usage: 'off_session' },
@@ -152,56 +151,6 @@ async function rememberCard(householdId: string, paymentMethodId: string) {
     .where(eq(schema.household.id, householdId))
     .returning({ customer: schema.household.stripeCustomerId });
   if (h?.customer?.startsWith('cus_')) await getStripe().customers.update(h.customer, { invoice_settings: { default_payment_method: paymentMethodId } });
-}
-
-/**
- * Charge a saved card without the family present (monthly autopay).
- * Creates the payment, lets billing.ts save its id, then confirms it, so an
- * interrupted run resumes the same payment instead of starting a second one.
- */
-export const stripeCharger: Charger = async (req) => {
-  const s = getStripe();
-  let pi = req.paymentIntentId ? await s.paymentIntents.retrieve(req.paymentIntentId) : null;
-  if (!pi) {
-    pi = await s.paymentIntents.create(
-      {
-        amount: req.amountCents,
-        currency: 'usd',
-        customer: req.customerId,
-        payment_method: req.paymentMethodId,
-        description: req.description,
-        metadata: { installmentId: req.installmentId, attempt: String(req.attempt) },
-        payment_method_types: ['card'],
-      },
-      { idempotencyKey: `installment-${req.installmentId}-${req.attempt}` },
-    );
-    await req.remember(pi.id);
-  }
-  if (pi.status === 'requires_confirmation') {
-    try {
-      pi = await s.paymentIntents.confirm(pi.id, { off_session: true });
-    } catch (e) {
-      if (e instanceof Stripe.errors.StripeCardError) {
-        const code = e.code === 'card_declined' && e.decline_code === 'insufficient_funds' ? 'insufficient_funds' : (e.code ?? 'card_declined');
-        return { status: 'failed', code, retry: code !== 'authentication_required', paymentIntentId: pi.id };
-      }
-      throw e;
-    }
-  }
-  return resultFor(pi);
-};
-
-function resultFor(pi: Stripe.PaymentIntent): ChargeResult {
-  switch (pi.status) {
-    case 'succeeded':
-      return { status: 'succeeded', paymentIntentId: pi.id };
-    case 'processing':
-      return { status: 'pending', paymentIntentId: pi.id };
-    case 'requires_action':
-      return { status: 'failed', code: 'authentication_required', retry: false, paymentIntentId: pi.id };
-    default:
-      return { status: 'failed', code: pi.last_payment_error?.code ?? 'card_declined', retry: pi.status !== 'canceled', paymentIntentId: pi.id };
-  }
 }
 
 export function testPaymentsAllowed() {

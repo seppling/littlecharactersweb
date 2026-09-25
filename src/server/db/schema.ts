@@ -215,6 +215,8 @@ export const installment = pgTable(
     sessionId: text('session_id').notNull(),
     dueDate: date('due_date').notNull(),
     amountCents: integer('amount_cents').notNull(),
+    /** $15 when the month is still unpaid after the 10th (see BILLING.lateFeeCents). Owed on top of amountCents. */
+    lateFeeCents: integer('late_fee_cents').notNull().default(0),
     label: text('label').notNull(),
     /** scheduled → processing → paid; or failed (retried, or waiting for the family); or cancelled by staff. */
     status: text('status', { enum: ['scheduled', 'processing', 'paid', 'failed', 'cancelled'] }).notNull().default('scheduled'),

@@ -10,7 +10,7 @@ import { ageOn, createStudent, detailsFresh, ensureHousehold, findSession, listE
 import { locationById } from '@/data/locations';
 import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
-import { failureReason, listInstallments } from '@/server/billing';
+import { failureReason, listInstallments, totalDue } from '@/server/billing';
 
 export const prerender = false;
 
@@ -59,7 +59,7 @@ const receipts = [
     label: `${findSession(o.sessionId)?.program.title ?? o.sessionId}${o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (semester)' : o.plan === 'monthly' ? ' (first month + fees)' : ''}`,
     amountCents: o.totalCents,
   })),
-  ...installments.filter((i) => i.status === 'paid').map((i) => ({ date: i.paidAt!, label: i.label, amountCents: i.amountCents })),
+  ...installments.filter((i) => i.status === 'paid').map((i) => ({ date: i.paidAt!, label: `${i.label}${i.lateFeeCents ? ' + late fee' : ''}`, amountCents: totalDue(i) })),
 ].sort((a, b) => b.date.getTime() - a.date.getTime());
 const today = todayInAthens();
 
@@ -191,7 +191,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
               {needsAttention.map((i) => (
                 <div class="alert" role="alert">
                   <p>
-                    <strong>{i.label}: {formatCents(i.amountCents)}</strong> didn’t go through because {failureReason(i.lastError ?? '')}.
+                    <strong>{i.label}: {formatCents(totalDue(i))}</strong>{i.lateFeeCents > 0 && ` (includes a ${formatCents(i.lateFeeCents)} late fee)`} didn’t go through because {failureReason(i.lastError ?? '')}.
                     {i.retryOn ? ` We’ll try again on ${fmtDate(i.retryOn)}, or you can pay now.` : ''}
                   </p>
                   <a class="btn btn--primary btn--sm" href={`/account/pay/${i.id}`}>Pay now</a>

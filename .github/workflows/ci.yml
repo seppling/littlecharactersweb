@@ -19,7 +19,14 @@ jobs:
       - run: npm ci
       - name: Type-check
         run: npm run check
-      - name: Unit tests (pricing, import, access control)
+      - name: Unit tests (pricing, autopay, import, access control)
         run: npm test
       - name: Build
         run: npm run build
+      - name: Command-line scripts start (billing, import)
+        run: |
+          npm run -s billing:run -- --today 2026-10-01
+          npm run -s import:studio-director -- tests/e2e/fixtures/studio-director-families.csv tests/e2e/fixtures/studio-director-students.csv
+        env:
+          APP_ENV: development
+          PGLITE_DIR: memory://

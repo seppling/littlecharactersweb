@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { getDb, schema } from './db';
 import { decrypt, encrypt } from './crypto';
 import { emailHtml, sendEmail } from './email';
+import { audit, householdGuardians } from './records';
 import { config } from './env';
 import { locationById } from '@/data/locations';
 import { dayList, timeRange } from '@/lib/format';
@@ -18,7 +19,7 @@ import { programs } from '@/data/programs';
 import type { Program, Session } from '@/data/types';
 import { PRICING, availablePlans, formatCents, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
 
-const { household, householdMember, student, order, enrollment, installment, auditLog } = schema;
+const { household, householdMember, student, order, enrollment, installment } = schema;
 
 export type SessionUser = { id: string; name: string; email: string; emailVerified: boolean };
 
@@ -328,15 +329,6 @@ async function sendOrderConfirmation(o: typeof order.$inferSelect) {
   }
 }
 
-export async function householdGuardians(householdId: string) {
-  const db = await getDb();
-  return db
-    .select({ email: schema.user.email, name: schema.user.name })
-    .from(householdMember)
-    .innerJoin(schema.user, eq(schema.user.id, householdMember.userId))
-    .where(eq(householdMember.householdId, householdId));
-}
-
 /** "We'll charge $95 to your saved card on Oct 1, Nov 1 and Dec 1." */
 export function autopayLine(schedule: { dueDate: string; amountCents: number }[]) {
   const dates = schedule.map((c) => new Date(`${c.dueDate}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }));
@@ -354,7 +346,4 @@ export async function listOrders(householdId: string) {
     .orderBy(sql`${order.paidAt} desc`);
 }
 
-export async function audit(userId: string | null, action: string, entity?: string, entityId?: string) {
-  const db = await getDb();
-  await db.insert(auditLog).values({ userId, action, entity, entityId });
-}
+export { audit, householdGuardians };

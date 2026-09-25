@@ -15,6 +15,7 @@ import {
   resumeRetries,
   runBilling,
   stopRemainingPayments,
+  waiveLateFee,
   type ChargeRequest,
   type ChargeResult,
 } from '@/server/billing';
@@ -217,5 +218,49 @@ describe('big months', () => {
     expect(await runBilling({ charge: f.charge, today: '2026-10-01', limit: 1 })).toMatchObject({ due: 2, charged: 1, remaining: 1 });
     expect(await runBilling({ charge: f.charge, today: '2026-10-01', limit: 1 })).toMatchObject({ due: 1, charged: 1, remaining: 0 });
     expect([(await byDue(H.h.id, '2026-10-01')).status, (await byDue(I.h.id, '2026-10-01')).status]).toEqual(['paid', 'paid']);
+  });
+});
+
+describe('late fee', () => {
+  it('adds $15 once on the 11th to a month that’s still unpaid, charges it with the tuition, and can be waived', async () => {
+    const J = await monthlyFamily('kim');
+    const M = await monthlyFamily('mora');
+    const P = await monthlyFamily('patel');
+    const decline = fakeCharger(() => ({ status: 'failed', code: 'card_declined', retry: true }));
+    for (const day of ['2026-11-01', '2026-11-04', '2026-11-07']) await runBilling({ charge: decline.charge, today: day });
+    const mail = await (await getDb()).select().from(schema.devEmail);
+    const novFailed = mail.find((m) => m.to === 'kim@example.com' && m.text.includes('for November tuition'));
+    expect(novFailed?.text).toContain('To avoid the $15 late fee, please make sure it’s paid by Tuesday, November 10.');
+    // October was first tried on Nov 1 in this test; no warning about a date that's already gone.
+    const octFailed = mail.find((m) => m.to === 'kim@example.com' && m.text.includes('for October tuition'));
+    expect(octFailed?.text).not.toContain('To avoid');
+
+    await runBilling({ charge: decline.charge, today: '2026-11-10' });
+    expect((await byDue(J.h.id, '2026-11-01')).lateFeeCents).toBe(0);
+
+    const report = await runBilling({ charge: decline.charge, today: '2026-11-11' });
+    expect(report.lateFees).toBeGreaterThanOrEqual(3);
+    expect((await byDue(J.h.id, '2026-11-01')).lateFeeCents).toBe(1500);
+    expect(await emailsTo('kim@example.com')).toContain('Late fee added: November tuition: Kid, Intro to Theater · Little Characters');
+    expect((await runBilling({ charge: decline.charge, today: '2026-11-12' })).lateFees).toBe(0); // only once
+
+    // The next charge collects tuition + fee together.
+    const nov = await byDue(J.h.id, '2026-11-01');
+    await (await getDb()).update(schema.installment).set({ retryOn: '2026-11-13' }).where(eq(schema.installment.id, nov.id));
+    const ok = fakeCharger();
+    await runBilling({ charge: ok.charge, today: '2026-11-13' });
+    expect(ok.calls.find((c) => c.installmentId === nov.id)?.amountCents).toBe(9500 + 1500);
+    expect(await byDue(J.h.id, '2026-11-01')).toMatchObject({ status: 'paid', lateFeeCents: 1500 });
+
+    // A family who started paying before the fee was added isn't charged it.
+    const mNov = await byDue(M.h.id, '2026-11-01');
+    await markInstallmentPaid(mNov.id, { paymentIntentId: 'pi_started_early', amountCents: 9500 });
+    expect(await byDue(M.h.id, '2026-11-01')).toMatchObject({ status: 'paid', lateFeeCents: 0 });
+
+    // Staff can waive it.
+    const pNov = await byDue(P.h.id, '2026-11-01');
+    expect(await waiveLateFee(pNov.id, 'u-hannah')).toMatchObject({ lateFeeCents: 0 });
+    await markInstallmentPaid(pNov.id, { paymentIntentId: 'pi_p', amountCents: 10_000 });
+    expect((await byDue(P.h.id, '2026-11-01')).status).toBe('failed'); // wrong amount still refused
   });
 });

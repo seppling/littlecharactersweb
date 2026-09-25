@@ -1,7 +1,7 @@
 ---
 /** Staff: monthly autopay at a glance. Charges that need a person, and what's coming on the 1st. */
 import Base from '@/layouts/Base.astro';
-import { billingOverview, failureReason, markPaidOutsideStripe, stopRemainingPayments } from '@/server/billing';
+import { billingOverview, failureReason, markPaidOutsideStripe, stopRemainingPayments, totalDue, waiveLateFee } from '@/server/billing';
 import { formatCents } from '@/lib/pricing';
 
 export const prerender = false;
@@ -13,6 +13,7 @@ if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const id = String(form.get('id') ?? '');
   if (form.get('action') === 'paid' && (await markPaidOutsideStripe(id, viewer.id))) notice = 'Marked as paid.';
+  if (form.get('action') === 'waive' && (await waiveLateFee(id, viewer.id))) notice = 'Late fee waived.';
   if (form.get('action') === 'stop') notice = `Stopped ${await stopRemainingPayments(id, viewer.id)} upcoming charge(s) for that family’s class.`;
 }
 
@@ -37,7 +38,7 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
               <tr>
                 <td>{family}</td>
                 <td>{i.label}<br /><span class="muted">due {fmt(i.dueDate)}</span></td>
-                <td>{formatCents(i.amountCents)}</td>
+                <td>{formatCents(totalDue(i))}{i.lateFeeCents > 0 && <><br /><span class="muted">incl. {formatCents(i.lateFeeCents)} late fee</span></>}</td>
                 <td>
                   {i.status === 'processing' ? 'Charge in progress' : `${failureReason(i.lastError ?? '')} (${i.attempts} ${i.attempts === 1 ? 'try' : 'tries'})`}
                   <br /><span class="muted">{i.status === 'failed' ? (i.retryOn ? `Retrying ${fmt(i.retryOn)}` : 'Waiting for the family to pay') : ''}</span>
@@ -45,6 +46,7 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
                 <td>
                   <div class="actions">
                     <form method="post"><input type="hidden" name="id" value={i.id} /><button name="action" value="paid" class="btn btn--outline btn--sm">Paid by cash/check</button></form>
+                    {i.lateFeeCents > 0 && <form method="post"><input type="hidden" name="id" value={i.id} /><button name="action" value="waive" class="btn btn--outline btn--sm">Waive late fee</button></form>}
                     <form method="post" data-confirm="Stop all remaining charges for this family’s class?"><input type="hidden" name="id" value={i.orderId} /><button name="action" value="stop" class="btn btn--outline btn--sm">Stop payments</button></form>
                   </div>
                 </td>
@@ -79,7 +81,7 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
         </table>
       )
     }
-    <p class="muted">Charges run automatically each morning. Failed charges are retried twice, 3 days apart, and the family is emailed each time with a link to pay. When a family withdraws, use Stop payments; refunds are issued in the Stripe dashboard.</p>
+    <p class="muted">Charges run automatically each morning. Failed charges are retried on the 4th and 7th, and the family is emailed each time with a link to pay. A month still unpaid on the 11th gets a $15 late fee (you can waive it here). When a family withdraws, use Stop payments; refunds are issued in the Stripe dashboard.</p>
   </section>
 </Base>
 

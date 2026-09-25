@@ -7,7 +7,7 @@
 import { eq } from 'drizzle-orm';
 import Base from '@/layouts/Base.astro';
 import { householdForUser } from '@/server/family';
-import { failureReason, getInstallment, holdForManualPayment, markInstallmentPaid } from '@/server/billing';
+import { failureReason, getInstallment, holdForManualPayment, markInstallmentPaid, totalDue } from '@/server/billing';
 import { completeCheckout, createInstallmentCheckout, paymentsMode, testPaymentsAllowed } from '@/server/payments';
 import { config } from '@/server/env';
 import { getDb, schema } from '@/server/db';
@@ -34,7 +34,7 @@ if (Astro.request.method === 'POST') {
   if (await holdForManualPayment(household.id, i.id)) {
     const db = await getDb();
     await db.update(schema.household).set({ stripeCustomerId: 'test_customer', stripePaymentMethodId: 'test_card' }).where(eq(schema.household.id, household.id));
-    await markInstallmentPaid(i.id, { paymentIntentId: `test_pi_manual_${i.id.slice(0, 8)}`, amountCents: i.amountCents }, user.id);
+    await markInstallmentPaid(i.id, { paymentIntentId: `test_pi_manual_${i.id.slice(0, 8)}`, amountCents: totalDue(i) }, user.id);
   }
   return Astro.redirect(`/account/pay/${i.id}`, 303);
 }
@@ -59,7 +59,8 @@ if (i.status === 'failed' && paymentsMode === 'stripe' && (await holdForManualPa
     <div class="wrap narrow card">
       <a class="back" href="/account">← Family account</a>
       <h1>{i.label}</h1>
-      <p class="amount">{formatCents(i.amountCents)}</p>
+      <p class="amount">{formatCents(totalDue(i))}</p>
+      {i.lateFeeCents > 0 && <p class="muted">{formatCents(i.amountCents)} tuition + {formatCents(i.lateFeeCents)} late fee (unpaid after the 10th)</p>}
       {
         i.status === 'paid' ? (
           <p class="ok" role="status">Paid, thank you! A receipt is on its way{i.paidAt ? ` (${i.paidAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}.</p>
@@ -78,7 +79,7 @@ if (i.status === 'failed' && paymentsMode === 'stripe' && (await holdForManualPa
               <form method="post" class="test-pay">
                 <span class="tape" data-gel="yellow">Test mode</span>
                 <p>Stripe keys aren’t set up yet, so this stands in for the card form. No money moves.</p>
-                <button class="btn btn--primary" type="submit">Complete test payment of {formatCents(i.amountCents)}</button>
+                <button class="btn btn--primary" type="submit">Complete test payment of {formatCents(totalDue(i))}</button>
               </form>
             )}
           </>
@@ -105,6 +106,7 @@ if (i.status === 'failed' && paymentsMode === 'stripe' && (await holdForManualPa
   h1 { font-size: var(--step-2); }
   .amount { font-family: var(--font-display); font-size: var(--step-3); font-weight: 700; }
   .ok { color: var(--ok); font-weight: 700; }
+  .muted { color: var(--ink-mute); font-size: var(--step--1); margin-top: -0.5rem; }
   .warn { color: var(--orange-ink); font-weight: 600; }
   .error { color: var(--red-ink); font-weight: 600; }
   .back { font-size: var(--step--1); }

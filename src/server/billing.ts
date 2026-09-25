@@ -16,6 +16,10 @@
  * BILLING.maxAttempts. Cards that need the cardholder present (3-D Secure) aren't
  * retried; only the family can finish those.
  *
+ * A month still unpaid after the 10th gets a one-time $15 late fee (policy
+ * shown at checkout), added by the first run on the 11th and emailed to the
+ * family. Staff can waive it.
+ *
  * Charging itself is behind the Charger interface: Stripe in production
  * (payments.ts), a stand-in in development, fakes in tests.
  */
@@ -23,7 +27,7 @@ import { and, asc, eq, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm'
 import { getDb, schema } from './db';
 import { emailHtml, sendEmail } from './email';
 import { config } from './env';
-import { audit, householdGuardians } from './family';
+import { audit, householdGuardians } from './records';
 import { formatCents, todayInAthens } from '@/lib/pricing';
 
 const { installment, household } = schema;
@@ -34,7 +38,15 @@ export const BILLING = {
   retryAfterDays: 3,
   /** A charge still "processing" after this long was interrupted; the next run finishes it. */
   staleAfterMinutes: 30,
+  /** Added once to a month still unpaid this many days after it was due (the 1st → the 11th). */
+  lateFeeCents: 1500,
+  lateFeeAfterDays: 10,
 };
+
+type Installment = typeof installment.$inferSelect;
+
+/** What the family owes for this month right now: tuition plus any late fee. */
+export const totalDue = (i: Pick<Installment, 'amountCents' | 'lateFeeCents'>) => i.amountCents + i.lateFeeCents;
 
 export type ChargeRequest = {
   installmentId: string;
@@ -57,7 +69,7 @@ export type ChargeResult =
 
 export type Charger = (req: ChargeRequest) => Promise<ChargeResult>;
 
-export type BillingReport = { today: string; due: number; charged: number; pending: number; failed: number; errors: number; remaining: number };
+export type BillingReport = { today: string; lateFees: number; due: number; charged: number; pending: number; failed: number; errors: number; remaining: number };
 
 const FAILURE_COPY: Record<string, string> = {
   card_declined: 'your bank declined the charge',
@@ -84,6 +96,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
  */
 export async function runBilling({ charge, today = todayInAthens(), limit = Infinity }: { charge: Charger; today?: string; limit?: number }): Promise<BillingReport> {
   const db = await getDb();
+  const lateFees = await applyLateFees(today);
   const staleBefore = new Date(Date.now() - BILLING.staleAfterMinutes * 60_000);
   const due = await db
     .select({ i: installment, customerId: household.stripeCustomerId, paymentMethodId: household.stripePaymentMethodId })
@@ -99,7 +112,7 @@ export async function runBilling({ charge, today = todayInAthens(), limit = Infi
     .orderBy(asc(installment.dueDate));
 
   const batch = due.slice(0, limit);
-  const report: BillingReport = { today, due: due.length, charged: 0, pending: 0, failed: 0, errors: 0, remaining: due.length - batch.length };
+  const report: BillingReport = { today, lateFees, due: due.length, charged: 0, pending: 0, failed: 0, errors: 0, remaining: due.length - batch.length };
   for (const { i, customerId, paymentMethodId } of batch) {
     try {
       const result = await chargeOne(i, customerId, paymentMethodId, charge, today);
@@ -112,8 +125,23 @@ export async function runBilling({ charge, today = todayInAthens(), limit = Infi
   return report;
 }
 
+/** The 11th: a one-time late fee on every month that's still unpaid. Returns how many were added. */
+export async function applyLateFees(today = todayInAthens()) {
+  const db = await getDb();
+  const added = await db
+    .update(installment)
+    .set({ lateFeeCents: BILLING.lateFeeCents, updatedAt: new Date() })
+    .where(and(eq(installment.status, 'failed'), eq(installment.lateFeeCents, 0), lte(installment.dueDate, addDays(today, -BILLING.lateFeeAfterDays))))
+    .returning();
+  for (const i of added) {
+    await audit(null, 'installment.late_fee', 'installment', i.id);
+    await notify(i, 'late_fee').catch((e) => console.error('Late-fee email failed', e));
+  }
+  return added.length;
+}
+
 async function chargeOne(
-  i: typeof installment.$inferSelect,
+  i: Installment,
   customerId: string | null,
   paymentMethodId: string | null,
   charge: Charger,
@@ -148,8 +176,8 @@ async function chargeOne(
           attempt,
           customerId,
           paymentMethodId,
-          amountCents: i.amountCents,
-          description: i.label,
+          amountCents: totalDue(claimed),
+          description: claimed.lateFeeCents ? `${claimed.label} + late fee` : claimed.label,
           paymentIntentId: resuming ? i.stripePaymentIntentId : null,
           remember: async (paymentIntentId) => {
             await db.update(installment).set({ stripePaymentIntentId: paymentIntentId }).where(eq(installment.id, i.id));
@@ -157,30 +185,43 @@ async function chargeOne(
         });
 
   if (result.status === 'succeeded') {
-    await markInstallmentPaid(i.id, { paymentIntentId: result.paymentIntentId, amountCents: i.amountCents });
+    await markInstallmentPaid(i.id, { paymentIntentId: result.paymentIntentId, amountCents: totalDue(claimed) });
     return 'charged';
   }
   if (result.status === 'pending') {
     await db.update(installment).set({ stripePaymentIntentId: result.paymentIntentId, updatedAt: new Date() }).where(eq(installment.id, i.id));
     return 'pending';
   }
-  await markInstallmentFailed(i.id, result.code, result.retry && attempt < BILLING.maxAttempts ? addDays(today, BILLING.retryAfterDays) : null);
+  await markInstallmentFailed(i.id, result.code, result.retry && attempt < BILLING.maxAttempts ? addDays(today, BILLING.retryAfterDays) : null, today);
   return 'failed';
 }
 
-/** Idempotent. Only counts a payment for exactly the installment's amount. */
+/**
+ * Idempotent. Only counts a payment for exactly what's owed. One exception: a
+ * family who opened "pay now" before the late fee was added and paid the
+ * tuition alone is marked paid and the fee is waived (they started on time).
+ */
 export async function markInstallmentPaid(installmentId: string, payment: { paymentIntentId: string | null; amountCents: number | null }, userId: string | null = null) {
   const db = await getDb();
   const [i] = await db.select().from(installment).where(eq(installment.id, installmentId));
   if (!i || i.status === 'paid') return i ?? null;
-  if (payment.amountCents !== i.amountCents) {
+  const waiveFee = i.lateFeeCents > 0 && payment.amountCents === i.amountCents;
+  if (payment.amountCents !== totalDue(i) && !waiveFee) {
     await audit(userId, 'installment.amount_mismatch', 'installment', i.id);
-    console.error(`Installment ${i.id}: paid ${payment.amountCents}¢ but ${i.amountCents}¢ is due. Not marking paid; reconcile in Stripe.`);
+    console.error(`Installment ${i.id}: paid ${payment.amountCents}¢ but ${totalDue(i)}¢ is due. Not marking paid; reconcile in Stripe.`);
     return i;
   }
+  if (waiveFee) await audit(userId, 'installment.late_fee_waived', 'installment', i.id);
   const [done] = await db
     .update(installment)
-    .set({ status: 'paid', paidAt: new Date(), retryOn: null, lastError: null, stripePaymentIntentId: payment.paymentIntentId ?? i.stripePaymentIntentId })
+    .set({
+      status: 'paid',
+      paidAt: new Date(),
+      retryOn: null,
+      lastError: null,
+      ...(waiveFee ? { lateFeeCents: 0 } : {}),
+      stripePaymentIntentId: payment.paymentIntentId ?? i.stripePaymentIntentId,
+    })
     .where(and(eq(installment.id, i.id), sql`${installment.status} <> 'paid'`))
     .returning();
   if (!done) return i;
@@ -189,7 +230,7 @@ export async function markInstallmentPaid(installmentId: string, payment: { paym
   return done;
 }
 
-export async function markInstallmentFailed(installmentId: string, code: string, retryOn: string | null) {
+export async function markInstallmentFailed(installmentId: string, code: string, retryOn: string | null, today = todayInAthens()) {
   const db = await getDb();
   const [i] = await db
     .update(installment)
@@ -198,22 +239,32 @@ export async function markInstallmentFailed(installmentId: string, code: string,
     .returning();
   if (!i) return null;
   await audit(null, 'installment.failed', 'installment', i.id);
-  await notify(i, 'failed').catch((e) => console.error('Payment-failed email failed', e));
+  await notify(i, 'failed', today).catch((e) => console.error('Payment-failed email failed', e));
   return i;
 }
 
-async function notify(i: typeof installment.$inferSelect, kind: 'paid' | 'failed') {
+async function notify(i: Installment, kind: 'paid' | 'failed' | 'late_fee', today = todayInAthens()) {
   const guardians = await householdGuardians(i.householdId);
   const payUrl = new URL(`/account/pay/${i.id}`, config.siteUrl).toString();
-  const heading = kind === 'paid' ? `Payment received: ${formatCents(i.amountCents)}` : 'We couldn’t charge your card';
-  const lines =
-    kind === 'paid'
-      ? [`Thank you! We charged ${formatCents(i.amountCents)} to your saved card for ${i.label}.`, `Your receipts are in your family account: ${new URL('/account', config.siteUrl)}`]
-      : [
-          `We tried to charge ${formatCents(i.amountCents)} for ${i.label}, but ${failureReason(i.lastError ?? '')}.`,
-          i.retryOn ? `We’ll try again on ${fmtDate(i.retryOn)}. To pay now or use a different card, go to ${payUrl}` : `Please pay or update your card here: ${payUrl}`,
-          'Questions, or need to make other arrangements? Just reply to this email.',
-        ];
+  const lastDayNoFee = addDays(i.dueDate, BILLING.lateFeeAfterDays - 1);
+  const heading = { paid: `Payment received: ${formatCents(totalDue(i))}`, failed: 'We couldn’t charge your card', late_fee: `Late fee added: ${i.label}` }[kind];
+  const lines = {
+    paid: [
+      `Thank you! We received ${formatCents(totalDue(i))} for ${i.label}${i.lateFeeCents ? ' (including the late fee)' : ''}.`,
+      `Your receipts are in your family account: ${new URL('/account', config.siteUrl)}`,
+    ],
+    failed: [
+      `We tried to charge ${formatCents(totalDue(i))} for ${i.label}, but ${failureReason(i.lastError ?? '')}.`,
+      i.retryOn ? `We’ll try again on ${fmtDate(i.retryOn)}. To pay now or use a different card, go to ${payUrl}` : `Please pay or update your card here: ${payUrl}`,
+      !i.lateFeeCents && lastDayNoFee >= today ? `To avoid the ${formatCents(BILLING.lateFeeCents)} late fee, please make sure it’s paid by ${fmtDate(lastDayNoFee)}.` : '',
+      'Questions, or need to make other arrangements? Just reply to this email.',
+    ],
+    late_fee: [
+      `We still haven’t been able to collect ${i.label}, so a ${formatCents(i.lateFeeCents)} late fee has been added, as in our tuition policy. The total is now ${formatCents(totalDue(i))}.`,
+      `Please pay here: ${payUrl}`,
+      'If something’s going on, just reply to this email. We’re happy to work something out.',
+    ],
+  }[kind].filter(Boolean);
   for (const g of guardians) {
     await sendEmail({ to: g.email, subject: `${heading} · Little Characters`, text: `${heading}\n\n${lines.join('\n\n')}`, html: emailHtml(heading, lines) });
   }
@@ -291,6 +342,18 @@ export async function stopRemainingPayments(orderId: string, staffUserId: string
     .returning({ id: installment.id });
   await audit(staffUserId, 'installment.stop', 'order', orderId);
   return stopped.length;
+}
+
+/** Staff decided not to charge the late fee this time. */
+export async function waiveLateFee(installmentId: string, staffUserId: string) {
+  const db = await getDb();
+  const [i] = await db
+    .update(installment)
+    .set({ lateFeeCents: 0 })
+    .where(and(eq(installment.id, installmentId), sql`${installment.status} <> 'paid'`, sql`${installment.lateFeeCents} > 0`))
+    .returning();
+  if (i) await audit(staffUserId, 'installment.late_fee_waived', 'installment', i.id);
+  return i ?? null;
 }
 
 /** Paid by cash, check, Zelle or Venmo. */

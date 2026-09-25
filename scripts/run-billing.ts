@@ -8,7 +8,8 @@
  */
 import { isProd } from '../src/server/env';
 import { devCharger, runBilling } from '../src/server/billing';
-import { paymentsMode, stripeCharger } from '../src/server/payments';
+import { paymentsMode } from '../src/server/env';
+import { stripeCharger } from '../src/server/stripe';
 
 const i = process.argv.indexOf('--today');
 const today = i > 0 ? process.argv[i + 1] : undefined;
