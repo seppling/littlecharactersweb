@@ -3,10 +3,10 @@
 import { desc } from 'drizzle-orm';
 import Base from '@/layouts/Base.astro';
 import { getDb, schema } from '@/server/db';
-import { config, isProd } from '@/server/env';
+import { usesDevMailbox } from '@/server/email';
 
 export const prerender = false;
-if (isProd || config.resendApiKey) return new Response('Not found', { status: 404 });
+if (!usesDevMailbox) return new Response('Not found', { status: 404 });
 
 const db = await getDb();
 const emails = await db.select().from(schema.devEmail).orderBy(desc(schema.devEmail.createdAt)).limit(25);

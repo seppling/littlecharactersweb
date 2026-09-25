@@ -15,6 +15,9 @@ export interface Email {
   replyTo?: string;
 }
 
+/** Preview and local development: nothing is sent; emails wait at /dev/mailbox instead. */
+export const usesDevMailbox = !config.resendApiKey && !isProd;
+
 export async function sendEmail(email: Email) {
   if (config.resendApiKey) {
     const res = await fetch('https://api.resend.com/emails', {
