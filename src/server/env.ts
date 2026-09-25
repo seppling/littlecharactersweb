@@ -13,7 +13,8 @@ const env = process.env;
 export const isProd = !(import.meta.env?.DEV || env.APP_ENV === 'development');
 
 export const config = {
-  siteUrl: env.SITE_URL ?? 'http://localhost:4321',
+  /** The site's public address. Falls back to the preview URL Render provides. */
+  siteUrl: env.SITE_URL || env.RENDER_EXTERNAL_URL || 'http://localhost:4321',
 
   /** Postgres connection string (Neon, Supabase, RDS…). Empty = embedded PGlite for local dev. */
   databaseUrl: env.DATABASE_URL ?? '',

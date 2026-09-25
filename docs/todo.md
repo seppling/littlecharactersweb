@@ -39,6 +39,7 @@ A running checklist for the new site and family portal. Check items off in a com
 Setup (Stephen):
 - [x] Add Stripe **test** keys (`STRIPE_SECRET_KEY`, `PUBLIC_STRIPE_PUBLISHABLE_KEY`) to the Claude Code environment settings.
 - [x] Autopay, retries, late fees, pay-now checkout and webhooks tested against Stripe test mode (`portal.md` → Tested with Stripe).
+- [ ] Start a preview on Render from `render.yaml` (`infrastructure.md` → A clickable preview).
 - [ ] On the preview site: one full test enrollment typing card 4242 4242 4242 4242 into Stripe's form (couldn't be automated here).
 - [x] Stripe test-mode webhook endpoint created for `https://littlecharacters.org/api/stripe/webhook`, with the right events.
 - [ ] After deploying: put that endpoint's `whsec_` secret in the **host's** settings as `STRIPE_WEBHOOK_SECRET`. Until the domain points at the new site, Stripe's deliveries to it fail (Squarespace answers), so expect "failing webhook" emails from Stripe, or disable the endpoint until launch.

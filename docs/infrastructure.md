@@ -104,6 +104,27 @@ The app **fails closed**: unless it's explicitly told it's in development, it re
 5. **Try it on the preview URL:** enroll a test child with Stripe's test card `4242 4242 4242 4242`.
 6. **Go live:** switch Stripe to live keys and a live webhook, point the domain at the host, and set up the uptime check on `/` and `/account`.
 
+### A clickable preview (Render, free)
+
+`render.yaml` sets up a throwaway preview of the whole site and portal:
+1. Sign in at [render.com](https://render.com) with GitHub, then choose **New → Blueprint**.
+2. Pick this repository and the branch to preview (`main` once PR #5 is merged).
+3. Fill in the prompts:
+   - `ADMIN_EMAILS`: your email, for the staff pages.
+   - Optionally, the two Stripe **test** keys, to try Stripe's real card form.
+4. Deploy (about 5 minutes).
+5. Open the `…onrender.com` address it shows.
+
+What to expect on the preview:
+- Sign-in codes appear at `/dev/mailbox`.
+- Without Stripe keys, payment is a "test payment" button.
+- Data resets whenever the preview sleeps (after 15 idle minutes on the free plan) or redeploys.
+- Anyone with the link can read `/dev/mailbox`, so use made-up family details only.
+
+Each push to that branch redeploys the preview automatically.
+
+**For production on any proxy-fronted host** (Render, Fly, a VPS): set `SITE_URL` before building. Astro only trusts the proxy's forwarded domain for the hosts it knows at build time; otherwise every form is rejected as cross-site. Netlify's adapter doesn't need this.
+
 ### The Stripe webhook
 
 **What it is:** Stripe calling our site to say "this payment went through" (or "this checkout expired"). The site already checks with Stripe itself when a family lands on the confirmation page. The webhook covers the times that doesn't happen:
