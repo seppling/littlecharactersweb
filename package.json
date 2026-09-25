@@ -13,6 +13,7 @@
     "start": "HOST=${HOST:-0.0.0.0} node dist/server/entry.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/db-migrate.mjs",
+    "db:prepare-preview": "tsx scripts/prepare-preview-db.ts",
     "test": "vitest run",
     "import:studio-director": "tsx scripts/import-studio-director.ts",
     "invite:imported": "tsx scripts/invite-imported-families.ts",

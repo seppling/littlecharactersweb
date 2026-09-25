@@ -115,11 +115,17 @@ The app **fails closed**: unless it's explicitly told it's in development, it re
 4. Deploy (about 5 minutes).
 5. Open the `…onrender.com` address it shows.
 
-**Created the service by hand** (New → Web Service) instead of from the Blueprint? It skips `render.yaml`'s settings, so the site runs as production. With no production database or keys, every portal page (`/account`, `/enroll`, forms) returns a blank error, and the log says `Missing required production settings`. To fix it, open the service's **Environment** tab, add the lines below, then **Save, rebuild, and deploy**:
-- `APP_ENV` = `development`
-- `PGLITE_DIR` = `/tmp/pglite`
-- `ADMIN_EMAILS` = your email
-- Optionally, `STRIPE_SECRET_KEY` and `PUBLIC_STRIPE_PUBLISHABLE_KEY` (test keys only)
+**Created the service by hand** (New → Web Service) instead of from the Blueprint? It skips `render.yaml`'s settings, so the site runs as production. With no production database or keys, every portal page (`/account`, `/enroll`, forms) returns a blank error, and the log says `Missing required production settings`. Delete it and use the Blueprint, or copy the Blueprint's settings by hand:
+- **Settings → Build Command:** `npm ci && npm run build && npm run db:prepare-preview`
+- **Environment:**
+  - `APP_ENV` = `development`
+  - `PGLITE_DIR` = `.data/pglite`
+  - `ADMIN_EMAILS` = your email
+  - Optionally, `STRIPE_SECRET_KEY` and `PUBLIC_STRIPE_PUBLISHABLE_KEY` (test keys only)
+
+Then choose **Save, rebuild, and deploy**.
+
+**Why the database is made during the build.** The preview's database is PGlite, the same Postgres that local development uses, running inside the server. Creating a new database briefly needs about 550 MB of memory, over the free plan's 512 MB. Render stops a server that goes over, so pages flicker between working and `502`. Opening an existing database needs far less: the whole server peaks around 350 MB through the full test journey. So `npm run db:prepare-preview` creates the database while the site builds, in the project folder (not `/tmp`, which doesn't survive from build to start).
 
 What to expect on the preview:
 - Sign-in codes appear at `/dev/mailbox`.

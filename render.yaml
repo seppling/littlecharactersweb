@@ -13,7 +13,9 @@ services:
     name: littlecharacters-preview
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build
+    # The demo database is created during the build: creating one needs more
+    # memory than the free plan's 512 MB, opening it afterwards doesn't.
+    buildCommand: npm ci && npm run build && npm run db:prepare-preview
     startCommand: npm start
     healthCheckPath: /
     envVars:
@@ -23,8 +25,10 @@ services:
         value: development
       - key: HOST
         value: 0.0.0.0
+      # Inside the project folder (not /tmp), so the database made during the
+      # build is still there when the server starts.
       - key: PGLITE_DIR
-        value: /tmp/pglite
+        value: .data/pglite
       - key: CRON_SECRET
         generateValue: true
       # Your email, to see the staff pages (/admin) after signing in.
