@@ -21,7 +21,7 @@ The new website for [Little Characters Theater Troupe](https://www.littlecharact
 npm install
 npm run dev       # http://localhost:4321, site + portal, no setup needed
 npm run check     # type-check
-npm test          # unit tests: pricing, Studio Director import, access control
+npm test          # unit tests: pricing, autopay, Studio Director import, access control
 npm run build     # production build in dist/
 ```
 
@@ -62,6 +62,7 @@ scripts/
   scrape-squarespace.mjs          pulls copy + images from the old site into content/scraped/
   import-studio-director.ts       imports families and students from Studio Director CSVs
   invite-imported-families.ts     "your account is ready" emails for imported families
+  run-billing.ts                  monthly autopay by hand (normally the daily scheduler does it)
 tests/unit, tests/e2e
 ```
 
@@ -95,5 +96,6 @@ See [`docs/infrastructure.md`](docs/infrastructure.md). In short:
 - Set the environment variables from `.env.example` in the host's dashboard.
 - Run `npm run db:migrate` once, then deploy on every push.
 - CI (`.github/workflows/ci.yml`) type-checks, tests and builds every push, and Dependabot keeps dependencies patched.
+- Monthly autopay runs daily via `.github/workflows/billing.yml` once its two secrets are set.
 
 The launch checklist is in [`docs/todo.md`](docs/todo.md).

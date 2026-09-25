@@ -34,6 +34,9 @@ export const config = {
   stripePublishableKey: env.PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '',
   stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET ?? '',
 
+  /** Shared secret the daily scheduler sends to /api/billing/run. */
+  cronSecret: env.CRON_SECRET ?? '',
+
   resendApiKey: env.RESEND_API_KEY ?? '',
   emailFrom: env.EMAIL_FROM ?? 'Little Characters <hello@littlecharacters.org>',
   /** Where replies to our emails go. */
@@ -53,6 +56,7 @@ export function assertProductionConfig() {
     ['STRIPE_SECRET_KEY', config.stripeSecretKey],
     ['STRIPE_WEBHOOK_SECRET', config.stripeWebhookSecret],
     ['RESEND_API_KEY', config.resendApiKey],
+    ['CRON_SECRET', config.cronSecret],
   ].filter(([, v]) => !v);
   if (missing.length) {
     throw new Error(`Missing required production settings: ${missing.map(([k]) => k).join(', ')}`);

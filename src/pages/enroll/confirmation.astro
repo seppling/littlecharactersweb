@@ -3,8 +3,8 @@
 import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
 import Character from '@/components/Character.astro';
-import { findSession, fulfillOrder, getOrder, householdForUser, listStudents } from '@/server/family';
-import { checkoutIsPaid, paymentsMode } from '@/server/payments';
+import { autopayLine, findSession, getOrder, householdForUser, listStudents } from '@/server/family';
+import { completeCheckout, paymentsMode } from '@/server/payments';
 import { locationById, parking } from '@/data/locations';
 import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
@@ -21,9 +21,10 @@ if (!household || !o) return Astro.redirect('/account');
 // Returning from Stripe: confirm the payment (the webhook may not have landed yet).
 const checkoutId = Astro.url.searchParams.get('checkout');
 if (o.status !== 'paid' && checkoutId && paymentsMode === 'stripe') {
-  const { paid, orderId: paidOrder, payment } = await checkoutIsPaid(checkoutId);
-  if (paid && paidOrder === o.id) o = await fulfillOrder(o.id, user.id, payment);
+  const done = await completeCheckout(checkoutId, user.id);
+  if (done.paid && done.orderId === o.id) o = await getOrder(household.id, o.id);
 }
+if (!o) return Astro.redirect('/account');
 if (o.status !== 'paid') return Astro.redirect(`/enroll/review?order=${o.id}`);
 
 const { program, session } = findSession(o.sessionId)!;
@@ -77,7 +78,7 @@ const waitlist = o.plan === 'waitlist';
         <li>Wear comfy clothes and closed-toe shoes, and bring a water bottle.</li>
         <li>{parking.walkIn}</li>
         <li>{parking.late}</li>
-        {o.plan === 'monthly' && <li>Monthly tuition is due on the 1st. Your card is saved securely with Stripe.</li>}
+        {o.plan === 'monthly' && o.schedule.length > 0 && <li>{autopayLine(o.schedule)} You can see upcoming charges in your family account.</li>}
       </ul>
     </div>
   </EnrollShell>

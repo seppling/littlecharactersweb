@@ -10,6 +10,7 @@ import { ageOn, createStudent, detailsFresh, ensureHousehold, findSession, listE
 import { locationById } from '@/data/locations';
 import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
+import { failureReason, listInstallments } from '@/server/billing';
 
 export const prerender = false;
 
@@ -48,6 +49,18 @@ const household = user && !needsProfile ? await ensureHousehold(user) : null;
 const students = household ? await listStudents(household.id) : [];
 const enrollments = household ? await listEnrollments(household.id) : [];
 const orders = household ? await listOrders(household.id) : [];
+const installments = household ? await listInstallments(household.id) : [];
+const needsAttention = installments.filter((i) => i.status === 'failed');
+const autopay = installments.filter((i) => i.status === 'scheduled' || i.status === 'processing');
+const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const receipts = [
+  ...orders.map((o) => ({
+    date: o.paidAt!,
+    label: `${findSession(o.sessionId)?.program.title ?? o.sessionId}${o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (semester)' : o.plan === 'monthly' ? ' (first month + fees)' : ''}`,
+    amountCents: o.totalCents,
+  })),
+  ...installments.filter((i) => i.status === 'paid').map((i) => ({ date: i.paidAt!, label: i.label, amountCents: i.amountCents })),
+].sort((a, b) => b.date.getTime() - a.date.getTime());
 const today = todayInAthens();
 
 const upcoming = enrollments
@@ -175,15 +188,43 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
 
             <section class="panel" aria-labelledby="pay-title">
               <h2 id="pay-title">Payments</h2>
-              {orders.length ? (
-                <table class="receipts">
+              {needsAttention.map((i) => (
+                <div class="alert" role="alert">
+                  <p>
+                    <strong>{i.label}: {formatCents(i.amountCents)}</strong> didn’t go through because {failureReason(i.lastError ?? '')}.
+                    {i.retryOn ? ` We’ll try again on ${fmtDate(i.retryOn)}, or you can pay now.` : ''}
+                  </p>
+                  <a class="btn btn--primary btn--sm" href={`/account/pay/${i.id}`}>Pay now</a>
+                </div>
+              ))}
+              {autopay.length > 0 && (
+                <div class="autopay">
+                  <h3>Upcoming autopay</h3>
+                  <table class="receipts" data-autopay>
+                    <thead><tr><th>Date</th><th>For</th><th>Amount</th></tr></thead>
+                    <tbody>
+                      {autopay.map((i) => (
+                        <tr>
+                          <td>{fmtDate(i.dueDate)}</td>
+                          <td>{i.label}</td>
+                          <td>{formatCents(i.amountCents)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p class="fine">Charged automatically to your saved card on the 1st, with an emailed receipt. To use a different card or withdraw, email us before the 1st.</p>
+                </div>
+              )}
+              <h3>Receipts</h3>
+              {receipts.length ? (
+                <table class="receipts" data-receipts>
                   <thead><tr><th>Date</th><th>For</th><th>Amount</th></tr></thead>
                   <tbody>
-                    {orders.map((o) => (
+                    {receipts.map((r) => (
                       <tr>
-                        <td>{o.paidAt?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-                        <td>{findSession(o.sessionId)?.program.title ?? o.sessionId}{o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (semester)' : ''}</td>
-                        <td>{formatCents(o.totalCents)}</td>
+                        <td>{shortDate(r.date)}</td>
+                        <td>{r.label}</td>
+                        <td>{formatCents(r.amountCents)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -230,10 +271,17 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
   .add summary { cursor: pointer; font-weight: 700; color: var(--purple); }
   .add .form { margin-top: var(--space-m); }
   .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-m); }
+  .panel h3 { font-size: var(--step-0); font-family: var(--font-display); }
+  .alert { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: center; justify-content: space-between; padding: 0.9rem 1.1rem; border-radius: var(--r-md); background: var(--orange-tint); color: var(--orange-ink); }
+  .alert p { margin: 0; flex: 1 1 22rem; }
+  .autopay { display: grid; gap: 0.5rem; }
   .receipts { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   .receipts th, .receipts td { text-align: left; padding: 0.55rem 0; border-bottom: 1px solid var(--line); }
   .receipts th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
   .receipts td:last-child, .receipts th:last-child { text-align: right; }
+  .receipts { table-layout: fixed; }
+  .receipts th:first-child { width: 8.5rem; }
+  .receipts th:last-child { width: 6rem; }
   .empty, .fine { color: var(--ink-soft); }
   .fine { font-size: var(--step--1); }
   .error { color: var(--red-ink); font-size: var(--step--1); font-weight: 600; }

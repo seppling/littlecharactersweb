@@ -7,7 +7,9 @@ import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
 import { config } from '@/server/env';
 import { findSession, fulfillOrder, getOrder, householdForUser } from '@/server/family';
-import { checkoutIsPaid, createEmbeddedCheckout, paymentsMode, testPaymentsAllowed } from '@/server/payments';
+import { completeCheckout, createEmbeddedCheckout, paymentsMode, testPaymentsAllowed } from '@/server/payments';
+import { getDb, schema } from '@/server/db';
+import { eq } from 'drizzle-orm';
 import { formatCents } from '@/lib/pricing';
 
 export const prerender = false;
@@ -24,6 +26,11 @@ const found = findSession(o.sessionId)!;
 
 if (Astro.request.method === 'POST') {
   if (!testPaymentsAllowed()) return new Response('Test payments are disabled', { status: 403 });
+  if (o.plan === 'monthly') {
+    // Stand-in for the card Stripe would save for autopay.
+    const db = await getDb();
+    await db.update(schema.household).set({ stripeCustomerId: 'test_customer', stripePaymentMethodId: 'test_card' }).where(eq(schema.household.id, household.id));
+  }
   await fulfillOrder(o.id, user.id);
   return Astro.redirect(`/enroll/confirmation?order=${o.id}`, 303);
 }
@@ -33,11 +40,8 @@ let error = '';
 if (paymentsMode === 'stripe') {
   // Paid in another tab and the webhook hasn't landed yet? Don't show a second card form.
   if (o.stripeCheckoutSessionId) {
-    const prior = await checkoutIsPaid(o.stripeCheckoutSessionId).catch(() => null);
-    if (prior?.paid && prior.orderId === o.id) {
-      await fulfillOrder(o.id, user.id, prior.payment);
-      return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
-    }
+    const prior = await completeCheckout(o.stripeCheckoutSessionId, user.id).catch(() => null);
+    if (prior?.paid && prior.orderId === o.id) return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
   }
   try {
     clientSecret = await createEmbeddedCheckout({

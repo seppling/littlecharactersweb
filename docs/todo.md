@@ -8,6 +8,7 @@ A running checklist for the new site and family portal. Check items off in a com
 - [x] **Pricing conflicts on the old site:** default to the monthly price. Geode Acting Studio is now $95/month + $30 performance fee.
 - [x] **Phase 2:** build our own family portal on the same site. Built: sign-in by emailed code, enrollment, Stripe checkout, dashboard, staff rosters (`portal.md`).
 - [x] **Studio Director data:** import families and students, then send a one-time "your account is ready" email (`portal.md` → Moving families over).
+- [x] **Billing:** monthly tuition is charged automatically to the saved card on the 1st, with retries and emailed receipts (`portal.md` → Monthly autopay).
 - [x] **Stack:** Netlify (or Vercel) + Neon Postgres + Better Auth (logins in our own database) + Resend + Stripe (`infrastructure.md`, `security.md`).
 
 ## Hannah: content gaps
@@ -34,14 +35,17 @@ A running checklist for the new site and family portal. Check items off in a com
 ## Family portal
 
 Setup (Stephen):
-- [ ] Add Stripe **test** keys as environment variables in the Claude Code environment settings, never in chat: `STRIPE_SECRET_KEY`, `PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`. Then run a test enrollment with card 4242 4242 4242 4242.
+- [x] Add Stripe **test** keys (`STRIPE_SECRET_KEY`, `PUBLIC_STRIPE_PUBLISHABLE_KEY`) to the Claude Code environment settings.
+- [ ] In a new session (so the keys load), run a real test-mode enrollment and an autopay charge, with the Stripe CLI relaying webhooks.
+- [ ] After deploying: add the Stripe webhook endpoint and put its `whsec_` secret in the host's settings (`infrastructure.md` → The Stripe webhook).
+- [ ] After deploying: set `CRON_SECRET` on the host, and add the `CRON_SECRET` and `BILLING_URL` GitHub secrets (`infrastructure.md` → The daily autopay run).
 - [ ] Create Netlify, Neon and Resend accounts; set the environment variables; run `npm run db:migrate`; verify the email domain (`infrastructure.md` → Setting it up).
 - [ ] In GitHub repo settings, turn on Dependabot alerts and secret scanning.
 - [ ] Store `DATA_ENCRYPTION_KEY` and the other secrets in a password manager.
 
 Decisions (together):
-- [ ] Months 2+ of tuition: automatic charge on the 1st (Stripe subscription or invoice), or families pay from their account?
-- [ ] Keep the $15 late fee and "paused after the 15th"? Keep or drop payment-method surcharges (we suggest dropping them)?
+- [ ] Keep the $15 late fee and "paused after the 15th"? If yes, should the site add the fee automatically on the 11th? Keep or drop payment-method surcharges (we suggest dropping them)?
+- [ ] Retry schedule for failed autopay: currently the 1st, 4th and 7th, then wait for the family. OK?
 - [ ] Refund, transfer and withdrawal wording for the policy checkbox (`POLICY_VERSION` in `src/server/family.ts`).
 - [ ] Should performance/materials fees be charged at registration (current) or on Oct 1?
 - [ ] Class capacity per session (default 20), and whether the free first class applies to every Little Characters class.

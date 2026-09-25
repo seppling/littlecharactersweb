@@ -18,7 +18,7 @@ import { programs } from '@/data/programs';
 import type { Program, Session } from '@/data/types';
 import { PRICING, availablePlans, formatCents, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
 
-const { household, householdMember, student, order, enrollment, auditLog } = schema;
+const { household, householdMember, student, order, enrollment, installment, auditLog } = schema;
 
 export type SessionUser = { id: string; name: string; email: string; emailVerified: boolean };
 
@@ -217,7 +217,8 @@ export async function priceOrder(householdId: string, o: typeof order.$inferSele
   return { program, session, students, plans, plan, quote: q, alreadyIn };
 }
 
-export const POLICY_VERSION = '2026-fall';
+/** Bump when the policy summary on /enroll/details changes, so we know what each family agreed to. */
+export const POLICY_VERSION = '2026-fall-autopay';
 
 /** Lock in the plan and price, then hand off to payment (or finish right away when nothing is due). */
 export async function confirmOrder(householdId: string, orderId: string, plan: Plan, userId: string) {
@@ -233,6 +234,7 @@ export async function confirmOrder(householdId: string, orderId: string, plan: P
       subtotalCents: priced.quote.subtotalCents,
       discountCents: priced.quote.discountCents,
       totalCents: priced.quote.totalCents,
+      schedule: priced.quote.installments,
       policyVersion: POLICY_VERSION,
       policyAcceptedAt: new Date(),
       status: 'pending_payment',
@@ -282,6 +284,13 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
         .values({ householdId: o.householdId, studentId, sessionId: o.sessionId, programSlug: found.program.slug, status, orderId: o.id })
         .onConflictDoUpdate({ target: [enrollment.studentId, enrollment.sessionId], set: { status, orderId: o.id } });
     }
+    // Monthly plan: the rest of the term, charged automatically on the 1st (src/server/billing.ts).
+    if (o.plan === 'monthly' && o.schedule.length) {
+      await tx
+        .insert(installment)
+        .values(o.schedule.map((c) => ({ householdId: o.householdId, orderId: o.id, sessionId: o.sessionId, dueDate: c.dueDate, amountCents: c.amountCents, label: c.label })))
+        .onConflictDoNothing();
+    }
     return true;
   });
   const [done] = await db.select().from(order).where(eq(order.id, orderId));
@@ -295,12 +304,7 @@ async function sendOrderConfirmation(o: typeof order.$inferSelect) {
   const found = findSession(o.sessionId);
   if (!found) return;
   const { program, session } = found;
-  const db = await getDb();
-  const guardians = await db
-    .select({ email: schema.user.email, name: schema.user.name })
-    .from(householdMember)
-    .innerJoin(schema.user, eq(schema.user.id, householdMember.userId))
-    .where(eq(householdMember.householdId, o.householdId));
+  const guardians = await householdGuardians(o.householdId);
   const kids = (await listStudents(o.householdId)).filter((s) => o.studentIds.includes(s.id)).map((s) => s.firstName);
   const first = meetings(session).find((m) => m >= todayInAthens()) ?? session.startDate;
   const loc = locationById(session.locationId);
@@ -310,6 +314,7 @@ async function sendOrderConfirmation(o: typeof order.$inferSelect) {
     `${kids.join(' and ')} ${o.plan === 'waitlist' ? (kids.length > 1 ? 'are' : 'is') + ' on the waitlist for' : (kids.length > 1 ? 'are' : 'is') + ' enrolled in'} ${program.title}.`,
     `${dayList(session.days)}, ${timeRange(session.start, session.end)}${o.plan === 'waitlist' ? '' : `, starting ${firstDate}`}${loc ? ` at ${loc.name}, ${loc.address.join(', ')}` : ''}.`,
     o.plan === 'trial' ? 'Your first class is free. After it, you can continue with monthly tuition or pay for the semester from your family account.' : o.totalCents > 0 ? `Paid today: ${formatCents(o.totalCents)}.` : '',
+    o.plan === 'monthly' && o.schedule.length ? autopayLine(o.schedule) : '',
     'Wear comfy clothes and closed-toe shoes, and bring a water bottle. Park on Minor St and walk in, or use the drop-off circle after 5 pm.',
     `Your family account: ${config.siteUrl}/account`,
   ].filter(Boolean);
@@ -321,6 +326,23 @@ async function sendOrderConfirmation(o: typeof order.$inferSelect) {
       html: emailHtml(heading, lines),
     });
   }
+}
+
+export async function householdGuardians(householdId: string) {
+  const db = await getDb();
+  return db
+    .select({ email: schema.user.email, name: schema.user.name })
+    .from(householdMember)
+    .innerJoin(schema.user, eq(schema.user.id, householdMember.userId))
+    .where(eq(householdMember.householdId, householdId));
+}
+
+/** "We'll charge $95 to your saved card on Oct 1, Nov 1 and Dec 1." */
+export function autopayLine(schedule: { dueDate: string; amountCents: number }[]) {
+  const dates = schedule.map((c) => new Date(`${c.dueDate}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }));
+  const amounts = new Set(schedule.map((c) => c.amountCents));
+  const amount = amounts.size === 1 ? formatCents(schedule[0].amountCents) : 'the monthly tuition';
+  return `We’ll charge ${amount} to your saved card on ${dates.join(', ').replace(/, ([^,]*)$/, ' and $1')}, and email a receipt each time.`;
 }
 
 export async function listOrders(householdId: string) {

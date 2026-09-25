@@ -33,7 +33,7 @@ const options = await Promise.all(priced.plans.map(async (p) => ({ plan: p, q: (
 
 const planCopy: Record<Plan, { title: string; body: (total: string) => string }> = {
   trial: { title: 'Try the first class free', body: () => 'Nothing due today. Decide after the class.' },
-  monthly: { title: 'Pay monthly', body: (t) => `${t} today, then on the 1st of each month.` },
+  monthly: { title: 'Pay monthly', body: (t) => `${t} today, then charged automatically on the 1st of each month.` },
   full: { title: 'Pay the semester in full', body: (t) => `${t} today, 10% off, and you’re done.` },
   once: { title: 'Pay now', body: (t) => `${t} today.` },
   waitlist: { title: 'Join the waitlist', body: () => 'Nothing due now. We’ll email you if a spot opens.' },
@@ -99,6 +99,14 @@ const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents
       <a class="back" href={`/enroll/details?order=${o.id}`}>← Back</a>
       <button class="btn btn--primary" type="submit">{payLabel} <span class="arrow" aria-hidden="true">→</span></button>
     </form>
+    {
+      priced.plan === 'monthly' && q.installments.length > 0 && (
+        <p class="fine" data-autopay-consent>
+          By continuing, you agree that Little Characters may save your card with Stripe and charge it {formatCents(q.installments[0].amountCents)} on the 1st of each month through{' '}
+          {new Date(`${q.installments.at(-1)!.dueDate}T12:00:00Z`).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })}. Withdraw at least 5 days before the 1st to stop future charges.
+        </p>
+      )
+    }
     <p class="fine">Card payments are processed securely by Stripe. We never see or store your card number.</p>
   </EnrollShell>
 </Base>

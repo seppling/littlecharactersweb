@@ -85,6 +85,7 @@ await page.click('button:has-text("Review & pay")');
 // 5. Review & pay
 await page.waitForURL(/\/enroll\/review/);
 const orderId = new URL(page.url()).searchParams.get('order');
+await page.waitForSelector('[data-autopay-consent]');
 await shot('4-review');
 const due = await page.locator('tfoot td').textContent();
 step(`Review shows plans and an itemized total (due today: ${due})`);
@@ -106,6 +107,23 @@ await page.goto(`${BASE}/`);
 await page.waitForSelector('[data-account-label]:has-text("Hi, Sam")');
 step('Dashboard lists the class; static home page greets "Hi, Sam"');
 
+// 7b. Monthly autopay: the rest of the term is scheduled, then charged on the 1st
+const now = new Date();
+const firstOfNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString().slice(0, 10);
+await page.goto(`${BASE}/account`);
+const upcoming = await page.locator('[data-autopay] tbody tr').count();
+if (upcoming < 1) throw new Error('Expected upcoming autopay charges');
+const run = await page.request.post(`${BASE}/api/billing/run?today=${firstOfNext}`, { headers: { authorization: 'Bearer e2e-cron-secret' }, data: {} });
+const report = await run.json();
+if (report.charged < 1) throw new Error(`Billing run charged nothing: ${JSON.stringify(report)}`);
+const denied = await page.request.post(`${BASE}/api/billing/run`, { headers: { authorization: 'Bearer wrong' }, data: {} });
+if (denied.status() !== 401) throw new Error('Billing run should require the secret');
+await page.reload();
+await page.waitForSelector('[data-receipts] >> text=/tuition: Maya/');
+if ((await page.locator('[data-autopay] tbody tr').count()) !== upcoming - 1) throw new Error('Charged month should leave the upcoming list');
+await shot('6b-autopay');
+step(`Autopay: ${upcoming} monthly charges scheduled; the ${firstOfNext} run charges one and a receipt appears`);
+
 // 8. Returning family: straight to "Who's coming?" with Maya remembered
 await page.goto(`${BASE}/enroll/yesand-f26-wed`);
 await page.waitForSelector('text=Maya Rivera');
@@ -113,7 +131,7 @@ step('Returning family skips sign-in; saved student is ready to pick');
 
 // 9. Signed-out visitors can't open orders
 await page.goto(`${BASE}/account`);
-const receipts = await page.locator('.receipts tbody tr').count();
+const receipts = await page.locator('[data-receipts] tbody tr').count();
 if (receipts < 1) throw new Error('Expected a receipt');
 const other = await browser.newContext();
 const otherPage = await other.newPage();
@@ -135,6 +153,12 @@ await page.waitForSelector('text=Maya Rivera');
 await page.waitForSelector('text=Peanuts');
 await shot('7-roster');
 step('Hannah sees Maya on the roster, with allergies decrypted for staff');
+
+await page.goto(`${BASE}/admin/billing`);
+await page.waitForSelector('h1:has-text("Monthly autopay")');
+await page.waitForSelector('text=/Next: .*1 charge, \\$95/');
+await shot('7b-billing');
+step('Hannah’s billing page shows the next autopay date and total');
 
 // 11. A different signed-in family (even staff) can't open the Riveras' order
 await page.goto(`${BASE}/enroll/confirmation?order=${orderId}`);

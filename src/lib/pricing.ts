@@ -4,8 +4,9 @@
  * is unit-tested (tests/unit/pricing.test.ts).
  *
  * Rules come from the Fall 2026 tuition guidelines:
- *  - Monthly classes: the first month is due at registration; the rest on the
- *    1st of each month. Joining after the first week prorates the first month.
+ *  - Monthly classes: the first month is due at registration; the rest are
+ *    charged automatically to the saved card on the 1st of each month.
+ *    Joining after the first week prorates the first month.
  *  - Pay the semester in full: 10% off.
  *  - Multi-class or multi-student families: 15% off tuition.
  *  - Discounts don't stack; each line gets the best one (PRICING.stackDiscounts).
@@ -33,14 +34,24 @@ export interface QuoteLine {
   amountCents: number;
 }
 
+/** A future automatic charge the family agrees to at checkout. */
+export interface Installment {
+  /** YYYY-MM-DD (always the 1st). */
+  dueDate: string;
+  amountCents: number;
+  label: string;
+}
+
 export interface Quote {
   plan: Plan;
   lines: QuoteLine[];
   subtotalCents: number;
   discountCents: number;
   totalCents: number;
-  /** What comes after today's payment, e.g. "4 more monthly payments of $95". */
+  /** What comes after today's payment, e.g. "3 more monthly payments of $95". */
   later: string[];
+  /** The same, as exact charges (monthly plan only). */
+  installments: Installment[];
   notes: string[];
 }
 
@@ -131,26 +142,27 @@ export function quote(input: QuoteInput): Quote {
   const price = session.price ?? program.priceFrom;
   const lines: QuoteLine[] = [];
   const later: string[] = [];
+  const installments: Installment[] = [];
   const notes: string[] = [];
 
   if (!price || !students.length) {
-    return { plan, lines, subtotalCents: 0, discountCents: 0, totalCents: 0, later, notes };
+    return { plan, lines, subtotalCents: 0, discountCents: 0, totalCents: 0, later, installments, notes };
   }
 
   if (plan === 'waitlist') {
     notes.push('Nothing is due now. We’ll email you if a spot opens up.');
-    return { plan, lines, subtotalCents: 0, discountCents: 0, totalCents: 0, later, notes };
+    return { plan, lines, subtotalCents: 0, discountCents: 0, totalCents: 0, later, installments, notes };
   }
 
   if (plan === 'trial') {
     for (const s of students) lines.push({ kind: 'tuition', label: `${s.firstName}: first class free`, studentId: s.id, amountCents: 0 });
     notes.push('Nothing is due today. After the free class, you can continue with monthly tuition or pay for the semester.');
-    return { plan, lines, subtotalCents: 0, discountCents: 0, totalCents: 0, later, notes };
+    return { plan, lines, subtotalCents: 0, discountCents: 0, totalCents: 0, later, installments, notes };
   }
 
   if ((price.unit === 'month' || price.unit === 'session') && !meetings(session).some((m) => m >= today)) {
     notes.push('This class has ended.');
-    return { plan, lines, subtotalCents: 0, discountCents: 0, totalCents: 0, later, notes };
+    return { plan, lines, subtotalCents: 0, discountCents: 0, totalCents: 0, later, installments, notes };
   }
 
   const isClass = program.kind === 'class';
@@ -176,11 +188,17 @@ export function quote(input: QuoteInput): Quote {
           label: `${s.firstName}: ${monthName(first.month)} tuition${first.share < 1 ? ' (prorated)' : ''}`,
         });
       }
-      const rest = schedule.length - 1;
-      if (rest > 0) {
+      const rest = schedule.slice(1);
+      if (rest.length) {
         const perMonth = cents(price.amount) * students.length;
         const perMonthAfterDiscount = multi ? Math.round(perMonth * (1 - PRICING.multiDiscount)) : perMonth;
-        later.push(`${rest} more monthly payment${rest > 1 ? 's' : ''} of ${money(perMonthAfterDiscount)}, due on the 1st (${schedule.slice(1).map((m) => monthName(m.month)).join(', ')}).`);
+        const who = students.map((s) => s.firstName).join(' & ');
+        for (const m of rest) {
+          installments.push({ dueDate: `${m.month}-01`, amountCents: perMonthAfterDiscount, label: `${monthName(m.month)} tuition: ${who}, ${program.title}` });
+        }
+        later.push(
+          `Then ${money(perMonthAfterDiscount)} charged automatically to your saved card on the 1st of ${rest.map((m) => monthName(m.month)).join(', ').replace(/, ([^,]*)$/, ' and $1')}.`,
+        );
       }
     }
   } else if (price.unit === 'session') {
@@ -233,7 +251,7 @@ export function quote(input: QuoteInput): Quote {
 
   const subtotalCents = lines.filter((l) => l.kind !== 'discount').reduce((a, l) => a + l.amountCents, 0);
   const discountCents = -lines.filter((l) => l.kind === 'discount').reduce((a, l) => a + l.amountCents, 0);
-  return { plan, lines, subtotalCents, discountCents, totalCents: subtotalCents - discountCents, later, notes };
+  return { plan, lines, subtotalCents, discountCents, totalCents: subtotalCents - discountCents, later, installments, notes };
 }
 
 export function formatCents(c: number) {

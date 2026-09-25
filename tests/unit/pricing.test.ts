@@ -60,8 +60,12 @@ describe('monthly plan', () => {
   it('charges the first month plus the one-time fee, and lists what comes later', () => {
     const r = q('monthly', '2026-09-01');
     expect(r.totalCents).toBe(9500 + 3000);
-    expect(r.later[0]).toContain('3 more monthly payments of $95');
-    expect(r.later[0]).toContain('October, November, December');
+    expect(r.installments).toEqual([
+      { dueDate: '2026-10-01', amountCents: 9500, label: 'October tuition: Maya, Test Class' },
+      { dueDate: '2026-11-01', amountCents: 9500, label: 'November tuition: Maya, Test Class' },
+      { dueDate: '2026-12-01', amountCents: 9500, label: 'December tuition: Maya, Test Class' },
+    ]);
+    expect(r.later[0]).toBe('Then $95 charged automatically to your saved card on the 1st of October, November and December.');
   });
 
   it('prorates a late start', () => {
@@ -75,6 +79,7 @@ describe('monthly plan', () => {
     expect(r.subtotalCents).toBe(2 * 9500 + 2 * 3000);
     expect(r.discountCents).toBe(Math.round(19000 * 0.15));
     expect(r.later[0]).toContain('$161.50');
+    expect(r.installments.every((i) => i.amountCents === 16150)).toBe(true);
   });
 
   it('gives 15% off when the family is already in another class', () => {
@@ -85,6 +90,7 @@ describe('monthly plan', () => {
 describe('pay in full', () => {
   it('takes 10% off the whole term', () => {
     const r = q('full', '2026-09-01');
+    expect(r.installments).toEqual([]);
     expect(r.discountCents).toBe(3800); // 10% of 4 × $95
     expect(r.totalCents).toBe(38000 - 3800 + 3000);
   });

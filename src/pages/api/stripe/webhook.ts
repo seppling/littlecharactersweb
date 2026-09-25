@@ -1,13 +1,19 @@
 import type { APIRoute } from 'astro';
 import { config } from '@/server/env';
-import { getStripe } from '@/server/payments';
-import { fulfillOrder } from '@/server/family';
+import { completeCheckout, getStripe } from '@/server/payments';
+import { markInstallmentPaid, resumeRetries } from '@/server/billing';
 
 export const prerender = false;
 
 /**
- * Stripe → us: confirms payments even if a family closes the tab before the
- * confirmation page loads. The signature check proves the request is from Stripe.
+ * Stripe → us. The signature check proves the request is from Stripe.
+ * Subscribe the endpoint to these events (docs/infrastructure.md):
+ *  - checkout.session.completed, checkout.session.async_payment_succeeded:
+ *    enrolls even if the family closed the tab before the confirmation page loaded
+ *  - checkout.session.expired: a family opened "pay now" but didn't finish;
+ *    automatic retries of that monthly charge resume
+ *  - payment_intent.succeeded: confirms monthly autopay charges that settle later
+ * Everything here is idempotent, because Stripe may deliver an event more than once.
  */
 export const POST: APIRoute = async ({ request }) => {
   if (!config.stripeWebhookSecret) return new Response('Webhook not configured', { status: 503 });
@@ -21,10 +27,20 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response('Invalid signature', { status: 400 });
   }
 
-  if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
-    const session = event.data.object;
-    if (session.payment_status === 'paid' && session.metadata?.orderId) {
-      await fulfillOrder(session.metadata.orderId, null, { checkoutSessionId: session.id, amountCents: session.amount_total });
+  switch (event.type) {
+    case 'checkout.session.completed':
+    case 'checkout.session.async_payment_succeeded':
+      await completeCheckout(event.data.object.id, null);
+      break;
+    case 'checkout.session.expired': {
+      const installmentId = event.data.object.metadata?.installmentId;
+      if (installmentId) await resumeRetries(installmentId);
+      break;
+    }
+    case 'payment_intent.succeeded': {
+      const pi = event.data.object;
+      if (pi.metadata?.installmentId) await markInstallmentPaid(pi.metadata.installmentId, { paymentIntentId: pi.id, amountCents: pi.amount_received });
+      break;
     }
   }
   return new Response('ok');

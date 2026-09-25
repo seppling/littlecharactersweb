@@ -86,7 +86,8 @@ Set these in the host's dashboard (never in git). `.env.example` has the full li
 | `DATA_ENCRYPTION_KEY` | Encrypts allergy and medical notes | `openssl rand -base64 32`. **Back this up; losing it makes those notes unreadable.** |
 | `ADMIN_EMAILS` | Who sees rosters, e.g. `hannah@…` | — |
 | `STRIPE_SECRET_KEY`, `PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe API keys (use `sk_test_…`/`pk_test_…` until launch) | Stripe → Developers → API keys |
-| `STRIPE_WEBHOOK_SECRET` | Verifies Stripe's webhook calls | Stripe → Developers → Webhooks, after adding the endpoint |
+| `STRIPE_WEBHOOK_SECRET` | Verifies Stripe's webhook calls | Created by Stripe when you add the webhook endpoint (see below) |
+| `CRON_SECRET` | Lets the daily scheduler start the autopay run | `openssl rand -base64 32`; the same value goes in the GitHub secret |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO` | Sending email | Resend dashboard, after verifying the domain |
 
 The app **fails closed**: unless it's explicitly told it's in development, it refuses to start without the database, secrets, Stripe and email settings. Test payments and the dev mailbox can't be switched on in production.
@@ -95,10 +96,50 @@ The app **fails closed**: unless it's explicitly told it's in development, it re
 
 1. **Neon:** create a project (region: US East). Copy the pooled connection string. From a laptop, run `DATABASE_URL=… npm run db:migrate` once.
 2. **Resend:** add `littlecharacters.org`, then add the DNS records it shows (SPF, DKIM) where the domain is managed. Create an API key.
-3. **Stripe (test mode first):** copy the test keys. Add a webhook endpoint `https://<your-preview-url>/api/stripe/webhook` for `checkout.session.completed` and `checkout.session.async_payment_succeeded`, then copy its signing secret. Turn on Apple Pay/Google Pay under Payment methods.
+3. **Stripe (test mode first):**
+   - Copy the test keys.
+   - Add the webhook endpoint (next section) once the site has a public URL.
+   - Turn on Apple Pay and Google Pay under Settings → Payment methods.
 4. **Host:** connect this GitHub repo, then switch the adapter. For Netlify: `npx astro add netlify` (replaces `@astrojs/node` in `astro.config.mjs`), and add the security headers for static pages in `public/_headers` (snippet below). Build command `npm run build`. Add the environment variables and deploy.
 5. **Try it on the preview URL:** enroll a test child with Stripe's test card `4242 4242 4242 4242`.
 6. **Go live:** switch Stripe to live keys and a live webhook, point the domain at the host, and set up the uptime check on `/` and `/account`.
+
+### The Stripe webhook
+
+**What it is:** Stripe calling our site to say "this payment went through" (or "this checkout expired"). The site already checks with Stripe itself when a family lands on the confirmation page. The webhook covers the times that doesn't happen:
+- a family closes the tab mid-redirect;
+- a bank payment settles later;
+- a "pay now" form expires unused, so automatic retries can resume.
+
+**Why it waits for deployment:** Stripe has to reach the site over the internet, so it needs the real (or preview) URL. It can't reach a laptop or this development environment. Until then, nothing breaks: test enrollments work without it.
+
+**Setting it up (about 3 minutes, once per mode):**
+1. In the Stripe dashboard, open **Developers → Webhooks**. Newer dashboards call this **Workbench → Webhooks → Add destination**.
+2. Endpoint URL: `https://littlecharacters.org/api/stripe/webhook` (or the preview URL while testing).
+3. Select these 4 events:
+   - `checkout.session.completed`
+   - `checkout.session.async_payment_succeeded`
+   - `checkout.session.expired`
+   - `payment_intent.succeeded`
+4. Save, then click **Reveal** under *Signing secret*. It starts with `whsec_`.
+5. Put it in the **host's** environment settings as `STRIPE_WEBHOOK_SECRET` and redeploy.
+
+Test mode and live mode each have their own endpoint and their own secret, so do this again when you switch to live keys.
+
+**For local testing** without a public URL, the Stripe CLI relays events: `stripe listen --forward-to localhost:4321/api/stripe/webhook` prints a temporary `whsec_…` for that session.
+
+### The daily autopay run
+
+The site charges monthly tuition when something asks it to, once a day. `.github/workflows/billing.yml` does the asking, for free, from GitHub:
+1. Pick a `CRON_SECRET` (`openssl rand -base64 32`) and set it in the host's environment.
+2. In GitHub, go to **Settings → Secrets and variables → Actions** and add two repository secrets:
+   - `CRON_SECRET`: the same value.
+   - `BILLING_URL`: `https://littlecharacters.org/api/billing/run`.
+3. Run it once from the **Actions** tab (**Monthly autopay → Run workflow**) to check it. It prints how many charges were due.
+
+After that it runs every morning. It skips itself until those secrets exist, and if a run fails, GitHub emails the repo owner.
+
+To run it by hand against production: `DATABASE_URL=… STRIPE_SECRET_KEY=… npm run billing:run`.
 
 `public/_headers` for Netlify (static pages; portal pages set their own stricter headers):
 
@@ -117,6 +158,6 @@ The app **fails closed**: unless it's explicitly told it's in development, it re
 |---|---|---|
 | Automatically | GitHub CI runs type checks, unit tests and a build on every push. Dependabot opens a pull request when a dependency has an update or a security fix. | — |
 | Weekly | Merge green Dependabot pull requests (the host deploys them). | 5 min |
-| Monthly | Glance at the Stripe dashboard (failed payments, disputes), the host's error log, and the audit log for unusual roster views. Take the extra database dump. | 20 min |
+| Monthly (the 2nd) | Check `/admin/billing` for charges that need a person, and the Stripe dashboard for disputes. Glance at the host's error log and the audit log. Take the extra database dump. | 20 min |
 | Each term | Add the new sessions (or, later, in the admin editor). Run one test enrollment on a preview deploy. | 30 min |
 | Yearly | Review `ADMIN_EMAILS`. Rotate `BETTER_AUTH_SECRET` (signs everyone out once). Delete families with no activity in 3 years (see `security.md`). Renew the domain. | 1 hr |

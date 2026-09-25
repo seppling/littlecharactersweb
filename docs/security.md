@@ -29,7 +29,7 @@ Data minimization rules we follow:
 | A03 | **Software supply chain failures** | A compromised npm package | Lockfile committed. Few dependencies, all widely used (Astro, Better Auth, Drizzle, Stripe, Zod). CI on every push, Dependabot security updates. The only third-party script is Stripe.js, on the payment page. | Turn on GitHub secret scanning and Dependabot alerts in repo settings |
 | A04 | **Cryptographic failures** | Leaked backups exposing health data; cookies stolen over plain HTTP | HTTPS everywhere, with HSTS. Postgres encrypted at rest by Neon, TLS in transit. Allergy and medical notes are additionally encrypted with our own key. Sign-in codes are stored hashed. Session cookies are `HttpOnly`, `Secure`, `SameSite=Lax`. | Keep `DATA_ENCRYPTION_KEY` backed up in a password manager |
 | A05 | **Injection** | SQL injection through forms; script injection through names | All database access goes through Drizzle's parameterized queries, with no hand-built SQL from input. Every form is validated with Zod (lengths, formats). Astro escapes all output by default, and email templates escape too. | — |
-| A06 | **Insecure design** | Paying $49 for a $400 plan; enrolling past capacity; double charges | Prices are computed only on the server from the catalog, never taken from the browser. The chosen plan is re-checked against the plans allowed for that family. A Stripe payment only counts if it matches the order total exactly, and old checkouts are expired when the plan changes. Enrolling is idempotent and race-safe (the webhook and the confirmation page can't double-enroll or double-email). The class-full check moves families to the waitlist. | Review billing rules with Hannah before live payments (`todo.md`) |
+| A06 | **Insecure design** | Paying $49 for a $400 plan; enrolling past capacity; double charges | Prices are computed only on the server from the catalog, never taken from the browser. The chosen plan is re-checked against the plans allowed for that family. A Stripe payment only counts if it matches the order total exactly, and old checkouts are expired when the plan changes. Enrolling is idempotent and race-safe (the webhook and the confirmation page can't double-enroll or double-email). Monthly autopay can't double-charge (claimed in the database first, payment id saved before confirming, idempotency keys, retries paused while the family pays by hand), and only counts payments of the exact amount due. The class-full check moves families to the waitlist. | Review billing rules with Hannah before live payments (`todo.md`) |
 | A07 | **Authentication failures** | Guessing codes; flooding inboxes; stolen sessions | Codes are 6 digits, expire in 10 minutes, allow 5 tries, and are single-use. Per-IP limits, stored in the database so they hold across servers: 5 code requests and 10 sign-in attempts a minute. Imported accounts stay unverified until their owner proves the email. Sign-out deletes the session server-side. | Optional: ask for a fresh code before an admin opens rosters (step-up), and a "sign out everywhere" button |
 | A08 | **Software or data integrity failures** | Forged "payment succeeded" calls | The Stripe webhook verifies Stripe's signature, and the confirmation page re-checks the payment with Stripe's API. Database changes go through versioned migrations in git. | — |
 | A09 | **Logging and alerting failures** | Not noticing misuse | `audit_log` records sign-ups, data changes, payments, amount mismatches, imports, invitations and **every roster view**. Logs hold IDs, not names or notes. | Uptime alert; a monthly look at the audit log (`infrastructure.md`) |
@@ -38,6 +38,15 @@ Data minimization rules we follow:
 CSRF: Astro's `checkOrigin` rejects cross-site form posts, and cookies are `SameSite=Lax`.
 
 ## Payments and PCI
+
+**Cards on file.** Saving a card for later charges requires the cardholder's agreement.
+- The review page shows the exact amount and months with an authorization line.
+- Stripe's form shows its own save-card notice.
+- Every autopay charge is followed by an emailed receipt.
+- Families can stop future charges by withdrawing.
+
+The daily billing endpoint only runs with the `CRON_SECRET` bearer token (compared in constant time), and it can't choose the date or the amount.
+
 
 Stripe Embedded Checkout puts Stripe's own card form (an iframe served from Stripe) inside our page. Card data goes from the family's browser straight to Stripe, which keeps us eligible for **PCI DSS SAQ A**, the shortest self-assessment.
 - Once a year, Stripe asks you to confirm it in the dashboard.

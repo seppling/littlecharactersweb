@@ -86,6 +86,8 @@ export const household = pgTable('household', {
   id: id(),
   name: text('name').notNull(),
   stripeCustomerId: text('stripe_customer_id'),
+  /** The card saved at checkout, charged automatically for monthly tuition. */
+  stripePaymentMethodId: text('stripe_payment_method_id'),
   /** Where the family came from: signed up on the site, or imported from Studio Director. */
   source: text('source').notNull().default('portal'),
   createdAt: created(),
@@ -133,6 +135,9 @@ export const student = pgTable(
 
 // ───────────── Orders & enrollments ─────────────
 
+/** A future automatic charge, agreed to at checkout (see Installment in src/lib/pricing.ts). */
+export type ScheduledCharge = { dueDate: string; amountCents: number; label: string };
+
 export type OrderLine = {
   kind: 'tuition' | 'fee' | 'discount';
   label: string;
@@ -156,6 +161,8 @@ export const order = pgTable(
     subtotalCents: integer('subtotal_cents').notNull().default(0),
     discountCents: integer('discount_cents').notNull().default(0),
     totalCents: integer('total_cents').notNull().default(0),
+    /** Monthly plan: the charges still to come, locked in when the family confirms. */
+    schedule: jsonb('schedule').$type<ScheduledCharge[]>().notNull().default([]),
     policyVersion: text('policy_version'),
     policyAcceptedAt: timestamp('policy_accepted_at', { withTimezone: true }),
     stripeCheckoutSessionId: text('stripe_checkout_session_id'),
@@ -188,6 +195,42 @@ export const enrollment = pgTable(
     index('enrollment_session_idx').on(t.sessionId),
     index('enrollment_household_idx').on(t.householdId),
     uniqueIndex('enrollment_student_session_idx').on(t.studentId, t.sessionId),
+  ],
+);
+
+/**
+ * Monthly tuition charges after the first month. Created when a monthly order is
+ * paid; charged on the due date by the daily billing run (src/server/billing.ts).
+ */
+export const installment = pgTable(
+  'installment',
+  {
+    id: id(),
+    householdId: text('household_id')
+      .notNull()
+      .references(() => household.id, { onDelete: 'cascade' }),
+    orderId: text('order_id')
+      .notNull()
+      .references(() => order.id, { onDelete: 'cascade' }),
+    sessionId: text('session_id').notNull(),
+    dueDate: date('due_date').notNull(),
+    amountCents: integer('amount_cents').notNull(),
+    label: text('label').notNull(),
+    /** scheduled → processing → paid; or failed (retried, or waiting for the family); or cancelled by staff. */
+    status: text('status', { enum: ['scheduled', 'processing', 'paid', 'failed', 'cancelled'] }).notNull().default('scheduled'),
+    attempts: integer('attempts').notNull().default(0),
+    /** When a failed charge will be tried again. Null = no more automatic tries. */
+    retryOn: date('retry_on'),
+    lastError: text('last_error'),
+    stripePaymentIntentId: text('stripe_payment_intent_id'),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [
+    uniqueIndex('installment_order_due_idx').on(t.orderId, t.dueDate),
+    index('installment_status_due_idx').on(t.status, t.dueDate),
+    index('installment_household_idx').on(t.householdId),
   ],
 );
 
@@ -239,4 +282,10 @@ export const enrollmentRelations = relations(enrollment, ({ one }) => ({
 export const orderRelations = relations(order, ({ one, many }) => ({
   household: one(household, { fields: [order.householdId], references: [household.id] }),
   enrollments: many(enrollment),
+  installments: many(installment),
+}));
+
+export const installmentRelations = relations(installment, ({ one }) => ({
+  household: one(household, { fields: [installment.householdId], references: [household.id] }),
+  order: one(order, { fields: [installment.orderId], references: [order.id] }),
 }));
