@@ -72,6 +72,9 @@ export async function createEmbeddedCheckout(opts: {
     await db.update(schema.household).set({ stripeCustomerId: customer }).where(eq(schema.household.id, opts.householdId));
   }
 
+  // One live checkout per order: if the family went back and changed plans, the old form stops working.
+  if (opts.order.stripeCheckoutSessionId) await s.checkout.sessions.expire(opts.order.stripeCheckoutSessionId).catch(() => {});
+
   const session = await s.checkout.sessions.create({
     ui_mode: 'embedded_page',
     mode: 'payment',
@@ -92,7 +95,11 @@ export async function createEmbeddedCheckout(opts: {
 
 export async function checkoutIsPaid(checkoutSessionId: string) {
   const session = await getStripe().checkout.sessions.retrieve(checkoutSessionId);
-  return { paid: session.payment_status === 'paid', orderId: session.metadata?.orderId };
+  return {
+    paid: session.payment_status === 'paid',
+    orderId: session.metadata?.orderId,
+    payment: { checkoutSessionId: session.id, amountCents: session.amount_total },
+  };
 }
 
 export function testPaymentsAllowed() {

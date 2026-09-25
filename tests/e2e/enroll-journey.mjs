@@ -4,8 +4,9 @@
  * child, fills in details, pays (test mode), and sees it all in their account.
  * Then Hannah signs in and sees the roster.
  *
- * Needs the built server running in development mode:
- *   APP_ENV=development PGLITE_DIR=.data/e2e ADMIN_EMAILS=hannah@example.com npm start
+ * Then a family imported from Studio Director claims their account.
+ *
+ *   npm run build && tests/e2e/serve.sh      # fresh local database + sample import
  *   node tests/e2e/enroll-journey.mjs [baseUrl] [screenshotDir]
  */
 import { chromium } from 'playwright';
@@ -83,6 +84,7 @@ await page.click('button:has-text("Review & pay")');
 
 // 5. Review & pay
 await page.waitForURL(/\/enroll\/review/);
+const orderId = new URL(page.url()).searchParams.get('order');
 await shot('4-review');
 const due = await page.locator('tfoot td').textContent();
 step(`Review shows plans and an itemized total (due today: ${due})`);
@@ -109,14 +111,13 @@ await page.goto(`${BASE}/enroll/yesand-f26-wed`);
 await page.waitForSelector('text=Maya Rivera');
 step('Returning family skips sign-in; saved student is ready to pick');
 
-// 9. Another family can't open this family's order
-const orderUrl = new URL(page.url());
+// 9. Signed-out visitors can't open orders
 await page.goto(`${BASE}/account`);
 const receipts = await page.locator('.receipts tbody tr').count();
 if (receipts < 1) throw new Error('Expected a receipt');
 const other = await browser.newContext();
 const otherPage = await other.newPage();
-const res = await otherPage.goto(`${BASE}/enroll/review?order=does-not-matter`);
+await otherPage.goto(`${BASE}/enroll/review?order=does-not-matter`);
 if (!otherPage.url().endsWith('/account')) throw new Error('Signed-out visitor should be sent to sign in');
 step('Signed-out visitors are sent to sign in instead of seeing orders');
 await other.close();
@@ -134,6 +135,21 @@ await page.waitForSelector('text=Maya Rivera');
 await page.waitForSelector('text=Peanuts');
 await shot('7-roster');
 step('Hannah sees Maya on the roster, with allergies decrypted for staff');
+
+// 11. A different signed-in family (even staff) can't open the Riveras' order
+await page.goto(`${BASE}/enroll/confirmation?order=${orderId}`);
+if (!page.url().endsWith('/account')) throw new Error(`Another household opened order ${orderId}`);
+step('Another signed-in family is turned away from this family’s order');
+
+// 12. A family imported from Studio Director claims their account with a code
+await page.context().clearCookies();
+await page.goto(`${BASE}/account`);
+await signIn('ana.okafor@example.com');
+await page.waitForSelector('text=Zara Okafor');
+await page.waitForSelector('text=Theo Okafor');
+if (await page.locator('#p-name').count()) throw new Error('Imported parent should not be asked for their name again');
+await shot('8-imported-family');
+step('Imported Studio Director family signs in and finds their students waiting');
 
 await browser.close();
 console.log('\nAll journey checks passed.');

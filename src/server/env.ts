@@ -36,6 +36,8 @@ export const config = {
 
   resendApiKey: env.RESEND_API_KEY ?? '',
   emailFrom: env.EMAIL_FROM ?? 'Little Characters <hello@littlecharacters.org>',
+  /** Where replies to our emails go. */
+  emailReplyTo: env.EMAIL_REPLY_TO ?? 'littlecharacterstheater@gmail.com',
 };
 
 /** Payments run through Stripe when keys are present; otherwise a local test stand-in (never in production). */

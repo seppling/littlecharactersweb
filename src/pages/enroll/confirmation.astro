@@ -21,8 +21,8 @@ if (!household || !o) return Astro.redirect('/account');
 // Returning from Stripe: confirm the payment (the webhook may not have landed yet).
 const checkoutId = Astro.url.searchParams.get('checkout');
 if (o.status !== 'paid' && checkoutId && paymentsMode === 'stripe') {
-  const { paid, orderId: paidOrder } = await checkoutIsPaid(checkoutId);
-  if (paid && paidOrder === o.id) o = await fulfillOrder(o.id, user.id, checkoutId);
+  const { paid, orderId: paidOrder, payment } = await checkoutIsPaid(checkoutId);
+  if (paid && paidOrder === o.id) o = await fulfillOrder(o.id, user.id, payment);
 }
 if (o.status !== 'paid') return Astro.redirect(`/enroll/review?order=${o.id}`);
 

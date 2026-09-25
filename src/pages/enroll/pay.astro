@@ -7,7 +7,7 @@ import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
 import { config } from '@/server/env';
 import { findSession, fulfillOrder, getOrder, householdForUser } from '@/server/family';
-import { createEmbeddedCheckout, paymentsMode, testPaymentsAllowed } from '@/server/payments';
+import { checkoutIsPaid, createEmbeddedCheckout, paymentsMode, testPaymentsAllowed } from '@/server/payments';
 import { formatCents } from '@/lib/pricing';
 
 export const prerender = false;
@@ -31,6 +31,14 @@ if (Astro.request.method === 'POST') {
 let clientSecret = '';
 let error = '';
 if (paymentsMode === 'stripe') {
+  // Paid in another tab and the webhook hasn't landed yet? Don't show a second card form.
+  if (o.stripeCheckoutSessionId) {
+    const prior = await checkoutIsPaid(o.stripeCheckoutSessionId).catch(() => null);
+    if (prior?.paid && prior.orderId === o.id) {
+      await fulfillOrder(o.id, user.id, prior.payment);
+      return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
+    }
+  }
   try {
     clientSecret = await createEmbeddedCheckout({
       order: o,

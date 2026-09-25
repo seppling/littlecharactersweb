@@ -14,7 +14,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/db-migrate.mjs",
     "test": "vitest run",
-    "import:studio-director": "node --experimental-strip-types scripts/import-studio-director.ts"
+    "import:studio-director": "tsx scripts/import-studio-director.ts",
+    "invite:imported": "tsx scripts/invite-imported-families.ts"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.6",
@@ -36,6 +37,7 @@
     "drizzle-kit": "^0.31.11",
     "node-html-parser": "^9.0.4",
     "playwright": "^1.56.1",
+    "tsx": "^4.23.15",
     "turndown": "^7.2.4",
     "typescript": "^6.0.3",
     "vitest": "^5.0.1"

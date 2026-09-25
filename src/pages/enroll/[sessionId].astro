@@ -79,9 +79,10 @@ if (user && Astro.request.method === 'POST') {
 const needsProfile = !!user && !user.name?.trim();
 const household = user && !needsProfile ? await ensureHousehold(user) : null;
 const students = household ? await listStudents(household.id) : [];
-const enrolledHere = household
-  ? new Set((await listEnrollments(household.id)).filter((r) => r.enrollment.sessionId === session.id).map((r) => r.student.id))
-  : new Set<string>();
+// Enrolled or waitlisted students can't be picked again; after a free trial they can continue.
+const statusHere = new Map(
+  household ? (await listEnrollments(household.id)).filter((r) => r.enrollment.sessionId === session.id).map((r) => [r.student.id, r.enrollment.status]) : [],
+);
 const added = Astro.url.searchParams.get('added');
 const cap = capacityFor(program, session);
 const full = cap !== undefined && (await takenSpots(session.id)) >= cap;
@@ -131,7 +132,8 @@ const comingSoon = session.status === 'coming-soon';
                 {students.map((s) => {
                   const age = ageOn(s.birthdate);
                   const fits = fitsAges(program, age);
-                  const already = enrolledHere.has(s.id);
+                  const status = statusHere.get(s.id);
+                  const already = status === 'active' || status === 'waitlist';
                   return (
                     <label class:list={['pick', { 'pick--off': already }]}>
                       <input type="checkbox" name="studentId" value={s.id} disabled={already} checked={!already && (s.id === added || students.length === 1)} />
@@ -139,7 +141,7 @@ const comingSoon = session.status === 'coming-soon';
                         <strong>{s.firstName} {s.lastName}</strong>
                         <span class="pick__meta">
                           {age !== null ? `Age ${age}` : 'Age not set'}
-                          {already ? <span class="badge badge--ok">Already enrolled</span> : fits ? <span class="badge badge--ok">Fits {ageLabel(program.ages, program.agesLabel).toLowerCase()}</span> : <span class="badge badge--warn">Outside {ageLabel(program.ages, program.agesLabel).toLowerCase()}</span>}
+                          {already ? <span class="badge badge--ok">{status === 'waitlist' ? 'On the waitlist' : 'Already enrolled'}</span> : status === 'trial' ? <span class="badge badge--ok">Trial class taken · continue</span> : fits ? <span class="badge badge--ok">Fits {ageLabel(program.ages, program.agesLabel).toLowerCase()}</span> : <span class="badge badge--warn">Outside {ageLabel(program.ages, program.agesLabel).toLowerCase()}</span>}
                         </span>
                       </span>
                     </label>

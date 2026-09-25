@@ -13,7 +13,7 @@ import type { Program, Session } from '@/data/types';
 /** Partner-run registration (e.g. a school's own system) always goes to the partner. */
 const isPartner = (url?: string) => !!url && !url.includes('docs.google.com');
 
-export function enrollHref(program: Program, session: Session) {
+export function enrollHref(_program: Program, session: Session) {
   if (isPartner(session.externalUrl)) return session.externalUrl!;
   if (site.portal.mode === 'native') return `${site.portal.native.enroll}/${session.id}`;
   return session.externalUrl ?? site.portal.studioDirector.enroll;

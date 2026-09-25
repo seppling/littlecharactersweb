@@ -123,6 +123,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                       <div class="classes__side">
                         <span class:list={['badge', `badge--${u.enrollment.status}`]}>{statusLabel[u.enrollment.status]}</span>
                         {u.next && <span class="classes__next">Next: {fmtDate(u.next)}</span>}
+                        {u.enrollment.status === 'trial' && <a href={`/enroll/${u.session.id}`}>Continue after the trial</a>}
                         {u.enrollment.status !== 'waitlist' && <a href={`/calendar/${u.session.id}.ics`} download>Add to calendar</a>}
                       </div>
                     </li>
@@ -140,7 +141,9 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                   <li>
                     <strong>{s.firstName} {s.lastName}</strong>
                     <span class="muted">{ageOn(s.birthdate) !== null ? `Age ${ageOn(s.birthdate)}` : ''}</span>
-                    <span class:list={['badge', detailsFresh(s) ? 'badge--active' : 'badge--todo']}>{detailsFresh(s) ? 'Care details on file' : 'Add care details'}</span>
+                    <span class:list={['badge', detailsFresh(s) ? 'badge--active' : 'badge--todo']}>
+                      {detailsFresh(s) ? 'Care details on file' : s.allergiesEnc || s.medicalNotesEnc || s.pickupNotes ? 'Confirm care details' : 'Add care details'}
+                    </span>
                     <a href={`/account/students/${s.id}`}>Edit</a>
                   </li>
                 ))}

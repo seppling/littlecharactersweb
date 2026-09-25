@@ -5,7 +5,7 @@
  * sessions by their stable `sessionId`. Everything family-related lives here.
  */
 import { relations } from 'drizzle-orm';
-import { boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { bigint, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 const id = () => text('id').primaryKey().$defaultFn(() => crypto.randomUUID());
 const created = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
@@ -70,6 +70,14 @@ export const verification = pgTable('verification', {
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: created(),
   updatedAt: updated(),
+});
+
+/** Sign-in rate limits, kept in the database so they hold across server instances and restarts. */
+export const rateLimit = pgTable('rate_limit', {
+  id: text('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  count: integer('count').notNull(),
+  lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
 });
 
 // ───────────── Families ─────────────

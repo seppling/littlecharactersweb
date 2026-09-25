@@ -15,3 +15,6 @@ content/scraped/docs/
 .data/
 imports/
 *.csv
+
+# Fake test data is fine to commit
+!tests/e2e/fixtures/*.csv

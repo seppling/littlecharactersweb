@@ -1,7 +1,7 @@
 /**
  * Pricing engine: turns a program, a session, the chosen students and a
  * payment plan into order lines. Pure functions, no database, so every rule
- * is unit-tested (tests/pricing.test.ts).
+ * is unit-tested (tests/unit/pricing.test.ts).
  *
  * Rules come from the Fall 2026 tuition guidelines:
  *  - Monthly classes: the first month is due at registration; the rest on the
@@ -148,6 +148,11 @@ export function quote(input: QuoteInput): Quote {
     return { plan, lines, subtotalCents: 0, discountCents: 0, totalCents: 0, later, notes };
   }
 
+  if ((price.unit === 'month' || price.unit === 'session') && !meetings(session).some((m) => m >= today)) {
+    notes.push('This class has ended.');
+    return { plan, lines, subtotalCents: 0, discountCents: 0, totalCents: 0, later, notes };
+  }
+
   const isClass = program.kind === 'class';
   const multi = isClass && price.amount > 0 && input.otherClassEnrollments + students.length >= 2;
 
@@ -155,9 +160,7 @@ export function quote(input: QuoteInput): Quote {
   const tuition: { studentId: string; firstName: string; cents: number; label: string }[] = [];
   if (price.unit === 'month') {
     const schedule = monthlySchedule(session, today);
-    if (!schedule.length) {
-      notes.push('This class has ended.');
-    } else if (plan === 'full') {
+    if (plan === 'full') {
       const totalShare = schedule.reduce((a, m) => a + m.share, 0);
       for (const s of students) {
         tuition.push({ studentId: s.id, firstName: s.firstName, cents: cents(price.amount * totalShare), label: `${s.firstName}: ${session.term} tuition (${schedule.length} months)` });

@@ -24,7 +24,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
     const session = event.data.object;
     if (session.payment_status === 'paid' && session.metadata?.orderId) {
-      await fulfillOrder(session.metadata.orderId, null, session.id);
+      await fulfillOrder(session.metadata.orderId, null, { checkoutSessionId: session.id, amountCents: session.amount_total });
     }
   }
   return new Response('ok');

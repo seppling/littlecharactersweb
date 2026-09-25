@@ -25,7 +25,7 @@ async function createAuth() {
     trustedOrigins: [config.siteUrl],
     database: drizzleAdapter(db, {
       provider: 'pg',
-      schema: { user: schema.user, session: schema.session, account: schema.account, verification: schema.verification },
+      schema: { user: schema.user, session: schema.session, account: schema.account, verification: schema.verification, rateLimit: schema.rateLimit },
     }),
     user: {
       additionalFields: { phone: { type: 'string', required: false, input: false } },
@@ -39,10 +39,12 @@ async function createAuth() {
     },
     rateLimit: {
       enabled: true,
+      // In Postgres, not memory: limits hold on serverless hosts with many instances.
+      storage: 'database',
       window: 60,
       max: 60,
       customRules: {
-        '/email-otp/send-verification-otp': { window: 60, max: 3 },
+        '/email-otp/send-verification-otp': { window: 60, max: 5 },
         '/sign-in/email-otp': { window: 60, max: 10 },
       },
     },

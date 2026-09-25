@@ -6,7 +6,9 @@ A running checklist for the new site and family portal. Check items off in a com
 
 - [x] **Design direction:** keep "House Lights & Spike Tape" (bright rehearsal room, spike-tape labels, the logo's four colors).
 - [x] **Pricing conflicts on the old site:** default to the monthly price. Geode Acting Studio is now $95/month + $30 performance fee.
-- [x] **Phase 2:** build our own family portal on the same site (see `portal-phase-2.md` and `infrastructure.md`).
+- [x] **Phase 2:** build our own family portal on the same site. Built: sign-in by emailed code, enrollment, Stripe checkout, dashboard, staff rosters (`portal.md`).
+- [x] **Studio Director data:** import families and students, then send a one-time "your account is ready" email (`portal.md` → Moving families over).
+- [x] **Stack:** Netlify (or Vercel) + Neon Postgres + Better Auth (logins in our own database) + Resend + Stripe (`infrastructure.md`, `security.md`).
 
 ## Hannah: content gaps
 
@@ -29,10 +31,33 @@ A running checklist for the new site and family portal. Check items off in a com
 - [ ] Point littlecharacters.org at the new host, then cancel Squarespace after a quiet month.
 - [ ] Delete the stray `/services` interior-design demo page on the old site in the meantime.
 
-## Phase 2: family portal
+## Family portal
 
-- [ ] Add Stripe **test** keys as environment variables (`STRIPE_SECRET_KEY`, `PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`) and run through a test enrollment.
-- [ ] Export families, students and enrollments from Studio Director as CSV and run the import (`npm run import:studio-director`). Keep the CSVs out of git.
-- [ ] Decide the billing details still open: monthly auto-draft vs pay-as-you-go, refund/transfer wording, camp payment plans, early access for returning families.
-- [ ] Write the privacy policy and terms (templates are linked in `security.md`).
-- [ ] Soft launch with a handful of families for one billing cycle, then switch `site.portal.mode` to `'native'`.
+Setup (Stephen):
+- [ ] Add Stripe **test** keys as environment variables in the Claude Code environment settings, never in chat: `STRIPE_SECRET_KEY`, `PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`. Then run a test enrollment with card 4242 4242 4242 4242.
+- [ ] Create Netlify, Neon and Resend accounts; set the environment variables; run `npm run db:migrate`; verify the email domain (`infrastructure.md` → Setting it up).
+- [ ] In GitHub repo settings, turn on Dependabot alerts and secret scanning.
+- [ ] Store `DATA_ENCRYPTION_KEY` and the other secrets in a password manager.
+
+Decisions (together):
+- [ ] Months 2+ of tuition: automatic charge on the 1st (Stripe subscription or invoice), or families pay from their account?
+- [ ] Keep the $15 late fee and "paused after the 15th"? Keep or drop payment-method surcharges (we suggest dropping them)?
+- [ ] Refund, transfer and withdrawal wording for the policy checkbox (`POLICY_VERSION` in `src/server/family.ts`).
+- [ ] Should performance/materials fees be charged at registration (current) or on Oct 1?
+- [ ] Class capacity per session (default 20), and whether the free first class applies to every Little Characters class.
+- [ ] Camp payment plans (deposit + installments)? Early access for returning families?
+
+Migration (Hannah + Stephen):
+- [ ] Export families and students from Studio Director as CSV into `imports/` (git-ignored).
+- [ ] Preview, then import: `npm run import:studio-director -- imports/*.csv`, then again with `--commit`. Delete the CSVs.
+- [ ] Send invitations in batches: `npm run invite:imported -- --send 50`.
+- [ ] Write the privacy policy and terms (starting points in `security.md`).
+
+Launch:
+- [ ] Soft launch with a handful of families on Stripe live keys for one billing cycle. `site.portal.mode` is already `'native'`; set it to `'studio-director'` if the site goes live before the portal does.
+- [ ] Run Studio Director and the portal side by side for one term, then cancel Studio Director.
+
+Next features (after launch):
+- [ ] Move the class catalog into the database with an admin editor, so a new term doesn't need a deploy.
+- [ ] Waitlist offers by email, reminders before the first class, "sign out everywhere", optional passkeys.
+- [ ] Keystatic editor for FAQs, team and events, if Hannah wants to edit copy herself.

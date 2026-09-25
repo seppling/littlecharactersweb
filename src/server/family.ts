@@ -199,8 +199,10 @@ export async function priceOrder(householdId: string, o: typeof order.$inferSele
   const alreadyIn = new Set(history.filter((r) => r.enrollment.sessionId === o.sessionId).map((r) => r.student.id));
   const newStudents = students.every((s) => !history.some((r) => r.student.id === s.id && r.enrollment.status !== 'waitlist'));
 
+  // A student converting from a free trial already holds their spot.
+  const holding = new Set(history.filter((r) => r.enrollment.sessionId === o.sessionId && r.enrollment.status === 'trial').map((r) => r.student.id));
   const cap = capacityFor(program, session);
-  const full = cap !== undefined && (await takenSpots(o.sessionId)) + students.length > cap;
+  const full = cap !== undefined && (await takenSpots(o.sessionId)) + students.filter((s) => !holding.has(s.id)).length > cap;
   const plans = availablePlans(program, session, { newStudents, full });
   const plan = requestedPlan && plans.includes(requestedPlan) ? requestedPlan : plans.includes('monthly') ? 'monthly' : plans[0];
 
@@ -241,33 +243,50 @@ export async function confirmOrder(householdId: string, orderId: string, plan: P
   return (await getOrder(householdId, orderId))!;
 }
 
+export type Payment = { checkoutSessionId: string; amountCents: number | null };
+
 /**
- * Mark an order paid and create enrollments. Idempotent: the Stripe webhook and
- * the confirmation page may both call it.
+ * Mark an order paid and create enrollments. Idempotent and race-safe: the
+ * Stripe webhook and the confirmation page may both call it at once, and only
+ * one of them enrolls and sends the email.
+ *
+ * A Stripe payment only counts if it's for exactly the order's total, so an
+ * old checkout from before the family changed plans can't complete a pricier one.
  */
-export async function fulfillOrder(orderId: string, userId: string | null, stripeCheckoutSessionId?: string) {
+export async function fulfillOrder(orderId: string, userId: string | null, payment?: Payment) {
   const db = await getDb();
   const [o] = await db.select().from(order).where(eq(order.id, orderId));
   if (!o) throw new Error('Order not found');
   if (o.status === 'paid') return o;
+  if (o.status !== 'pending_payment') throw new Error('Order is not ready for payment');
+  if (payment && payment.amountCents !== o.totalCents) {
+    await audit(userId, 'order.amount_mismatch', 'order', o.id);
+    console.error(`Order ${o.id}: Stripe checkout ${payment.checkoutSessionId} paid ${payment.amountCents}¢ but the order is ${o.totalCents}¢. Not enrolling; reconcile in Stripe.`);
+    return o;
+  }
   const found = findSession(o.sessionId);
   if (!found) throw new Error('Unknown session');
 
   const status = o.plan === 'waitlist' ? 'waitlist' : o.plan === 'trial' ? 'trial' : 'active';
-  await db.transaction(async (tx) => {
+  const won = await db.transaction(async (tx) => {
+    // Whoever flips the status first does the work; a concurrent call finds nothing to update.
+    const [claimed] = await tx
+      .update(order)
+      .set({ status: 'paid', paidAt: new Date(), stripeCheckoutSessionId: payment?.checkoutSessionId ?? o.stripeCheckoutSessionId })
+      .where(and(eq(order.id, o.id), ne(order.status, 'paid')))
+      .returning({ id: order.id });
+    if (!claimed) return false;
     for (const studentId of o.studentIds) {
       await tx
         .insert(enrollment)
         .values({ householdId: o.householdId, studentId, sessionId: o.sessionId, programSlug: found.program.slug, status, orderId: o.id })
         .onConflictDoUpdate({ target: [enrollment.studentId, enrollment.sessionId], set: { status, orderId: o.id } });
     }
-    await tx
-      .update(order)
-      .set({ status: 'paid', paidAt: new Date(), stripeCheckoutSessionId: stripeCheckoutSessionId ?? o.stripeCheckoutSessionId })
-      .where(eq(order.id, o.id));
+    return true;
   });
-  await audit(userId, o.totalCents > 0 ? 'order.paid' : 'order.confirmed', 'order', o.id);
   const [done] = await db.select().from(order).where(eq(order.id, orderId));
+  if (!won) return done;
+  await audit(userId, o.totalCents > 0 ? 'order.paid' : 'order.confirmed', 'order', o.id);
   await sendOrderConfirmation(done).catch((e) => console.error('Confirmation email failed', e));
   return done;
 }
