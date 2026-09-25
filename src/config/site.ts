@@ -36,7 +36,9 @@ export const site = {
    * at our own /enroll and /account routes; no page templates change.
    */
   portal: {
-    mode: 'studio-director' as 'studio-director' | 'native',
+    // 'native' = our own family portal (/enroll, /account). Switch back to
+    // 'studio-director' to send families to Studio Director instead.
+    mode: 'native' as 'studio-director' | 'native',
     // The live MyStudioDirector portal, as linked from the current Fall 2026 classes page.
     studioDirector: {
       login: 'https://app.thestudiodirector.com/littlecharacterstheater/portal.sd',

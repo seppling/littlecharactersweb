@@ -11,3 +11,7 @@ dist/
 content/scraped/pages/*.json
 content/scraped/images/
 content/scraped/docs/
+# Local database (embedded PGlite) and imports that contain family data
+.data/
+imports/
+*.csv

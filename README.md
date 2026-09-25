@@ -6,7 +6,8 @@ The new website for [Little Characters Theater Troupe](https://www.littlecharact
 - **Docs:**
   - [`docs/research.md`](docs/research.md): exemplar sites and the patterns we took from them.
   - [`docs/content-inventory.md`](docs/content-inventory.md): what was migrated and what still needs Hannah's input.
-  - [`docs/portal-phase-2.md`](docs/portal-phase-2.md): how the site connects to the future portal.
+  - [`docs/portal-phase-2.md`](docs/portal-phase-2.md): how the site connects to the family portal.
+  - [`docs/todo.md`](docs/todo.md): decisions made and what's left to do.
 
 ## Run it
 

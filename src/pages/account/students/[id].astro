@@ -1,0 +1,73 @@
+---
+/** Edit a student's basics and care details. */
+import { and, eq } from 'drizzle-orm';
+import Base from '@/layouts/Base.astro';
+import { getDb, schema } from '@/server/db';
+import { getStudent, householdForUser, readStudentNotes, studentDetailsInput, studentInput, updateStudentDetails, audit } from '@/server/family';
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/account');
+const household = await householdForUser(user.id);
+const s = household ? await getStudent(household.id, Astro.params.id ?? '') : null;
+if (!household || !s) return new Response('Not found', { status: 404 });
+
+const errors: Record<string, string> = {};
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const v = Object.fromEntries([...form.entries()].map(([k, val]) => [k, String(val)]));
+  const basics = studentInput.safeParse(v);
+  const details = studentDetailsInput.safeParse({ ...v, photoConsent: v.photo === 'yes' ? true : v.photo === 'no' ? false : undefined });
+  if (basics.success && details.success) {
+    const db = await getDb();
+    await db
+      .update(schema.student)
+      .set(basics.data)
+      .where(and(eq(schema.student.id, s.id), eq(schema.student.householdId, household.id)));
+    await updateStudentDetails(household.id, s.id, details.data, user.id);
+    await audit(user.id, 'student.update', 'student', s.id);
+    return Astro.redirect('/account#students', 303);
+  }
+  for (const i of [...(basics.error?.issues ?? []), ...(details.error?.issues ?? [])]) errors[String(i.path[0])] = i.message;
+}
+const notes = readStudentNotes(s);
+---
+
+<Base title={`${s.firstName}'s details`} noindex>
+  <section class="edit">
+    <div class="wrap wrap--narrow">
+      <a href="/account">← Your family account</a>
+      <form method="post" class="card">
+        <h1>{s.firstName}’s details</h1>
+        <div class="row">
+          <div class="field"><label for="f">First name</label><input id="f" name="firstName" required value={s.firstName} /></div>
+          <div class="field"><label for="l">Last name</label><input id="l" name="lastName" required value={s.lastName} /></div>
+          <div class="field"><label for="b">Birthday</label><input id="b" name="birthdate" type="date" required value={s.birthdate ?? ''} /></div>
+        </div>
+        {(errors.firstName || errors.lastName || errors.birthdate) && <p class="error">{errors.firstName || errors.lastName || errors.birthdate}</p>}
+        <div class="field"><label for="a">Allergies</label><input id="a" name="allergies" value={notes.allergies} /></div>
+        <div class="field"><label for="m">Medical notes or support needs</label><textarea id="m" name="medicalNotes" rows="3">{notes.medicalNotes}</textarea></div>
+        <div class="field"><label for="p">Who else may pick up?</label><input id="p" name="pickupNotes" value={s.pickupNotes ?? ''} /></div>
+        <fieldset class="field">
+          <legend>Photos</legend>
+          <label><input type="radio" name="photo" value="yes" checked={s.photoConsent === true} /> OK to share photos online</label>
+          <label><input type="radio" name="photo" value="no" checked={s.photoConsent === false} /> Please don’t share photos</label>
+          {errors.photoConsent && <p class="error">Choose a photo preference.</p>}
+        </fieldset>
+        <button class="btn btn--primary" type="submit">Save</button>
+      </form>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .edit { padding-block: var(--space-2xl) var(--space-3xl); background: var(--hall); }
+  .card { display: grid; gap: var(--space-m); margin-top: var(--space-m); padding: var(--space-xl); background: var(--paper); border-radius: var(--r-lg); }
+  .card .btn { justify-self: start; }
+  .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-m); }
+  fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 0.4rem; }
+  legend { font-weight: 650; font-size: var(--step--1); }
+  .error { color: var(--red-ink); font-weight: 600; font-size: var(--step--1); }
+  @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+</style>

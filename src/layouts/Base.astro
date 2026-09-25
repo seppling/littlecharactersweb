@@ -9,9 +9,11 @@ interface Props {
   description?: string;
   /** Pages that paint their own first band set this to skip the default top spacing. */
   bleed?: boolean;
+  /** Keep portal pages out of search engines. */
+  noindex?: boolean;
 }
 
-const { title, description = site.description } = Astro.props;
+const { title, description = site.description, noindex = false } = Astro.props;
 const fullTitle = title ? `${title} · ${site.shortName}` : `${site.name} · Athens, GA`;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
 ---
@@ -24,6 +26,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#ffffff" />

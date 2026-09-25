@@ -1,0 +1,132 @@
+---
+/** Enrollment step 3: choose how to pay, see exactly what's due today and later. */
+import Base from '@/layouts/Base.astro';
+import EnrollShell from '@/components/portal/EnrollShell.astro';
+import { confirmOrder, getOrder, householdForUser, priceOrder } from '@/server/family';
+import { formatCents, type Plan } from '@/lib/pricing';
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/account');
+const household = await householdForUser(user.id);
+const orderId = Astro.url.searchParams.get('order') ?? '';
+const o = household ? await getOrder(household.id, orderId) : null;
+if (!household || !o) return Astro.redirect('/account');
+if (o.status === 'paid') return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
+if (!o.policyAcceptedAt) return Astro.redirect(`/enroll/details?order=${o.id}`);
+
+let error = '';
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  try {
+    const confirmed = await confirmOrder(household.id, o.id, String(form.get('plan')) as Plan, user.id);
+    return Astro.redirect(confirmed.status === 'paid' ? `/enroll/confirmation?order=${o.id}` : `/enroll/pay?order=${o.id}`, 303);
+  } catch (e) {
+    error = (e as Error).message;
+  }
+}
+
+const requested = (Astro.url.searchParams.get('plan') ?? undefined) as Plan | undefined;
+const priced = await priceOrder(household.id, o, requested);
+const options = await Promise.all(priced.plans.map(async (p) => ({ plan: p, q: (await priceOrder(household.id, o, p)).quote })));
+
+const planCopy: Record<Plan, { title: string; body: (total: string) => string }> = {
+  trial: { title: 'Try the first class free', body: () => 'Nothing due today. Decide after the class.' },
+  monthly: { title: 'Pay monthly', body: (t) => `${t} today, then on the 1st of each month.` },
+  full: { title: 'Pay the semester in full', body: (t) => `${t} today, 10% off, and you’re done.` },
+  once: { title: 'Pay now', body: (t) => `${t} today.` },
+  waitlist: { title: 'Join the waitlist', body: () => 'Nothing due now. We’ll email you if a spot opens.' },
+};
+const q = priced.quote;
+const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents === 0 ? 'Confirm enrollment' : `Pay ${formatCents(q.totalCents)}`;
+---
+
+<Base title={`Enroll: ${priced.program.title}`} noindex>
+  <EnrollShell step={3} program={priced.program} session={priced.session}>
+    <h1>Review & pay</h1>
+    <p class="lede">
+      Enrolling {priced.students.map((s) => s.firstName).join(' and ')} in {priced.program.title}.
+    </p>
+
+    {
+      options.length > 1 && (
+        <form method="get" class="plans" data-plans>
+          <input type="hidden" name="order" value={o.id} />
+          <fieldset>
+            <legend>How would you like to pay?</legend>
+            {options.map(({ plan, q: pq }) => (
+              <label class="plan">
+                <input type="radio" name="plan" value={plan} checked={plan === priced.plan} />
+                <span class="plan__body">
+                  <strong>{planCopy[plan].title}</strong>
+                  <span>{planCopy[plan].body(formatCents(pq.totalCents))}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <noscript><button class="btn btn--outline btn--sm" type="submit">Update</button></noscript>
+        </form>
+      )
+    }
+
+    <table class="bill">
+      <caption class="sr-only">Due today</caption>
+      <tbody>
+        {
+          q.lines.map((l) => (
+            <tr class:list={[l.kind]}>
+              <th scope="row">{l.label}</th>
+              <td>{l.amountCents < 0 ? `−${formatCents(-l.amountCents)}` : formatCents(l.amountCents)}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">Due today</th>
+          <td>{formatCents(q.totalCents)}</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    {q.later.length > 0 && <ul class="later">{q.later.map((l) => <li>{l}</li>)}</ul>}
+    {q.notes.length > 0 && <ul class="notes">{q.notes.map((n) => <li>{n}</li>)}</ul>}
+    {error && <p class="error" role="alert">{error}</p>}
+
+    <form method="post" class="pay">
+      <input type="hidden" name="plan" value={priced.plan} />
+      <a class="back" href={`/enroll/details?order=${o.id}`}>← Back</a>
+      <button class="btn btn--primary" type="submit">{payLabel} <span class="arrow" aria-hidden="true">→</span></button>
+    </form>
+    <p class="fine">Card payments are processed securely by Stripe. We never see or store your card number.</p>
+  </EnrollShell>
+</Base>
+
+<script>
+  document.querySelector<HTMLFormElement>('[data-plans]')?.addEventListener('change', (e) => {
+    (e.currentTarget as HTMLFormElement).requestSubmit();
+  });
+</script>
+
+<style>
+  h1 { font-size: var(--step-3); }
+  .plans fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+  .plans legend { font-weight: 700; margin-bottom: 0.4rem; }
+  .plan { position: relative; display: block; cursor: pointer; }
+  .plan input { position: absolute; left: 1rem; top: 1.1rem; width: 1.15rem; height: 1.15rem; accent-color: var(--purple); }
+  .plan__body { display: grid; gap: 0.15rem; padding: 0.85rem 1rem 0.85rem 2.9rem; border: 2px solid var(--line-strong); border-radius: var(--r-md); }
+  .plan__body span { color: var(--ink-soft); font-size: var(--step--1); }
+  .plan:has(input:checked) .plan__body { border-color: var(--ink); background: var(--gel-tint); }
+  .bill { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .bill th, .bill td { padding: 0.65rem 0; border-bottom: 1px solid var(--line); text-align: left; font-weight: 400; }
+  .bill td { text-align: right; white-space: nowrap; }
+  .bill tr.discount th, .bill tr.discount td { color: var(--ok); }
+  .bill tr.fee th { color: var(--ink-soft); }
+  .bill tfoot th, .bill tfoot td { font-family: var(--font-display); font-weight: 800; font-size: var(--step-1); border-bottom: 0; border-top: 2px solid var(--ink); }
+  .later, .notes { margin: 0; padding-left: 1.2rem; color: var(--ink-soft); display: grid; gap: 0.3rem; font-size: var(--step--1); }
+  .later li::marker { content: '→ '; }
+  .pay { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+  .error { color: var(--red-ink); font-weight: 600; }
+  .fine { font-size: var(--step--2); color: var(--ink-mute); }
+</style>

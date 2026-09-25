@@ -1,0 +1,90 @@
+---
+/**
+ * Frame for every enrollment step: progress across the top, the class being
+ * booked on the side, so families always know where they are and what they're buying.
+ */
+import type { Program, Session } from '@/data/types';
+import { locationById } from '@/data/locations';
+import { ageLabel, dateRange, dayList, feeLabel, price, timeRange } from '@/lib/format';
+
+interface Props {
+  step: 1 | 2 | 3 | 4;
+  program: Program;
+  session: Session;
+}
+const { step, program, session } = Astro.props;
+const loc = locationById(session.locationId);
+const steps = ['Who’s coming', 'Details', 'Review & pay', 'Done'];
+---
+
+<section class="enroll-shell" data-gel={program.gel}>
+  <div class="wrap">
+    <ol class="steps" aria-label="Enrollment progress">
+      {
+        steps.map((label, i) => (
+          <li aria-current={step === i + 1 ? 'step' : undefined} class:list={{ done: i + 1 < step }}>
+            <span class="steps__num">{i + 1 < step ? '✓' : i + 1}</span>
+            <span class="steps__label">{label}</span>
+          </li>
+        ))
+      }
+    </ol>
+
+    <div class="enroll-shell__grid">
+      <div class="enroll-shell__main">
+        <slot />
+      </div>
+      <aside class="selection" aria-label="Your selection">
+        <span class="tape">{ageLabel(program.ages, program.agesLabel)}</span>
+        <h2>{program.title}</h2>
+        <dl>
+          <div><dt>When</dt><dd class="script">{session.label ?? dayList(session.days)} · {timeRange(session.start, session.end)}</dd></div>
+          <div><dt>Dates</dt><dd>{session.startDate === session.endDate ? session.term : dateRange(session.startDate, session.endDate)}</dd></div>
+          {loc && <div><dt>Where</dt><dd>{loc.name}</dd></div>}
+          <div><dt>Tuition</dt><dd>{price(session.price ?? program.priceFrom)} {program.fee && <span class="muted">{feeLabel(program.fee)}</span>}</dd></div>
+          {session.teacher && <div><dt>Teacher</dt><dd>{session.teacher}</dd></div>}
+        </dl>
+        <a class="selection__change" href={`/programs/${program.slug}`}>Change class</a>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<style>
+  .enroll-shell { padding-block: var(--space-xl) var(--space-3xl); background: linear-gradient(180deg, var(--gel-tint), var(--paper) 320px); }
+  .steps { list-style: none; margin: 0 0 var(--space-xl); padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+  .steps li { display: flex; align-items: center; gap: 0.5rem; color: var(--ink-mute); font-weight: 600; }
+  .steps__num {
+    display: grid; place-items: center;
+    width: 2rem; height: 2rem; border-radius: 50%;
+    border: 2px solid var(--line-strong); background: var(--paper);
+    font-family: var(--font-display); font-weight: 800;
+  }
+  .steps li[aria-current='step'] { color: var(--ink); }
+  .steps li[aria-current='step'] .steps__num { background: var(--purple); border-color: var(--purple); color: #fff; }
+  .steps li.done .steps__num { background: var(--ok-tint); border-color: var(--ok); color: var(--ok); }
+  .enroll-shell__grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--space-2xl); align-items: start; }
+  .enroll-shell__main {
+    display: grid; gap: var(--space-l);
+    padding: var(--space-xl);
+    background: var(--paper);
+    border: 1.5px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-card);
+  }
+  .selection { position: sticky; top: 96px; display: grid; gap: 0.6rem; padding: var(--space-l); background: var(--paper); border: 2px solid var(--ink); border-radius: var(--r-lg); box-shadow: 6px 6px 0 var(--gel); }
+  .selection .tape { --tape: var(--gel); }
+  .selection h2 { font-size: var(--step-2); }
+  .selection dl { margin: 0; display: grid; gap: 0.45rem; }
+  .selection dt { font-family: var(--font-script); font-weight: 700; font-size: var(--step--2); text-transform: uppercase; color: var(--gel-ink); }
+  .selection dd { margin: 0; font-size: var(--step--1); }
+  .muted { color: var(--ink-mute); }
+  .selection__change { font-size: var(--step--1); }
+  @media (max-width: 900px) {
+    .enroll-shell__grid { grid-template-columns: 1fr; }
+    .selection { position: static; order: -1; box-shadow: 4px 4px 0 var(--gel); }
+    .enroll-shell__main { padding: var(--space-l); }
+    .steps__label { display: none; }
+    .steps li[aria-current='step'] .steps__label { display: inline; }
+  }
+</style>

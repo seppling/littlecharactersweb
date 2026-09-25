@@ -1,0 +1,126 @@
+---
+/** Enrollment step 2: care details for each student (asked once, then confirmed yearly) and one policy checkbox. */
+import { eq } from 'drizzle-orm';
+import Base from '@/layouts/Base.astro';
+import EnrollShell from '@/components/portal/EnrollShell.astro';
+import { getDb, schema } from '@/server/db';
+import { detailsFresh, findSession, getOrder, householdForUser, listStudents, readStudentNotes, studentDetailsInput, updateStudentDetails } from '@/server/family';
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/account');
+const household = await householdForUser(user.id);
+const orderId = Astro.url.searchParams.get('order') ?? '';
+const o = household ? await getOrder(household.id, orderId) : null;
+if (!household || !o || o.status === 'paid') return Astro.redirect('/account');
+const found = findSession(o.sessionId)!;
+
+const students = (await listStudents(household.id)).filter((s) => o.studentIds.includes(s.id));
+const errors: Record<string, string> = {};
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (form.get('policies') !== 'on') errors.policies = 'Please agree to the policies to continue.';
+  const parsedAll = students.map((s) => ({
+    s,
+    parsed: studentDetailsInput.safeParse({
+      allergies: String(form.get(`allergies-${s.id}`) ?? ''),
+      medicalNotes: String(form.get(`medical-${s.id}`) ?? ''),
+      pickupNotes: String(form.get(`pickup-${s.id}`) ?? ''),
+      photoConsent: form.get(`photo-${s.id}`) === 'yes' ? true : form.get(`photo-${s.id}`) === 'no' ? false : undefined,
+    }),
+  }));
+  for (const { s, parsed } of parsedAll) if (!parsed.success) errors[s.id] = 'Choose a photo preference.';
+
+  if (!Object.keys(errors).length) {
+    for (const { s, parsed } of parsedAll) if (parsed.success) await updateStudentDetails(household.id, s.id, parsed.data, user.id);
+    const db = await getDb();
+    await db.update(schema.order).set({ policyAcceptedAt: new Date() }).where(eq(schema.order.id, o.id));
+    return Astro.redirect(`/enroll/review?order=${o.id}`, 303);
+  }
+}
+---
+
+<Base title={`Enroll: ${found.program.title}`} noindex>
+  <EnrollShell step={2} program={found.program} session={found.session}>
+    <form method="post" class="form">
+      <h1>A few details</h1>
+      <p class="lede">So teachers can take good care of everyone. You only fill this in once; we’ll ask you to confirm it each year.</p>
+
+      {
+        students.map((s) => {
+          const notes = readStudentNotes(s);
+          const fresh = detailsFresh(s);
+          return (
+            <fieldset class="kid">
+              <legend>{s.firstName} {s.lastName}</legend>
+              {fresh && <p class="fresh">✓ On file from before. Update anything that’s changed.</p>}
+              <div class="field">
+                <label for={`allergies-${s.id}`}>Allergies <span class="opt">optional</span></label>
+                <input id={`allergies-${s.id}`} name={`allergies-${s.id}`} value={notes.allergies} placeholder="e.g. peanuts, bee stings" />
+              </div>
+              <div class="field">
+                <label for={`medical-${s.id}`}>Medical notes or support needs <span class="opt">optional</span></label>
+                <textarea id={`medical-${s.id}`} name={`medical-${s.id}`} rows="3" placeholder="Anything that helps us support your child, including sensory needs. Ask us about a 1:1 class buddy.">{notes.medicalNotes}</textarea>
+                <p class="hint">Stored encrypted and only visible to teaching staff.</p>
+              </div>
+              <div class="field">
+                <label for={`pickup-${s.id}`}>Who else may pick up? <span class="opt">optional</span></label>
+                <input id={`pickup-${s.id}`} name={`pickup-${s.id}`} value={s.pickupNotes ?? ''} placeholder="Name and relationship" />
+              </div>
+              <div class="field">
+                <span class="label">Photos</span>
+                <div class="choices">
+                  <label><input type="radio" name={`photo-${s.id}`} value="yes" checked={s.photoConsent === true} /> OK to share photos of {s.firstName} online</label>
+                  <label><input type="radio" name={`photo-${s.id}`} value="no" checked={s.photoConsent === false} /> Please don’t share photos of {s.firstName}</label>
+                </div>
+                {errors[s.id] && <p class="error">{errors[s.id]}</p>}
+              </div>
+            </fieldset>
+          );
+        })
+      }
+
+      <div class="policies">
+        <h2>The short version of our policies</h2>
+        <ul>
+          <li>Tuition is due on the 1st of each month; payments after the 10th have a $15 late fee.</li>
+          <li>To unenroll, tell us at least 5 days before the next billing date. Missed classes aren’t refunded.</li>
+          <li>Doors lock 5 minutes after class starts; walk late students to the front door.</li>
+        </ul>
+        <p><a href="/faq" target="_blank" rel="noopener">Read the full FAQ and policies</a></p>
+        <label class="agree">
+          <input type="checkbox" name="policies" required />
+          <span>I’ve read and agree to the Little Characters policies.</span>
+        </label>
+        {errors.policies && <p class="error">{errors.policies}</p>}
+      </div>
+
+      <div class="actions">
+        <a class="back" href={`/enroll/${o.sessionId}`}>← Back</a>
+        <button class="btn btn--primary" type="submit">Review & pay <span class="arrow" aria-hidden="true">→</span></button>
+      </div>
+    </form>
+  </EnrollShell>
+</Base>
+
+<style>
+  h1 { font-size: var(--step-3); }
+  .form { display: grid; gap: var(--space-l); }
+  .kid { border: 1.5px solid var(--line); border-radius: var(--r-md); padding: var(--space-l); margin: 0; display: grid; gap: var(--space-m); }
+  .kid legend { font-family: var(--font-display); font-weight: 750; font-size: var(--step-1); padding: 0 0.4rem; }
+  .fresh { color: var(--ok); font-weight: 600; font-size: var(--step--1); }
+  .opt { font-weight: 400; color: var(--ink-mute); }
+  .hint { font-size: var(--step--2); color: var(--ink-mute); }
+  .label { font-weight: 650; font-size: var(--step--1); }
+  .choices { display: grid; gap: 0.4rem; }
+  .choices label { display: flex; gap: 0.5rem; align-items: center; font-weight: 400; }
+  .choices input, .agree input { accent-color: var(--purple); width: 1.1rem; height: 1.1rem; }
+  .policies { display: grid; gap: 0.6rem; padding: var(--space-l); background: var(--hall); border-radius: var(--r-md); }
+  .policies h2 { font-size: var(--step-1); }
+  .policies ul { margin: 0; padding-left: 1.2rem; color: var(--ink-soft); display: grid; gap: 0.3rem; }
+  .agree { display: flex; gap: 0.6rem; align-items: center; font-weight: 600; }
+  .error { color: var(--red-ink); font-size: var(--step--1); font-weight: 600; }
+  .actions { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+</style>

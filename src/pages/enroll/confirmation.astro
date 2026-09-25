@@ -1,0 +1,98 @@
+---
+/** Enrollment step 4: you're in. Everything needed for the first class, in one place. */
+import Base from '@/layouts/Base.astro';
+import EnrollShell from '@/components/portal/EnrollShell.astro';
+import Character from '@/components/Character.astro';
+import { findSession, fulfillOrder, getOrder, householdForUser, listStudents } from '@/server/family';
+import { checkoutIsPaid, paymentsMode } from '@/server/payments';
+import { locationById, parking } from '@/data/locations';
+import { dayList, timeRange } from '@/lib/format';
+import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/account');
+const household = await householdForUser(user.id);
+const orderId = Astro.url.searchParams.get('order') ?? '';
+let o = household ? await getOrder(household.id, orderId) : null;
+if (!household || !o) return Astro.redirect('/account');
+
+// Returning from Stripe: confirm the payment (the webhook may not have landed yet).
+const checkoutId = Astro.url.searchParams.get('checkout');
+if (o.status !== 'paid' && checkoutId && paymentsMode === 'stripe') {
+  const { paid, orderId: paidOrder } = await checkoutIsPaid(checkoutId);
+  if (paid && paidOrder === o.id) o = await fulfillOrder(o.id, user.id, checkoutId);
+}
+if (o.status !== 'paid') return Astro.redirect(`/enroll/review?order=${o.id}`);
+
+const { program, session } = findSession(o.sessionId)!;
+const kids = (await listStudents(household.id)).filter((s) => o!.studentIds.includes(s.id));
+const names = kids.map((k) => k.firstName).join(' and ');
+const loc = locationById(session.locationId);
+const first = meetings(session).find((m) => m >= todayInAthens()) ?? session.startDate;
+const firstDate = new Date(`${first}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
+const waitlist = o.plan === 'waitlist';
+---
+
+<Base title="You’re in!" noindex>
+  <EnrollShell step={4} program={program} session={session}>
+    <div class="done">
+      <div class="done__cast" aria-hidden="true">
+        <Character name="royal" size={70} />
+        <Character name="artist" size={62} />
+        <Character name="magician" size={56} />
+      </div>
+      <h1>{waitlist ? 'You’re on the waitlist.' : 'You’re in!'}</h1>
+      <p class="lede">
+        {waitlist
+          ? `We’ll email you as soon as a spot opens for ${names} in ${program.title}.`
+          : `${names} ${kids.length > 1 ? 'are' : 'is'} enrolled in ${program.title}. We sent a confirmation to ${user.email}.`}
+      </p>
+    </div>
+
+    {
+      !waitlist && (
+        <dl class="facts">
+          <div><dt>First class</dt><dd>{firstDate}</dd></div>
+          <div><dt>Time</dt><dd>{dayList(session.days)}, {timeRange(session.start, session.end)}</dd></div>
+          {loc && <div><dt>Where</dt><dd>{loc.name}<br /><span class="muted">{loc.address.join(', ')}</span></dd></div>}
+          <div><dt>{o.plan === 'trial' ? 'Today' : 'Paid'}</dt><dd>{o.plan === 'trial' ? 'Your first class is free' : formatCents(o.totalCents)}</dd></div>
+        </dl>
+      )
+    }
+
+    {
+      !waitlist && (
+        <div class="actions">
+          <a class="btn btn--primary" href={`/calendar/${session.id}.ics`} download>Add to calendar</a>
+          <a class="btn btn--outline" href="/account">Go to your family account</a>
+        </div>
+      )
+    }
+
+    <div class="bring">
+      <h2>Before the first class</h2>
+      <ul>
+        <li>Wear comfy clothes and closed-toe shoes, and bring a water bottle.</li>
+        <li>{parking.walkIn}</li>
+        <li>{parking.late}</li>
+        {o.plan === 'monthly' && <li>Monthly tuition is due on the 1st. Your card is saved securely with Stripe.</li>}
+      </ul>
+    </div>
+  </EnrollShell>
+</Base>
+
+<style>
+  .done { display: grid; gap: var(--space-s); }
+  .done__cast { display: flex; align-items: flex-end; gap: 0.3rem; }
+  h1 { font-size: var(--step-4); }
+  .facts { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-m); padding: var(--space-l); background: var(--hall); border-radius: var(--r-md); }
+  .facts dt { font-family: var(--font-script); font-weight: 700; font-size: var(--step--2); text-transform: uppercase; color: var(--purple); }
+  .facts dd { margin: 0.2rem 0 0; font-weight: 600; }
+  .muted { color: var(--ink-mute); font-weight: 400; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .bring h2 { font-size: var(--step-1); margin-bottom: 0.5rem; }
+  .bring ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.4rem; color: var(--ink-soft); }
+  @media (max-width: 520px) { .facts { grid-template-columns: 1fr; } }
+</style>

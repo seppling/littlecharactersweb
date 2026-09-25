@@ -362,10 +362,10 @@ export const programs: Program[] = [
     priceFrom: { amount: 30, unit: 'child', note: '$10 for each additional child' },
     image: { src: filmSuperhero, alt: 'A child in a superhero mask and costume', position: '50% 30%' },
     sessions: [
-      oneNight('pno-2026-09-25', 'Fri, Sep 25', 'Fri', '2026-09-25', '17:00', '20:00', { price: { amount: 30, unit: 'child' }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
-      oneNight('pno-2026-10-24', 'Sat, Oct 24', 'Sat', '2026-10-24', '17:00', '20:00', { price: { amount: 30, unit: 'child' }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
-      oneNight('pno-2026-11-14', 'Sat, Nov 14', 'Sat', '2026-11-14', '17:00', '20:00', { price: { amount: 30, unit: 'child' }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
-      oneNight('pno-2026-12-19', 'Sat, Dec 19', 'Sat', '2026-12-19', '17:00', '20:00', { price: { amount: 30, unit: 'child' }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
+      oneNight('pno-2026-09-25', 'Fri, Sep 25', 'Fri', '2026-09-25', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
+      oneNight('pno-2026-10-24', 'Sat, Oct 24', 'Sat', '2026-10-24', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
+      oneNight('pno-2026-11-14', 'Sat, Nov 14', 'Sat', '2026-11-14', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
+      oneNight('pno-2026-12-19', 'Sat, Dec 19', 'Sat', '2026-12-19', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
     ],
   },
   {
@@ -439,19 +439,21 @@ export const programs: Program[] = [
     gel: 'purple',
     ages: { min: 11, max: 17 },
     tagline: 'For tweens and teens ready to explore the world of acting.',
-    summary: 'An 8-week class building acting skills through improv, scene work, character exploration and creative theater games.',
+    summary: 'A weekly class building acting skills through improv, scene work, character exploration and creative theater games.',
     description: [
-      'Geode’s Acting Studio is an 8-week class for tweens and teens ready to explore the world of acting! Students build acting skills through improv, scene work, character exploration and creative theater games.',
+      'Geode’s Acting Studio is a weekly class for tweens and teens ready to explore the world of acting! Students build acting skills through improv, scene work, character exploration and creative theater games.',
       'Every class is designed to inspire confidence, encourage collaboration, and help young performers discover their unique voice.',
     ],
     highlights: ['Improv', 'Scene work', 'Character exploration', 'Finding your voice'],
     showcase: 'Ends with a performance at our Variety Show in December.',
-    duration: '1 hour, Tuesdays for 8 weeks',
-    priceFrom: { amount: 180, unit: 'session', note: '8 weeks' },
+    duration: '1 hour, Tuesdays',
+    // Pricing conflict on the old site ($180 per 8-week session vs $95/month):
+    // resolved to the monthly price per Stephen, Sep 2026.
+    priceFrom: TUITION.hour,
     fee: { amount: 30, label: 'performance fee' },
     image: { src: rehearsalCircle, alt: 'Teen actors sitting in a circle on stage', position: '50% 60%' },
     sessions: [
-      { id: 'acting-studio-f26', term: 'Fall 2026', days: ['Tue'], start: '18:15', end: '19:15', startDate: '2026-10-20', endDate: '2026-12-15', locationId: 'hq', price: { amount: 180, unit: 'session' }, status: 'open' },
+      { id: 'acting-studio-f26', term: 'Fall 2026', days: ['Tue'], start: '18:15', end: '19:15', startDate: '2026-10-20', endDate: '2026-12-15', locationId: 'hq', price: TUITION.hour, status: 'open' },
     ],
   },
   {

@@ -65,10 +65,10 @@ The green-screen portraits show identifiable children, as did the old site. It's
 
 ## Discrepancies found on the current site
 
-The new site uses the first option in each case. Please confirm or correct.
+**Decision (Sep 2026): pricing conflicts default to the monthly price.** Geode Acting Studio is now $95/month. The rest are tracked in `todo.md`. Otherwise the new site uses the first option listed in each case.
 
 1. **Ratio.** The Fall 2026 page says 7 students per teacher; the FAQ says 8:1 with classes of 8–12. We say "classes of 8–12 kids, about 7 students per teacher".
-2. **Geode Acting Studio.** The Fall 2026 page lists 8 weeks (Oct 20 – Dec 15) at $180 per session, teacher TBD. The Geode page lists weekly at $95/month with Peyton Harris.
+2. **Geode Acting Studio.** The Fall 2026 page lists 8 weeks (Oct 20 – Dec 15) at $180 per session, teacher TBD. The Geode page lists weekly at $95/month with Peyton Harris. *Resolved: $95/month.*
 3. **Produce a Show.** The Fall 2026 page says ages 7+ with CC Conner & Zack Newcott. The Geode page says ages 8+ with CC Conner & Carley Peden.
 4. **Yes, And… Improv.** Wednesdays on the Fall 2026 page; Mondays on the Geode page.
 5. **Adult improv price.** $25 on the Fall 2026 page; $20 on the Geode page.

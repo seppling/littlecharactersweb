@@ -24,6 +24,8 @@ export interface Price {
   amount: number;
   unit: PriceUnit;
   note?: string;
+  /** For per-child pricing: the price for each additional child in the same family. */
+  additional?: number;
 }
 
 /** One-time fees on top of tuition (performance fee, materials fee). */

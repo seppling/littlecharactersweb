@@ -1,0 +1,238 @@
+---
+/** Family account: sign in, or see every child's classes, details and payments in one place. */
+import { eq } from 'drizzle-orm';
+import { z } from 'zod';
+import Base from '@/layouts/Base.astro';
+import Character from '@/components/Character.astro';
+import SignInPanel from '@/components/portal/SignInPanel.astro';
+import { getDb, schema } from '@/server/db';
+import { ageOn, createStudent, detailsFresh, ensureHousehold, findSession, listEnrollments, listOrders, listStudents, studentInput } from '@/server/family';
+import { locationById } from '@/data/locations';
+import { dayList, timeRange } from '@/lib/format';
+import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+const errors: Record<string, string> = {};
+let values: Record<string, string> = {};
+
+if (user && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+  if (values.action === 'profile') {
+    const parsed = z
+      .object({ name: z.string().trim().min(2, 'Add your first and last name').max(100), phone: z.string().trim().regex(/^[\d\s()+.-]{7,20}$/, 'Add a phone number') })
+      .safeParse(values);
+    if (parsed.success) {
+      const db = await getDb();
+      await db.update(schema.user).set(parsed.data).where(eq(schema.user.id, user.id));
+      await ensureHousehold({ ...user, name: parsed.data.name });
+      return Astro.redirect('/account', 303);
+    }
+    for (const i of parsed.error.issues) errors[String(i.path[0])] = i.message;
+  }
+  if (values.action === 'add-student') {
+    const h = await ensureHousehold(user);
+    const parsed = studentInput.safeParse(values);
+    if (parsed.success) {
+      await createStudent(h.id, parsed.data, user.id);
+      return Astro.redirect('/account#students', 303);
+    }
+    for (const i of parsed.error.issues) errors[String(i.path[0])] = i.message;
+  }
+}
+
+const needsProfile = !!user && !user.name?.trim();
+const household = user && !needsProfile ? await ensureHousehold(user) : null;
+const students = household ? await listStudents(household.id) : [];
+const enrollments = household ? await listEnrollments(household.id) : [];
+const orders = household ? await listOrders(household.id) : [];
+const today = todayInAthens();
+
+const upcoming = enrollments
+  .map(({ enrollment, student }) => {
+    const found = findSession(enrollment.sessionId);
+    if (!found) return null;
+    const next = meetings(found.session).find((m) => m >= today);
+    return { enrollment, student, ...found, next };
+  })
+  .filter((x): x is NonNullable<typeof x> => !!x && (!!x.next || x.enrollment.status === 'waitlist'))
+  .sort((a, b) => (a.next ?? '9999').localeCompare(b.next ?? '9999'));
+
+const statusLabel = { active: 'Enrolled', trial: 'Free trial class', waitlist: 'Waitlist', cancelled: 'Cancelled' } as const;
+const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+---
+
+<Base title="Your family account" noindex>
+  <section class="acct">
+    <div class="wrap">
+      {
+        !user ? (
+          <div class="acct__signin">
+            <div class="acct__cast" aria-hidden="true">
+              <Character name="magician" size={64} />
+              <Character name="royal" size={78} />
+            </div>
+            <SignInPanel heading="Family login" />
+          </div>
+        ) : needsProfile ? (
+          <form method="post" class="card form narrow">
+            <input type="hidden" name="action" value="profile" />
+            <h1>Welcome to Little Characters!</h1>
+            <p class="lede">Tell us who you are and you’re all set.</p>
+            <div class="field">
+              <label for="p-name">Your name</label>
+              <input id="p-name" name="name" autocomplete="name" required value={values.name ?? ''} />
+              {errors.name && <p class="error">{errors.name}</p>}
+            </div>
+            <div class="field">
+              <label for="p-phone">Mobile phone</label>
+              <input id="p-phone" name="phone" type="tel" autocomplete="tel" required value={values.phone ?? ''} />
+              {errors.phone && <p class="error">{errors.phone}</p>}
+            </div>
+            <button class="btn btn--primary" type="submit">Save</button>
+          </form>
+        ) : (
+          <div class="dash">
+            <header class="dash__head">
+              <div>
+                <p class="eyebrow">{household!.name}</p>
+                <h1>Hi, {user.name.split(' ')[0]}!</h1>
+              </div>
+              <div class="dash__actions">
+                {Astro.locals.isAdmin && <a class="btn btn--outline btn--sm" href="/admin">Rosters</a>}
+                <a class="btn btn--primary btn--sm" href="/programs">Find a class</a>
+                <form method="post" action="/account/sign-out">
+                  <button class="btn btn--outline btn--sm" type="submit">Sign out</button>
+                </form>
+              </div>
+            </header>
+
+            <section class="panel" aria-labelledby="up-title">
+              <h2 id="up-title">Coming up</h2>
+              {upcoming.length ? (
+                <ul class="classes">
+                  {upcoming.map((u) => (
+                    <li data-gel={u.program.gel}>
+                      <div>
+                        <span class="classes__who">{u.student.firstName}</span>
+                        <strong>{u.program.title}</strong>
+                        <span class="script">{dayList(u.session.days)} · {timeRange(u.session.start, u.session.end)} · {locationById(u.session.locationId)?.shortName}</span>
+                      </div>
+                      <div class="classes__side">
+                        <span class:list={['badge', `badge--${u.enrollment.status}`]}>{statusLabel[u.enrollment.status]}</span>
+                        {u.next && <span class="classes__next">Next: {fmtDate(u.next)}</span>}
+                        {u.enrollment.status !== 'waitlist' && <a href={`/calendar/${u.session.id}.ics`} download>Add to calendar</a>}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="empty">No classes yet. <a href="/programs">Find one for your crew</a>.</p>
+              )}
+            </section>
+
+            <section class="panel" id="students" aria-labelledby="st-title">
+              <h2 id="st-title">Your students</h2>
+              <ul class="kids">
+                {students.map((s) => (
+                  <li>
+                    <strong>{s.firstName} {s.lastName}</strong>
+                    <span class="muted">{ageOn(s.birthdate) !== null ? `Age ${ageOn(s.birthdate)}` : ''}</span>
+                    <span class:list={['badge', detailsFresh(s) ? 'badge--active' : 'badge--todo']}>{detailsFresh(s) ? 'Care details on file' : 'Add care details'}</span>
+                    <a href={`/account/students/${s.id}`}>Edit</a>
+                  </li>
+                ))}
+              </ul>
+              <details class="add" open={!students.length || !!errors.firstName || !!errors.birthdate}>
+                <summary>+ Add a student</summary>
+                <form method="post" class="form">
+                  <input type="hidden" name="action" value="add-student" />
+                  <div class="row">
+                    <div class="field">
+                      <label for="s-first">First name</label>
+                      <input id="s-first" name="firstName" required value={values.firstName ?? ''} />
+                      {errors.firstName && <p class="error">{errors.firstName}</p>}
+                    </div>
+                    <div class="field">
+                      <label for="s-last">Last name</label>
+                      <input id="s-last" name="lastName" required value={values.lastName ?? ''} />
+                    </div>
+                    <div class="field">
+                      <label for="s-bday">Birthday</label>
+                      <input id="s-bday" name="birthdate" type="date" required value={values.birthdate ?? ''} />
+                      {errors.birthdate && <p class="error">{errors.birthdate}</p>}
+                    </div>
+                  </div>
+                  <button class="btn btn--outline btn--sm" type="submit">Save student</button>
+                </form>
+              </details>
+            </section>
+
+            <section class="panel" aria-labelledby="pay-title">
+              <h2 id="pay-title">Payments</h2>
+              {orders.length ? (
+                <table class="receipts">
+                  <thead><tr><th>Date</th><th>For</th><th>Amount</th></tr></thead>
+                  <tbody>
+                    {orders.map((o) => (
+                      <tr>
+                        <td>{o.paidAt?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                        <td>{findSession(o.sessionId)?.program.title ?? o.sessionId}{o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (semester)' : ''}</td>
+                        <td>{formatCents(o.totalCents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p class="empty">No payments yet.</p>
+              )}
+            </section>
+            <p class="fine">Signed in as {user.email} on this device for 90 days. Questions about billing? Email littlecharacterstheater@gmail.com.</p>
+          </div>
+        )
+      }
+    </div>
+  </section>
+</Base>
+
+<style>
+  .acct { padding-block: var(--space-2xl) var(--space-3xl); background: var(--hall); min-height: 60vh; }
+  .acct__signin { max-width: 460px; margin-inline: auto; padding: var(--space-xl); background: var(--paper); border: 2px solid var(--ink); border-radius: var(--r-lg); box-shadow: 8px 8px 0 var(--orange); }
+  .acct__cast { display: flex; gap: 0.3rem; align-items: flex-end; margin-bottom: var(--space-m); }
+  .card { padding: var(--space-xl); background: var(--paper); border-radius: var(--r-lg); }
+  .narrow { max-width: 520px; margin-inline: auto; }
+  .form { display: grid; gap: var(--space-m); }
+  .form .btn { justify-self: start; }
+  .dash { display: grid; gap: var(--space-l); }
+  .dash__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: var(--space-m); }
+  .dash__head h1 { font-size: var(--step-4); }
+  .dash__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .panel { display: grid; gap: var(--space-m); padding: var(--space-xl); background: var(--paper); border-radius: var(--r-lg); border: 1.5px solid var(--line); }
+  .panel h2 { font-size: var(--step-2); }
+  .classes, .kids { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+  .classes li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem; padding: 0.9rem 1.1rem; border-left: 6px solid var(--gel); background: var(--gel-tint); border-radius: var(--r-sm) var(--r-md) var(--r-md) var(--r-sm); }
+  .classes li > div:first-child { display: grid; gap: 0.1rem; }
+  .classes__who { font-family: var(--font-script); font-weight: 700; color: var(--gel-ink); font-size: var(--step--1); }
+  .classes strong { font-family: var(--font-display); font-size: 1.15rem; }
+  .classes .script { font-size: var(--step--1); color: var(--ink-soft); }
+  .classes__side { display: grid; gap: 0.2rem; justify-items: end; font-size: var(--step--1); }
+  .kids li { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; padding: 0.7rem 0; border-bottom: 1px solid var(--line); }
+  .muted { color: var(--ink-mute); }
+  .badge { font-size: var(--step--2); font-weight: 700; padding: 0.25em 0.7em; border-radius: 999px; }
+  .badge--active { background: var(--ok-tint); color: var(--ok); }
+  .badge--trial { background: var(--yellow-tint); color: var(--yellow-ink); }
+  .badge--waitlist, .badge--todo { background: var(--orange-tint); color: var(--orange-ink); }
+  .add summary { cursor: pointer; font-weight: 700; color: var(--purple); }
+  .add .form { margin-top: var(--space-m); }
+  .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-m); }
+  .receipts { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .receipts th, .receipts td { text-align: left; padding: 0.55rem 0; border-bottom: 1px solid var(--line); }
+  .receipts th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+  .receipts td:last-child, .receipts th:last-child { text-align: right; }
+  .empty, .fine { color: var(--ink-soft); }
+  .fine { font-size: var(--step--1); }
+  .error { color: var(--red-ink); font-size: var(--step--1); font-weight: 600; }
+  @media (max-width: 640px) { .row { grid-template-columns: 1fr; } .classes__side { justify-items: start; } }
+</style>

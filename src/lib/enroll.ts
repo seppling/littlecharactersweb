@@ -10,14 +10,17 @@ import type { Program, Session } from '@/data/types';
  * pre-filled review step instead of a login wall.
  */
 
+/** Partner-run registration (e.g. a school's own system) always goes to the partner. */
+const isPartner = (url?: string) => !!url && !url.includes('docs.google.com');
+
 export function enrollHref(program: Program, session: Session) {
-  if (session.externalUrl) return session.externalUrl;
+  if (isPartner(session.externalUrl)) return session.externalUrl!;
   if (site.portal.mode === 'native') return `${site.portal.native.enroll}/${session.id}`;
-  return site.portal.studioDirector.enroll;
+  return session.externalUrl ?? site.portal.studioDirector.enroll;
 }
 
 export function enrollLabel(session: Session) {
-  if (session.externalLabel) return session.externalLabel;
+  if (session.externalLabel && (isPartner(session.externalUrl) || site.portal.mode !== 'native')) return session.externalLabel;
   if (session.status === 'waitlist') return 'Join waitlist';
   if (session.status === 'coming-soon') return 'Get notified';
   return 'Enroll';
