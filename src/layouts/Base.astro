@@ -40,10 +40,13 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
         '@context': 'https://schema.org',
         '@type': 'PerformingArtsTheater',
         name: site.name,
+        alternateName: site.shortName,
+        description: site.description,
         url: site.url,
         email: site.contact.email,
         telephone: site.contact.phone,
         foundingDate: String(site.founded),
+        founder: { '@type': 'Person', name: site.founder },
         address: {
           '@type': 'PostalAddress',
           streetAddress: '1635 W Broad St',

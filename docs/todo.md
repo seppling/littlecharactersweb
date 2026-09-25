@@ -24,6 +24,12 @@ A running checklist for the new site and family portal. Check items off in a com
 - [ ] Adult improv night: $25 (Fall 2026 page) or $20 (Geode page)? There's no monthly option, so this one needs a call.
 - [ ] Confirm photo consent covers the new site for the children shown.
 - [ ] Is the school partners list (Athens Montessori, Oglethorpe Ave. Elementary, Love.Craft) still current?
+- [ ] **About page** (rebuilt Sep 2026: what we do, what's different, who it's for, how it works, key facts, FAQ). Please check the "What makes Little Characters different" wording, and send the numbers the key facts could use:
+  - students taught since 2022;
+  - shows and showcases staged;
+  - how quickly families can expect a reply to email.
+
+  We deliberately don't name other Athens theaters. It's a small town, and families, teachers and partners overlap.
 
 ## Launch checklist (Phase 1 site)
 

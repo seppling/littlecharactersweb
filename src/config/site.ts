@@ -10,6 +10,7 @@ export const site = {
     'Theater classes, camps, workshops and shows for ages 4 to 100 in Athens, Georgia. Encouraging creative hearts through theater since 2022.',
   url: 'https://www.littlecharacters.org',
   founded: 2022,
+  founder: 'Hannah Eppling',
 
   contact: {
     email: 'littlecharacterstheater@gmail.com',
