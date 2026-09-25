@@ -76,6 +76,48 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
   </body>
 </html>
 
+<script>
+  // Lead forms (contact, signups, "notify me"): send in the background and show
+  // the confirmation right where the form was. Without JavaScript they post
+  // normally and land on /thanks.
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-lead-form]')) {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      let error = form.querySelector<HTMLElement>('[data-lead-error]');
+      if (!error) {
+        error = document.createElement('p');
+        error.dataset.leadError = '';
+        error.className = 'lead-error';
+        error.setAttribute('role', 'alert');
+        form.append(error);
+      }
+      error.textContent = '';
+      if (button) button.disabled = true;
+      try {
+        const res = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { accept: 'application/json' } });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Sorry, that didn’t go through. Please try again, or email us directly.');
+        const done = document.createElement('div');
+        done.className = 'lead-done';
+        done.setAttribute('role', 'status');
+        done.tabIndex = -1;
+        const title = document.createElement('strong');
+        title.textContent = form.dataset.successTitle ?? 'Thank you!';
+        const body = document.createElement('span');
+        body.textContent = form.dataset.successBody ?? 'We got it.';
+        done.append(title, body);
+        form.replaceChildren(done);
+        form.classList.add('lead-form--done');
+        done.focus();
+      } catch (e) {
+        error.textContent = (e as Error).message;
+        if (button) button.disabled = false;
+      }
+    });
+  }
+</script>
+
 <style>
   .preview-banner {
     display: flex;

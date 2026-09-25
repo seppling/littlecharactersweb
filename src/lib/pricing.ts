@@ -123,12 +123,18 @@ const monthName = (key: string) => toDate(`${key}-01`).toLocaleDateString('en-US
 
 // ───────────── Plans ─────────────
 
+/** New students' first class is free in Little Characters weekly classes with monthly tuition. The site's "first class free" badges use this same rule. */
+export function hasFreeFirstClass(program: Program, session?: Session) {
+  const unit = (session?.price ?? program.priceFrom)?.unit;
+  return program.brand === 'lc' && program.kind === 'class' && unit === 'month';
+}
+
 export function availablePlans(program: Program, session: Session, opts: { newStudents: boolean; full: boolean }): Plan[] {
   if (opts.full) return ['waitlist'];
   const unit = session.price?.unit ?? program.priceFrom?.unit;
   if (unit === 'month') {
     const plans: Plan[] = [];
-    if (opts.newStudents && program.brand === 'lc' && program.kind === 'class') plans.push('trial');
+    if (opts.newStudents && hasFreeFirstClass(program, session)) plans.push('trial');
     plans.push('monthly', 'full');
     return plans;
   }

@@ -3,10 +3,12 @@ import Base from '@/layouts/Base.astro';
 import ProgramRow from '@/components/ProgramRow.astro';
 import JourneySteps from '@/components/JourneySteps.astro';
 import Character from '@/components/Character.astro';
-import { programs, kindLabels, ageBands } from '@/data/programs';
+import { programs, kindLabels, ageBands, focusLabels } from '@/data/programs';
+import type { Focus } from '@/data/types';
 import { locations } from '@/data/locations';
 
 const kinds = [...new Set(programs.map((p) => p.kind))];
+const focuses = (Object.keys(focusLabels) as Focus[]).filter((f) => programs.some((p) => p.focus?.includes(f)));
 const usedLocs = locations.filter((l) => programs.some((p) => p.sessions.some((s) => s.locationId === l.id)));
 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
@@ -64,6 +66,19 @@ const sorted = [...programs].sort(
         </div>
       </fieldset>
 
+      <fieldset class="filters__group">
+        <legend>Focus</legend>
+        <div class="filters__chips">
+          {
+            focuses.map((f) => (
+              <label class="chip">
+                <input type="checkbox" name="focus" value={f} /> {focusLabels[f]}
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+
       <details class="filters__more">
         <summary>More filters</summary>
         <div class="filters__more-body">
@@ -90,6 +105,10 @@ const sorted = [...programs].sort(
             <label class="toggle">
               <input type="checkbox" name="open" value="1" />
               <span>Only show programs with open spots</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" name="trial" value="1" />
+              <span>First class free</span>
             </label>
           </div>
         </div>
@@ -145,9 +164,11 @@ const sorted = [...programs].sort(
     return {
       age: String(data.get('age') ?? ''),
       kinds: data.getAll('kind').map(String),
+      focus: data.getAll('focus').map(String),
       days: data.getAll('day').map(String),
       loc: String(data.get('loc') ?? ''),
       open: data.get('open') === '1',
+      trial: data.get('trial') === '1',
     };
   }
 
@@ -161,9 +182,11 @@ const sorted = [...programs].sort(
       const ok =
         (!band || (min <= band[1] && max >= band[0])) &&
         (!s.kinds.length || s.kinds.includes(row.dataset.kind!)) &&
+        (!s.focus.length || s.focus.some((f) => row.dataset.focus!.split(',').includes(f))) &&
         (!s.days.length || s.days.some((d) => row.dataset.days!.split(',').includes(d))) &&
         (!s.loc || row.dataset.locs!.split(',').includes(s.loc)) &&
-        (!s.open || row.dataset.open === '1');
+        (!s.open || row.dataset.open === '1') &&
+        (!s.trial || row.dataset.trial === '1');
       row.hidden = !ok;
       if (ok) shown++;
     }
@@ -173,9 +196,11 @@ const sorted = [...programs].sort(
     const params = new URLSearchParams();
     if (s.age) params.set('age', s.age);
     if (s.kinds.length) params.set('kind', s.kinds.join(','));
+    if (s.focus.length) params.set('focus', s.focus.join(','));
     if (s.days.length) params.set('day', s.days.join(','));
     if (s.loc) params.set('loc', s.loc);
     if (s.open) params.set('open', '1');
+    if (s.trial) params.set('trial', '1');
     const qs = params.toString();
     history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
   }
@@ -189,12 +214,17 @@ const sorted = [...programs].sort(
   };
   if (params.get('age')) setChecked('age', [params.get('age')!]);
   if (params.get('kind')) setChecked('kind', params.get('kind')!.split(','));
+  if (params.get('focus')) setChecked('focus', params.get('focus')!.split(','));
   if (params.get('day')) {
     setChecked('day', params.get('day')!.split(','));
     (form.querySelector('.filters__more') as HTMLDetailsElement).open = true;
   }
   if (params.get('loc')) (form.elements.namedItem('loc') as HTMLSelectElement).value = params.get('loc')!;
   if (params.get('open')) setChecked('open', ['1']);
+  if (params.get('trial')) {
+    setChecked('trial', ['1']);
+    (form.querySelector('.filters__more') as HTMLDetailsElement).open = true;
+  }
 
   form.addEventListener('change', apply);
   form.addEventListener('reset', () => setTimeout(apply));

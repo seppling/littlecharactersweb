@@ -1,7 +1,7 @@
 ---
 /**
  * The "little characters": a small cast of shape-people in gel colors, each
- * with a costume prop. Used where a photo isn't needed (or doesn't exist yet)
+ * with a costume prop (crown, top hat, beret, glasses, bow, stagehand's headset). Used where a photo isn't needed (or doesn't exist yet)
  * and as the brand's illustration system.
  */
 import type { CharacterName, Gel } from '@/data/types';
@@ -20,6 +20,7 @@ const defaults: Record<CharacterName, Gel> = {
   artist: 'orange',
   professor: 'yellow',
   dancer: 'purple',
+  stagehand: 'red',
 };
 
 const { name, gel = defaults[name], size = 120, class: className = '', style } = Astro.props;
@@ -100,6 +101,22 @@ const ink = gel === 'purple' ? 'var(--paper)' : 'var(--ink)';
         <path d="M44 118 Q48 114 52 118" stroke={ink} stroke-width="3.5" stroke-linecap="round" fill="none" />
         <path d="M68 118 Q72 114 76 118" stroke={ink} stroke-width="3.5" stroke-linecap="round" fill="none" />
         <path d="M53 127 Q60 134 67 127" stroke={ink} stroke-width="3.5" stroke-linecap="round" fill="none" />
+      </g>
+    )
+  }
+  {
+    name === 'stagehand' && (
+      <g>
+        <polygon points="38,60 82,60 104,99 82,138 38,138 16,99" fill={fill} stroke={fill} stroke-width="8" stroke-linejoin="round" />
+        <path d="M21 94 C21 40 99 40 99 94" stroke={ink} stroke-width="6" stroke-linecap="round" fill="none" />
+        <rect x="11" y="84" width="16" height="26" rx="7" fill={ink} />
+        <rect x="93" y="84" width="16" height="26" rx="7" fill={ink} />
+        <path d="M20 108 Q24 124 42 121" stroke={ink} stroke-width="4" stroke-linecap="round" fill="none" />
+        <circle cx="45" cy="120.5" r="5" fill={ink} />
+        <circle cx="48" cy="92" r="4.5" fill={ink} />
+        <circle cx="72" cy="92" r="4.5" fill={ink} />
+        <circle cx="84" cy="105" r="5.5" fill="var(--paper)" opacity="0.35" />
+        <path d="M55 110 Q63 117 71 110" stroke={ink} stroke-width="4" stroke-linecap="round" fill="none" />
       </g>
     )
   }

@@ -14,7 +14,7 @@ export const faqs: Faq[] = [
   {
     group: 'Getting started',
     q: 'Can my child try a class first?',
-    a: 'Yes! A new student’s first class is always free. Select “trial/drop-in” in the registration portal, and no tuition is due until after that first class.',
+    a: 'Yes, in most weekly classes: look for the “First class free” tag. When you enroll, choose “Try the first class free” and nothing is due until your child decides to stay.',
   },
   {
     group: 'Getting started',

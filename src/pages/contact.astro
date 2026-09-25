@@ -1,4 +1,5 @@
 ---
+import LeadFormFields from '@/components/LeadFormFields.astro';
 import Base from '@/layouts/Base.astro';
 import { site } from '@/config/site';
 import { locations, parking } from '@/data/locations';
@@ -30,7 +31,16 @@ const hq = locations.find((l) => l.id === 'hq')!;
         </dl>
       </div>
 
-      <form class="contact__form" action={site.forms.contactAction || undefined} method="post" id="contact-form">
+      <form
+        class="contact__form"
+        action="/api/leads"
+        method="post"
+        id="contact-form"
+        data-lead-form
+        data-success-title="Thanks! Your message is on its way."
+        data-success-body={`Hannah will reply by email. If it’s urgent, call us at ${site.contact.phone.replaceAll('-', '\u2011').replaceAll(' ', '\u00a0')}.`}
+      >
+        <LeadFormFields kind="contact" />
         <div class="field">
           <label for="c-name">Your name</label>
           <input id="c-name" name="name" autocomplete="name" required />

@@ -14,7 +14,7 @@ export type Brand = 'lc' | 'geode';
 export type Gel = 'red' | 'orange' | 'teal' | 'yellow' | 'purple';
 
 /** The illustrated cast; see src/components/Character.astro. */
-export type CharacterName = 'royal' | 'magician' | 'artist' | 'professor' | 'dancer';
+export type CharacterName = 'royal' | 'magician' | 'artist' | 'professor' | 'dancer' | 'stagehand';
 
 export type Weekday = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
 
@@ -58,10 +58,15 @@ export interface Session {
   externalLabel?: string;
 }
 
+/** What students actually do, for the "What they’ll do" filter in the class finder. */
+export type Focus = 'acting' | 'improv' | 'produce' | 'tech' | 'film' | 'writing' | 'music';
+
 export interface Program {
   slug: string;
   title: string;
   kind: ProgramKind;
+  /** Disciplines, most prominent first. Leave empty for parties and nights out. */
+  focus?: Focus[];
   brand: Brand;
   gel: Gel;
   ages: { min: number; max: number | null };

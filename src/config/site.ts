@@ -50,12 +50,6 @@ export const site = {
     },
   },
 
-  forms: {
-    // TODO: point at a form handler (Netlify Forms, Formspree, or the Phase 2 API).
-    contactAction: '',
-    newsletterAction: '',
-  },
-
   // TODO: the current giving page has no payment form yet; point this at a real donation link.
   givingUrl: 'https://www.littlecharacters.org/giving-page',
   wishListUrl: 'https://a.co/510Gges',

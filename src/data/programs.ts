@@ -1,4 +1,4 @@
-import type { Price, Program, Session, Weekday } from './types';
+import type { Focus, Price, Program, Session, Weekday } from './types';
 
 import castSillyFaces from '@/assets/photos/cast-silly-faces.webp';
 import rehearsalCircle from '@/assets/photos/rehearsal-circle.webp';
@@ -57,6 +57,7 @@ export const programs: Program[] = [
   // ───────────────────────── Weekly classes (Fall 2026) ─────────────────────────
   {
     slug: 'stories-and-songs',
+    focus: ['acting', 'music'],
     title: 'Stories and Songs',
     kind: 'class',
     brand: 'lc',
@@ -83,6 +84,7 @@ export const programs: Program[] = [
   },
   {
     slug: 'intro-to-theater',
+    focus: ['acting'],
     title: 'Intro to Theater',
     kind: 'class',
     brand: 'lc',
@@ -107,6 +109,7 @@ export const programs: Program[] = [
   },
   {
     slug: 'yes-and-improv',
+    focus: ['improv'],
     title: 'Yes, And… Improv',
     kind: 'class',
     brand: 'lc',
@@ -132,6 +135,7 @@ export const programs: Program[] = [
   },
   {
     slug: 'produce-a-show',
+    focus: ['produce', 'writing', 'tech', 'acting'],
     title: 'Produce a Show',
     kind: 'class',
     brand: 'lc',
@@ -160,6 +164,7 @@ export const programs: Program[] = [
   },
   {
     slug: 'performance-troupe',
+    focus: ['acting', 'improv'],
     title: 'LC/Geode Performance Troupe',
     kind: 'class',
     brand: 'lc',
@@ -189,6 +194,7 @@ export const programs: Program[] = [
   },
   {
     slug: 'film-creation',
+    focus: ['film', 'writing', 'acting'],
     title: 'Film Creation',
     kind: 'class',
     brand: 'lc',
@@ -214,6 +220,7 @@ export const programs: Program[] = [
   },
   {
     slug: 'homeschool-class',
+    focus: ['acting', 'tech'],
     title: 'LC Homeschool Class',
     kind: 'class',
     brand: 'lc',
@@ -239,6 +246,7 @@ export const programs: Program[] = [
   },
   {
     slug: 'athens-academy-enrichment',
+    focus: ['acting', 'improv'],
     title: 'Athens Academy Enrichment',
     kind: 'class',
     brand: 'lc',
@@ -277,6 +285,7 @@ export const programs: Program[] = [
   // ───────────────────────── Camps & free classes ─────────────────────────
   {
     slug: 'summer-camp',
+    focus: ['acting', 'improv', 'produce', 'writing', 'tech'],
     title: 'Summer Camp',
     kind: 'camp',
     brand: 'lc',
@@ -299,6 +308,7 @@ export const programs: Program[] = [
   },
   {
     slug: 'mini-camps-and-workshops',
+    focus: ['music', 'tech'],
     title: 'Mini Camps & Workshops',
     kind: 'camp',
     brand: 'lc',
@@ -320,6 +330,7 @@ export const programs: Program[] = [
   },
   {
     slug: 'free-community-class',
+    focus: ['acting'],
     title: 'Free Community Theater Class',
     kind: 'workshop',
     brand: 'lc',
@@ -370,6 +381,7 @@ export const programs: Program[] = [
   },
   {
     slug: 'private-lessons',
+    focus: ['acting', 'writing', 'music'],
     title: 'Private Lessons',
     kind: 'lesson',
     brand: 'lc',
@@ -410,6 +422,7 @@ export const programs: Program[] = [
   },
   {
     slug: 'ovation',
+    focus: ['acting'],
     title: 'Ovation',
     kind: 'inclusive',
     brand: 'lc',
@@ -433,6 +446,7 @@ export const programs: Program[] = [
   // ───────────────────────── Geode (tweens, teens & adults) ─────────────────────────
   {
     slug: 'geode-acting-studio',
+    focus: ['acting', 'improv'],
     title: 'Geode: Acting Studio',
     kind: 'class',
     brand: 'geode',
@@ -458,6 +472,7 @@ export const programs: Program[] = [
   },
   {
     slug: 'geode-adult-improv',
+    focus: ['improv'],
     title: 'Geode: Adult Improv Night',
     kind: 'class',
     brand: 'geode',
@@ -493,6 +508,16 @@ export const kindLabels: Record<Program['kind'], { singular: string; plural: str
   lesson: { singular: 'Private lessons', plural: 'Private lessons' },
   inclusive: { singular: 'Adaptive class', plural: 'Adaptive classes' },
   party: { singular: 'Parties & nights out', plural: 'Parties & nights out' },
+};
+
+export const focusLabels: Record<Focus, string> = {
+  acting: 'Acting',
+  improv: 'Improv',
+  produce: 'Produce a show',
+  tech: 'Tech & design',
+  film: 'Film',
+  writing: 'Writing',
+  music: 'Singing & musicals',
 };
 
 /** Age bands used by the age picker and finder. */

@@ -236,6 +236,23 @@ export const installment = pgTable(
   ],
 );
 
+/** Contact messages and email signups from the public site's forms (see /api/leads). */
+export const lead = pgTable(
+  'lead',
+  {
+    id: id(),
+    /** contact | newsletter | notify (a class's "tell me when registration opens") | camps */
+    kind: text('kind').notNull(),
+    email: text('email').notNull(),
+    name: text('name'),
+    message: text('message'),
+    /** Topic, children's ages, which program, and so on. */
+    details: jsonb('details').$type<Record<string, string>>().notNull().default({}),
+    createdAt: created(),
+  },
+  (t) => [index('lead_kind_created_idx').on(t.kind, t.createdAt)],
+);
+
 /** Emails captured in development instead of being sent (see /dev/mailbox). */
 export const devEmail = pgTable('dev_email', {
   id: id(),

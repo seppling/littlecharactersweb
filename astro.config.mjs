@@ -31,7 +31,7 @@ export default defineConfig({
   integrations: [
     sitemap({
       // Keep the family portal out of search results.
-      filter: (page) => !/\/(account|enroll|admin|dev)(\/|$)/.test(new URL(page).pathname),
+      filter: (page) => !/\/(account|enroll|admin|dev|thanks)(\/|$)/.test(new URL(page).pathname),
     }),
   ],
   // Marketing pages are prerendered (fast, cacheable). Portal routes opt into

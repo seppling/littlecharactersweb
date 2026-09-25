@@ -40,6 +40,8 @@ export const config = {
 
   resendApiKey: env.RESEND_API_KEY ?? '',
   emailFrom: env.EMAIL_FROM ?? 'Little Characters <hello@littlecharacters.org>',
+  /** Who gets contact-form messages from the site. */
+  leadsTo: env.LEADS_EMAIL ?? 'littlecharacterstheater@gmail.com',
   /** Where replies to our emails go. */
   emailReplyTo: env.EMAIL_REPLY_TO ?? 'littlecharacterstheater@gmail.com',
 };

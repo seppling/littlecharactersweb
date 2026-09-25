@@ -28,7 +28,7 @@ A running checklist for the new site and family portal. Check items off in a com
 ## Launch checklist (Phase 1 site)
 
 - [ ] Create hosting, database and email accounts (see `infrastructure.md`) and add their keys as environment variables.
-- [ ] Hook up the contact, newsletter and "notify me" forms.
+- [x] Contact, newsletter, "notify me" and summer-camp forms work: saved on the site, contact messages emailed to Hannah (`LEADS_EMAIL`), confirmation shown in place. Staff see everything at `/admin/leads`, with a CSV of signup emails.
 - [ ] Set `site.preview = false`.
 - [ ] Add 301 redirects from old Squarespace URLs (listed in `content-inventory.md`).
 - [ ] Point littlecharacters.org at the new host, then cancel Squarespace after a quiet month.
@@ -49,6 +49,8 @@ Setup (Stephen):
 - [ ] Store `DATA_ENCRYPTION_KEY` and the other secrets in a password manager.
 
 Decisions (together):
+- [ ] Free first class for classes priced per 8-week session (Stories and Songs, Homeschool)? Today the free trial and its "First class free" tags apply to Little Characters weekly classes with monthly tuition only.
+- [ ] Which email tool to send newsletters from (Mailchimp, Buttondown, Resend Broadcasts…)? Signups are collected on the site; import the CSV from `/admin/leads`.
 - [ ] Keep "paused from class after the 15th" for unpaid balances? (Not automated; staff can see unpaid months on `/admin/billing`.)
 - [ ] Keep or drop payment-method surcharges? We suggest dropping them.
 - [ ] Refund, transfer and withdrawal wording for the policy checkbox (`POLICY_VERSION` in `src/server/family.ts`).

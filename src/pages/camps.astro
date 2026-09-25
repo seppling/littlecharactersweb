@@ -1,4 +1,5 @@
 ---
+import LeadFormFields from '@/components/LeadFormFields.astro';
 import Base from '@/layouts/Base.astro';
 import ProgramCard from '@/components/ProgramCard.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
@@ -135,7 +136,15 @@ const free = programBySlug('free-community-class')!;
                 </li>
               </ul>
             </div>
-            <form class="notify-card" action="" method="post">
+            <form
+              class="notify-card"
+              action="/api/leads"
+              method="post"
+              data-lead-form
+              data-success-title="You’re on the summer list!"
+              data-success-body="We’ll email you as soon as summer 2027 dates and registration open."
+            >
+              <LeadFormFields kind="camps" />
               <Character name="artist" size={72} />
               <h3>Get first dibs on summer</h3>
               <p>We’ll email you as soon as summer 2027 dates and registration open.</p>

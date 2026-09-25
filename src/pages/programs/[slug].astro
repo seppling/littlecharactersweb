@@ -1,4 +1,5 @@
 ---
+import LeadFormFields from '@/components/LeadFormFields.astro';
 import Base from '@/layouts/Base.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
 import ProgramCard from '@/components/ProgramCard.astro';
@@ -9,6 +10,7 @@ import { locationById } from '@/data/locations';
 import type { Program } from '@/data/types';
 import { ageLabel, dateRange, dayList, feeLabel, price, spotsLabel, timeRange } from '@/lib/format';
 import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
+import { hasFreeFirstClass } from '@/lib/pricing';
 
 export function getStaticPaths() {
   return programs.map((program) => ({ params: { slug: program.slug }, props: { program } }));
@@ -30,6 +32,7 @@ const partnerOnly = bookable.length > 0 && bookable.every((s) => s.externalUrl &
 const formOnly = bookable.length > 0 && bookable.every((s) => s.externalUrl?.includes('docs.google.com'));
 const datesSoon = bookable.length === 0 && program.notify;
 const monthly = program.priceFrom?.unit === 'month';
+const freeTrial = hasFreeFirstClass(program) && !partnerOnly && !formOnly;
 
 const faqGroups = isCamp || program.kind === 'party' ? ['Camps & parties', 'Payments & discounts'] : ['Classes', 'Payments & discounts', 'Performances'];
 const relevantFaqs = faqs.filter((f) => faqGroups.includes(f.group)).slice(0, 5);
@@ -110,8 +113,8 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
         <section class="money" aria-labelledby="money-title">
           <h2 id="money-title">Pricing & discounts</h2>
           <ul>
-            {program.kind === 'class' && program.brand === 'lc' && !partnerOnly && (
-              <li><strong>First class free.</strong> New students can try a class before paying: choose “trial/drop-in” when you register.</li>
+            {freeTrial && (
+              <li><strong>First class free.</strong> New students can try it before paying: choose “Try the first class free” when you enroll. Nothing is due until you decide to stay.</li>
             )}
             {monthly && (
               <li><strong>Monthly or up front.</strong> Pay monthly, or pay the semester in full and save 10%.</li>
@@ -135,6 +138,12 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
 
       <aside class="enroll" id="enroll" aria-labelledby="enroll-title">
         <div class="enroll__card">
+          {freeTrial && (
+            <p class="enroll__trial">
+              <span class="tape" data-gel="yellow">First class free</span>
+              <span>New students try it free. Nothing is due until you decide to stay.</span>
+            </p>
+          )}
           {
             bookable.length > 0 ? (
               <form class="enroll__form" data-enroll-form>
@@ -188,7 +197,7 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
                       ? 'Registration is a short online form.'
                       : comingSoon
                         ? 'Registration opens soon.'
-                        : 'Next you’ll pick your student and pay in our family portal. New students’ first class is free.'}
+                        : `Next you’ll pick your student and pay in our family portal.${freeTrial ? ' New students’ first class is free.' : ''}`}
                 </p>
               </form>
             ) : datesSoon ? (
@@ -209,7 +218,16 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
             )
           }
           {(comingSoon || datesSoon) && (
-            <form class="notify" id="notify" action="" method="post">
+            <form
+              class="notify"
+              id="notify"
+              action="/api/leads"
+              method="post"
+              data-lead-form
+              data-success-title="Got it!"
+              data-success-body={`We’ll email you as soon as registration opens for ${program.title}.`}
+            >
+              <LeadFormFields kind="notify" program={program.slug} />
               <label for="notify-email">Get an email when registration opens</label>
               <div class="notify__row">
                 <input class="input" id="notify-email" type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
@@ -316,6 +334,7 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
     box-shadow: 8px 8px 0 var(--gel);
   }
   .enroll__form { display: grid; gap: var(--space-m); }
+  .enroll__trial { display: grid; justify-items: start; gap: 0.4rem; margin: 0 0 var(--space-m); padding-bottom: var(--space-m); border-bottom: 1.5px dashed var(--line-strong); font-size: var(--step--1); color: var(--ink-soft); }
   .enroll h2 { font-size: var(--step-2); }
   .enroll fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
   .opt { position: relative; display: block; cursor: pointer; }

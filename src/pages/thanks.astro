@@ -1,0 +1,24 @@
+---
+/** Where lead forms land when JavaScript is off (with it, the confirmation shows in place). */
+import Base from '@/layouts/Base.astro';
+import Character from '@/components/Character.astro';
+import { site } from '@/config/site';
+---
+
+<Base title="Thank you" noindex>
+  <section class="thanks">
+    <div class="wrap thanks__inner">
+      <Character name="royal" size={96} />
+      <h1>Thank you!</h1>
+      <p class="lede">We got it. If you sent a message, Hannah will reply by email. If you signed up for updates, you’re on the list.</p>
+      <p>Need us sooner? Call <a href={site.contact.phoneHref}>{site.contact.phone}</a> or email <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a>.</p>
+      <p><a class="btn btn--primary" href="/programs">Find a class</a></p>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .thanks { padding-block: var(--space-3xl); background: var(--hall); }
+  .thanks__inner { display: grid; justify-items: center; gap: var(--space-m); text-align: center; max-width: 640px; }
+  h1 { font-size: var(--step-4); }
+</style>
