@@ -115,6 +115,12 @@ The app **fails closed**: unless it's explicitly told it's in development, it re
 4. Deploy (about 5 minutes).
 5. Open the `…onrender.com` address it shows.
 
+**Created the service by hand** (New → Web Service) instead of from the Blueprint? It skips `render.yaml`'s settings, so the site runs as production. With no production database or keys, every portal page (`/account`, `/enroll`, forms) returns a blank error, and the log says `Missing required production settings`. To fix it, open the service's **Environment** tab, add the lines below, then **Save, rebuild, and deploy**:
+- `APP_ENV` = `development`
+- `PGLITE_DIR` = `/tmp/pglite`
+- `ADMIN_EMAILS` = your email
+- Optionally, `STRIPE_SECRET_KEY` and `PUBLIC_STRIPE_PUBLISHABLE_KEY` (test keys only)
+
 What to expect on the preview:
 - Sign-in codes appear at `/dev/mailbox`.
 - Without Stripe keys, payment is a "test payment" button.
