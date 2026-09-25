@@ -10,7 +10,7 @@
     "preview": "astro preview",
     "check": "astro check",
     "scrape": "NODE_USE_ENV_PROXY=1 node scripts/scrape-squarespace.mjs",
-    "start": "node dist/server/entry.mjs",
+    "start": "HOST=${HOST:-0.0.0.0} node dist/server/entry.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/db-migrate.mjs",
     "test": "vitest run",
