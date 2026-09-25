@@ -1,0 +1,23 @@
+---
+import Base from '@/layouts/Base.astro';
+import Character from '@/components/Character.astro';
+import AgePicker from '@/components/AgePicker.astro';
+---
+
+<Base title="Page not found">
+  <section class="nf">
+    <div class="wrap wrap--narrow nf__inner">
+      <Character name="professor" size={120} />
+      <h1>Line!</h1>
+      <p class="lede">We forgot this page’s lines. Let’s get you back on your mark.</p>
+      <AgePicker />
+      <a class="link-arrow" href="/">Back to the home page</a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .nf { padding-block: var(--space-3xl); }
+  .nf__inner { display: grid; justify-items: center; text-align: center; gap: var(--space-l); }
+  .nf :global(.age-picker) { justify-items: center; }
+</style>

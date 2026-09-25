@@ -1,0 +1,84 @@
+---
+/**
+ * One schedulable session, formatted like a line on a call sheet.
+ * The Enroll button is where Discovery hands off to Enrollment.
+ */
+import type { Program, Session } from '@/data/types';
+import { locationById } from '@/data/locations';
+import { dateRange, dayList, price, spotsLabel, timeRange } from '@/lib/format';
+import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
+
+interface Props {
+  program: Program;
+  session: Session;
+  compact?: boolean;
+}
+
+const { program, session, compact = false } = Astro.props;
+const loc = locationById(session.locationId);
+const href = session.status === 'coming-soon' ? `/programs/${program.slug}#notify` : enrollHref(program, session);
+const external = isExternal(href);
+const primary = session.status === 'open' || session.status === 'few-left';
+
+const when = session.label ?? dayList(session.days);
+const singleDay = session.startDate === session.endDate;
+const dates = singleDay
+  ? session.term
+  : `${session.label ? dayList(session.days) : session.term} · ${dateRange(session.startDate, session.endDate)}`;
+---
+
+<div class:list={['session', { 'session--compact': compact }]} data-session-id={session.id}>
+  <div class="session__when">
+    <span class="session__days script">{when}</span>
+    <span class="session__time script">{timeRange(session.start, session.end)}</span>
+  </div>
+  <div class="session__meta">
+    <span>{dates}</span>
+    <span>{loc?.shortName}</span>
+  </div>
+  <div class="session__price">
+    <strong>{session.price ? price(session.price) : session.externalUrl ? 'Via school' : 'Pricing TBA'}</strong>
+    <span class="status" data-status={session.status}>{spotsLabel(session)}</span>
+  </div>
+  <a
+    class:list={['btn', 'btn--sm', primary ? 'btn--primary' : 'btn--outline', 'session__cta']}
+    href={href}
+    data-enroll={session.id}
+    {...external ? { rel: 'noopener' } : {}}
+  >
+    {enrollLabel(session)}
+    <span class="sr-only"> in {program.title}, {dayList(session.days)} {timeRange(session.start, session.end)}</span>
+  </a>
+</div>
+
+<style>
+  .session {
+    display: grid;
+    grid-template-columns: minmax(9.5rem, 1.1fr) minmax(9rem, 1.2fr) minmax(8rem, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem var(--space-m);
+    padding: 0.85rem 0;
+    border-top: 1.5px dashed var(--line-strong);
+  }
+  .session:first-child { border-top: 0; }
+  .session__when, .session__meta, .session__price { display: grid; gap: 0.1rem; }
+  .session__days { font-weight: 700; color: var(--ink); }
+  .session__time { color: var(--ink-soft); }
+  .session__meta { font-size: var(--step--1); color: var(--ink-soft); }
+  .session__price strong { font-family: var(--font-display); font-weight: 750; font-size: 1.1rem; }
+  .session__cta { justify-self: end; }
+
+  .session--compact {
+    grid-template-columns: 1fr auto;
+  }
+  .session--compact .session__meta { grid-column: 1; }
+  .session--compact .session__price { grid-column: 1; grid-row: 3; display: flex; gap: 0.75rem; align-items: baseline; }
+  .session--compact .session__cta { grid-column: 2; grid-row: 1 / span 3; }
+
+  @media (max-width: 640px) {
+    .session { grid-template-columns: 1fr auto; }
+    .session__meta { grid-column: 1; }
+    .session__price { grid-column: 1; grid-row: 3; display: flex; gap: 0.75rem; align-items: baseline; }
+    .session__cta { grid-column: 2; grid-row: 1 / span 3; }
+  }
+</style>

@@ -1,0 +1,93 @@
+---
+/**
+ * Photo slot. Renders the real image when `image.src` is set; otherwise a
+ * designed placeholder that names the shot we need, so the layout can be
+ * reviewed before photography is migrated.
+ */
+import type { Gel, ImageRef } from '@/data/types';
+
+interface Props {
+  image?: ImageRef;
+  gel?: Gel;
+  shape?: 'arch' | 'rounded' | 'circle';
+  ratio?: string;
+  class?: string;
+  eager?: boolean;
+}
+
+const { image, gel = 'amber', shape = 'rounded', ratio = '4 / 3', class: className = '', eager = false } = Astro.props;
+---
+
+<figure class:list={['frame', `frame--${shape}`, className]} data-gel={gel} style={`--ratio: ${ratio}`}>
+  {
+    image?.src ? (
+      <img src={image.src} alt={image.alt} loading={eager ? 'eager' : 'lazy'} decoding="async" />
+    ) : (
+      <div class="frame__placeholder" role="img" aria-label={image?.alt ?? 'Photo coming soon'}>
+        <span class="frame__caption">
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M9 3 7.2 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"
+            />
+          </svg>
+          {image?.placeholder ?? 'Photo'}
+        </span>
+      </div>
+    )
+  }
+  <slot />
+</figure>
+
+<style>
+  .frame {
+    position: relative;
+    margin: 0;
+    aspect-ratio: var(--ratio);
+    max-width: 100%;
+    overflow: hidden;
+    background: var(--gel-tint);
+    isolation: isolate;
+  }
+  .frame--rounded { border-radius: var(--r-lg); }
+  .frame--arch { border-radius: var(--r-arch); }
+  .frame--circle { border-radius: 50%; aspect-ratio: 1; }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .frame__placeholder {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: end start;
+    padding: 1rem;
+    /* a stage light falling on the photo slot */
+    background:
+      radial-gradient(circle at 70% 25%, color-mix(in srgb, var(--gel) 55%, transparent) 0 22%, transparent 48%),
+      radial-gradient(circle at 25% 75%, color-mix(in srgb, var(--gel) 30%, transparent) 0 18%, transparent 42%),
+      repeating-linear-gradient(135deg, transparent 0 14px, color-mix(in srgb, var(--gel) 10%, transparent) 14px 15px),
+      var(--gel-tint);
+  }
+  .frame--arch .frame__placeholder { place-items: center; }
+  .frame--circle .frame__placeholder { place-items: center; }
+
+  .frame__caption {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    max-width: 100%;
+    font-family: var(--font-script);
+    font-size: 0.8rem;
+    line-height: 1.25;
+    color: var(--ink);
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    border-radius: 999px;
+    padding: 0.4em 0.8em;
+  }
+  .frame--circle .frame__caption { font-size: 0.72rem; padding: 0.3em 0.6em; }
+  .frame__caption svg { flex: none; color: var(--gel-ink); }
+</style>

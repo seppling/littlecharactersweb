@@ -1,0 +1,118 @@
+---
+import Base from '@/layouts/Base.astro';
+import EventTicket from '@/components/EventTicket.astro';
+import Character from '@/components/Character.astro';
+import { events } from '@/data/events';
+
+// Group by month in date order.
+const sorted = [...events].sort((a, b) => a.times[0].start.localeCompare(b.times[0].start));
+const months = new Map<string, typeof events>();
+for (const e of sorted) {
+  const key = new Date(e.times[0].start).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  months.set(key, [...(months.get(key) ?? []), e]);
+}
+---
+
+<Base title="Shows & events" description="Variety shows, Parents’ Night Out, Ovation, First Friday Improv and community events from Little Characters.">
+  <div class="house">
+    <section class="house__head">
+      <div class="house__lights" aria-hidden="true"></div>
+      <div class="wrap house__intro">
+        <div class="stack">
+          <p class="eyebrow">House lights down</p>
+          <h1>Shows & events</h1>
+          <p class="lede">
+            Come see what our students have been working on, drop the kids off for a night of crafts and games, or play along yourself.
+          </p>
+          <ul class="legend" aria-label="Event types">
+            <li><span class="tape" data-gel="magenta">Show</span></li>
+            <li><span class="tape" data-gel="cyan" data-tilt="right">Drop-off</span></li>
+            <li><span class="tape" data-gel="green">Inclusive</span></li>
+            <li><span class="tape" data-gel="amber" data-tilt="right">Community</span></li>
+            <li><span class="tape" data-gel="lilac">Geode · 18+</span></li>
+          </ul>
+        </div>
+        <div class="house__cast" aria-hidden="true">
+          <Character name="dancer" size={84} />
+          <Character name="magician" size={80} />
+          <Character name="royal" size={100} />
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap house__list">
+      {
+        [...months.entries()].map(([month, items]) => (
+          <section class="month" aria-labelledby={`m-${month.replace(/\s/g, '')}`}>
+            <h2 id={`m-${month.replace(/\s/g, '')}`}>{month}</h2>
+            <div class="month__items">
+              {items.map((e) => (
+                <EventTicket event={e} />
+              ))}
+            </div>
+          </section>
+        ))
+      }
+    </section>
+
+    <section class="wrap perform">
+      <div class="perform__card">
+        <h2>Want your kid on this stage?</h2>
+        <p>Most classes and camps end with a performance. Weekly classes perform in the end-of-term LC Variety Show at Marigold Auditorium.</p>
+        <a class="btn btn--amber" href="/programs">Find a class <span class="arrow" aria-hidden="true">→</span></a>
+      </div>
+    </section>
+  </div>
+</Base>
+
+<style>
+  .house {
+    background: var(--stage);
+    color: var(--on-stage);
+    padding-bottom: var(--space-3xl);
+    --accent: var(--amber);
+  }
+  .house__head { position: relative; overflow: hidden; padding-block: var(--space-3xl) var(--space-2xl); border-bottom: 3px solid var(--stage-line); }
+  .house__lights {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 26% 70% at 15% -10%, color-mix(in srgb, var(--magenta) 28%, transparent), transparent 70%),
+      radial-gradient(ellipse 24% 70% at 55% -15%, color-mix(in srgb, var(--amber) 22%, transparent), transparent 70%),
+      radial-gradient(ellipse 26% 70% at 90% -10%, color-mix(in srgb, var(--cyan) 26%, transparent), transparent 70%);
+  }
+  .house__intro { position: relative; display: flex; justify-content: space-between; align-items: end; gap: var(--space-xl); }
+  .house h1 { color: var(--on-stage); }
+  .house .eyebrow, .house .lede { color: var(--on-stage-mute); }
+  .house__cast { display: flex; align-items: flex-end; gap: 0.5rem; margin-bottom: calc(-1 * var(--space-2xl) - 3px); flex: none; }
+  .legend { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.7rem; }
+  .legend .tape { --tape: var(--gel); }
+
+  .house__list { display: grid; gap: var(--space-2xl); padding-top: var(--space-2xl); }
+  .month h2 {
+    font-family: var(--font-script);
+    font-size: var(--step-1);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: var(--space-m);
+  }
+  .month__items { display: grid; gap: var(--space-m); }
+
+  .perform { padding-top: var(--space-3xl); }
+  .perform__card {
+    display: grid;
+    gap: var(--space-m);
+    justify-items: start;
+    padding: var(--space-xl);
+    border: 2px dashed var(--stage-line);
+    border-radius: var(--r-lg);
+  }
+  .perform__card h2 { font-size: var(--step-3); color: var(--on-stage); }
+  .perform__card p { color: var(--on-stage-mute); max-width: 56ch; }
+
+  @media (max-width: 720px) {
+    .house__cast { display: none; }
+  }
+</style>

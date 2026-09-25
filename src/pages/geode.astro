@@ -1,0 +1,100 @@
+---
+import Base from '@/layouts/Base.astro';
+import ProgramRow from '@/components/ProgramRow.astro';
+import EventTicket from '@/components/EventTicket.astro';
+import { geodePrograms } from '@/data/programs';
+import { events } from '@/data/events';
+
+const geodeEvents = events.filter((e) => e.brand === 'geode').slice(0, 3);
+---
+
+<Base title="Geode: theater for teens & adults" description="Geode is Little Characters’ sister company for tweens, teens and adults: acting, improv, private lessons and First Friday Improv Nights.">
+  <div class="geode" data-gel="lilac">
+    <section class="geode-hero">
+      <div class="crystals" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="wrap geode-hero__inner">
+        <p class="eyebrow">A Little Characters company</p>
+        <h1>Geode</h1>
+        <p class="geode-hero__line">Theater for teens, tweens and grown-ups.</p>
+        <p class="lede">
+          Geode strives to deepen social and emotional health in a safe, fun environment through the art of theater. Starting summer 2026, Geode welcomes students 12 and up, with programs for ages 12–17 and adult-only programs.
+        </p>
+        <div class="geode-hero__ctas">
+          <a class="btn btn--primary" href="#geode-programs">See programs <span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn--outline" href="#improv-nights">First Friday Improv</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--tight" id="geode-programs" aria-labelledby="gp-title">
+      <div class="wrap">
+        <h2 id="gp-title" class="geode__h2">Classes</h2>
+        <div class="rows">
+          {geodePrograms.map((p) => <ProgramRow program={p} />)}
+        </div>
+        <p class="geode__lessons">
+          Private lessons for audition prep, playwriting, acting and singing are available for all ages. <a href="/programs/private-lessons">Book a lesson</a>.
+        </p>
+      </div>
+    </section>
+
+    <section class="section section--stage" id="improv-nights" aria-labelledby="fi-title">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">18+ · Group and partner games</p>
+          <h2 id="fi-title">First Friday Improv Nights</h2>
+          <p class="lede">A monthly night of improv games for adults. No experience needed. Come play, laugh and meet people.</p>
+        </div>
+        <div class="tickets">
+          {geodeEvents.map((e) => <EventTicket event={e} />)}
+        </div>
+      </div>
+    </section>
+  </div>
+</Base>
+
+<style>
+  .geode { --accent: var(--lilac-ink); }
+  .geode-hero {
+    position: relative;
+    overflow: hidden;
+    padding-block: var(--space-3xl);
+    background: linear-gradient(160deg, var(--lilac-tint), var(--paper) 70%);
+  }
+  .geode-hero__inner { position: relative; display: grid; gap: var(--space-l); }
+  .geode-hero__inner > * { max-width: 760px; }
+  .geode-hero h1 {
+    font-size: clamp(4rem, 2rem + 10vw, 10rem);
+    font-stretch: 75%;
+    letter-spacing: -0.04em;
+    line-height: 0.85;
+    color: var(--lilac-ink);
+  }
+  .geode-hero__line { font-family: var(--font-display); font-weight: 700; font-size: var(--step-2); font-stretch: 90%; }
+  .geode-hero__ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .geode .btn--primary { --btn-bg: var(--lilac-ink); --btn-border: var(--lilac-ink); }
+
+  /* Faceted crystal shapes, a nod to the name */
+  .crystals { position: absolute; inset: 0; pointer-events: none; }
+  .crystals span {
+    position: absolute;
+    background: linear-gradient(135deg, var(--lilac), color-mix(in srgb, var(--cyan) 60%, var(--lilac)));
+    opacity: 0.85;
+    clip-path: polygon(50% 0, 100% 30%, 85% 100%, 15% 100%, 0 30%);
+  }
+  .crystals span:nth-child(1) { width: 220px; height: 300px; right: 6%; top: 12%; transform: rotate(8deg); }
+  .crystals span:nth-child(2) { width: 130px; height: 190px; right: 22%; top: 42%; transform: rotate(-14deg); opacity: 0.6; background: linear-gradient(135deg, var(--magenta), var(--lilac)); }
+  .crystals span:nth-child(3) { width: 90px; height: 130px; right: 3%; top: 64%; transform: rotate(22deg); opacity: 0.5; }
+  .crystals span:nth-child(4) { width: 60px; height: 90px; right: 30%; top: 10%; transform: rotate(-4deg); opacity: 0.45; background: var(--amber); }
+
+  .geode__h2 { font-size: var(--step-3); margin-bottom: var(--space-xl); }
+  .rows { display: grid; gap: var(--space-l); }
+  .geode__lessons { margin-top: var(--space-xl); color: var(--ink-soft); }
+  .tickets { display: grid; gap: var(--space-m); }
+
+  @media (max-width: 860px) {
+    .crystals { opacity: 0.35; }
+  }
+</style>

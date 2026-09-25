@@ -1,0 +1,98 @@
+---
+import Base from '@/layouts/Base.astro';
+import { site } from '@/config/site';
+import { locations } from '@/data/locations';
+
+const topics = [
+  { value: 'general', label: 'A general question' },
+  { value: 'class', label: 'Help picking a class or camp' },
+  { value: 'private-lessons', label: 'Private lessons' },
+  { value: 'party', label: 'A birthday party' },
+  { value: 'scholarship', label: 'Scholarships' },
+  { value: 'needs', label: 'My child’s specific needs' },
+];
+const venues = locations.filter((l) => l.id === 'hq' || l.id === 'marigold');
+---
+
+<Base title="Contact" description="Get in touch with Little Characters Theater Troupe in Athens, GA.">
+  <section class="contact">
+    <div class="wrap contact__grid">
+      <div class="stack" style="--stack: var(--space-l)">
+        <p class="eyebrow">Say hello</p>
+        <h1>Talk to Hannah.</h1>
+        <p class="lede">Not sure which class fits? Want to plan a party or ask about a scholarship? Send a note and we’ll get back to you.</p>
+        <dl class="direct">
+          <div><dt>Email</dt><dd><a href={`mailto:${site.contact.email}`}>{site.contact.email}</a></dd></div>
+          <div><dt>Phone</dt><dd><a href={site.contact.phoneHref}>{site.contact.phone}</a></dd></div>
+          <div><dt>Instagram</dt><dd><a href={site.social.instagram} rel="noopener">@littlecharactersathens</a></dd></div>
+        </dl>
+        {
+          venues.map((v) => (
+            <address class="venue">
+              <strong>{v.name}</strong>
+              <span class="script">{v.address.join(', ')}</span>
+              <a href={v.mapUrl} rel="noopener">Directions</a>
+            </address>
+          ))
+        }
+      </div>
+
+      <form class="contact__form" action={site.forms.contactAction || undefined} method="post" id="contact-form">
+        <div class="field">
+          <label for="c-name">Your name</label>
+          <input id="c-name" name="name" autocomplete="name" required />
+        </div>
+        <div class="field">
+          <label for="c-email">Email</label>
+          <input id="c-email" name="email" type="email" autocomplete="email" required />
+        </div>
+        <div class="field">
+          <label for="c-topic">What’s it about?</label>
+          <select id="c-topic" name="topic">
+            {topics.map((t) => <option value={t.value}>{t.label}</option>)}
+          </select>
+        </div>
+        <div class="field">
+          <label for="c-kids">Your child’s age(s) <span class="opt">optional</span></label>
+          <input id="c-kids" name="ages" placeholder="e.g. 5 and 8" />
+        </div>
+        <div class="field">
+          <label for="c-msg">Message</label>
+          <textarea id="c-msg" name="message" required></textarea>
+        </div>
+        <button class="btn btn--primary" type="submit">Send message</button>
+      </form>
+    </div>
+  </section>
+</Base>
+
+<script>
+  // Pre-select the topic from links like /contact?topic=party
+  const topic = new URLSearchParams(location.search).get('topic');
+  const select = document.getElementById('c-topic') as HTMLSelectElement | null;
+  if (topic && select && [...select.options].some((o) => o.value === topic)) select.value = topic;
+</script>
+
+<style>
+  .contact { padding-block: var(--space-2xl) var(--space-3xl); }
+  .contact__grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-2xl); align-items: start; }
+  .direct { margin: 0; display: grid; gap: 0.6rem; }
+  .direct div { display: grid; grid-template-columns: 6.5rem 1fr; gap: 0.5rem; }
+  .direct dt { font-family: var(--font-script); font-weight: 700; color: var(--ink-mute); text-transform: uppercase; font-size: var(--step--1); padding-top: 0.15rem; }
+  .direct dd { margin: 0; font-weight: 600; }
+  .venue { font-style: normal; display: grid; gap: 0.15rem; padding-top: var(--space-m); border-top: 1.5px dashed var(--line-strong); }
+  .venue .script { color: var(--ink-soft); }
+  .venue a { width: fit-content; font-size: var(--step--1); }
+  .contact__form {
+    display: grid;
+    gap: var(--space-m);
+    padding: var(--space-xl);
+    background: var(--hall);
+    border-radius: var(--r-lg);
+  }
+  .contact__form .btn { justify-self: start; }
+  .opt { font-weight: 400; color: var(--ink-mute); }
+  @media (max-width: 860px) {
+    .contact__grid { grid-template-columns: 1fr; }
+  }
+</style>

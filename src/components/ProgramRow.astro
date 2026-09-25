@@ -1,0 +1,129 @@
+---
+/**
+ * Class-finder result: program summary on the left, every bookable session on
+ * the right, so a parent can go from "found it" to "Enroll" without another page.
+ */
+import type { CharacterName, Program } from '@/data/types';
+import Character from './Character.astro';
+import SessionLine from './SessionLine.astro';
+import { kindLabels } from '@/data/programs';
+import { ageLabel, price } from '@/lib/format';
+
+interface Props {
+  program: Program;
+}
+
+const { program } = Astro.props;
+
+const castByGel: Record<Program['gel'], CharacterName> = {
+  magenta: 'royal',
+  cyan: 'magician',
+  amber: 'artist',
+  green: 'professor',
+  lilac: 'dancer',
+};
+
+const maxAge = program.ages.max ?? 120;
+const days = [...new Set(program.sessions.flatMap((s) => s.days))];
+const locs = [...new Set(program.sessions.map((s) => s.locationId))];
+const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.price;
+---
+
+<article
+  class="prow"
+  data-gel={program.gel}
+  data-program
+  data-kind={program.kind}
+  data-brand={program.brand}
+  data-age-min={program.ages.min}
+  data-age-max={maxAge}
+  data-days={days.join(',')}
+  data-locs={locs.join(',')}
+  data-open={program.sessions.some((s) => s.status === 'open' || s.status === 'few-left') ? '1' : '0'}
+>
+  <div class="prow__summary">
+    <div class="prow__art" aria-hidden="true">
+      <Character name={castByGel[program.gel]} size={64} />
+    </div>
+    <div class="prow__text">
+      <div class="prow__tags">
+        <span class="tape tape--quiet" data-tilt="flat">{kindLabels[program.kind].singular}</span>
+        <span class="prow__age">{ageLabel(program.ages)}</span>
+      </div>
+      <h3><a href={`/programs/${program.slug}`}>{program.title}</a></h3>
+      <p>{program.summary}</p>
+      <p class="prow__foot">
+        {program.duration && <span class="script">{program.duration}</span>}
+        {fromPrice && <span class="script">from {price(fromPrice)}</span>}
+        {program.showcase && <span class="prow__show">★ Ends in a show</span>}
+      </p>
+    </div>
+  </div>
+  <div class="prow__sessions">
+    {
+      program.sessions.length > 0 ? (
+        program.sessions.map((session) => <SessionLine program={program} session={session} compact />)
+      ) : (
+        <div class="prow__request">
+          <p>Scheduled around your family.</p>
+          {program.requestCta && (
+            <a class="btn btn--sm btn--outline" href={program.requestCta.href}>
+              {program.requestCta.label}
+            </a>
+          )}
+        </div>
+      )
+    }
+    <a class="prow__more link-arrow" href={`/programs/${program.slug}`}>Details, teachers & FAQs</a>
+  </div>
+</article>
+
+<style>
+  .prow {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: var(--space-xl);
+    padding: var(--space-xl);
+    background: var(--paper);
+    border: 1.5px solid var(--line);
+    border-radius: var(--r-lg);
+  }
+  .prow[hidden] { display: none; }
+  .prow__summary { display: grid; grid-template-columns: auto 1fr; gap: var(--space-l); align-items: start; }
+  .prow__art {
+    width: 84px;
+    height: 84px;
+    display: grid;
+    place-items: end center;
+    border-radius: 50%;
+    background: var(--gel-tint);
+    overflow: hidden;
+  }
+  .prow__art :global(.character) { margin-bottom: -6px; }
+  .prow__text { display: grid; gap: 0.55rem; }
+  .prow__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+  .prow__age { font-family: var(--font-display); font-weight: 750; font-stretch: 90%; color: var(--gel-ink); }
+  .prow h3 { font-size: var(--step-2); }
+  .prow h3 a { color: var(--ink); text-decoration: none; }
+  .prow h3 a:hover { text-decoration: underline; text-decoration-color: var(--gel); text-decoration-thickness: 3px; }
+  .prow__text > p { color: var(--ink-soft); }
+  .prow__foot { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; font-size: var(--step--1); }
+  .prow__show { font-weight: 650; color: var(--ink); }
+  .prow__sessions {
+    display: grid;
+    align-content: start;
+    padding: 0.25rem 1.1rem 1rem;
+    background: var(--hall);
+    border-radius: var(--r-md);
+  }
+  .prow__request { display: grid; gap: 0.75rem; justify-items: start; padding-top: 0.9rem; color: var(--ink-soft); }
+  .prow__more { justify-self: start; margin-top: 0.6rem; font-size: var(--step--1); }
+
+  @media (max-width: 860px) {
+    .prow { grid-template-columns: 1fr; padding: var(--space-l); gap: var(--space-l); }
+  }
+  @media (max-width: 480px) {
+    .prow__summary { grid-template-columns: 1fr; }
+    .prow__art { width: 64px; height: 64px; }
+  }
+</style>

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.astro/
+.env
+.env.*
+!.env.example
+.DS_Store
+# Raw Squarespace JSON dumps are large; the .md versions next to them are what we migrate from.
+content/scraped/pages/*.json

@@ -1,0 +1,128 @@
+---
+/** A show or event as a ticket stub, for the dark "house lights down" sections. */
+import type { EventItem } from '@/data/types';
+import { locationById } from '@/data/locations';
+import { eventDate, timeOf } from '@/lib/format';
+
+interface Props {
+  event: EventItem;
+}
+
+const { event } = Astro.props;
+const first = eventDate(event.times[0].start);
+const venue = event.venue ?? locationById(event.locationId ?? '')?.name;
+const kindLabel: Record<EventItem['kind'], string> = {
+  show: 'Show',
+  community: 'Community',
+  'drop-off': 'Drop-off',
+  inclusive: 'Inclusive',
+  geode: 'Geode · 18+',
+};
+---
+
+<article class="ticket" data-gel={event.gel} id={event.slug}>
+  <div class="ticket__stub">
+    <span class="ticket__month">{first.month}</span>
+    <span class="ticket__day">{first.day}</span>
+    <span class="ticket__weekday">{first.weekday}</span>
+  </div>
+  <div class="ticket__body">
+    <span class="tape">{kindLabel[event.kind]}</span>
+    <h3>{event.title}</h3>
+    <p class="ticket__times script">
+      {
+        event.times.map((t, i) => {
+          const d = eventDate(t.start);
+          return (
+            <span>
+              {event.times.length > 1 && `${d.weekday} ${d.month} ${d.day}, `}
+              {timeOf(t.start.slice(11, 16))}
+              {i < event.times.length - 1 && ' · '}
+            </span>
+          );
+        })
+      }
+      {venue && <span class="ticket__venue"> — {venue}</span>}
+    </p>
+    <p class="ticket__summary">{event.summary}</p>
+    <div class="ticket__actions">
+      {event.cta && <a class="btn btn--sm btn--amber" href={event.cta.href}>{event.cta.label}</a>}
+      <a class="ticket__cal" href={`/events/${event.slug}.ics`} download>Add to calendar</a>
+      {(event.price || event.ages) && (
+        <span class="ticket__price script">{[event.ages && `Ages ${event.ages}`, event.price].filter(Boolean).join(' · ')}</span>
+      )}
+    </div>
+  </div>
+</article>
+
+<style>
+  .ticket {
+    --notch: 14px;
+    display: grid;
+    grid-template-columns: 6.5rem 1fr;
+    background: var(--stage-raise);
+    border-radius: var(--r-md);
+    color: var(--on-stage);
+    position: relative;
+    /* punched notches where the stub tears off */
+    -webkit-mask:
+      radial-gradient(circle var(--notch) at 6.5rem 0, transparent 98%, #000) top / 100% 51% no-repeat,
+      radial-gradient(circle var(--notch) at 6.5rem 100%, transparent 98%, #000) bottom / 100% 51% no-repeat;
+    mask:
+      radial-gradient(circle var(--notch) at 6.5rem 0, transparent 98%, #000) top / 100% 51% no-repeat,
+      radial-gradient(circle var(--notch) at 6.5rem 100%, transparent 98%, #000) bottom / 100% 51% no-repeat;
+  }
+  .ticket__stub {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 0.1rem;
+    padding: 1.2rem 0.5rem;
+    background: var(--gel);
+    color: var(--ink);
+    border-radius: var(--r-md) 0 0 var(--r-md);
+    border-right: 3px dashed var(--stage-raise);
+    text-align: center;
+  }
+  .ticket__month, .ticket__weekday {
+    font-family: var(--font-script);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.06em;
+  }
+  .ticket__day {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-stretch: 75%;
+    font-size: 3rem;
+    line-height: 0.9;
+  }
+  .ticket__body {
+    display: grid;
+    gap: 0.5rem;
+    padding: 1.3rem 1.5rem 1.4rem 1.6rem;
+    align-content: start;
+  }
+  .ticket__body .tape { --tape: var(--gel); }
+  .ticket h3 { font-size: var(--step-2); color: var(--on-stage); }
+  .ticket__times { color: var(--on-stage); }
+  .ticket__venue { color: var(--on-stage-mute); }
+  .ticket__summary { color: var(--on-stage-mute); max-width: 60ch; }
+  .ticket__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1.1rem; margin-top: 0.4rem; }
+  .ticket__cal { color: var(--on-stage); font-weight: 600; font-size: var(--step--1); }
+  .ticket__price { color: var(--on-stage-mute); font-size: var(--step--1); }
+
+  @media (max-width: 520px) {
+    .ticket { grid-template-columns: 5rem 1fr; --notch: 11px;
+      -webkit-mask:
+        radial-gradient(circle var(--notch) at 5rem 0, transparent 98%, #000) top / 100% 51% no-repeat,
+        radial-gradient(circle var(--notch) at 5rem 100%, transparent 98%, #000) bottom / 100% 51% no-repeat;
+      mask:
+        radial-gradient(circle var(--notch) at 5rem 0, transparent 98%, #000) top / 100% 51% no-repeat,
+        radial-gradient(circle var(--notch) at 5rem 100%, transparent 98%, #000) bottom / 100% 51% no-repeat;
+    }
+    .ticket__day { font-size: 2.4rem; }
+    .ticket__body { padding: 1.1rem 1.1rem 1.2rem 1.2rem; }
+  }
+</style>

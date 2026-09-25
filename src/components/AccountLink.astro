@@ -1,0 +1,53 @@
+---
+/**
+ * Account entry point in the header.
+ *
+ * Phase 2 hook: the element carries data-account-slot so the portal can swap
+ * "Log in" for the signed-in family ("Hi, Sam · 2 upcoming") by reading the
+ * session cookie, without changing the static page. See docs/portal-phase-2.md.
+ */
+import { accountHref, isExternal } from '@/lib/enroll';
+
+interface Props {
+  block?: boolean;
+}
+const { block = false } = Astro.props;
+const href = accountHref();
+---
+
+<a
+  class:list={['account-link', { 'account-link--block': block }]}
+  href={href}
+  data-account-slot
+  {...isExternal(href) ? { rel: 'noopener' } : {}}
+>
+  <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="8.5" r="4" fill="none" stroke="currentColor" stroke-width="2"></circle>
+    <path d="M4.5 20c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+  </svg>
+  <span>Family login</span>
+</a>
+
+<style>
+  .account-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 40px;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-weight: 650;
+    font-stretch: 90%;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .account-link:hover { background: var(--hall); }
+  .account-link--block {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+    border: 2px solid var(--ink);
+  }
+</style>

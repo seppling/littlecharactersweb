@@ -1,0 +1,268 @@
+---
+import Base from '@/layouts/Base.astro';
+import ProgramRow from '@/components/ProgramRow.astro';
+import JourneySteps from '@/components/JourneySteps.astro';
+import Character from '@/components/Character.astro';
+import { programs, kindLabels, ageBands } from '@/data/programs';
+import { locations } from '@/data/locations';
+
+const kinds = [...new Set(programs.map((p) => p.kind))];
+const usedLocs = locations.filter((l) => programs.some((p) => p.sessions.some((s) => s.locationId === l.id)));
+const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+// Classes first, then camps, then everything else; youngest first within each.
+const order = ['class', 'camp', 'inclusive', 'lesson', 'party', 'workshop'];
+const sorted = [...programs].sort(
+  (a, b) => order.indexOf(a.kind) - order.indexOf(b.kind) || a.ages.min - b.ages.min,
+);
+---
+
+<Base title="Find a class" description="Search every Little Characters class, camp, workshop and party by age, day and location.">
+  <section class="finder-head">
+    <div class="wrap">
+      <div class="finder-head__inner">
+        <div class="stack">
+          <p class="eyebrow">Classes, camps & more</p>
+          <h1>Find a class</h1>
+          <p class="lede">Start with your child’s age. Every program shows its times, place, price and open spots, so you can enroll right from this page.</p>
+        </div>
+        <div class="finder-head__cast" aria-hidden="true">
+          <Character name="artist" size={78} />
+          <Character name="royal" size={92} />
+          <Character name="magician" size={70} />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <form class="filters" id="filters" aria-label="Filter programs">
+    <div class="wrap filters__inner">
+      <fieldset class="filters__group">
+        <legend>Age</legend>
+        <div class="filters__chips">
+          <label class="chip"><input type="radio" name="age" value="" checked /> Any age</label>
+          {
+            ageBands.map((b) => (
+              <label class="chip">
+                <input type="radio" name="age" value={b.id} /> {b.label}
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+
+      <fieldset class="filters__group">
+        <legend>Type</legend>
+        <div class="filters__chips">
+          {
+            kinds.map((k) => (
+              <label class="chip">
+                <input type="checkbox" name="kind" value={k} /> {kindLabels[k].plural}
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+
+      <details class="filters__more">
+        <summary>More filters</summary>
+        <div class="filters__more-body">
+          <fieldset class="filters__group">
+            <legend>Day</legend>
+            <div class="filters__chips">
+              {
+                days.map((d) => (
+                  <label class="chip chip--day">
+                    <input type="checkbox" name="day" value={d} /> {d}
+                  </label>
+                ))
+              }
+            </div>
+          </fieldset>
+          <div class="filters__row">
+            <div class="field">
+              <label for="filter-loc">Where</label>
+              <select id="filter-loc" name="loc">
+                <option value="">Anywhere</option>
+                {usedLocs.map((l) => <option value={l.id}>{l.shortName}</option>)}
+              </select>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" name="open" value="1" />
+              <span>Only show programs with open spots</span>
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <div class="filters__status">
+        <p id="result-count" aria-live="polite"><strong>{programs.length}</strong> programs</p>
+        <button class="filters__reset" type="reset">Clear filters</button>
+      </div>
+    </div>
+  </form>
+
+  <section class="section section--tight results-wrap">
+    <div class="wrap">
+      <div class="results" id="results">
+        {sorted.map((p) => <ProgramRow program={p} />)}
+      </div>
+      <div class="empty" id="empty" hidden>
+        <Character name="professor" size={90} />
+        <h2>Nothing matches all of that.</h2>
+        <p>Try another day or age, or <a href="/contact">tell us what you’re looking for</a>. We add classes when families ask.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--hall" aria-labelledby="how-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">How enrollment works</p>
+        <h2 id="how-title">From “this one!” to “you’re in” in a few minutes.</h2>
+      </div>
+      <JourneySteps />
+    </div>
+  </section>
+</Base>
+
+<script>
+  const form = document.getElementById('filters') as HTMLFormElement;
+  const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-program]'));
+  const count = document.getElementById('result-count')!;
+  const empty = document.getElementById('empty')!;
+
+  const bands: Record<string, [number, number]> = {
+    '4-6': [4, 6],
+    '7-10': [7, 10],
+    '11-13': [11, 13],
+    '14-17': [14, 17],
+    adult: [18, 120],
+  };
+
+  function readState() {
+    const data = new FormData(form);
+    return {
+      age: String(data.get('age') ?? ''),
+      kinds: data.getAll('kind').map(String),
+      days: data.getAll('day').map(String),
+      loc: String(data.get('loc') ?? ''),
+      open: data.get('open') === '1',
+    };
+  }
+
+  function apply() {
+    const s = readState();
+    let shown = 0;
+    for (const row of rows) {
+      const min = Number(row.dataset.ageMin);
+      const max = Number(row.dataset.ageMax);
+      const band = bands[s.age];
+      const ok =
+        (!band || (min <= band[1] && max >= band[0])) &&
+        (!s.kinds.length || s.kinds.includes(row.dataset.kind!)) &&
+        (!s.days.length || s.days.some((d) => row.dataset.days!.split(',').includes(d))) &&
+        (!s.loc || row.dataset.locs!.split(',').includes(s.loc)) &&
+        (!s.open || row.dataset.open === '1');
+      row.hidden = !ok;
+      if (ok) shown++;
+    }
+    count.innerHTML = `<strong>${shown}</strong> ${shown === 1 ? 'program' : 'programs'}`;
+    empty.hidden = shown > 0;
+
+    const params = new URLSearchParams();
+    if (s.age) params.set('age', s.age);
+    if (s.kinds.length) params.set('kind', s.kinds.join(','));
+    if (s.days.length) params.set('day', s.days.join(','));
+    if (s.loc) params.set('loc', s.loc);
+    if (s.open) params.set('open', '1');
+    const qs = params.toString();
+    history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
+  }
+
+  // Pre-select from the URL (age picker links, nav links like ?kind=class)
+  const params = new URLSearchParams(location.search);
+  const setChecked = (name: string, values: string[]) => {
+    form.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`).forEach((el) => {
+      if (values.includes(el.value)) el.checked = true;
+    });
+  };
+  if (params.get('age')) setChecked('age', [params.get('age')!]);
+  if (params.get('kind')) setChecked('kind', params.get('kind')!.split(','));
+  if (params.get('day')) {
+    setChecked('day', params.get('day')!.split(','));
+    (form.querySelector('.filters__more') as HTMLDetailsElement).open = true;
+  }
+  if (params.get('loc')) (form.elements.namedItem('loc') as HTMLSelectElement).value = params.get('loc')!;
+  if (params.get('open')) setChecked('open', ['1']);
+
+  form.addEventListener('change', apply);
+  form.addEventListener('reset', () => setTimeout(apply));
+  form.addEventListener('submit', (e) => e.preventDefault());
+  apply();
+</script>
+
+<style>
+  .finder-head { padding-block: var(--space-2xl) var(--space-l); }
+  .finder-head__inner { display: flex; justify-content: space-between; align-items: end; gap: var(--space-xl); }
+  .finder-head h1 { font-size: var(--step-5); }
+  .finder-head__cast { display: flex; align-items: flex-end; gap: 0.4rem; flex: none; }
+
+  .filters {
+    background: var(--paper);
+    border-block: 1.5px solid var(--line);
+  }
+  .filters__inner { display: grid; gap: 0.75rem; padding-block: 1rem; }
+  .filters__group { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: 4.5rem 1fr; align-items: center; gap: 0.75rem; }
+  .filters__group legend {
+    float: left;
+    padding: 0;
+    font-family: var(--font-script);
+    font-weight: 700;
+    font-size: var(--step--1);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-mute);
+  }
+  .filters__chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+  .filters .chip { position: relative; min-height: 40px; font-size: 0.95rem; padding: 0.35em 0.95em; }
+  .chip--day { min-width: 3.4rem; justify-content: center; }
+  .filters__more summary {
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--ink-soft);
+    width: fit-content;
+  }
+  .filters__more-body { display: grid; gap: 0.9rem; padding-top: 0.9rem; }
+  .filters__row { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem 2rem; }
+  .filters__row .field { min-width: 14rem; }
+  .toggle { display: inline-flex; align-items: center; gap: 0.6rem; min-height: 48px; font-weight: 600; cursor: pointer; }
+  .toggle input { width: 1.25rem; height: 1.25rem; accent-color: var(--magenta-ink); }
+  .filters__status { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+  .filters__status p { color: var(--ink-soft); }
+  .filters__status strong { color: var(--ink); font-family: var(--font-display); font-size: 1.15rem; }
+  .filters__reset {
+    background: none;
+    border: 0;
+    padding: 0.4rem 0;
+    font: inherit;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    cursor: pointer;
+  }
+
+  .results-wrap { background: var(--hall); }
+  .results { display: grid; gap: var(--space-l); }
+  .empty { display: grid; justify-items: center; text-align: center; gap: var(--space-m); padding: var(--space-3xl) 0; }
+  .empty h2 { font-size: var(--step-3); }
+  .empty p { color: var(--ink-soft); max-width: 44ch; }
+
+  @media (max-width: 640px) {
+    .finder-head__cast { display: none; }
+    .filters__group { grid-template-columns: 1fr; gap: 0.4rem; }
+  }
+</style>

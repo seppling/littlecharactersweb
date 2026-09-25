@@ -1,0 +1,43 @@
+---
+/** Age-first entry into the class finder. Plain links, so it works without JS. */
+import { ageBands } from '@/data/programs';
+
+interface Props {
+  label?: string;
+  tone?: 'light' | 'dark';
+}
+const { label = 'Find a class for ages', tone = 'light' } = Astro.props;
+---
+
+<nav class:list={['age-picker', `age-picker--${tone}`]} aria-label="Find a class by age">
+  <span class="age-picker__label">{label}</span>
+  <ul>
+    {
+      ageBands.map((band) => (
+        <li>
+          <a class="chip" href={`/programs?age=${band.id}`}>
+            {band.label}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>
+
+<style>
+  .age-picker { display: grid; gap: 0.6rem; }
+  .age-picker__label {
+    font-family: var(--font-script);
+    font-weight: 700;
+    font-size: var(--step--1);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-mute);
+  }
+  ul { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
+  .chip { font-size: 1.1rem; min-width: 4.2rem; justify-content: center; }
+  .chip:hover { background: var(--amber); border-color: var(--ink); }
+  .age-picker--dark .age-picker__label { color: var(--on-stage-mute); }
+  .age-picker--dark .chip { background: transparent; color: var(--on-stage); border-color: var(--stage-line); }
+  .age-picker--dark .chip:hover { background: var(--amber); color: var(--ink); border-color: var(--amber); }
+</style>

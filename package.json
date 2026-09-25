@@ -1,0 +1,27 @@
+{
+  "name": "littlecharacters-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Website for Little Characters Theater Troupe (Athens, GA)",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "scrape": "node scripts/scrape-squarespace.mjs"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.7.4",
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/figtree": "^5.3.0",
+    "@fontsource/courier-prime": "^5.3.0",
+    "astro": "^7.3.5"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "node-html-parser": "^9.0.4",
+    "turndown": "^7.2.4",
+    "typescript": "^6.0.3"
+  }
+}

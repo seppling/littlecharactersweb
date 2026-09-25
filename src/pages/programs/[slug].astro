@@ -1,0 +1,359 @@
+---
+import Base from '@/layouts/Base.astro';
+import PhotoFrame from '@/components/PhotoFrame.astro';
+import ProgramCard from '@/components/ProgramCard.astro';
+import FaqList from '@/components/FaqList.astro';
+import { programs, kindLabels } from '@/data/programs';
+import { faqs } from '@/data/faqs';
+import { locationById } from '@/data/locations';
+import type { Program } from '@/data/types';
+import { ageLabel, dateRange, dayList, price, spotsLabel, timeRange } from '@/lib/format';
+import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
+
+export function getStaticPaths() {
+  return programs.map((program) => ({ params: { slug: program.slug }, props: { program } }));
+}
+
+interface Props {
+  program: Program;
+}
+const { program } = Astro.props;
+
+const bookable = program.sessions.filter((s) => s.status !== 'closed');
+const firstOpen = bookable.find((s) => s.status === 'open' || s.status === 'few-left') ?? bookable[0];
+const fromPrice = program.priceFrom ?? bookable.find((s) => s.price)?.price;
+const locIds = [...new Set(program.sessions.map((s) => s.locationId))];
+const where = locIds.map((id) => locationById(id)?.name).filter(Boolean).join(' or ');
+const isCamp = program.kind === 'camp';
+const comingSoon = bookable.length > 0 && bookable.every((s) => s.status === 'coming-soon');
+const partnerOnly = bookable.length > 0 && bookable.every((s) => s.externalUrl);
+
+const faqGroups = isCamp ? ['Camps', 'Payments & discounts'] : ['Classes', 'Payments & discounts', 'Performances'];
+const relevantFaqs = faqs.filter((f) => faqGroups.includes(f.group)).slice(0, 5);
+
+const related = programs
+  .filter((p) => p.slug !== program.slug && p.brand === program.brand && p.kind === program.kind)
+  .filter((p) => p.ages.min <= (program.ages.max ?? 120) + 2 && (p.ages.max ?? 120) >= program.ages.min - 2)
+  .slice(0, 3);
+
+const backHref = program.brand === 'geode' ? '/geode' : isCamp ? '/camps' : `/programs?kind=${program.kind}`;
+const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindLabels[program.kind].plural;
+---
+
+<Base title={program.title} description={program.summary}>
+  <article data-gel={program.gel}>
+    <header class="phero">
+      <div class="wrap phero__grid">
+        <div class="phero__text stack" style="--stack: var(--space-l)">
+          <nav class="crumbs" aria-label="Breadcrumb">
+            <a href="/programs">Find a class</a>
+            <span aria-hidden="true">/</span>
+            <a href={backHref}>{backLabel}</a>
+          </nav>
+          <div class="phero__tags">
+            <span class="tape">{kindLabels[program.kind].singular}</span>
+            <span class="tape tape--quiet" data-tilt="right">{ageLabel(program.ages)}</span>
+            {program.brand === 'geode' && <span class="tape tape--ink" data-tilt="flat">Geode</span>}
+          </div>
+          <h1>{program.title}</h1>
+          <p class="lede">{program.tagline}</p>
+          <dl class="phero__facts">
+            {program.duration && (
+              <div><dt>When</dt><dd>{program.duration}</dd></div>
+            )}
+            {where && (
+              <div><dt>Where</dt><dd>{where}</dd></div>
+            )}
+            <div>
+              <dt>Cost</dt>
+              <dd>{fromPrice ? `${price(fromPrice)}${fromPrice.note ? ` · ${fromPrice.note}` : ''}` : partnerOnly ? 'Set by the school' : program.requestCta ? 'Ask us for rates' : 'Pricing TBA'}</dd>
+            </div>
+            {program.showcase && (
+              <div><dt>The finale</dt><dd>{program.showcase}</dd></div>
+            )}
+          </dl>
+        </div>
+        <PhotoFrame image={program.image} gel={program.gel} shape="arch" ratio="5 / 6" class="phero__photo" eager />
+      </div>
+    </header>
+
+    <div class="wrap pbody">
+      <div class="pbody__main stack" style="--stack: var(--space-2xl)">
+        <section class="stack" aria-labelledby="about-title">
+          <h2 id="about-title">About this {program.kind === 'camp' ? 'camp' : program.kind === 'class' ? 'class' : 'program'}</h2>
+          <div class="prose">{program.description.map((para) => <p>{para}</p>)}</div>
+        </section>
+
+        <section class="stack" aria-labelledby="skills-title">
+          <h2 id="skills-title">What they’ll practice</h2>
+          <ul class="skills">
+            {program.highlights.map((h, i) => <li class="tape tape--lg" data-tilt={i % 2 ? 'right' : undefined}>{h}</li>)}
+          </ul>
+        </section>
+
+        <section class="money" aria-labelledby="money-title">
+          <h2 id="money-title">Pricing & discounts</h2>
+          <ul>
+            {program.kind === 'class' && program.brand === 'lc' && !partnerOnly && (
+              <li><strong>First class free.</strong> New students always try their first class free.</li>
+            )}
+            {program.kind === 'class' && !partnerOnly && (
+              <li><strong>Monthly tuition.</strong> $85 for 45-minute classes, $95 for 1-hour classes, $115 for 1¼-hour classes.</li>
+            )}
+            {isCamp && (
+              <li><strong>$50 deposit holds your spot.</strong> The balance is due the week before camp starts.</li>
+            )}
+            <li><strong>15% off</strong> for siblings and for students in more than one class a week.</li>
+            <li><strong>Scholarships are available.</strong> <a href="/contact?topic=scholarship">Ask us privately</a>; cost should never keep a student out.</li>
+          </ul>
+        </section>
+
+        {relevantFaqs.length > 0 && (
+          <section class="stack" aria-labelledby="faq-title">
+            <h2 id="faq-title">Questions parents ask</h2>
+            <FaqList items={relevantFaqs} />
+            <p><a href="/faq">All FAQs</a></p>
+          </section>
+        )}
+      </div>
+
+      <aside class="enroll" id="enroll" aria-labelledby="enroll-title">
+        <div class="enroll__card">
+          {
+            bookable.length > 0 ? (
+              <form class="enroll__form" data-enroll-form>
+                <h2 id="enroll-title">{comingSoon ? 'Upcoming dates' : 'Choose a time'}</h2>
+                <fieldset>
+                  <legend class="sr-only">Sessions for {program.title}</legend>
+                  {bookable.map((s) => {
+                    const loc = locationById(s.locationId);
+                    const href = s.status === 'coming-soon' ? '#notify' : enrollHref(program, s);
+                    return (
+                      <label class="opt">
+                        <input
+                          type="radio"
+                          name="session"
+                          value={s.id}
+                          data-href={href}
+                          data-label={enrollLabel(s)}
+                          data-external={isExternal(href) ? '1' : undefined}
+                          checked={s.id === firstOpen?.id}
+                        />
+                        <span class="opt__body">
+                          <span class="opt__when script">
+                            {s.label ?? dayList(s.days)} · {timeRange(s.start, s.end)}
+                          </span>
+                          <span class="opt__meta">
+                            {s.startDate === s.endDate ? s.term : `${dateRange(s.startDate, s.endDate)}`} · {loc?.shortName}
+                          </span>
+                          <span class="opt__foot">
+                            <strong>{s.price ? price(s.price) : s.externalUrl ? 'Via school' : 'Pricing TBA'}</strong>
+                            <span class="status" data-status={s.status}>{spotsLabel(s)}</span>
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </fieldset>
+                {firstOpen && (
+                  <a
+                    class="btn btn--primary btn--block"
+                    href={firstOpen.status === 'coming-soon' ? '#notify' : enrollHref(program, firstOpen)}
+                    data-enroll-cta
+                  >
+                    <span data-enroll-cta-label>{firstOpen.status === 'coming-soon' ? 'Get notified' : enrollLabel(firstOpen) === 'Enroll' ? 'Continue to enrollment' : enrollLabel(firstOpen)}</span>
+                    <span class="arrow" aria-hidden="true">→</span>
+                  </a>
+                )}
+                <p class="enroll__note">
+                  {partnerOnly
+                    ? 'Registration for this program is handled by the school.'
+                    : isCamp
+                      ? 'A $50 deposit holds your spot. Next you’ll add camper details and pay.'
+                      : 'Next you’ll add your student’s details and pay. Your first class is free.'}
+                </p>
+              </form>
+            ) : (
+              <div class="enroll__form">
+                <h2 id="enroll-title">Book it</h2>
+                <p>{program.title} are scheduled around your family. Tell us what you have in mind and we’ll reply within two business days.</p>
+                {program.requestCta && (
+                  <a class="btn btn--primary btn--block" href={program.requestCta.href}>
+                    {program.requestCta.label} <span class="arrow" aria-hidden="true">→</span>
+                  </a>
+                )}
+              </div>
+            )
+          }
+          {comingSoon && (
+            <form class="notify" id="notify" action="" method="post">
+              <label for="notify-email">Get an email when registration opens</label>
+              <div class="notify__row">
+                <input class="input" id="notify-email" type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
+                <button class="btn btn--sm" type="submit">Notify me</button>
+              </div>
+            </form>
+          )}
+          <p class="enroll__help">Questions? <a href="/contact">Ask Hannah</a> before you sign up.</p>
+        </div>
+      </aside>
+    </div>
+
+    {related.length > 0 && (
+      <section class="section section--hall" aria-labelledby="related-title">
+        <div class="wrap">
+          <h2 id="related-title" class="related__title">You might also like</h2>
+          <div class="grid" style="--min: 280px">
+            {related.map((p) => <ProgramCard program={p} />)}
+          </div>
+        </div>
+      </section>
+    )}
+  </article>
+
+  {
+    firstOpen && (
+      <div class="mobile-enroll">
+        <span>
+          <strong>{fromPrice ? price(fromPrice) : 'Pick a time'}</strong>
+          <span class="script">{ageLabel(program.ages)}</span>
+        </span>
+        <a class="btn btn--primary btn--sm" href="#enroll">{comingSoon ? 'See dates' : 'Choose a time'}</a>
+      </div>
+    )
+  }
+</Base>
+
+<script>
+  // Keep the main button in sync with the chosen session.
+  document.querySelectorAll<HTMLFormElement>('[data-enroll-form]').forEach((form) => {
+    const cta = form.querySelector<HTMLAnchorElement>('[data-enroll-cta]');
+    const label = form.querySelector<HTMLElement>('[data-enroll-cta-label]');
+    if (!cta || !label) return;
+    form.addEventListener('change', () => {
+      const picked = form.querySelector<HTMLInputElement>('input[name="session"]:checked');
+      if (!picked) return;
+      cta.href = picked.dataset.href ?? '#';
+      const text = picked.dataset.label ?? 'Enroll';
+      label.textContent = text === 'Enroll' ? 'Continue to enrollment' : text;
+      if (picked.dataset.external) cta.rel = 'noopener';
+      else cta.removeAttribute('rel');
+    });
+  });
+</script>
+
+<style>
+  .phero { padding-block: var(--space-xl) var(--space-2xl); background: linear-gradient(180deg, var(--gel-tint), var(--paper) 85%); }
+  .phero__grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr); gap: var(--space-2xl); align-items: center; }
+  .phero h1 { font-size: var(--step-5); }
+  .phero :global(.phero__photo) { width: 100%; max-width: 400px; justify-self: end; }
+  .crumbs { display: flex; gap: 0.5rem; font-size: var(--step--1); color: var(--ink-mute); }
+  .crumbs a { color: var(--ink-soft); }
+  .phero__tags { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+  .phero__tags .tape { --tape: var(--gel); }
+  .phero__tags .tape--quiet { --tape: var(--paper); box-shadow: inset 0 0 0 2px var(--gel); }
+  .phero__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 1rem 1.5rem;
+    margin: 0;
+    padding-top: var(--space-m);
+    border-top: 2px solid var(--ink);
+  }
+  .phero__facts dt { font-family: var(--font-script); font-weight: 700; font-size: var(--step--1); text-transform: uppercase; letter-spacing: 0.04em; color: var(--gel-ink); }
+  .phero__facts dd { margin: 0.2rem 0 0; font-weight: 600; }
+
+  .pbody {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: var(--space-2xl);
+    align-items: start;
+    padding-block: var(--space-2xl) var(--space-3xl);
+  }
+  .pbody h2 { font-size: var(--step-3); }
+  .skills { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.8rem 1rem; }
+  .skills .tape { --tape: var(--gel-tint); white-space: normal; }
+  .money { padding: var(--space-xl); background: var(--hall); border-radius: var(--r-lg); display: grid; gap: var(--space-m); }
+  .money h2 { font-size: var(--step-2); }
+  .money ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.7rem; }
+  .money li { padding-left: 1.6rem; position: relative; color: var(--ink-soft); }
+  .money li::before { content: '★'; position: absolute; left: 0; color: var(--gel-ink); }
+  .money strong { color: var(--ink); }
+
+  .enroll { position: sticky; top: 96px; }
+  .enroll__card {
+    display: grid;
+    gap: var(--space-m);
+    padding: var(--space-l);
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    border-radius: var(--r-lg);
+    box-shadow: 8px 8px 0 var(--gel);
+  }
+  .enroll__form { display: grid; gap: var(--space-m); }
+  .enroll h2 { font-size: var(--step-2); }
+  .enroll fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+  .opt { position: relative; display: block; cursor: pointer; }
+  .opt input { position: absolute; opacity: 0; }
+  .opt__body {
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.8rem 0.95rem 0.8rem 2.6rem;
+    border: 2px solid var(--line-strong);
+    border-radius: var(--r-md);
+    transition: border-color 140ms, background 140ms;
+  }
+  .opt__body::before {
+    content: '';
+    position: absolute;
+    left: 0.9rem;
+    top: 1.05rem;
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 50%;
+    border: 2px solid var(--ink-mute);
+    background: var(--paper);
+  }
+  .opt:hover .opt__body { border-color: var(--ink); }
+  .opt input:checked + .opt__body { border-color: var(--ink); background: var(--gel-tint); }
+  .opt input:checked + .opt__body::before { border-color: var(--ink); box-shadow: inset 0 0 0 3.5px var(--paper); background: var(--ink); }
+  .opt input:focus-visible + .opt__body { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .opt__when { font-weight: 700; }
+  .opt__meta { font-size: var(--step--1); color: var(--ink-soft); }
+  .opt__foot { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-top: 0.2rem; }
+  .opt__foot strong { font-family: var(--font-display); font-size: 1.1rem; }
+  .enroll__note, .enroll__help { font-size: var(--step--1); color: var(--ink-soft); }
+  .enroll__help { padding-top: var(--space-s); border-top: 1.5px dashed var(--line-strong); }
+  .notify { display: grid; gap: 0.5rem; padding-top: var(--space-s); border-top: 1.5px dashed var(--line-strong); }
+  .notify label { font-weight: 650; font-size: var(--step--1); }
+  .notify__row { display: flex; gap: 0.5rem; }
+  .notify__row .input { min-width: 0; flex: 1; }
+
+  .related__title { font-size: var(--step-3); margin-bottom: var(--space-xl); }
+
+  .mobile-enroll { display: none; }
+
+  @media (max-width: 960px) {
+    .phero__grid, .pbody { grid-template-columns: 1fr; }
+    .phero :global(.phero__photo) { justify-self: start; max-width: 320px; order: -1; }
+    .enroll { position: static; order: -1; }
+    .mobile-enroll {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 40;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.7rem var(--gutter) calc(0.7rem + env(safe-area-inset-bottom, 0px));
+      background: var(--paper);
+      border-top: 2px solid var(--ink);
+    }
+    .mobile-enroll > span { display: grid; line-height: 1.2; }
+    .mobile-enroll strong { font-family: var(--font-display); font-size: 1.15rem; }
+    .mobile-enroll .script { font-size: var(--step--1); color: var(--ink-soft); }
+    :global(body) { padding-bottom: 72px; }
+  }
+</style>

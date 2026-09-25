@@ -1,0 +1,98 @@
+/*
+ * Little Characters design tokens.
+ *
+ * Direction: "House Lights & Spike Tape". The site is a bright rehearsal room
+ * (white + a lilac-grey "hall" tint) marked up with the colored spike tape and
+ * lighting gels used on a real stage. Shows & events go dark, like the house
+ * before curtain. Gel colors are for fills and light pools; the *-ink variants
+ * are the text/button versions that pass WCAG AA on white.
+ */
+:root {
+  color-scheme: light;
+
+  /* Neutrals: violet-biased so they sit with the gels */
+  --ink: #1c1826;
+  --ink-soft: #4b4558;
+  --ink-mute: #6d6680;
+  --paper: #ffffff;
+  --hall: #f5f3f8;
+  --line: #e4e0ec;
+  --line-strong: #cfc8dc;
+
+  /* The dark "house" for shows */
+  --stage: #16131e;
+  --stage-raise: #221e2d;
+  --stage-line: #3a3448;
+  --on-stage: #f4f1fa;
+  --on-stage-mute: #b3abc4;
+
+  /* Gels: fills, tape, light pools */
+  --magenta: #e8408a;
+  --amber: #ffbe3b;
+  --cyan: #22a6dd;
+  --green: #37b878;
+  --lilac: #9a7ff2;
+
+  /* Ink versions: text, links and buttons on white (AA ≥ 4.5:1) */
+  --magenta-ink: #c0246a;
+  --amber-ink: #8a5a00;
+  --cyan-ink: #0b6f9b;
+  --green-ink: #1e7a4c;
+  --lilac-ink: #6a4cd0;
+
+  /* Tints: quiet card grounds */
+  --magenta-tint: #fde4ef;
+  --amber-tint: #fff1d1;
+  --cyan-tint: #ddf1fa;
+  --green-tint: #ddf4e8;
+  --lilac-tint: #ece6fd;
+
+  --accent: var(--magenta-ink);
+  --focus: #0b6f9b;
+
+  /* Type */
+  --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Scripts are set in Courier; we use it for the "call sheet" logistics */
+  --font-script: 'Courier Prime', 'Courier New', ui-monospace, monospace;
+
+  --step--2: 0.75rem;
+  --step--1: 0.875rem;
+  --step-0: 1.0625rem;
+  --step-1: clamp(1.19rem, 1.1rem + 0.4vw, 1.375rem);
+  --step-2: clamp(1.45rem, 1.25rem + 0.9vw, 1.95rem);
+  --step-3: clamp(1.85rem, 1.45rem + 1.8vw, 2.85rem);
+  --step-4: clamp(2.35rem, 1.6rem + 3.3vw, 4.25rem);
+  --step-5: clamp(2.7rem, 1.6rem + 5.2vw, 5.9rem);
+
+  /* Space */
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-s: 0.75rem;
+  --space-m: 1rem;
+  --space-l: 1.5rem;
+  --space-xl: 2.25rem;
+  --space-2xl: clamp(2.5rem, 2rem + 2.5vw, 4rem);
+  --space-3xl: clamp(3.5rem, 2.5rem + 5vw, 7rem);
+
+  --gutter: clamp(16px, 4vw, 40px);
+  --wrap: 1200px;
+  --measure: 62ch;
+
+  --r-sm: 6px;
+  --r-md: 14px;
+  --r-lg: 26px;
+  --r-arch: 999px 999px var(--r-md) var(--r-md);
+
+  --shadow-card: 0 1px 0 rgba(28, 24, 38, 0.04), 0 8px 24px -12px rgba(28, 24, 38, 0.18);
+  --shadow-lift: 0 2px 0 rgba(28, 24, 38, 0.05), 0 18px 40px -18px rgba(28, 24, 38, 0.35);
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Per-element gel selection: set data-gel="cyan" etc. and use var(--gel*) */
+[data-gel='magenta'] { --gel: var(--magenta); --gel-ink: var(--magenta-ink); --gel-tint: var(--magenta-tint); }
+[data-gel='amber'] { --gel: var(--amber); --gel-ink: var(--amber-ink); --gel-tint: var(--amber-tint); }
+[data-gel='cyan'] { --gel: var(--cyan); --gel-ink: var(--cyan-ink); --gel-tint: var(--cyan-tint); }
+[data-gel='green'] { --gel: var(--green); --gel-ink: var(--green-ink); --gel-tint: var(--green-tint); }
+[data-gel='lilac'] { --gel: var(--lilac); --gel-ink: var(--lilac-ink); --gel-tint: var(--lilac-tint); }

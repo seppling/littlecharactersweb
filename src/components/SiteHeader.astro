@@ -1,0 +1,154 @@
+---
+import Logo from './Logo.astro';
+import AccountLink from './AccountLink.astro';
+import { nav } from '@/config/site';
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const isCurrent = (href: string) => {
+  const base = href.split('?')[0];
+  if (base === '/programs') return path.startsWith('/programs');
+  return path === base || path.startsWith(`${base}/`);
+};
+---
+
+<header class="site-header">
+  <div class="wrap site-header__inner">
+    <Logo />
+
+    <nav class="site-nav" aria-label="Main">
+      <ul>
+        {
+          nav.map((item) => (
+            <li>
+              <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <div class="site-header__actions">
+      <AccountLink />
+      <a class="btn btn--primary btn--sm site-header__cta" href="/programs">Find a class</a>
+    </div>
+
+    <details class="mobile-nav">
+      <summary aria-label="Menu">
+        <span class="burger" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span class="mobile-nav__label">Menu</span>
+      </summary>
+      <div class="mobile-nav__panel">
+        <ul>
+          <li><a href="/programs">Find a class</a></li>
+          {nav.map((item) => (
+            <li><a href={item.href}>{item.label}{'note' in item && <small>{item.note}</small>}</a></li>
+          ))}
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/contact">Contact</a></li>
+        </ul>
+        <div class="mobile-nav__account"><AccountLink block /></div>
+      </div>
+    </details>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--paper) 94%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1.5px solid var(--line);
+  }
+  .site-header__inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-l);
+    min-height: 76px;
+  }
+  .site-nav { margin-left: auto; }
+  .site-nav ul {
+    display: flex;
+    gap: 0.25rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .site-nav a {
+    display: block;
+    padding: 0.55rem 0.8rem;
+    border-radius: 999px;
+    font-family: var(--font-display);
+    font-weight: 650;
+    font-stretch: 90%;
+    font-size: 1.02rem;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .site-nav a:hover { background: var(--hall); }
+  .site-nav a[aria-current='page'] {
+    background: var(--amber);
+  }
+  .site-header__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+  }
+
+  .mobile-nav { display: none; margin-left: auto; position: relative; }
+  .mobile-nav summary {
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0 0.9rem;
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-weight: 700;
+  }
+  .mobile-nav summary::-webkit-details-marker { display: none; }
+  .burger { display: grid; gap: 4px; }
+  .burger span { display: block; width: 18px; height: 2.5px; background: var(--ink); border-radius: 2px; }
+  .mobile-nav[open] .burger span:nth-child(2) { opacity: 0; }
+  .mobile-nav__panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 12px);
+    width: min(92vw, 360px);
+    background: var(--paper);
+    border: 1.5px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lift);
+    padding: var(--space-m);
+  }
+  .mobile-nav__panel ul { list-style: none; margin: 0; padding: 0; display: grid; }
+  .mobile-nav__panel a {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.8rem 0.6rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    text-decoration: none;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.2rem;
+    font-stretch: 90%;
+  }
+  .mobile-nav__panel small { font-family: var(--font-script); font-weight: 400; font-size: 0.8rem; color: var(--ink-mute); }
+  .mobile-nav__account { padding-top: var(--space-m); }
+
+  @media (max-width: 1080px) {
+    .site-nav a { padding-inline: 0.55rem; font-size: 0.98rem; }
+  }
+  @media (max-width: 960px) {
+    .site-nav, .site-header__actions { display: none; }
+    .mobile-nav { display: block; }
+  }
+</style>

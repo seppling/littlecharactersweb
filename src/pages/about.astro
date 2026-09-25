@@ -1,0 +1,184 @@
+---
+import Base from '@/layouts/Base.astro';
+import PhotoFrame from '@/components/PhotoFrame.astro';
+import Character from '@/components/Character.astro';
+import { team } from '@/data/team';
+import { locations } from '@/data/locations';
+import { site } from '@/config/site';
+
+const values = [
+  { title: 'Confidence', gel: 'amber', body: 'Kids practice using their voices, making choices and standing in front of a friendly crowd.', cast: 'royal' },
+  { title: 'Creativity', gel: 'cyan', body: 'Students write, design and improvise. Many of our shows are made up by the kids themselves.', cast: 'artist' },
+  { title: 'Belonging', gel: 'green', body: 'Every student gets a place in the cast, whatever their age, ability or experience.', cast: 'dancer' },
+] as const;
+---
+
+<Base title="Our story & team" description="Little Characters was founded in 2022 by Athens mom and theater educator Hannah Eppling. Meet the team.">
+  <section class="about-hero">
+    <div class="wrap about-hero__grid">
+      <div class="stack" style="--stack: var(--space-l)">
+        <p class="eyebrow">Our story</p>
+        <h1>Bringing play back to Athens.</h1>
+        <div class="prose lede-prose">
+          <p>
+            A few years ago, Athens lost several of its historic kids’ theater companies, and a lot of kids and families lost a place to belong. In a Pre-K moms’ group text, Hannah Eppling started asking what it would take to bring one back.
+          </p>
+          <p>
+            In {site.founded}, she started Little Characters with a handful of summer camps. Today we run weekly classes, camps, workshops, shows and an inclusive program in Athens and Winterville, plus Geode for teens and adults.
+          </p>
+        </div>
+      </div>
+      <PhotoFrame shape="arch" ratio="4 / 5" gel="magenta" class="about-hero__photo" eager image={{ alt: 'Hannah Eppling leading a warm-up with students', placeholder: 'Hannah leading warm-ups' }} />
+    </div>
+  </section>
+
+  <section class="section section--hall" aria-labelledby="mission-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">What we believe</p>
+        <h2 id="mission-title">Every person has a story worth telling.</h2>
+        <p class="lede">
+          We use theater to help children, teens and adults discover confidence, creativity and a place where they belong. We believe everyone is born with beautiful, unique gifts, and we help students find theirs and flourish, on stage and off.
+        </p>
+      </div>
+      <div class="values">
+        {
+          values.map((v) => (
+            <article class="value" data-gel={v.gel}>
+              <div class="value__cast" aria-hidden="true">
+                <Character name={v.cast} size={70} />
+              </div>
+              <h3>{v.title}</h3>
+              <p>{v.body}</p>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="teach-title">
+    <div class="wrap teach">
+      <div class="stack">
+        <p class="eyebrow">How we teach</p>
+        <h2 id="teach-title">Small rooms, real stages, and lots of talking with parents.</h2>
+      </div>
+      <ul class="teach__list">
+        <li><strong>About 7 students per teacher.</strong> Classes are capped at 20 or fewer, and camps run 8 campers per counselor.</li>
+        <li><strong>We meet students where they are.</strong> Some kids are made for the spotlight; some would rather build the set. Both belong here.</li>
+        <li><strong>Everyone performs.</strong> Most classes and camps end with a show for families.</li>
+        <li><strong>We talk to parents.</strong> Rich communication with families is how we make sure every student’s needs are met.</li>
+        <li><strong>Cost shouldn’t decide who gets to play.</strong> Scholarships are available; just ask.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section section--hall" id="team" aria-labelledby="team-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">The troupe</p>
+        <h2 id="team-title">Meet the team</h2>
+      </div>
+      <div class="team">
+        {
+          team.map((m, i) => (
+            <article class:list={['member', { 'member--lead': i === 0 }]} data-gel={m.gel}>
+              <PhotoFrame shape={i === 0 ? 'arch' : 'circle'} ratio={i === 0 ? '4 / 5' : '1'} gel={m.gel} image={m.image} class="member__photo" />
+              <div class="member__text">
+                <h3>{m.name}</h3>
+                <p class="member__role">{m.role}</p>
+                {m.bio.map((para) => <p class="member__bio">{para}</p>)}
+              </div>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="where-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Where we play</p>
+        <h2 id="where-title">Our spaces & partners</h2>
+      </div>
+      <div class="grid" style="--min: 250px">
+        {
+          locations.map((l) => (
+            <article class="loc">
+              <h3>{l.name}</h3>
+              <p class="script">{l.address.join(', ')}</p>
+              {l.usedFor && <p>{l.usedFor}</p>}
+              <a class="link-arrow" href={l.mapUrl} rel="noopener">Directions</a>
+            </article>
+          ))
+        }
+      </div>
+      <p class="partners">
+        With thanks to our partners: It’s Good to See You Productions, Athens Academy, and the Winterville Campus for Arts & Culture.
+      </p>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .about-hero { padding-block: var(--space-2xl); }
+  .about-hero__grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: var(--space-2xl); align-items: center; }
+  .about-hero :global(.about-hero__photo) { width: 100%; max-width: 400px; justify-self: end; }
+  .lede-prose p { font-size: var(--step-1); line-height: 1.55; color: var(--ink-soft); }
+
+  .values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-l); }
+  .value {
+    display: grid;
+    gap: 0.6rem;
+    align-content: start;
+    padding: var(--space-xl);
+    background: var(--paper);
+    border-radius: var(--r-lg);
+    border-top: 8px solid var(--gel);
+  }
+  .value__cast { height: 90px; display: flex; align-items: flex-end; }
+  .value h3 { font-size: var(--step-3); }
+  .value p { color: var(--ink-soft); }
+
+  .teach { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: var(--space-2xl); align-items: start; }
+  .teach h2 { font-size: var(--step-3); }
+  .teach__list { list-style: none; margin: 0; padding: 0; display: grid; border-top: 2px solid var(--ink); }
+  .teach__list li { padding: 1rem 0; border-bottom: 1.5px solid var(--line-strong); color: var(--ink-soft); }
+  .teach__list strong { color: var(--ink); display: block; font-family: var(--font-display); font-size: 1.15rem; font-stretch: 92%; }
+
+  .team { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xl) var(--space-l); }
+  .member { display: grid; gap: var(--space-m); align-content: start; }
+  .member :global(.member__photo) { width: 132px; }
+  .member--lead {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 0.45fr) minmax(0, 1fr);
+    gap: var(--space-2xl);
+    align-items: center;
+    padding-bottom: var(--space-xl);
+    border-bottom: 2px solid var(--ink);
+  }
+  .member--lead :global(.member__photo) { width: 100%; max-width: 340px; }
+  .member--lead h3 { font-size: var(--step-4); }
+  .member h3 { font-size: var(--step-2); }
+  .member__role { font-family: var(--font-script); font-weight: 700; color: var(--gel-ink); margin-bottom: 0.5rem; }
+  .member__bio { color: var(--ink-soft); font-size: var(--step--1); }
+  .member--lead .member__bio { font-size: var(--step-0); max-width: var(--measure); }
+
+  .loc { display: grid; gap: 0.4rem; align-content: start; padding: var(--space-l); border: 1.5px solid var(--line); border-radius: var(--r-md); }
+  .loc h3 { font-size: var(--step-1); }
+  .loc p { color: var(--ink-soft); font-size: var(--step--1); }
+  .loc .link-arrow { justify-self: start; font-size: var(--step--1); margin-top: 0.3rem; }
+  .partners { margin-top: var(--space-xl); color: var(--ink-soft); }
+
+  @media (max-width: 960px) {
+    .about-hero__grid, .teach { grid-template-columns: 1fr; }
+    .about-hero :global(.about-hero__photo) { justify-self: start; max-width: 300px; order: -1; }
+    .values { grid-template-columns: 1fr; }
+    .team { grid-template-columns: 1fr 1fr; }
+    .member--lead { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .team { grid-template-columns: 1fr; }
+  }
+</style>

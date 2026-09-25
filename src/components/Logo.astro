@@ -1,0 +1,52 @@
+---
+/** Placeholder wordmark until the official logo files are migrated. */
+interface Props {
+  tone?: 'ink' | 'light';
+}
+const { tone = 'ink' } = Astro.props;
+---
+
+<a href="/" class:list={['logo', `logo--${tone}`]} aria-label="Little Characters Theater Troupe, home">
+  <svg class="logo__mark" viewBox="0 0 48 48" aria-hidden="true">
+    <circle cx="24" cy="26" r="20" fill="var(--magenta)" />
+    <polygon points="12,10 15,2 20,8 24,0 28,8 33,2 36,10" fill="var(--amber)" />
+    <circle cx="17.5" cy="23" r="2.6" fill="var(--ink)" />
+    <circle cx="30.5" cy="23" r="2.6" fill="var(--ink)" />
+    <path d="M18 31 Q24 36.5 30 31" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round" fill="none" />
+  </svg>
+  <span class="logo__text">
+    <span class="logo__name">Little Characters</span>
+    <span class="logo__sub">Theater Troupe<span class="logo__city"> · Athens, GA</span></span>
+  </span>
+</a>
+
+<style>
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-decoration: none;
+    color: var(--ink);
+  }
+  .logo--light { color: var(--on-stage); }
+  .logo__mark { width: 42px; height: 42px; flex: none; overflow: visible; }
+  .logo__text { display: grid; line-height: 1; }
+  .logo__name {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-stretch: 78%;
+    font-size: 1.45rem;
+    letter-spacing: -0.02em;
+  }
+  .logo__sub {
+    font-family: var(--font-script);
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+    margin-top: 0.2rem;
+    opacity: 0.8;
+  }
+  @media (max-width: 480px) {
+    .logo__city { display: none; }
+  }
+  .logo:hover .logo__mark { transform: rotate(-6deg); transition: transform 200ms var(--ease); }
+</style>

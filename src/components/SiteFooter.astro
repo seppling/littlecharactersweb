@@ -1,0 +1,134 @@
+---
+import Logo from './Logo.astro';
+import Character from './Character.astro';
+import { site } from '@/config/site';
+import { locations } from '@/data/locations';
+import { accountHref } from '@/lib/enroll';
+
+const hq = locations.find((l) => l.id === 'hq')!;
+const marigold = locations.find((l) => l.id === 'marigold')!;
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="curtain-call" aria-hidden="true">
+    <Character name="professor" size={70} />
+    <Character name="royal" size={78} />
+    <Character name="dancer" size={66} />
+    <Character name="magician" size={72} />
+    <Character name="artist" size={68} />
+  </div>
+
+  <div class="wrap">
+    <div class="site-footer__top">
+      <div class="site-footer__brand stack">
+        <Logo tone="light" />
+        <p>{site.tagline} Theater classes, camps and shows for ages 4 to 100, since {site.founded}.</p>
+        <div class="socials">
+          <a href={site.social.instagram} rel="noopener">Instagram</a>
+          <a href={site.social.facebook} rel="noopener">Facebook</a>
+        </div>
+      </div>
+
+      <nav class="site-footer__col" aria-label="Programs">
+        <h2>Programs</h2>
+        <ul>
+          <li><a href="/programs?kind=class">Weekly classes</a></li>
+          <li><a href="/camps">Summer & holiday camps</a></li>
+          <li><a href="/programs/private-lessons">Private lessons</a></li>
+          <li><a href="/programs/ovation">Ovation (inclusive)</a></li>
+          <li><a href="/programs?kind=party">Parties & Parents’ Night Out</a></li>
+          <li><a href="/geode">Geode: teens & adults</a></li>
+        </ul>
+      </nav>
+
+      <nav class="site-footer__col" aria-label="About">
+        <h2>Little Characters</h2>
+        <ul>
+          <li><a href="/about">Our story & team</a></li>
+          <li><a href="/events">Shows & events</a></li>
+          <li><a href="/faq">Parent FAQ</a></li>
+          <li><a href="/give">Give to the scholarship fund</a></li>
+          <li><a href="/contact">Contact</a></li>
+          <li><a href={accountHref()}>Family login</a></li>
+        </ul>
+      </nav>
+
+      <div class="site-footer__col">
+        <h2>Visit</h2>
+        <address>
+          <strong>{hq.name}</strong><br />
+          {hq.address.join(', ')}
+        </address>
+        <address>
+          <strong>{marigold.name}</strong><br />
+          {marigold.address.slice(1).join(', ')}
+        </address>
+        <p class="script">
+          <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a><br />
+          <a href={site.contact.phoneHref}>{site.contact.phone}</a>
+        </p>
+      </div>
+    </div>
+
+    <div class="site-footer__bottom">
+      <p>© {year} Little Characters Theater Troupe, LLC</p>
+      <p>Scholarships are always available. <a href="/give">Help fund one.</a></p>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    background: var(--stage);
+    color: var(--on-stage-mute);
+    padding-bottom: var(--space-xl);
+  }
+  .curtain-call {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: clamp(0.5rem, 2vw, 1.5rem);
+    padding-top: var(--space-2xl);
+    border-bottom: 3px solid var(--stage-line);
+    margin-bottom: var(--space-2xl);
+    overflow: hidden;
+  }
+  .curtain-call :global(.character) { margin-bottom: -3px; }
+  .site-footer__top {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1.1fr;
+    gap: var(--space-xl);
+  }
+  .site-footer__brand p { max-width: 34ch; }
+  .site-footer h2 {
+    font-size: 1rem;
+    font-stretch: 90%;
+    letter-spacing: 0.02em;
+    color: var(--on-stage);
+    margin-bottom: var(--space-m);
+  }
+  .site-footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.55rem; }
+  .site-footer a { color: var(--on-stage); text-decoration-color: var(--stage-line); }
+  .site-footer a:hover { color: var(--amber); }
+  address { font-style: normal; margin-bottom: var(--space-m); line-height: 1.5; }
+  address strong { color: var(--on-stage); font-weight: 650; }
+  .socials { display: flex; gap: var(--space-m); }
+  .site-footer__bottom {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--space-s);
+    margin-top: var(--space-2xl);
+    padding-top: var(--space-l);
+    border-top: 1px solid var(--stage-line);
+    font-size: var(--step--1);
+  }
+  @media (max-width: 900px) {
+    .site-footer__top { grid-template-columns: 1fr 1fr; }
+    .site-footer__brand { grid-column: 1 / -1; }
+  }
+  @media (max-width: 520px) {
+    .site-footer__top { grid-template-columns: 1fr; }
+  }
+</style>

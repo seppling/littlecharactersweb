@@ -1,0 +1,116 @@
+---
+/**
+ * Compact program card for grids (home page, related programs).
+ * Puts the deciding details on the card: age, next time, place, price,
+ * availability, and whether it ends in a show.
+ */
+import type { Program } from '@/data/types';
+import PhotoFrame from './PhotoFrame.astro';
+import { kindLabels } from '@/data/programs';
+import { locationById } from '@/data/locations';
+import { ageLabel, dayList, price, spotsLabel, timeRange } from '@/lib/format';
+
+interface Props {
+  program: Program;
+  headingLevel?: 'h2' | 'h3';
+}
+
+const { program, headingLevel: H = 'h3' } = Astro.props;
+const next = program.sessions.find((s) => s.status !== 'closed');
+const loc = next ? locationById(next.locationId) : undefined;
+const fromPrice = program.priceFrom ?? next?.price;
+---
+
+<article class="pcard" data-gel={program.gel}>
+  <a class="pcard__link" href={`/programs/${program.slug}`}>
+    <PhotoFrame image={program.image} gel={program.gel} ratio="16 / 10" />
+    <span class="tape pcard__kind">{kindLabels[program.kind].singular}</span>
+    <div class="pcard__body">
+      <H class="pcard__title">{program.title}</H>
+      <span class="pcard__age">{ageLabel(program.ages)}</span>
+      <p class="pcard__tagline">{program.tagline}</p>
+      <dl class="pcard__facts">
+        {
+          next && (
+            <div>
+              <dt class="sr-only">When</dt>
+              <dd class="script">
+                {next.label ?? dayList(next.days)} · {timeRange(next.start, next.end)}
+                {program.sessions.length > 1 && <span class="more"> +{program.sessions.length - 1} more</span>}
+              </dd>
+            </div>
+          )
+        }
+        {loc && (
+          <div>
+            <dt class="sr-only">Where</dt>
+            <dd class="script">{loc.shortName}</dd>
+          </div>
+        )}
+        <div class="pcard__row">
+          <dt class="sr-only">Price</dt>
+          <dd class="pcard__price">{fromPrice ? price(fromPrice) : program.requestCta ? 'By request' : 'Pricing TBA'}</dd>
+          {next && <dd class="status" data-status={next.status}>{spotsLabel(next)}</dd>}
+        </div>
+      </dl>
+      {program.showcase && <p class="pcard__show">★ {program.showcase}</p>}
+    </div>
+  </a>
+</article>
+
+<style>
+  .pcard {
+    position: relative;
+    height: 100%;
+  }
+  .pcard__link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    color: inherit;
+    text-decoration: none;
+    background: var(--paper);
+    border: 1.5px solid var(--line);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    transition: transform 180ms var(--ease), box-shadow 180ms var(--ease), border-color 180ms;
+  }
+  .pcard__link:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lift);
+    border-color: var(--line-strong);
+  }
+  .pcard__link :global(.frame) { border-radius: 0; }
+  .pcard__kind {
+    position: absolute;
+    top: 0.9rem;
+    left: 0.9rem;
+  }
+  .pcard__body {
+    display: grid;
+    gap: 0.5rem;
+    padding: 1.1rem 1.25rem 1.3rem;
+    flex: 1;
+    align-content: start;
+  }
+  .pcard__title { font-size: var(--step-2); }
+  .pcard__age {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-stretch: 90%;
+    color: var(--gel-ink);
+  }
+  .pcard__tagline { color: var(--ink-soft); }
+  .pcard__facts { margin: 0.35rem 0 0; display: grid; gap: 0.2rem; }
+  .pcard__facts dd { margin: 0; color: var(--ink-soft); }
+  .pcard__facts .more { color: var(--ink-mute); }
+  .pcard__row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; margin-top: 0.35rem; }
+  .pcard__price { font-family: var(--font-display); font-weight: 750; font-size: 1.15rem; color: var(--ink) !important; }
+  .pcard__show {
+    margin-top: 0.4rem;
+    padding-top: 0.7rem;
+    border-top: 1.5px dashed var(--line-strong);
+    font-size: var(--step--1);
+    color: var(--ink-soft);
+  }
+</style>

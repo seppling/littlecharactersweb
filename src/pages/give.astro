@@ -1,0 +1,78 @@
+---
+import Base from '@/layouts/Base.astro';
+import Character from '@/components/Character.astro';
+import { site } from '@/config/site';
+
+// Real program prices, so donors can see what a gift covers.
+const impact = [
+  { amount: '$15', what: 'One Ovation class for a participant with special needs', gel: 'green' },
+  { amount: '$50', what: 'A camp deposit, or a full day of holiday mini camp', gel: 'amber' },
+  { amount: '$85', what: 'A month of ABCs of Theater for a 4- to 6-year-old', gel: 'magenta' },
+  { amount: '$150', what: 'A teen’s spot in the Improv & Writing Intensive', gel: 'lilac' },
+] as const;
+---
+
+<Base title="Give" description="Support the Little Characters scholarship fund so any kid in Athens can take the stage.">
+  <section class="give-hero">
+    <div class="wrap give-hero__grid">
+      <div class="stack" style="--stack: var(--space-l)">
+        <p class="eyebrow">The scholarship fund</p>
+        <h1>Help a kid take the stage.</h1>
+        <p class="lede">
+          Donations go directly to supporting our programs, especially the scholarship fund, which lets us welcome any student no matter what their family can pay. Your gift gives kids in the Athens area a safe place to express themselves and step into the world of theater.
+        </p>
+        <div class="give-hero__ctas">
+          <a class="btn btn--primary" href={site.givingUrl} rel="noopener">Give now <span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn--outline" href="/contact?topic=scholarship">Ask about a scholarship</a>
+        </div>
+      </div>
+      <div class="give-hero__cast" aria-hidden="true">
+        <Character name="royal" size={130} />
+        <Character name="dancer" size={100} />
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--hall" aria-labelledby="impact-title">
+    <div class="wrap">
+      <h2 id="impact-title" class="impact__title">What your gift covers</h2>
+      <ul class="impact">
+        {
+          impact.map((x) => (
+            <li data-gel={x.gel}>
+              <span class="impact__amount">{x.amount}</span>
+              <span>{x.what}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap wrap--narrow stack" style="--stack: var(--space-l)">
+      <h2>Need a scholarship?</h2>
+      <p class="lede">
+        We never want cost to keep a student from joining. Reach out and let us know you’re interested, or tell us about a camper with specific needs we can help meet.
+      </p>
+      <a class="link-arrow" href="/contact?topic=scholarship">Start the conversation</a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .give-hero { padding-block: var(--space-3xl) var(--space-2xl); background: linear-gradient(180deg, var(--magenta-tint), var(--paper)); overflow: hidden; }
+  .give-hero__grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr); gap: var(--space-2xl); align-items: end; }
+  .give-hero__ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .give-hero__cast { display: flex; justify-content: center; align-items: flex-end; gap: 0.5rem; }
+  .impact__title { font-size: var(--step-3); margin-bottom: var(--space-xl); }
+  .impact { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-m); }
+  .impact li { display: grid; gap: 0.5rem; align-content: start; padding: var(--space-l); background: var(--paper); border-radius: var(--r-lg); border-bottom: 8px solid var(--gel); color: var(--ink-soft); }
+  .impact__amount { font-family: var(--font-display); font-weight: 800; font-stretch: 75%; font-size: var(--step-4); line-height: 1; color: var(--gel-ink); }
+  @media (max-width: 900px) {
+    .give-hero__grid { grid-template-columns: 1fr; }
+    .give-hero__cast { justify-content: flex-start; }
+    .impact { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 480px) { .impact { grid-template-columns: 1fr; } }
+</style>
