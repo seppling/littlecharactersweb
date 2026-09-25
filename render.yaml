@@ -13,8 +13,8 @@ services:
     name: littlecharacters-preview
     runtime: node
     plan: free
-    # The demo database is created during the build: creating one needs more
-    # memory than the free plan's 512 MB, opening it afterwards doesn't.
+    # The build unpacks a ready-made empty demo database: creating one needs
+    # more memory than the free plan's 512 MB, opening one doesn't.
     buildCommand: npm ci && npm run build && npm run db:prepare-preview
     startCommand: npm start
     healthCheckPath: /

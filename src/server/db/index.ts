@@ -14,6 +14,14 @@ export type DB = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 const migrationsFolder = path.resolve(process.cwd(), 'drizzle');
 
+/**
+ * Small buffers keep the whole server under 512 MB (Render's free preview),
+ * plenty for a demo's few families. Production uses real Postgres instead.
+ */
+export const PGLITE_OPTIONS = {
+  postgresqlconf: ['shared_buffers=16MB', 'work_mem=1MB', 'maintenance_work_mem=8MB', 'wal_buffers=512kB'],
+};
+
 let dbPromise: Promise<DB> | undefined;
 
 async function connect(): Promise<DB> {
@@ -27,11 +35,7 @@ async function connect(): Promise<DB> {
   const { PGlite } = await import('@electric-sql/pglite');
   const { drizzle } = await import('drizzle-orm/pglite');
   const { migrate } = await import('drizzle-orm/pglite/migrator');
-  // Small buffers keep the whole server under 512 MB (Render's free preview):
-  // plenty for a demo's few families. Production uses real Postgres above.
-  const client = new PGlite(config.pgliteDir, {
-    postgresqlconf: ['shared_buffers=16MB', 'work_mem=1MB', 'maintenance_work_mem=8MB', 'wal_buffers=512kB'],
-  });
+  const client = new PGlite(config.pgliteDir, PGLITE_OPTIONS);
   const db = drizzle(client, { schema });
   await migrate(db, { migrationsFolder });
   return db as unknown as DB;

@@ -14,6 +14,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:prepare-preview": "tsx scripts/prepare-preview-db.ts",
+    "db:snapshot": "tsx scripts/make-pglite-snapshot.ts",
     "test": "vitest run",
     "import:studio-director": "tsx scripts/import-studio-director.ts",
     "invite:imported": "tsx scripts/invite-imported-families.ts",
@@ -32,6 +33,7 @@
     "drizzle-orm": "^0.45.3",
     "postgres": "^3.4.9",
     "stripe": "^22.6.2",
+    "tsx": "^4.23.15",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -39,7 +41,6 @@
     "drizzle-kit": "^0.31.11",
     "node-html-parser": "^9.0.4",
     "playwright": "^1.56.1",
-    "tsx": "^4.23.15",
     "turndown": "^7.2.4",
     "typescript": "^6.0.3",
     "vitest": "^5.0.1"

@@ -125,7 +125,7 @@ The app **fails closed**: unless it's explicitly told it's in development, it re
 
 Then choose **Save, rebuild, and deploy**.
 
-**Why the database is made during the build.** The preview's database is PGlite, the same Postgres that local development uses, running inside the server. Creating a new database briefly needs about 550 MB of memory, over the free plan's 512 MB. Render stops a server that goes over, so pages flicker between working and `502`. Opening an existing database needs far less: the whole server peaks around 350 MB through the full test journey. So `npm run db:prepare-preview` creates the database while the site builds, in the project folder (not `/tmp`, which doesn't survive from build to start).
+**Why the preview ships a ready-made database.** The preview's database is PGlite, the same Postgres that local development uses, running inside the server. Creating a new database briefly needs 550–700 MB of memory, over the free plan's 512 MB. That limit applies to the build as well as the running server, and Render stops anything that goes over. Opening an existing database needs far less: the build step peaks around 300 MB, and the server around 350 MB through the full test journey. So `npm run db:prepare-preview` unpacks `scripts/pglite-empty.tar.gz`, a brand-new empty database, into the project folder (not `/tmp`, which doesn't survive from build to start), then applies migrations. If an `@electric-sql/pglite` upgrade moves to a new Postgres version, CI's "Render preview database" step fails. To fix it, run `npm run db:snapshot` on a laptop and commit the new file.
 
 What to expect on the preview:
 - Sign-in codes appear at `/dev/mailbox`.
