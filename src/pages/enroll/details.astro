@@ -72,8 +72,8 @@ if (Astro.request.method === 'POST') {
               <div class="field">
                 <span class="label">Photos</span>
                 <div class="choices">
-                  <label><input type="radio" name={`photo-${s.id}`} value="yes" checked={s.photoConsent === true} /> OK to share photos of {s.firstName} online</label>
-                  <label><input type="radio" name={`photo-${s.id}`} value="no" checked={s.photoConsent === false} /> Please don’t share photos of {s.firstName}</label>
+                  <label><input type="radio" name={`photo-${s.id}`} value="yes" checked={s.photoConsent === true} required /> OK to share photos of {s.firstName} online</label>
+                  <label><input type="radio" name={`photo-${s.id}`} value="no" checked={s.photoConsent === false} required /> Please don’t share photos of {s.firstName}</label>
                 </div>
                 {errors[s.id] && <p class="error">{errors[s.id]}</p>}
               </div>
@@ -116,7 +116,7 @@ if (Astro.request.method === 'POST') {
   .label { font-weight: 650; font-size: var(--step--1); }
   .choices { display: grid; gap: 0.4rem; }
   .choices label { display: flex; gap: 0.5rem; align-items: center; font-weight: 400; }
-  .choices input, .agree input { accent-color: var(--purple); width: 1.1rem; height: 1.1rem; }
+  .choices input, .agree input { flex: none; accent-color: var(--purple); width: 1.35rem; height: 1.35rem; }
   .policies { display: grid; gap: 0.6rem; padding: var(--space-l); background: var(--hall); border-radius: var(--r-md); }
   .policies h2 { font-size: var(--step-1); }
   .policies ul { margin: 0; padding-left: 1.2rem; color: var(--ink-soft); display: grid; gap: 0.3rem; }

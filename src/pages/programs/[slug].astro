@@ -197,7 +197,7 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
                       ? 'Registration is a short online form.'
                       : comingSoon
                         ? 'Registration opens soon.'
-                        : `Next you’ll pick your student and pay in our family portal.${freeTrial ? ' New students’ first class is free.' : ''}`}
+                        : `Next you’ll pick your student and pay in our family portal.${freeTrial ? ' New students’ first class is free.' : ''}${monthly ? ' Joining more than a week into the term? The first month is prorated to the classes left.' : ''}`}
                 </p>
               </form>
             ) : datesSoon ? (
@@ -378,7 +378,7 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
   .mobile-enroll { display: none; }
 
   @media (max-width: 960px) {
-    .phero__grid, .pbody { grid-template-columns: 1fr; }
+    .phero__grid, .pbody { grid-template-columns: minmax(0, 1fr); }
     .phero :global(.phero__photo) { justify-self: start; max-width: 320px; order: -1; }
     .enroll { position: static; order: -1; }
     .mobile-enroll {

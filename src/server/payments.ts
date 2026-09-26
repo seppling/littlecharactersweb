@@ -84,6 +84,10 @@ export async function createEmbeddedCheckout(opts: {
     line_items: toStripeLineItems(opts.order.lines, opts.order.totalCents, opts.title),
     return_url: `${config.siteUrl}/enroll/confirmation?order=${opts.order.id}&checkout={CHECKOUT_SESSION_ID}`,
     metadata: { orderId: opts.order.id, householdId: opts.householdId },
+    // Autopay charges the saved card (stripe.ts), so a plan with monthly charges
+    // takes cards only: Apple Pay and Google Pay count as cards. One-time payments
+    // keep every method switched on in the Stripe dashboard.
+    ...(opts.saveCardForMonthly ? { payment_method_types: ['card' as const] } : {}),
     payment_intent_data: {
       metadata: { orderId: opts.order.id },
       // Keep the card on file so monthly tuition can be charged later.
@@ -113,6 +117,7 @@ export async function createInstallmentCheckout(opts: {
     ],
     return_url: `${config.siteUrl}/account/pay/${i.id}?checkout={CHECKOUT_SESSION_ID}`,
     metadata: { installmentId: i.id, householdId: i.householdId },
+    payment_method_types: ['card'], // this card becomes the saved card for autopay
     payment_intent_data: { metadata: { installmentId: i.id }, setup_future_usage: 'off_session' },
     // Automatic retries are paused while this form is open; see resumeRetries().
     expires_at: Math.floor(Date.now() / 1000) + 60 * 60,

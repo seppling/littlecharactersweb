@@ -121,10 +121,10 @@ const year = new Date().getFullYear();
     font-size: var(--step--1);
   }
   @media (max-width: 900px) {
-    .site-footer__top { grid-template-columns: 1fr 1fr; }
+    .site-footer__top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     .site-footer__brand { grid-column: 1 / -1; }
   }
   @media (max-width: 520px) {
-    .site-footer__top { grid-template-columns: 1fr; }
+    .site-footer__top { grid-template-columns: minmax(0, 1fr); }
   }
 </style>

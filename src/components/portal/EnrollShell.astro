@@ -30,6 +30,10 @@ const steps = ['Who’s coming', 'Details', 'Review & pay', 'Done'];
       }
     </ol>
 
+    <p class="selection-mini">
+      <strong>{program.title}</strong> · <span class="script">{session.label ?? dayList(session.days)} · {timeRange(session.start, session.end)}</span>
+    </p>
+
     <div class="enroll-shell__grid">
       <div class="enroll-shell__main">
         <slot />
@@ -44,7 +48,7 @@ const steps = ['Who’s coming', 'Details', 'Review & pay', 'Done'];
           <div><dt>Tuition</dt><dd>{price(session.price ?? program.priceFrom)} {program.fee && <span class="muted">{feeLabel(program.fee)}</span>}</dd></div>
           {session.teacher && <div><dt>Teacher</dt><dd>{session.teacher}</dd></div>}
         </dl>
-        <a class="selection__change" href={`/programs/${program.slug}`}>Change class</a>
+        {step < 4 && <a class="selection__change" href={`/programs/${program.slug}`}>Change class</a>}
       </aside>
     </div>
   </div>
@@ -80,9 +84,13 @@ const steps = ['Who’s coming', 'Details', 'Review & pay', 'Done'];
   .selection dd { margin: 0; font-size: var(--step--1); }
   .muted { color: var(--ink-mute); }
   .selection__change { font-size: var(--step--1); }
+  .selection-mini { display: none; }
+  /* Phones and tablets: the step's form comes first; a one-line reminder of the
+     class sits above it, and the full class card follows the form. */
   @media (max-width: 900px) {
-    .enroll-shell__grid { grid-template-columns: 1fr; }
-    .selection { position: static; order: -1; box-shadow: 4px 4px 0 var(--gel); }
+    .enroll-shell__grid { grid-template-columns: minmax(0, 1fr); }
+    .selection { position: static; box-shadow: 4px 4px 0 var(--gel); }
+    .selection-mini { display: block; margin: calc(-1 * var(--space-m)) 0 var(--space-m); font-size: var(--step--1); color: var(--ink-soft); }
     .enroll-shell__main { padding: var(--space-l); }
     .steps__label { display: none; }
     .steps li[aria-current='step'] .steps__label { display: inline; }
