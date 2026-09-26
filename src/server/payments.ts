@@ -62,6 +62,12 @@ async function ensureCustomer(householdId: string, householdName: string, email:
   return c.id;
 }
 
+/** Checkout options for a card that autopay will charge later. */
+const CARD_ONLY = {
+  payment_method_types: ['card' as const],
+  wallet_options: { link: { display: 'never' as const } },
+};
+
 export async function createEmbeddedCheckout(opts: {
   order: typeof schema.order.$inferSelect;
   householdId: string;
@@ -85,9 +91,10 @@ export async function createEmbeddedCheckout(opts: {
     return_url: `${config.siteUrl}/enroll/confirmation?order=${opts.order.id}&checkout={CHECKOUT_SESSION_ID}`,
     metadata: { orderId: opts.order.id, householdId: opts.householdId },
     // Autopay charges the saved card (stripe.ts), so a plan with monthly charges
-    // takes cards only: Apple Pay and Google Pay count as cards. One-time payments
-    // keep every method switched on in the Stripe dashboard.
-    ...(opts.saveCardForMonthly ? { payment_method_types: ['card' as const] } : {}),
+    // takes cards only: Apple Pay and Google Pay count as cards, Link (which can
+    // also pay by bank) is hidden. One-time payments keep every method switched
+    // on in the Stripe dashboard.
+    ...(opts.saveCardForMonthly ? CARD_ONLY : {}),
     payment_intent_data: {
       metadata: { orderId: opts.order.id },
       // Keep the card on file so monthly tuition can be charged later.
@@ -117,7 +124,7 @@ export async function createInstallmentCheckout(opts: {
     ],
     return_url: `${config.siteUrl}/account/pay/${i.id}?checkout={CHECKOUT_SESSION_ID}`,
     metadata: { installmentId: i.id, householdId: i.householdId },
-    payment_method_types: ['card'], // this card becomes the saved card for autopay
+    ...CARD_ONLY, // this card becomes the saved card for autopay
     payment_intent_data: { metadata: { installmentId: i.id }, setup_future_usage: 'off_session' },
     // Automatic retries are paused while this form is open; see resumeRetries().
     expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
