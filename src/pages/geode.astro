@@ -2,14 +2,27 @@
 import Base from '@/layouts/Base.astro';
 import ProgramRow from '@/components/ProgramRow.astro';
 import EventTicket from '@/components/EventTicket.astro';
-import { geodePrograms } from '@/data/programs';
+import PhotoFrame from '@/components/PhotoFrame.astro';
+import { geodePrograms, programBySlug } from '@/data/programs';
 import { events } from '@/data/events';
+import geodeGroup from '@/assets/photos/geode-cast-group.webp';
+import geodeFestival from '@/assets/photos/geode-marigold-festival.webp';
+import geodeImprovNight from '@/assets/photos/geode-improv-night.webp';
 
 const geodeEvents = events.filter((e) => e.brand === 'geode').slice(0, 3);
+const troupe = programBySlug('performance-troupe')!;
+const rows = [geodePrograms[0], troupe, ...geodePrograms.slice(1)];
+
+// "Past events", from the current Geode page.
+const past = [
+  { image: { src: geodeFestival, alt: 'Geode performers on an outdoor stage at the Winterville Marigold Festival' }, caption: 'Our first performance at the Winterville Marigold Festival, May 2024. It was sweaty, it was silly, and it was FUN!' },
+  { image: { src: geodeGroup, alt: 'A group of Geode improvisers after a show' }, caption: 'Performing with some amazing improvisers at the Bad Ath Babes show, June 2024.' },
+  { image: { src: geodeImprovNight, alt: 'Adults laughing at an improv night', position: '50% 45%' }, caption: 'A sneak peek into one of our monthly improv nights.' },
+];
 ---
 
-<Base title="Geode: theater for teens & adults" description="Geode is Little Characters’ sister company for tweens, teens and adults: acting, improv, private lessons and First Friday Improv Nights.">
-  <div class="geode" data-gel="lilac">
+<Base title="Geode: theater for tweens, teens & adults" description="Geode is Little Characters’ sister company for tweens, teens and adults: acting classes, a performance troupe, improv nights and workshops.">
+  <div class="geode" data-gel="purple">
     <section class="geode-hero">
       <div class="crystals" aria-hidden="true">
         <span></span><span></span><span></span><span></span>
@@ -17,25 +30,35 @@ const geodeEvents = events.filter((e) => e.brand === 'geode').slice(0, 3);
       <div class="wrap geode-hero__inner">
         <p class="eyebrow">A Little Characters company</p>
         <h1>Geode</h1>
-        <p class="geode-hero__line">Theater for teens, tweens and grown-ups.</p>
+        <p class="geode-hero__line">For when you’re still a character, but not so little.</p>
         <p class="lede">
-          Geode strives to deepen social and emotional health in a safe, fun environment through the art of theater. Starting summer 2026, Geode welcomes students 12 and up, with programs for ages 12–17 and adult-only programs.
+          Beauty surprises us when we crack open our exterior and reveal what’s inside. Geode offers classes, events and private lessons for tweens, teens and adults: fun, community-building theater without the commitment of nightly rehearsals.
         </p>
         <div class="geode-hero__ctas">
-          <a class="btn btn--primary" href="#geode-programs">See programs <span class="arrow" aria-hidden="true">→</span></a>
-          <a class="btn btn--outline" href="#improv-nights">First Friday Improv</a>
+          <a class="btn btn--primary" href="#geode-programs">Classes <span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn--outline" href="#improv-nights">Adult improv nights</a>
         </div>
       </div>
     </section>
 
-    <section class="section section--tight" id="geode-programs" aria-labelledby="gp-title">
+    <section class="section section--tight" aria-labelledby="growing-title">
+      <div class="wrap growing">
+        <h2 id="growing-title">Geode used to be just for adults. Now it’s 11 and up.</h2>
+        <div class="prose">
+          <p>Since 2022, Little Characters has worked with students of all ages and abilities. As we’ve grown, our little kids have turned into kids, and our kids have turned into big kids, and big kids don’t always like being called little.</p>
+          <p>Starting in summer 2026, Geode includes kids 11 and up. We still have adult-only programs and 11–17 programs, all under the name Geode. And how cool will it be when we can mix these groups to put on family-friendly shows with actors the ages of their characters?</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--hall" id="geode-programs" aria-labelledby="gp-title">
       <div class="wrap">
-        <h2 id="gp-title" class="geode__h2">Classes</h2>
+        <h2 id="gp-title" class="geode__h2">Classes this fall</h2>
         <div class="rows">
-          {geodePrograms.map((p) => <ProgramRow program={p} />)}
+          {rows.map((p) => <ProgramRow program={p} />)}
         </div>
         <p class="geode__lessons">
-          Private lessons for audition prep, playwriting, acting and singing are available for all ages. <a href="/programs/private-lessons">Book a lesson</a>.
+          Want something custom? Been writing a script and want people to read it? Pipe dreams of a show? Could your workplace use an improv-for-communication workshop? <a href="/contact?topic=general">Let’s make it happen</a>.
         </p>
       </div>
     </section>
@@ -43,12 +66,28 @@ const geodeEvents = events.filter((e) => e.brand === 'geode').slice(0, 3);
     <section class="section section--stage" id="improv-nights" aria-labelledby="fi-title">
       <div class="wrap">
         <div class="section-head">
-          <p class="eyebrow">18+ · Group and partner games</p>
-          <h2 id="fi-title">First Friday Improv Nights</h2>
-          <p class="lede">A monthly night of improv games for adults. No experience needed. Come play, laugh and meet people.</p>
+          <p class="eyebrow">Adults · 18+</p>
+          <h2 id="fi-title">Third Thursday Improv Nights</h2>
+          <p class="lede">First Friday Improv Nights are back, and now they’re on the third Thursday! Come hang out, play as little or as much as you like, drink what you want (we’ll check IDs), and explore improv through group and partner games.</p>
         </div>
         <div class="tickets">
           {geodeEvents.map((e) => <EventTicket event={e} />)}
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="past-title">
+      <div class="wrap">
+        <h2 id="past-title" class="geode__h2">Past events</h2>
+        <div class="past">
+          {
+            past.map((p) => (
+              <figure>
+                <PhotoFrame image={p.image} gel="purple" ratio="4 / 3" sizes="(max-width: 860px) 100vw, 380px" />
+                <figcaption>{p.caption}</figcaption>
+              </figure>
+            ))
+          }
         </div>
       </div>
     </section>
@@ -56,12 +95,11 @@ const geodeEvents = events.filter((e) => e.brand === 'geode').slice(0, 3);
 </Base>
 
 <style>
-  .geode { --accent: var(--lilac-ink); }
   .geode-hero {
     position: relative;
     overflow: hidden;
     padding-block: var(--space-3xl);
-    background: linear-gradient(160deg, var(--lilac-tint), var(--paper) 70%);
+    background: linear-gradient(160deg, var(--purple-tint), var(--paper) 70%);
   }
   .geode-hero__inner { position: relative; display: grid; gap: var(--space-l); }
   .geode-hero__inner > * { max-width: 760px; }
@@ -70,31 +108,36 @@ const geodeEvents = events.filter((e) => e.brand === 'geode').slice(0, 3);
     font-stretch: 75%;
     letter-spacing: -0.04em;
     line-height: 0.85;
-    color: var(--lilac-ink);
+    color: var(--purple);
   }
   .geode-hero__line { font-family: var(--font-display); font-weight: 700; font-size: var(--step-2); font-stretch: 90%; }
   .geode-hero__ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; }
-  .geode .btn--primary { --btn-bg: var(--lilac-ink); --btn-border: var(--lilac-ink); }
 
   /* Faceted crystal shapes, a nod to the name */
   .crystals { position: absolute; inset: 0; pointer-events: none; }
   .crystals span {
     position: absolute;
-    background: linear-gradient(135deg, var(--lilac), color-mix(in srgb, var(--cyan) 60%, var(--lilac)));
+    background: linear-gradient(135deg, var(--purple), color-mix(in srgb, var(--teal) 70%, var(--purple)));
     opacity: 0.85;
     clip-path: polygon(50% 0, 100% 30%, 85% 100%, 15% 100%, 0 30%);
   }
   .crystals span:nth-child(1) { width: 220px; height: 300px; right: 6%; top: 12%; transform: rotate(8deg); }
-  .crystals span:nth-child(2) { width: 130px; height: 190px; right: 22%; top: 42%; transform: rotate(-14deg); opacity: 0.6; background: linear-gradient(135deg, var(--magenta), var(--lilac)); }
-  .crystals span:nth-child(3) { width: 90px; height: 130px; right: 3%; top: 64%; transform: rotate(22deg); opacity: 0.5; }
-  .crystals span:nth-child(4) { width: 60px; height: 90px; right: 30%; top: 10%; transform: rotate(-4deg); opacity: 0.45; background: var(--amber); }
+  .crystals span:nth-child(2) { width: 130px; height: 190px; right: 22%; top: 42%; transform: rotate(-14deg); opacity: 0.6; background: linear-gradient(135deg, var(--red), var(--purple)); }
+  .crystals span:nth-child(3) { width: 90px; height: 130px; right: 3%; top: 64%; transform: rotate(22deg); opacity: 0.55; background: var(--teal); }
+  .crystals span:nth-child(4) { width: 60px; height: 90px; right: 30%; top: 10%; transform: rotate(-4deg); opacity: 0.5; background: var(--orange); }
 
+  .growing { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: var(--space-2xl); align-items: start; }
+  .growing h2 { font-size: var(--step-3); }
   .geode__h2 { font-size: var(--step-3); margin-bottom: var(--space-xl); }
   .rows { display: grid; gap: var(--space-l); }
-  .geode__lessons { margin-top: var(--space-xl); color: var(--ink-soft); }
+  .geode__lessons { margin-top: var(--space-xl); color: var(--ink-soft); max-width: 70ch; }
   .tickets { display: grid; gap: var(--space-m); }
+  .past { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-l); }
+  .past figure { margin: 0; display: grid; gap: 0.6rem; }
+  .past figcaption { color: var(--ink-soft); font-size: var(--step--1); }
 
   @media (max-width: 860px) {
     .crystals { opacity: 0.35; }
+    .growing, .past { grid-template-columns: 1fr; }
   }
 </style>

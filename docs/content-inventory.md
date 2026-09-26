@@ -1,90 +1,100 @@
 # Content inventory & migration status
 
-What we captured from the current Squarespace site (littlecharacters.org), where it lives in the new site, and what still needs Hannah's eyes.
+What we captured from the current Squarespace site, where it lives in the new site, and what still needs Hannah's eyes.
 
-## How this was gathered
+## How it was captured
 
-The build environment's network policy blocks `littlecharacters.org` and the Squarespace image CDN, so the first pass was assembled from **search-engine copies of each page** (plus Macaroni KID Athens, ActiveKids and the UGA Grady article). That gives us the copy and facts, but **no images and no guarantee of word-for-word accuracy**.
+On Sep 25, 2026, `npm run scrape` pulled every URL in littlecharacters.org's sitemap (74 pages) and 97 images. For each page the script saves:
 
-To do the full migration (verbatim copy + every photo):
+- the Squarespace `?format=json` data, or the rendered HTML where the page is built from 7.1 sections;
+- a Markdown copy in `content/scraped/pages/`;
+- every image, full size, in `content/scraped/images/`.
+
+It also downloaded two PDFs linked from the site: the Fall 2026 tuition guidelines and the parking guide.
 
 ```bash
-npm run scrape            # writes content/scraped/{pages/*.md, images/, images.json, *.upcoming.json}
+npm run scrape   # re-run anytime; needs network access to littlecharacters.org + images.squarespace-cdn.com
 ```
 
-Run it anywhere with normal internet access (a laptop is fine), or allow these hosts in the Claude Code environment's network settings and ask Claude to run it: `www.littlecharacters.org`, `littlecharacters.org`, `images.squarespace-cdn.com`, `static1.squarespace.com`.
+**What's committed and what isn't.** The Markdown pages and the JSON manifests (`pages.json`, `images.json`, `events.*.json`, `site.json`) are committed. The full image set (~54 MB), the raw JSON dumps and the PDFs are git-ignored; re-run the scrape to get them back. The 26 photos the site actually uses were copied into `src/assets/photos`, `src/assets/team` and `src/assets/brand`, and Astro builds responsive versions of them.
 
-The script uses Squarespace's built-in `?format=json` view of every URL in `/sitemap.xml`, so it gets clean body copy, event data and full-resolution image URLs without scraping the theme.
+## Where each old page went
 
-## Pages on the current site
+| Current URL | New home | Notes |
+|---|---|---|
+| `/` (home) | `/` | Mission, "Our Approach" (3 steps with photos), what we offer, special-needs support, testimonials |
+| `/classes-1` (Fall 2026 Classes) | `/programs`, `/programs/[slug]` | **Source of truth for the catalog.** All 10 offerings, with days, times, ages, prices, fees and teachers |
+| `/classes`, `/classes1`, `/spring2024`, `/athens2024`, `/winterville2024` | none | Older semesters. Kept in `content/scraped/pages/` for reference |
+| `/faqs` | `/faq` and program pages | Merged with the Fall 2026 tuition guidelines PDF |
+| `/team` | `/about#team` | All 9 people, with headshots |
+| `/geode` | `/geode` | Copy, classes, Third Thursday Improv, past-event photos |
+| `/events` + 60 event pages | `/events` | Upcoming events migrated; past ones feed "Recent favorites" on `/camps` |
+| `/giving-page` | `/give` | Adds the FAQ's "How can I support LC?" list and the Amazon Wish List |
+| `/contact` | `/contact` | Adds the parking guide as a section |
+| `/camp` | `/camps` | The old page is a 404 now; camp formats are rebuilt from the 2023–2025 camp event pages |
+| `/services`, `/store` | none | `/services` is an unused Squarespace template (interior design demo). Delete it |
 
-| Current URL | What's there | New home | Status |
-|---|---|---|---|
-| `/` | Mission, programs overview, camps, classes & workshops, Geode, Ovation, contact | `/` | Migrated (from search copy) |
-| `/classes` (also `/classes1`, `/athens2024`, `/winterville2024`) | Class list, pricing tiers, first-class-free, discounts, ratios | `/programs`, `/programs/[slug]` | Migrated; **schedule is placeholder** |
-| `/camp` | Summer camp overview, Winterville location, $150 teen intensive, deposit policy, scholarships | `/camps` | Migrated; **2027 weeks are placeholder** |
-| `/events` + `/events/*` | Variety shows, Kid Zone at Wild Rumpus, Ovation, summer camp weeks | `/events` | Migrated; **fall 2026 dates are placeholder** |
-| `/team` | Founder + staff bios | `/about#team` | Migrated; see open questions |
-| `/faqs` | Deposit/payment policy, Fun Mondays, Parents' Night Out, parties | `/faq` + program pages | Migrated |
-| `/geode` | Sister company for 12+ and adults, pricing, First Friday Improv | `/geode` | Migrated |
-| `/giving-page` | Donations → scholarship fund | `/give` | Migrated; donate button still points to the old page |
-| `/contact` | Email, phone, HQ address and directions | `/contact` | Migrated |
+Set up 301 redirects at launch:
 
-Old URLs should get 301 redirects to the new ones at launch (e.g. `/camp → /camps`, `/team → /about#team`, `/giving-page → /give`, `/classes → /programs`).
+- `/classes-1` → `/programs`
+- `/classes` → `/programs`
+- `/camp` → `/camps`
+- `/team` → `/about#team`
+- `/faqs` → `/faq`
+- `/giving-page` → `/give`
+- `/events/*` → `/events`
 
-## Facts carried over (verified in 2+ sources)
+## Photos in use
 
-- Founded 2022 by Hannah Eppling; origin story (Pre-K moms' group text; Athens lost several historic kids' theater companies).
-- Mission: "Every person has a story worth telling…"
-- Ages 4–17 for LC; Geode 12+ and adults. "Classes to students ages 4–100."
-- Tuition: $85/mo (45 min), $95/mo (1 hr), $115/mo (1¼ hr).
-- First class free for new students. 15% sibling and 15% multi-class discounts. Scholarships available.
-- 7:1 student/teacher ratio in classes, capped at 20. Camps 8:1.
-- Camps ≈ $50/day; $50 non-refundable deposit at registration; balance due the week before camp.
-- Teen Improv & Writing Intensive: ages 11–17, 3 days, 9 am–1 pm, $150 incl. snacks and materials, no lunch.
-- Ovation: monthly, special-needs class with It's Good to See You Productions, at Brella Studio, $15/class, scholarships.
-- Parents' Night Out until 8 pm; downtown is 1 mile away. Birthday parties: 2 hours, evenings/weekends, coordinator, stage, tables.
-- Fun Mondays with CC: HQ, 1–5 pm, register by noon the Sunday before.
-- HQ: 1635 W Broad St, Athens 30606 (south side, between Rocksprings and Alps; 5,000 sq ft accessible space).
-- Winterville Campus for Arts & Culture / Marigold Auditorium, 371 N Church St, Winterville 30683.
-- Athens Academy Lower School enrichment: Mondays 4:00–5:15, Sep 14–Nov 9 2026, Harrison Center, CC Conner & Carley Peden, via ActiveKids.
-- Contact: littlecharacterstheater@gmail.com, (281) 798-2623, @littlecharactersathens.
-- One parent testimonial (camp), used verbatim.
+| Asset | Original | Used for |
+|---|---|---|
+| `photos/cast-silly-faces.webp` | Screenshot 2025-08-14 (cast photo) | Home hero, Summer Camp |
+| `photos/teacher-with-students.webp` | IMG_1625 | Approach step 1, Private Lessons, Athens Academy |
+| `photos/rehearsing-on-stage.webp` | IMG_1498 | Approach step 2, Intro to Theater |
+| `photos/carnival-show.webp` | 20230520_190322 | Approach step 3, Produce a Show |
+| `photos/camp-show-stage.webp` | scarterstudios_2023_144 | Performance Troupe, Camps hero |
+| `photos/rehearsal-circle.webp` | Screenshot 2025-08-14 (circle) | About hero, Acting Studio, Free Community Class |
+| `photos/full-house-twisted-tales.webp` | Little-Characters-Twisted-Tales-153 | About (inclusion) |
+| `photos/film-green-screen-*.webp` (6) | Film class green-screen portraits | Film Creation, Stories and Songs, Homeschool, Parents' Night Out, Parties, Mini Camps |
+| `photos/trust-game-outdoors.webp` | IMG_7481 | Yes, And… Improv |
+| `photos/geode-*.webp` (3) | Geode page photos | Geode past events, Adult Improv |
+| `team/*.webp` (9) | Team page headshots | About |
+| `brand/logo-horizontal.webp`, `brand/logo-mark.png` | Logo Hz.png (trimmed) | Header, footer, favicon |
 
-## Placeholders to replace before launch
+The green-screen portraits show identifiable children, as did the old site. It's worth confirming photo consent still covers the new site.
 
-Everything below is in `src/data/` and flagged with comments. The site shows a "Design preview" banner until `site.preview` is set to `false` in `src/config/site.ts`.
+## Discrepancies found on the current site
 
-- **Class schedule** (days, times, which location, capacity, spots left) for every weekly class.
-- **Ages** for Theater Games, Intro to Theater, Intermediate Improv, Film 101, Scenes & Monologues, Middle School Improv, Techies (we inferred bands from class names).
-- **Holiday mini camp** dates (Thanksgiving Nov 23–25, Winter Dec 21–23) and ages.
-- **Summer 2027** camp names, weeks, ages, locations. The Little Characters Camp (4–6) name is new.
-- **Event dates** for fall 2026 (Variety Show, Wild Rumpus Kid Zone, Parents' Night Out, Ovation, First Friday Improv).
-- **"A day at camp"** timeline on `/camps` is a sample.
-- **Adult improv class** (Geode) schedule and price.
-- **Real Studio Director links** in `src/config/site.ts` (`portal.studioDirector.login/enroll`).
-- **Form handling** for contact, newsletter and "notify me" (`site.forms`).
-- **Logo files.** The header uses a placeholder wordmark with a character mark.
-- **Photos.** Every image slot shows a labeled placeholder naming the shot it wants. Once the scrape runs, drop photos into `public/images/` and set `image.src` in the data files.
+**Decision (Sep 2026): pricing conflicts default to the monthly price.** Geode Acting Studio is now $95/month. The rest are tracked in `todo.md`. Otherwise the new site uses the first option listed in each case.
 
-## Open questions for Hannah
+1. **Ratio.** The Fall 2026 page says 7 students per teacher; the FAQ says 8:1 with classes of 8–12. We say "classes of 8–12 kids, about 7 students per teacher".
+2. **Geode Acting Studio.** The Fall 2026 page lists 8 weeks (Oct 20 – Dec 15) at $180 per session, teacher TBD. The Geode page lists weekly at $95/month with Peyton Harris. *Resolved: $95/month.*
+3. **Produce a Show.** The Fall 2026 page says ages 7+ with CC Conner & Zack Newcott. The Geode page says ages 8+ with CC Conner & Carley Peden.
+4. **Yes, And… Improv.** Wednesdays on the Fall 2026 page; Mondays on the Geode page.
+5. **Adult improv price.** $25 on the Fall 2026 page; $20 on the Geode page.
+6. **Parents' Night Out.** The heading says 5–8 pm; the body jokes "or until 9".
+7. **Carley's last name.** "Pedan" on the Team page; "Peden" on ActiveKids.
+8. **Who we serve.** The FAQ says LC is pre-K–5th and Geode is grades 6–12; the Geode page says Geode is 11+.
 
-1. The search results tied an Early Childhood Education / daycare-director bio to **Shondra Taylor**. Is she on the team, and what's her role?
-2. **Emily** (set & costume designer): last name and whether she teaches Techies.
-3. **CC Conner**: title and bio.
-4. Is **Produce a Show** still limited to returning students? (The site says so, based on the current copy.)
-5. Is Ovation still at **Brella Studio**, or has it moved to HQ?
-6. Does **WORK.SHOP** (off Chase St) still host improv camps?
-7. The Back of House directory lists **1195 Oglethorpe Ave**. Is that an old address?
-8. The Macaroni KID listing says "371 N **Chase** St, Winterville". We used **Church** St, from the camp page.
-9. Birthday party and private lesson **pricing**: publish it, or keep "by request"?
-10. More **testimonials**, with permission to use first names.
+## Still to decide or supply
 
-## New copy written for the redesign
+- **Fall Variety Show date** (December) and ticketing link. It shows on `/events` as "date coming soon".
+- **Ovation.** It isn't on the Fall 2026 schedule. It's listed as "ask about the next dates"; confirm whether it continues.
+- **Summer 2027 camp weeks.** Add them as sessions labeled "Week 1", "Week 2"… and the week-by-week grid on `/camps` appears automatically.
+- **Holiday mini camps and workshops for 2026–27.** None are announced yet.
+- **Free Community Class registration link.** The site currently says "Registration coming soon".
+- **A real donation link.** The current giving page has copy but no payment form.
+- **Form handling** for contact, newsletter and "notify me" (`site.forms` in `src/config/site.ts`).
+- **School partners list** ("Athens Montessori School, Oglethorpe Ave. Elementary, Love.Craft Athens") is from the old home page and may be dated.
+- **Hannah's full bio PDF** linked from the Team page returns 404.
+- **More testimonials**, with permission.
 
-These lines are new (not from the old site) and should be read for voice:
-- Program taglines and some description paragraphs in `src/data/programs.ts`.
-- Home page section intros ("Where does my kid start?", "Small groups. Big confidence.", "On the call sheet").
+## Copy written new for the redesign
+
+Everything else is the site's own words, lightly edited for length. These lines are new:
+
+- Section intros on the home page ("On the call sheet", "Where does my kid start?", "From 'I'm nervous' to a bow on stage", "Small groups. Big confidence.", "More ways to play").
 - Pathway groupings (First steps / Find your voice / Make your own / Take the stage).
-- Give page "what your gift covers" examples (all use real prices).
-- FAQ answer for "What should my child wear?" (drafted).
+- Program taglines where the old site had none.
+- The "What your gift covers" examples on `/give` (all use real Fall 2026 prices).
+- The "A day at camp" timeline, assembled from the 2023 summer camp pages.

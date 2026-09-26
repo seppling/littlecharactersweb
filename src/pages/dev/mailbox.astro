@@ -1,0 +1,37 @@
+---
+/** Development only: emails that would have been sent (sign-in codes, confirmations). */
+import { desc } from 'drizzle-orm';
+import Base from '@/layouts/Base.astro';
+import { getDb, schema } from '@/server/db';
+import { usesDevMailbox } from '@/server/email';
+
+export const prerender = false;
+if (!usesDevMailbox) return new Response('Not found', { status: 404 });
+
+const db = await getDb();
+const emails = await db.select().from(schema.devEmail).orderBy(desc(schema.devEmail.createdAt)).limit(25);
+---
+
+<Base title="Dev mailbox" noindex>
+  <section class="wrap mailbox">
+    <span class="tape" data-gel="yellow">Development only</span>
+    <h1>Dev mailbox</h1>
+    <p>Emails the site would have sent. In production these go out through Resend and this page doesn’t exist.</p>
+    <ol>
+      {emails.map((e) => (
+        <li>
+          <p class="script">{e.createdAt.toLocaleString('en-US')} · to {e.to}</p>
+          <strong>{e.subject}</strong>
+          <pre>{e.text}</pre>
+        </li>
+      ))}
+    </ol>
+  </section>
+</Base>
+
+<style>
+  .mailbox { padding-block: var(--space-2xl); display: grid; gap: var(--space-m); }
+  ol { list-style: none; padding: 0; display: grid; gap: var(--space-m); }
+  li { padding: var(--space-m); border: 1.5px solid var(--line); border-radius: var(--r-md); }
+  pre { white-space: pre-wrap; font-family: var(--font-body); color: var(--ink-soft); }
+</style>

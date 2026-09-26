@@ -2,10 +2,10 @@
  * Little Characters design tokens.
  *
  * Direction: "House Lights & Spike Tape". The site is a bright rehearsal room
- * (white + a lilac-grey "hall" tint) marked up with the colored spike tape and
- * lighting gels used on a real stage. Shows & events go dark, like the house
- * before curtain. Gel colors are for fills and light pools; the *-ink variants
- * are the text/button versions that pass WCAG AA on white.
+ * (white + a lilac-grey "hall" tint) marked up with colored spike tape and
+ * stage-light pools in the brand's four logo colors. Shows & events go dark,
+ * like the house before curtain. Full-strength colors are for fills; the *-ink
+ * variants are the text/button versions that pass WCAG AA on white.
  */
 :root {
   color-scheme: light;
@@ -26,29 +26,34 @@
   --on-stage: #f4f1fa;
   --on-stage-mute: #b3abc4;
 
-  /* Gels: fills, tape, light pools */
-  --magenta: #e8408a;
-  --amber: #ffbe3b;
-  --cyan: #22a6dd;
-  --green: #37b878;
-  --lilac: #9a7ff2;
+  /* Brand colors, sampled from the Little Characters logo mark (+ a sunny yellow).
+     Used as "gels": fills, tape and light pools. */
+  --red: #ee4433;
+  --orange: #ff9911;
+  --teal: #11aa99;
+  --purple: #662299;
+  --yellow: #f7c629;
 
-  /* Ink versions: text, links and buttons on white (AA ≥ 4.5:1) */
-  --magenta-ink: #c0246a;
-  --amber-ink: #8a5a00;
-  --cyan-ink: #0b6f9b;
-  --green-ink: #1e7a4c;
-  --lilac-ink: #6a4cd0;
+  /* Ink versions: text, links and buttons on white (AA >= 4.5:1) */
+  --red-ink: #c02e1e;
+  --orange-ink: #a35a00;
+  --teal-ink: #0b7a6e;
+  --purple-ink: #662299;
+  --yellow-ink: #8a6a00;
 
   /* Tints: quiet card grounds */
-  --magenta-tint: #fde4ef;
-  --amber-tint: #fff1d1;
-  --cyan-tint: #ddf1fa;
-  --green-tint: #ddf4e8;
-  --lilac-tint: #ece6fd;
+  --red-tint: #fde3df;
+  --orange-tint: #ffedd6;
+  --teal-tint: #d9f3ef;
+  --purple-tint: #eee3f7;
+  --yellow-tint: #fef5cf;
 
-  --accent: var(--magenta-ink);
-  --focus: #0b6f9b;
+  /* Semantic (not brand): availability dots */
+  --ok: #2e9e5b;
+  --ok-tint: #ddf4e8;
+
+  --accent: var(--purple);
+  --focus: #0b7a6e;
 
   /* Type */
   --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
@@ -90,9 +95,10 @@
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
-/* Per-element gel selection: set data-gel="cyan" etc. and use var(--gel*) */
-[data-gel='magenta'] { --gel: var(--magenta); --gel-ink: var(--magenta-ink); --gel-tint: var(--magenta-tint); }
-[data-gel='amber'] { --gel: var(--amber); --gel-ink: var(--amber-ink); --gel-tint: var(--amber-tint); }
-[data-gel='cyan'] { --gel: var(--cyan); --gel-ink: var(--cyan-ink); --gel-tint: var(--cyan-tint); }
-[data-gel='green'] { --gel: var(--green); --gel-ink: var(--green-ink); --gel-tint: var(--green-tint); }
-[data-gel='lilac'] { --gel: var(--lilac); --gel-ink: var(--lilac-ink); --gel-tint: var(--lilac-tint); }
+/* Per-element color selection: set data-gel="teal" etc. and use var(--gel*).
+   --gel-on is the text color that reads on the full-strength color. */
+[data-gel='red'] { --gel: var(--red); --gel-ink: var(--red-ink); --gel-tint: var(--red-tint); --gel-on: var(--ink); }
+[data-gel='orange'] { --gel: var(--orange); --gel-ink: var(--orange-ink); --gel-tint: var(--orange-tint); --gel-on: var(--ink); }
+[data-gel='teal'] { --gel: var(--teal); --gel-ink: var(--teal-ink); --gel-tint: var(--teal-tint); --gel-on: var(--ink); }
+[data-gel='purple'] { --gel: var(--purple); --gel-ink: var(--purple-ink); --gel-tint: var(--purple-tint); --gel-on: #ffffff; }
+[data-gel='yellow'] { --gel: var(--yellow); --gel-ink: var(--yellow-ink); --gel-tint: var(--yellow-tint); --gel-on: var(--ink); }

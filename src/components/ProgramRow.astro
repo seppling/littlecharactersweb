@@ -5,9 +5,11 @@
  */
 import type { CharacterName, Program } from '@/data/types';
 import Character from './Character.astro';
+import PhotoFrame from './PhotoFrame.astro';
 import SessionLine from './SessionLine.astro';
-import { kindLabels } from '@/data/programs';
-import { ageLabel, price } from '@/lib/format';
+import { focusLabels, kindLabels } from '@/data/programs';
+import { hasFreeFirstClass } from '@/lib/pricing';
+import { ageLabel, feeLabel, price } from '@/lib/format';
 
 interface Props {
   program: Program;
@@ -16,11 +18,11 @@ interface Props {
 const { program } = Astro.props;
 
 const castByGel: Record<Program['gel'], CharacterName> = {
-  magenta: 'royal',
-  cyan: 'magician',
-  amber: 'artist',
-  green: 'professor',
-  lilac: 'dancer',
+  red: 'royal',
+  teal: 'magician',
+  orange: 'artist',
+  yellow: 'professor',
+  purple: 'dancer',
 };
 
 const maxAge = program.ages.max ?? 120;
@@ -34,6 +36,8 @@ const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.pr
   data-gel={program.gel}
   data-program
   data-kind={program.kind}
+  data-focus={(program.focus ?? []).join(',')}
+  data-trial={hasFreeFirstClass(program) ? '1' : '0'}
   data-brand={program.brand}
   data-age-min={program.ages.min}
   data-age-max={maxAge}
@@ -42,19 +46,29 @@ const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.pr
   data-open={program.sessions.some((s) => s.status === 'open' || s.status === 'few-left') ? '1' : '0'}
 >
   <div class="prow__summary">
-    <div class="prow__art" aria-hidden="true">
-      <Character name={castByGel[program.gel]} size={64} />
-    </div>
+    {
+      program.image?.src ? (
+        <div class="prow__photo">
+          <PhotoFrame image={program.image} gel={program.gel} shape="circle" sizes="96px" />
+        </div>
+      ) : (
+        <div class="prow__art" aria-hidden="true">
+          <Character name={castByGel[program.gel]} size={64} />
+        </div>
+      )
+    }
     <div class="prow__text">
       <div class="prow__tags">
         <span class="tape tape--quiet" data-tilt="flat">{kindLabels[program.kind].singular}</span>
-        <span class="prow__age">{ageLabel(program.ages)}</span>
+        {hasFreeFirstClass(program) && <span class="tape" data-gel="yellow" data-tilt="flat">First class free</span>}
+        <span class="prow__age">{ageLabel(program.ages, program.agesLabel)}</span>
+        {program.focus && program.focus.length > 0 && <span class="prow__focus">{program.focus.map((f) => focusLabels[f]).join(' · ')}</span>}
       </div>
       <h3><a href={`/programs/${program.slug}`}>{program.title}</a></h3>
       <p>{program.summary}</p>
       <p class="prow__foot">
         {program.duration && <span class="script">{program.duration}</span>}
-        {fromPrice && <span class="script">from {price(fromPrice)}</span>}
+        {fromPrice && <span class="script">{fromPrice.amount === 0 ? 'Free' : `${price(fromPrice)} ${feeLabel(program.fee)}`}</span>}
         {program.showcase && <span class="prow__show">★ Ends in a show</span>}
       </p>
     </div>
@@ -65,11 +79,20 @@ const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.pr
         program.sessions.map((session) => <SessionLine program={program} session={session} compact />)
       ) : (
         <div class="prow__request">
-          <p>Scheduled around your family.</p>
-          {program.requestCta && (
-            <a class="btn btn--sm btn--outline" href={program.requestCta.href}>
-              {program.requestCta.label}
-            </a>
+          {program.notify ? (
+            <>
+              <p>Dates coming soon.</p>
+              <a class="btn btn--sm btn--outline" href={`/programs/${program.slug}#notify`}>Get notified</a>
+            </>
+          ) : (
+            <>
+              <p>{program.kind === 'inclusive' ? 'Next dates by request.' : 'Scheduled around your family.'}</p>
+              {program.requestCta && (
+                <a class="btn btn--sm btn--outline" href={program.requestCta.href}>
+                  {program.requestCta.label}
+                </a>
+              )}
+            </>
           )}
         </div>
       )
@@ -100,9 +123,12 @@ const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.pr
     overflow: hidden;
   }
   .prow__art :global(.character) { margin-bottom: -6px; }
+  .prow__photo { width: 96px; }
+  .prow__photo :global(.frame) { box-shadow: 0 0 0 4px var(--gel-tint); }
   .prow__text { display: grid; gap: 0.55rem; }
   .prow__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
   .prow__age { font-family: var(--font-display); font-weight: 750; font-stretch: 90%; color: var(--gel-ink); }
+  .prow__focus { font-size: var(--step--1); color: var(--ink-mute); }
   .prow h3 { font-size: var(--step-2); }
   .prow h3 a { color: var(--ink); text-decoration: none; }
   .prow h3 a:hover { text-decoration: underline; text-decoration-color: var(--gel); text-decoration-thickness: 3px; }
@@ -120,10 +146,11 @@ const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.pr
   .prow__more { justify-self: start; margin-top: 0.6rem; font-size: var(--step--1); }
 
   @media (max-width: 860px) {
-    .prow { grid-template-columns: 1fr; padding: var(--space-l); gap: var(--space-l); }
+    .prow { grid-template-columns: minmax(0, 1fr); padding: var(--space-l); gap: var(--space-l); }
   }
   @media (max-width: 480px) {
     .prow__summary { grid-template-columns: 1fr; }
     .prow__art { width: 64px; height: 64px; }
+    .prow__photo { width: 72px; }
   }
 </style>

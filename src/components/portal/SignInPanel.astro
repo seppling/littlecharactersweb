@@ -1,0 +1,183 @@
+---
+/**
+ * Passwordless sign-in: email → 6-digit code, all in place. New families are
+ * created on the spot; returning families pick up where they left off.
+ */
+import { usesDevMailbox } from '@/server/email';
+
+interface Props {
+  heading?: string;
+  intro?: string;
+  /** Where to go after signing in. Defaults to reloading the current page. */
+  next?: string;
+}
+const {
+  heading = 'Sign in or get started',
+  intro = 'Enter your email and we’ll send you a 6-digit code. No password needed, and this device stays signed in for 90 days.',
+  next,
+} = Astro.props;
+---
+
+<div class="signin" data-signin data-next={next}>
+  <h2>{heading}</h2>
+  <p class="signin__intro">{intro}</p>
+
+  <form class="signin__step" data-step="email" novalidate>
+    <div class="field">
+      <label for="signin-email">Email</label>
+      <input id="signin-email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com" />
+    </div>
+    <button class="btn btn--primary btn--block" type="submit">Email me a code <span class="arrow" aria-hidden="true">→</span></button>
+    {usesDevMailbox && <p class="signin__preview">Preview site: no real emails are sent. Your code will appear in the <a href="/dev/mailbox" target="_blank">test mailbox</a>.</p>}
+  </form>
+
+  <form class="signin__step" data-step="code" hidden novalidate>
+    {
+      usesDevMailbox ? (
+        <p class="signin__preview">
+          Preview site: no real email is sent. The code for <strong data-email-echo /> is in the <a href="/dev/mailbox" target="_blank">test mailbox <span aria-hidden="true">↗</span></a>. It expires in 10 minutes.
+        </p>
+      ) : (
+        <p class="signin__sent">We sent a code to <strong data-email-echo />. It expires in 10 minutes.</p>
+      )
+    }
+    <div class="field">
+      <label for="signin-code">6-digit code</label>
+      <input
+        id="signin-code"
+        name="otp"
+        class="signin__code"
+        type="text"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        pattern="[0-9]{6}"
+        maxlength="6"
+        required
+      />
+    </div>
+    <button class="btn btn--primary btn--block" type="submit">Continue <span class="arrow" aria-hidden="true">→</span></button>
+    <p class="signin__alt">
+      <button type="button" class="linkish" data-resend>Send a new code</button> ·
+      <button type="button" class="linkish" data-change>Use a different email</button>
+    </p>
+  </form>
+
+  <p class="signin__error" role="alert" data-error hidden></p>
+  <p class="signin__fine">By continuing you agree to our <a href="/faq">policies</a>. We only use your email for your classes and, if you choose, our newsletter.</p>
+</div>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-signin]')) {
+    const emailForm = root.querySelector<HTMLFormElement>('[data-step="email"]')!;
+    const codeForm = root.querySelector<HTMLFormElement>('[data-step="code"]')!;
+    const errorEl = root.querySelector<HTMLElement>('[data-error]')!;
+    const echo = root.querySelector<HTMLElement>('[data-email-echo]')!;
+    const codeInput = codeForm.querySelector<HTMLInputElement>('input[name="otp"]')!;
+    let email = '';
+
+    const showError = (msg: string) => {
+      errorEl.textContent = msg;
+      errorEl.hidden = !msg;
+    };
+    const busy = (form: HTMLFormElement, on: boolean) => {
+      const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+      btn.disabled = on;
+      btn.setAttribute('aria-busy', String(on));
+    };
+
+    async function post(path: string, body: unknown) {
+      const res = await fetch(`/api/auth${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(res.status === 429 ? 'Too many tries. Wait a minute and try again.' : data.message || 'Something went wrong. Please try again.');
+      }
+      return res.json().catch(() => ({}));
+    }
+
+    async function sendCode() {
+      await post('/email-otp/send-verification-otp', { email, type: 'sign-in' });
+      echo.textContent = email;
+      emailForm.hidden = true;
+      codeForm.hidden = false;
+      codeInput.focus();
+    }
+
+    emailForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      showError('');
+      const input = emailForm.querySelector<HTMLInputElement>('input[name="email"]')!;
+      email = input.value.trim().toLowerCase();
+      if (!input.checkValidity() || !email) return showError('Enter a valid email address.');
+      busy(emailForm, true);
+      try {
+        await sendCode();
+      } catch (err) {
+        showError((err as Error).message);
+      } finally {
+        busy(emailForm, false);
+      }
+    });
+
+    codeForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      showError('');
+      const otp = codeInput.value.replace(/\D/g, '');
+      if (otp.length !== 6) return showError('Enter the 6-digit code from your email.');
+      busy(codeForm, true);
+      try {
+        await post('/sign-in/email-otp', { email, otp });
+        const next = root.dataset.next;
+        if (next) location.assign(next);
+        else location.reload();
+      } catch {
+        showError('That code didn’t work. Check the latest email, or send a new code.');
+        busy(codeForm, false);
+      }
+    });
+
+    codeInput.addEventListener('input', () => {
+      codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 6);
+      if (codeInput.value.length === 6) codeForm.requestSubmit();
+    });
+
+    root.querySelector('[data-resend]')!.addEventListener('click', async () => {
+      showError('');
+      try {
+        await sendCode();
+        showError('New code sent.');
+      } catch (err) {
+        showError((err as Error).message);
+      }
+    });
+    root.querySelector('[data-change]')!.addEventListener('click', () => {
+      codeForm.hidden = true;
+      emailForm.hidden = false;
+      showError('');
+    });
+  }
+</script>
+
+<style>
+  .signin { display: grid; gap: var(--space-m); }
+  .signin h2 { font-size: var(--step-2); }
+  .signin__intro, .signin__sent { color: var(--ink-soft); }
+  .signin__step { display: grid; gap: var(--space-m); }
+  .signin__code {
+    font-family: var(--font-script);
+    font-size: 1.8rem !important;
+    letter-spacing: 0.4em;
+    text-align: center;
+  }
+  .signin__alt { font-size: var(--step--1); color: var(--ink-mute); text-align: center; }
+  .linkish { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }
+  .signin__error { color: var(--red-ink); font-weight: 600; }
+  .signin__fine { font-size: var(--step--2); color: var(--ink-mute); }
+  .signin__preview { padding: 0.75rem 0.9rem; border: 2px dashed var(--yellow-ink); border-radius: var(--r-md); background: var(--yellow-tint); font-size: var(--step--1); }
+  .signin__preview a { font-weight: 700; }
+  button[aria-busy='true'] { opacity: 0.6; cursor: progress; }
+</style>

@@ -1,0 +1,60 @@
+---
+/** Staff: everything sent through the site's forms, newest first. */
+import Base from '@/layouts/Base.astro';
+import { listLeads } from '@/server/leads';
+import { programBySlug } from '@/data/programs';
+
+export const prerender = false;
+if (!Astro.locals.isAdmin) return new Response('Not found', { status: 404 });
+
+const leads = await listLeads(300);
+const label = { contact: 'Message', newsletter: 'Newsletter', notify: 'Notify me', camps: 'Summer camps' } as Record<string, string>;
+const counts = Object.entries(label).map(([kind, name]) => ({ kind, name, n: leads.filter((l) => l.kind === kind).length }));
+const fmt = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
+---
+
+<Base title="Leads" noindex>
+  <section class="wrap admin">
+    <p class="eyebrow"><a href="/admin">Staff</a></p>
+    <div class="head">
+      <h1>Messages & signups</h1>
+      <a class="btn btn--outline btn--sm" href="/admin/leads.csv" download>Download signups (CSV)</a>
+    </div>
+    <p class="muted">{counts.map((c) => `${c.name}: ${c.n}`).join(' · ')}. Contact messages are also emailed to you; reply to that email to answer the family.</p>
+    {
+      leads.length ? (
+        <table>
+          <thead><tr><th>When</th><th>Form</th><th>From</th><th>Details</th></tr></thead>
+          <tbody>
+            {leads.map((l) => (
+              <tr>
+                <td class="nowrap">{fmt(l.createdAt)}</td>
+                <td>{label[l.kind] ?? l.kind}</td>
+                <td>{l.name && <strong>{l.name}<br /></strong>}<a href={`mailto:${l.email}`}>{l.email}</a></td>
+                <td>
+                  {l.details.program && <span class="muted">{programBySlug(l.details.program)?.title ?? l.details.program}</span>}
+                  {l.details.topic && <span class="muted">About: {l.details.topic}</span>}
+                  {l.details.ages && <span class="muted"> · Ages {l.details.ages}</span>}
+                  {l.message && <p class="msg">{l.message}</p>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p class="muted">Nothing yet. Messages and signups from the site’s forms will show up here.</p>
+      )
+    }
+  </section>
+</Base>
+
+<style>
+  .admin { padding-block: var(--space-2xl) var(--space-3xl); display: grid; gap: var(--space-m); }
+  .head { display: flex; flex-wrap: wrap; gap: var(--space-m); justify-content: space-between; align-items: end; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+  .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .nowrap { white-space: nowrap; font-size: var(--step--1); }
+  .msg { margin: 0.3rem 0 0; white-space: pre-line; max-width: 60ch; }
+</style>

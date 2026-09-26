@@ -1,4 +1,4 @@
-import type { Price, Program, Session, Weekday } from '@/data/types';
+import type { Fee, Price, Program, Session, Weekday } from '@/data/types';
 
 const DAY_NAMES: Record<Weekday, string> = {
   Mon: 'Mondays', Tue: 'Tuesdays', Wed: 'Wednesdays', Thu: 'Thursdays', Fri: 'Fridays', Sat: 'Saturdays', Sun: 'Sundays',
@@ -46,16 +46,18 @@ export function dayList(days: Weekday[]) {
 }
 
 const UNIT: Record<Price['unit'], string> = {
-  month: '/mo', week: '/wk', day: '/day', class: '/class', session: '', hour: '/hr',
+  month: '/mo', week: '/wk', day: '/day', class: '/class', session: '/session', hour: '/hr', child: '/child',
 };
 
 export function price(p?: Price) {
   if (!p) return 'Pricing TBA';
+  if (p.amount === 0) return 'Free';
   return `$${p.amount}${UNIT[p.unit]}`;
 }
 
-export function ageLabel(ages: Program['ages']) {
-  if (ages.max === null) return ages.min >= 18 ? 'Adults' : `Ages ${ages.min}+`;
+export function ageLabel(ages: Program['ages'], override?: string) {
+  if (override) return override;
+  if (ages.max === null) return ages.min >= 18 ? 'Adults 18+' : `Ages ${ages.min}+`;
   return `Ages ${ages.min}–${ages.max}`;
 }
 
@@ -82,4 +84,8 @@ export function eventDate(iso: string) {
     weekday: dt.toLocaleDateString('en-US', { weekday: 'short' }),
     time: timeOf(iso.slice(11, 16)),
   };
+}
+
+export function feeLabel(fee?: Fee) {
+  return fee ? `+ $${fee.amount} ${fee.label}` : '';
 }

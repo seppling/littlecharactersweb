@@ -6,7 +6,6 @@ import { locations } from '@/data/locations';
 import { accountHref } from '@/lib/enroll';
 
 const hq = locations.find((l) => l.id === 'hq')!;
-const marigold = locations.find((l) => l.id === 'marigold')!;
 const year = new Date().getFullYear();
 ---
 
@@ -23,7 +22,7 @@ const year = new Date().getFullYear();
     <div class="site-footer__top">
       <div class="site-footer__brand stack">
         <Logo tone="light" />
-        <p>{site.tagline} Theater classes, camps and shows for ages 4 to 100, since {site.founded}.</p>
+        <p>Encouraging creative hearts through theater. Classes, camps and shows for ages 4 to 100, since {site.founded}.</p>
         <div class="socials">
           <a href={site.social.instagram} rel="noopener">Instagram</a>
           <a href={site.social.facebook} rel="noopener">Facebook</a>
@@ -34,11 +33,11 @@ const year = new Date().getFullYear();
         <h2>Programs</h2>
         <ul>
           <li><a href="/programs?kind=class">Weekly classes</a></li>
-          <li><a href="/camps">Summer & holiday camps</a></li>
-          <li><a href="/programs/private-lessons">Private lessons</a></li>
-          <li><a href="/programs/ovation">Ovation (inclusive)</a></li>
-          <li><a href="/programs?kind=party">Parties & Parents’ Night Out</a></li>
-          <li><a href="/geode">Geode: teens & adults</a></li>
+          <li><a href="/camps">Camps & workshops</a></li>
+          <li><a href="/programs/free-community-class">Free community class</a></li>
+          <li><a href="/programs/parents-night-out">Parents’ Night Out</a></li>
+          <li><a href="/programs/parties">Parties</a></li>
+          <li><a href="/geode">Geode: tweens, teens & adults</a></li>
         </ul>
       </nav>
 
@@ -60,10 +59,7 @@ const year = new Date().getFullYear();
           <strong>{hq.name}</strong><br />
           {hq.address.join(', ')}
         </address>
-        <address>
-          <strong>{marigold.name}</strong><br />
-          {marigold.address.slice(1).join(', ')}
-        </address>
+        <p><a href="/contact#parking">Parking & drop-off</a></p>
         <p class="script">
           <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a><br />
           <a href={site.contact.phoneHref}>{site.contact.phone}</a>
@@ -110,7 +106,7 @@ const year = new Date().getFullYear();
   }
   .site-footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.55rem; }
   .site-footer a { color: var(--on-stage); text-decoration-color: var(--stage-line); }
-  .site-footer a:hover { color: var(--amber); }
+  .site-footer a:hover { color: var(--orange); }
   address { font-style: normal; margin-bottom: var(--space-m); line-height: 1.5; }
   address strong { color: var(--on-stage); font-weight: 650; }
   .socials { display: flex; gap: var(--space-m); }
@@ -125,10 +121,10 @@ const year = new Date().getFullYear();
     font-size: var(--step--1);
   }
   @media (max-width: 900px) {
-    .site-footer__top { grid-template-columns: 1fr 1fr; }
+    .site-footer__top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     .site-footer__brand { grid-column: 1 / -1; }
   }
   @media (max-width: 520px) {
-    .site-footer__top { grid-template-columns: 1fr; }
+    .site-footer__top { grid-template-columns: minmax(0, 1fr); }
   }
 </style>

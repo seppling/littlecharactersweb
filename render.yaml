@@ -1,0 +1,41 @@
+# One-click PREVIEW of the site and family portal on Render
+# (Render dashboard → New → Blueprint → pick this repository).
+#
+# This is a demo, not production:
+#  - a throwaway database that resets when the preview sleeps or redeploys;
+#  - sign-in codes and all other emails appear at /dev/mailbox instead of being sent;
+#  - payments use the "test payment" button, or Stripe's real card form if you
+#    add Stripe TEST keys below (card 4242 4242 4242 4242).
+# Anyone with the link can open /dev/mailbox, so never enter real family details here.
+# Production setup is in docs/infrastructure.md.
+services:
+  - type: web
+    name: littlecharacters-preview
+    runtime: node
+    plan: free
+    # The build unpacks a ready-made empty demo database: creating one needs
+    # more memory than the free plan's 512 MB, opening one doesn't.
+    buildCommand: npm ci && npm run build && npm run db:prepare-preview
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: APP_ENV
+        value: development
+      - key: HOST
+        value: 0.0.0.0
+      # Inside the project folder (not /tmp), so the database made during the
+      # build is still there when the server starts.
+      - key: PGLITE_DIR
+        value: .data/pglite
+      - key: CRON_SECRET
+        generateValue: true
+      # Your email, to see the staff pages (/admin) after signing in.
+      - key: ADMIN_EMAILS
+        sync: false
+      # Optional: Stripe TEST keys (sk_test_…, pk_test_…) to try the real card form.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: PUBLIC_STRIPE_PUBLISHABLE_KEY
+        sync: false

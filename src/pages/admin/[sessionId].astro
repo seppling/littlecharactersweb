@@ -1,0 +1,46 @@
+---
+import Base from '@/layouts/Base.astro';
+import { roster } from '@/server/admin';
+import { findSession } from '@/server/family';
+import { dayList, timeRange } from '@/lib/format';
+
+export const prerender = false;
+if (!Astro.locals.isAdmin || !Astro.locals.user) return new Response('Not found', { status: 404 });
+const found = findSession(Astro.params.sessionId ?? '');
+if (!found) return new Response('Not found', { status: 404 });
+const people = await roster(found.session.id, Astro.locals.user.id);
+---
+
+<Base title={`Roster: ${found.program.title}`} noindex>
+  <section class="wrap admin">
+    <a href="/admin">← All rosters</a>
+    <h1>{found.program.title}</h1>
+    <p class="script">{dayList(found.session.days)} · {timeRange(found.session.start, found.session.end)} · {found.session.term}</p>
+    <p class="muted">Includes medical notes. Please don’t print or share outside the teaching team. Views are logged.</p>
+    {people.length === 0 ? <p>No one enrolled yet.</p> : (
+      <table>
+        <thead><tr><th>Student</th><th>Status</th><th>Grown-ups</th><th>Allergies & notes</th><th>Pickup</th><th>Photos</th></tr></thead>
+        <tbody>
+          {people.map((p) => (
+            <tr>
+              <td><strong>{p.student.name}</strong><br /><span class="muted">{p.student.age !== null ? `Age ${p.student.age}` : ''} · {p.family}</span></td>
+              <td>{p.status}</td>
+              <td>{p.guardians.map((g) => <div>{g.name}<br /><span class="muted">{g.phone ?? ''} · {g.email}</span></div>)}</td>
+              <td>{p.student.allergies && <div><strong>Allergies:</strong> {p.student.allergies}</div>}{p.student.medicalNotes && <div>{p.student.medicalNotes}</div>}</td>
+              <td>{p.student.pickup}</td>
+              <td>{p.student.photoConsent === true ? 'Yes' : p.student.photoConsent === false ? 'No' : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </section>
+</Base>
+
+<style>
+  .admin { padding-block: var(--space-2xl) var(--space-3xl); display: grid; gap: var(--space-m); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; font-size: var(--step--1); }
+  th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+  .muted { color: var(--ink-mute); }
+</style>

@@ -1,0 +1,105 @@
+---
+/**
+ * Payment: Stripe Embedded Checkout inside our page. Without Stripe keys (local
+ * development only), a clearly labeled test-payment button stands in.
+ */
+import Base from '@/layouts/Base.astro';
+import EnrollShell from '@/components/portal/EnrollShell.astro';
+import { config } from '@/server/env';
+import { findSession, fulfillOrder, getOrder, householdForUser } from '@/server/family';
+import { completeCheckout, createEmbeddedCheckout, paymentsMode, testPaymentsAllowed } from '@/server/payments';
+import { getDb, schema } from '@/server/db';
+import { eq } from 'drizzle-orm';
+import { formatCents } from '@/lib/pricing';
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/account');
+const household = await householdForUser(user.id);
+const orderId = Astro.url.searchParams.get('order') ?? '';
+const o = household ? await getOrder(household.id, orderId) : null;
+if (!household || !o) return Astro.redirect('/account');
+if (o.status === 'paid') return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
+if (o.status !== 'pending_payment') return Astro.redirect(`/enroll/review?order=${o.id}`);
+const found = findSession(o.sessionId)!;
+
+if (Astro.request.method === 'POST') {
+  if (!testPaymentsAllowed()) return new Response('Test payments are disabled', { status: 403 });
+  if (o.plan === 'monthly') {
+    // Stand-in for the card Stripe would save for autopay.
+    const db = await getDb();
+    await db.update(schema.household).set({ stripeCustomerId: 'test_customer', stripePaymentMethodId: 'test_card' }).where(eq(schema.household.id, household.id));
+  }
+  await fulfillOrder(o.id, user.id);
+  return Astro.redirect(`/enroll/confirmation?order=${o.id}`, 303);
+}
+
+let clientSecret = '';
+let error = '';
+if (paymentsMode === 'stripe') {
+  // Paid in another tab and the webhook hasn't landed yet? Don't show a second card form.
+  if (o.stripeCheckoutSessionId) {
+    const prior = await completeCheckout(o.stripeCheckoutSessionId, user.id).catch(() => null);
+    if (prior?.paid && prior.orderId === o.id) return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
+  }
+  try {
+    clientSecret = await createEmbeddedCheckout({
+      order: o,
+      householdId: household.id,
+      householdName: household.name,
+      email: user.email,
+      title: `${found.program.title} · ${found.session.term}`,
+      saveCardForMonthly: o.plan === 'monthly',
+    });
+  } catch (e) {
+    console.error(e);
+    error = 'We couldn’t start the payment form. Please refresh, or email us if it keeps happening.';
+  }
+}
+---
+
+<Base title={`Pay: ${found.program.title}`} noindex>
+  <EnrollShell step={3} program={found.program} session={found.session}>
+    <h1>Payment</h1>
+    <p class="lede">Due today: <strong>{formatCents(o.totalCents)}</strong></p>
+
+    {
+      paymentsMode === 'stripe' ? (
+        <>
+          {error ? <p class="error" role="alert">{error}</p> : <div id="checkout" class="checkout" data-client-secret={clientSecret} data-publishable-key={config.stripePublishableKey} />}
+          <p class="fine">Secure payment by Stripe. Apple Pay and Google Pay appear automatically on supported devices.</p>
+        </>
+      ) : (
+        <form method="post" class="test-pay">
+          <span class="tape" data-gel="yellow">Test mode</span>
+          <p>
+            Stripe keys aren’t set up yet, so this stands in for the card form. No money moves. In production this button doesn’t exist; families see Stripe’s secure payment form right here instead.
+          </p>
+          <button class="btn btn--primary" type="submit">Complete test payment of {formatCents(o.totalCents)}</button>
+        </form>
+      )
+    }
+    <a class="back" href={`/enroll/review?order=${o.id}`}>← Change payment plan</a>
+  </EnrollShell>
+</Base>
+
+<script>
+  import { loadStripe } from '@stripe/stripe-js';
+  const el = document.getElementById('checkout');
+  if (el?.dataset.clientSecret && el.dataset.publishableKey) {
+    const stripe = await loadStripe(el.dataset.publishableKey);
+    const checkout = await stripe?.createEmbeddedCheckoutPage({ clientSecret: el.dataset.clientSecret });
+    checkout?.mount(el);
+  }
+</script>
+
+<style>
+  h1 { font-size: var(--step-3); }
+  .checkout { min-height: 420px; }
+  .test-pay { display: grid; gap: var(--space-m); justify-items: start; padding: var(--space-l); border: 2px dashed var(--yellow-ink); border-radius: var(--r-md); background: var(--yellow-tint); }
+  .test-pay p { color: var(--ink-soft); }
+  .error { color: var(--red-ink); font-weight: 600; }
+  .fine { font-size: var(--step--2); color: var(--ink-mute); }
+  .back { font-size: var(--step--1); }
+</style>

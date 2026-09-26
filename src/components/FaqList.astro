@@ -39,7 +39,7 @@ const { items } = Astro.props;
     line-height: 1.25;
   }
   summary::-webkit-details-marker { display: none; }
-  summary:hover span:first-child { text-decoration: underline; text-decoration-color: var(--amber); text-decoration-thickness: 3px; }
+  summary:hover span:first-child { text-decoration: underline; text-decoration-color: var(--orange); text-decoration-thickness: 3px; }
   .faq__icon {
     flex: none;
     position: relative;
@@ -61,7 +61,7 @@ const { items } = Astro.props;
     transition: transform 180ms var(--ease);
   }
   .faq__icon::after { transform: translate(-50%, -50%) rotate(90deg); }
-  .faq[open] .faq__icon { background: var(--amber); }
+  .faq[open] .faq__icon { background: var(--orange); }
   .faq[open] .faq__icon::after { transform: translate(-50%, -50%) rotate(0deg); }
   .faq p { padding: 0 0.25rem 1.3rem; color: var(--ink-soft); max-width: var(--measure); }
 </style>
