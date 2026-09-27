@@ -29,6 +29,7 @@ import {
   workingCopy,
 } from '@/server/content';
 import type { PageKey, Program } from '@/content/types';
+import { createDraftOrder, createStudent, ensureHousehold, priceOrder } from '@/server/family';
 
 const STAFF = 'u-hannah';
 const fieldsOf = (collection: string, id: string) => (collection === 'pages' ? pageDefs[id as PageKey].fields : collections[collection as CollectionKey].fields);
@@ -247,6 +248,20 @@ describe('content store', () => {
     expect(await saveDraft('pages', 'home', edited, STAFF)).toMatchObject({ ok: true, id: 'home' });
     await publish('pages', 'home', STAFF);
     expect((await getContent()).pages.home.hero.headline).toBe('Welcome to the *stage*.');
+  });
+
+  it('offers only the waitlist once staff mark a session “waitlist only”', async () => {
+    const program = workingCopy((await getEntry('programs', 'film-creation'))!) as unknown as Program;
+    program.sessions[0].status = 'waitlist';
+    await saveDraft('programs', 'film-creation', program as unknown as Data, STAFF);
+    await publish('programs', 'film-creation', STAFF);
+    const db = await getDb();
+    await db.insert(schema.user).values({ id: 'u-parent', name: 'Pat Parent', email: 'pat@example.com', emailVerified: true });
+    const h = await ensureHousehold({ id: 'u-parent', name: 'Pat Parent', email: 'pat@example.com', emailVerified: true });
+    const kid = await createStudent(h.id, { firstName: 'Kit', lastName: 'Parent', birthdate: '2015-03-02' }, 'u-parent');
+    const draft = await createDraftOrder(h.id, 'u-parent', program.sessions[0].id, [kid.id]);
+    const priced = await priceOrder(h.id, draft);
+    expect(priced.plans).toEqual(['waitlist']);
   });
 
   it('turns on the announcement bar from site settings', async () => {

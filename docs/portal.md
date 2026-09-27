@@ -145,7 +145,10 @@ Imported accounts are **unverified until claimed**: nobody can use one without a
 src/server/
   env.ts            configuration; fails closed in production
   db/schema.ts      tables: Better Auth (user, session, verification, rate_limit), household,
-                    household_member, student, order, enrollment, audit_log, dev_email
+                    household_member, student, order, enrollment, installment, lead, audit_log,
+                    dev_email, and site content (content_entry, content_version, media)
+  content.ts        site content: cached reads for pages, drafts, publish, history, safeguards
+  media.ts          photo uploads: resized once, stored in the database
   auth.ts           Better Auth: email codes, 90-day sessions, rate limits, isAdmin()
   family.ts         household-scoped data access, orders, fulfillment, confirmation email
   payments.ts       Stripe Embedded Checkout, saved-card charges, finishing checkouts
@@ -155,9 +158,9 @@ src/server/
   admin.ts          rosters (logged)
   studio-director.ts  CSV import + invitations
 src/lib/pricing.ts  every billing rule, pure and tested
-src/pages/enroll/   the journey;  src/pages/account/  dashboard;  src/pages/admin/  rosters
+src/pages/enroll/   the journey;  src/pages/account/  dashboard;  src/pages/admin/  staff pages and the content editor
 src/pages/api/      auth, /api/me, Stripe webhook, /api/billing/run (daily autopay)
 drizzle/            SQL migrations (npm run db:generate after schema changes)
-tests/unit/         pricing, autopay, import, access control (npm test)
-tests/e2e/          the full journey in a real browser
+tests/unit/         pricing, autopay, import, access control, content editing (npm test)
+tests/e2e/          the full journey, and staff editing the site, in a real browser
 ```

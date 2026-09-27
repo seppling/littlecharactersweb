@@ -9,6 +9,10 @@ import { builtinPhotos } from '@/lib/media';
  */
 export const prerender = true;
 
+// One photo at a time, nothing cached between them: keeps the build's memory low.
+sharp.concurrency(1);
+sharp.cache(false);
+
 export const getStaticPaths: GetStaticPaths = () =>
   builtinPhotos.flatMap((photo) =>
     photo.widths.map((width) => ({

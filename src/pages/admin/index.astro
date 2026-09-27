@@ -1,23 +1,24 @@
 ---
-import Base from '@/layouts/Base.astro';
+import AdminShell from '@/components/admin/AdminShell.astro';
 import { sessionCounts } from '@/server/admin';
 import { capacityFor } from '@/server/family';
 import { dayList, timeRange } from '@/lib/format';
 
 export const prerender = false;
-if (!Astro.locals.isAdmin) return new Response('Not found', { status: 404 });
+// Signed-out staff get the sign-in form (AdminShell); signed-in families get nothing.
+const isAdmin = Astro.locals.isAdmin;
+if (!isAdmin && Astro.locals.user) return new Response('Not found', { status: 404 });
 
 const { programs } = Astro.locals.content;
-const counts = await sessionCounts();
+const counts = isAdmin ? await sessionCounts() : new Map();
 const rows = programs.flatMap((p) =>
   p.sessions.filter((s) => !s.externalUrl || s.externalUrl.includes('docs.google.com')).map((s) => ({ program: p, session: s, c: counts.get(s.id) ?? { active: 0, trial: 0, waitlist: 0 }, cap: capacityFor(p, s) })),
 );
 ---
 
-<Base title="Rosters" noindex>
+<AdminShell title="Rosters" section="rosters">
   <section class="wrap admin">
-    <p class="eyebrow">Staff</p>
-    <div class="head"><h1>Rosters</h1><span class="links"><a class="btn btn--outline btn--sm" href="/admin/leads">Messages & signups</a> <a class="btn btn--outline btn--sm" href="/admin/billing">Monthly autopay</a></span></div>
+    <div class="head"><h1>Rosters</h1></div>
     <table>
       <thead><tr><th>Class</th><th>When</th><th>Enrolled</th><th>Trials</th><th>Waitlist</th><th></th></tr></thead>
       <tbody>
@@ -34,7 +35,7 @@ const rows = programs.flatMap((p) =>
       </tbody>
     </table>
   </section>
-</Base>
+</AdminShell>
 
 <style>
   .admin { padding-block: var(--space-2xl) var(--space-3xl); display: grid; gap: var(--space-m); }

@@ -63,7 +63,7 @@ const done = Astro.url.searchParams.get('done');
     {done === 'deleted' && <p class="notice" role="status">Deleted the photo.</p>}
     {problem && <p class="notice notice--error" role="alert">{problem}</p>}
 
-    <form method="post" enctype="multipart/form-data" class="tile" style="max-width: 36rem">
+    <form method="post" enctype="multipart/form-data" class="tile" style="max-width: 36rem" data-upload-form>
       <strong>Upload a photo</strong>
       <div class="cf">
         <label for="up-file">Photo</label>
@@ -76,6 +76,7 @@ const done = Astro.url.searchParams.get('done');
       </div>
       <input type="hidden" name="_action" value="upload" />
       <button class="btn btn--primary" type="submit">Upload</button>
+      <p class="picker__status" role="status" aria-live="polite" data-upload-status></p>
     </form>
 
     <section class="admin-section" aria-labelledby="yours-title">
@@ -134,6 +135,25 @@ const done = Astro.url.searchParams.get('done');
 </AdminShell>
 
 <script>
+  import { shrink } from '@/scripts/photos';
+
+  // Shrink big phone photos in the browser before sending them (some hosts cap uploads at 6 MB).
+  const uploadForm = document.querySelector<HTMLFormElement>('form[data-upload-form]');
+  uploadForm?.addEventListener('submit', async (e) => {
+    const input = uploadForm.querySelector<HTMLInputElement>('input[type=file]')!;
+    const file = input.files?.[0];
+    if (!file) return;
+    e.preventDefault();
+    const status = uploadForm.querySelector<HTMLElement>('[data-upload-status]')!;
+    status.textContent = 'Uploading…';
+    const body = new FormData();
+    body.append('file', await shrink(file), file.name.replace(/\.\w+$/, '') + '.jpg');
+    body.append('alt', (uploadForm.querySelector<HTMLInputElement>('input[name=alt]')?.value ?? '').trim());
+    const res = await fetch('/api/admin/media', { method: 'POST', body, credentials: 'same-origin' });
+    if (res.ok) location.assign('/admin/content/photos?done=uploaded');
+    else status.textContent = (await res.json().catch(() => ({}))).message ?? 'That upload didn’t work. Try again.';
+  });
+
   for (const form of document.querySelectorAll<HTMLFormElement>('form[data-confirm-form]')) {
     form.addEventListener('submit', (e) => {
       if (!confirm(form.dataset.confirmForm!)) e.preventDefault();

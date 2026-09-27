@@ -34,28 +34,31 @@ To try staff rosters, start with `ADMIN_EMAILS=you@example.com npm run dev` and 
 
 With Stripe **test** keys in `.env` (copy `.env.example`), the real embedded card form appears; use card `4242 4242 4242 4242`.
 
-End-to-end journey in a real browser (sign in → enroll → pay → dashboard → staff roster → imported family):
+End-to-end journeys in a real browser (sign in → enroll → pay → dashboard → staff roster → imported family; then staff editing the site):
 
 ```bash
 npm run build && tests/e2e/serve.sh     # fresh local database with a sample import
 node tests/e2e/enroll-journey.mjs       # in a second terminal
+node tests/e2e/content-editor.mjs       # after the journey, on the same database
 ```
 
 ## Where things live
 
 ```
 src/
-  config/site.ts        contact info, preview banner, portal switch (native portal or Studio Director)
-  data/                 all the content: programs + sessions, events, team, FAQs, locations
+  config/site.ts        name, address and the portal switch (native portal or Studio Director)
+  content/              what can be edited and how: field definitions, collections, pages
+  content/seed/         the starting content (programs + sessions, events, team, FAQs, page text)
   lib/enroll.ts         the one place that decides where "Enroll" and "Family login" go
   lib/format.ts         dates, times, prices, age labels
   styles/tokens.css     colors, type scale, spacing (the design system)
-  assets/               logo, photos and headshots (optimized at build time)
+  assets/               logo, photos and headshots (resized at build time; see lib/media.ts)
   styles/global.css     base styles + shared pieces (tape labels, buttons, chips)
   components/           Character (illustrations), PhotoFrame, ProgramCard/Row, SessionLine, EventTicket…
   pages/                /, /programs, /programs/[slug], /camps, /events, /about, /faq, /give, /contact, /geode
-  pages/enroll, account, admin, api   the family portal (server-rendered)
-  server/               database, auth, payments, email, encryption (see docs/portal.md)
+  pages/enroll, account, api   the family portal
+  pages/admin           staff: the content editor (/admin/content), rosters, autopay, messages
+  server/               database, content store, auth, payments, email, encryption (see docs/portal.md)
   lib/pricing.ts        every billing rule, unit-tested
 drizzle/                database migrations
 scripts/
@@ -68,9 +71,14 @@ tests/unit, tests/e2e
 
 ### Editing content
 
-Classes, camps, events, the team and FAQs are all typed data in `src/data/`. Add a session to a program and it shows up in the finder, on the program page, and in the camp calendar. The build fails if a field is missing or misspelled.
+Content lives in the database and is edited at **`/admin/content`**: classes and their sessions, events, FAQs, team, testimonials, locations, every page's text, and the site settings (including an announcement bar). Edits are drafts until published, and every published version is kept. Hannah's guide is [`docs/content-editor.md`](docs/content-editor.md).
 
-Photos: put files in `src/assets/photos/`, import them at the top of the data file, and set `image: { src: photo, alt: '…', position: '50% 30%' }` on the program or team member. `position` controls how the photo is cropped. Astro makes responsive, compressed versions at build time. A program with no photo gets a labeled placeholder.
+Locally: `ADMIN_EMAILS=you@example.com npm run dev`, sign in at `/admin/content` with that address, and read the code in the test mailbox.
+
+How it fits together:
+- `src/content/collections.ts` and `pages.ts` describe each kind of content once, as fields. That drives the edit form, reading it back, and validation. Adding a field there adds it to the editor; then use it in the page template (`Astro.locals.content`).
+- `src/content/seed/` is the starting content, copied into an empty database the first time the site runs. After that the database is the source of truth, so editing the seed files doesn't change a running site.
+- Pages render on request from a cached copy of the content (`src/server/content.ts`). Photos never resize on request: built-in photos in `src/assets/` are resized at build time, and uploads when they're uploaded (`src/lib/media.ts`).
 
 ### Migrating from Squarespace
 
@@ -78,7 +86,7 @@ Photos: put files in `src/assets/photos/`, import them at the top of the data fi
 npm run scrape
 ```
 
-This reads the old site's sitemap and saves each page as Markdown in `content/scraped/pages/` and each image in `content/scraped/images/`. The Sep 25, 2026 run is the source for everything in `src/data/`. See `docs/content-inventory.md` for what went where and the open questions. (Behind a proxy, the npm script sets `NODE_USE_ENV_PROXY=1` so Node's `fetch` uses `HTTPS_PROXY`.)
+This reads the old site's sitemap and saves each page as Markdown in `content/scraped/pages/` and each image in `content/scraped/images/`. The Sep 25, 2026 run is the source for the starting content in `src/content/seed/`. See `docs/content-inventory.md` for what went where and the open questions. (Behind a proxy, the npm script sets `NODE_USE_ENV_PROXY=1` so Node's `fetch` uses `HTTPS_PROXY`.)
 
 ## Design system
 

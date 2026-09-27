@@ -200,7 +200,8 @@ export async function priceOrder(householdId: string, o: typeof order.$inferSele
   // A student converting from a free trial already holds their spot.
   const holding = new Set(history.filter((r) => r.enrollment.sessionId === o.sessionId && r.enrollment.status === 'trial').map((r) => r.student.id));
   const cap = capacityFor(program, session);
-  const full = cap !== undefined && (await takenSpots(o.sessionId)) + students.filter((s) => !holding.has(s.id)).length > cap;
+  // Staff can mark a session "waitlist only" in the editor before it's technically at capacity.
+  const full = session.status === 'waitlist' || (cap !== undefined && (await takenSpots(o.sessionId)) + students.filter((s) => !holding.has(s.id)).length > cap);
   const plans = availablePlans(program, session, { newStudents, full });
   const plan = requestedPlan && plans.includes(requestedPlan) ? requestedPlan : plans.includes('monthly') ? 'monthly' : plans[0];
 

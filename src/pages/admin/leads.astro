@@ -1,21 +1,21 @@
 ---
 /** Staff: everything sent through the site's forms, newest first. */
-import Base from '@/layouts/Base.astro';
+import AdminShell from '@/components/admin/AdminShell.astro';
 import { listLeads } from '@/server/leads';
 
 export const prerender = false;
 const { programBySlug } = Astro.locals.content;
-if (!Astro.locals.isAdmin) return new Response('Not found', { status: 404 });
+const isAdmin = Astro.locals.isAdmin;
+if (!isAdmin && Astro.locals.user) return new Response('Not found', { status: 404 });
 
-const leads = await listLeads(300);
+const leads = isAdmin ? await listLeads(300) : [];
 const label = { contact: 'Message', newsletter: 'Newsletter', notify: 'Notify me', camps: 'Summer camps' } as Record<string, string>;
 const counts = Object.entries(label).map(([kind, name]) => ({ kind, name, n: leads.filter((l) => l.kind === kind).length }));
 const fmt = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
 ---
 
-<Base title="Leads" noindex>
+<AdminShell title="Messages & signups" section="leads">
   <section class="wrap admin">
-    <p class="eyebrow"><a href="/admin">Staff</a></p>
     <div class="head">
       <h1>Messages & signups</h1>
       <a class="btn btn--outline btn--sm" href="/admin/leads.csv" download>Download signups (CSV)</a>
@@ -46,7 +46,7 @@ const fmt = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numer
       )
     }
   </section>
-</Base>
+</AdminShell>
 
 <style>
   .admin { padding-block: var(--space-2xl) var(--space-3xl); display: grid; gap: var(--space-m); }
