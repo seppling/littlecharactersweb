@@ -1,6 +1,5 @@
 ---
 import Base from '@/layouts/Base.astro';
-import { programs } from '@/data/programs';
 import { sessionCounts } from '@/server/admin';
 import { capacityFor } from '@/server/family';
 import { dayList, timeRange } from '@/lib/format';
@@ -8,6 +7,7 @@ import { dayList, timeRange } from '@/lib/format';
 export const prerender = false;
 if (!Astro.locals.isAdmin) return new Response('Not found', { status: 404 });
 
+const { programs } = Astro.locals.content;
 const counts = await sessionCounts();
 const rows = programs.flatMap((p) =>
   p.sessions.filter((s) => !s.externalUrl || s.externalUrl.includes('docs.google.com')).map((s) => ({ program: p, session: s, c: counts.get(s.id) ?? { active: 0, trial: 0, waitlist: 0 }, cap: capacityFor(p, s) })),

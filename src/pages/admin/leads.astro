@@ -2,9 +2,9 @@
 /** Staff: everything sent through the site's forms, newest first. */
 import Base from '@/layouts/Base.astro';
 import { listLeads } from '@/server/leads';
-import { programBySlug } from '@/data/programs';
 
 export const prerender = false;
+const { programBySlug } = Astro.locals.content;
 if (!Astro.locals.isAdmin) return new Response('Not found', { status: 404 });
 
 const leads = await listLeads(300);

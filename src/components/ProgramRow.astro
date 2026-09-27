@@ -3,11 +3,11 @@
  * Class-finder result: program summary on the left, every bookable session on
  * the right, so a parent can go from "found it" to "Enroll" without another page.
  */
-import type { CharacterName, Program } from '@/data/types';
+import type { CharacterName, Program } from '@/content/types';
 import Character from './Character.astro';
 import PhotoFrame from './PhotoFrame.astro';
 import SessionLine from './SessionLine.astro';
-import { focusLabels, kindLabels } from '@/data/programs';
+import { focusLabels, kindLabels } from '@/content/catalog';
 import { hasFreeFirstClass } from '@/lib/pricing';
 import { ageLabel, feeLabel, price } from '@/lib/format';
 

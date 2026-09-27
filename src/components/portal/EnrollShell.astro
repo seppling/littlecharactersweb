@@ -3,9 +3,10 @@
  * Frame for every enrollment step: progress across the top, the class being
  * booked on the side, so families always know where they are and what they're buying.
  */
-import type { Program, Session } from '@/data/types';
-import { locationById } from '@/data/locations';
+import type { Program, Session } from '@/content/types';
 import { ageLabel, dateRange, dayList, feeLabel, price, timeRange } from '@/lib/format';
+
+const { locationById } = Astro.locals.content;
 
 interface Props {
   step: 1 | 2 | 3 | 4;

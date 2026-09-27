@@ -1,33 +1,15 @@
 /**
- * Site-wide settings. Anything Hannah might need to change without touching
- * page code lives here or in src/data/.
+ * Site-wide settings that are part of the code. Contact details, social
+ * links, the announcement bar and other things Hannah changes are edited at
+ * /admin/content/pages/site; pages read the combined settings from
+ * `Astro.locals.content.site`.
  */
 export const site = {
   name: 'Little Characters Theater Troupe',
   shortName: 'Little Characters',
-  tagline: 'Every person has a story worth telling.',
-  description:
-    'Theater classes, camps, workshops and shows for ages 4 to 100 in Athens, Georgia. Encouraging creative hearts through theater since 2022.',
   url: 'https://www.littlecharacters.org',
   founded: 2022,
   founder: 'Hannah Eppling',
-
-  contact: {
-    email: 'littlecharacterstheater@gmail.com',
-    phone: '(281) 798-2623',
-    phoneHref: 'tel:+12817982623',
-  },
-
-  social: {
-    instagram: 'https://www.instagram.com/littlecharactersathens/',
-    facebook: 'https://www.facebook.com/littlecharactersathens/',
-  },
-
-  /**
-   * While true, a slim banner explains that schedules and prices on this build
-   * are placeholders. Flip to false once src/data/ has been checked by Hannah.
-   */
-  preview: true,
 
   /**
    * Enrollment + account entry points.
@@ -50,11 +32,6 @@ export const site = {
       enroll: '/enroll',
     },
   },
-
-  // TODO: the current giving page has no payment form yet; point this at a real donation link.
-  givingUrl: 'https://www.littlecharacters.org/giving-page',
-  wishListUrl: 'https://a.co/510Gges',
-  mapUrl: 'https://maps.app.goo.gl/2sAZXSFJ3HkdCYsn9',
 } as const;
 
 export const nav = [

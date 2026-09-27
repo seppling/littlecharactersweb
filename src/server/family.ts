@@ -13,10 +13,9 @@ import { decrypt, encrypt } from './crypto';
 import { emailHtml, sendEmail } from './email';
 import { audit, householdGuardians } from './records';
 import { config } from './env';
-import { locationById } from '@/data/locations';
+import { getCatalog } from './content';
 import { dayList, timeRange } from '@/lib/format';
-import { programs } from '@/data/programs';
-import type { Program, Session } from '@/data/types';
+import type { Program, Session } from '@/content/types';
 import { PRICING, availablePlans, formatCents, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
 
 const { household, householdMember, student, order, enrollment, installment } = schema;
@@ -25,12 +24,9 @@ export type SessionUser = { id: string; name: string; email: string; emailVerifi
 
 // ───────────── Catalog lookups ─────────────
 
-export function findSession(sessionId: string): { program: Program; session: Session } | undefined {
-  for (const program of programs) {
-    const session = program.sessions.find((s) => s.id === sessionId);
-    if (session) return { program, session };
-  }
-  return undefined;
+/** A session in the live catalog (edited at /admin/content). */
+export async function findSession(sessionId: string): Promise<{ program: Program; session: Session } | undefined> {
+  return (await getCatalog()).findSession(sessionId);
 }
 
 export function capacityFor(program: Program, session: Session) {
@@ -162,7 +158,8 @@ export async function takenSpots(sessionId: string) {
 
 async function otherClassEnrollments(householdId: string, sessionId: string) {
   const rows = await listEnrollments(householdId);
-  return rows.filter((r) => r.enrollment.status === 'active' && r.enrollment.sessionId !== sessionId && findSession(r.enrollment.sessionId)?.program.kind === 'class').length;
+  const catalog = await getCatalog();
+  return rows.filter((r) => r.enrollment.status === 'active' && r.enrollment.sessionId !== sessionId && catalog.findSession(r.enrollment.sessionId)?.program.kind === 'class').length;
 }
 
 // ───────────── Orders ─────────────
@@ -177,7 +174,7 @@ export async function getOrder(householdId: string, orderId: string) {
 }
 
 export async function createDraftOrder(householdId: string, userId: string, sessionId: string, studentIds: string[]) {
-  const found = findSession(sessionId);
+  const found = await findSession(sessionId);
   if (!found) throw new Error('Unknown session');
   // Only this family's students can be added.
   const mine = new Set((await listStudents(householdId)).map((s) => s.id));
@@ -190,7 +187,7 @@ export async function createDraftOrder(householdId: string, userId: string, sess
 
 /** Everything the review step needs: students, plans, and a price quote for the chosen plan. */
 export async function priceOrder(householdId: string, o: typeof order.$inferSelect, requestedPlan?: Plan) {
-  const found = findSession(o.sessionId);
+  const found = await findSession(o.sessionId);
   if (!found) throw new Error('Unknown session');
   const { program, session } = found;
   const allStudents = await listStudents(householdId);
@@ -267,7 +264,7 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
     console.error(`Order ${o.id}: Stripe checkout ${payment.checkoutSessionId} paid ${payment.amountCents}¢ but the order is ${o.totalCents}¢. Not enrolling; reconcile in Stripe.`);
     return o;
   }
-  const found = findSession(o.sessionId);
+  const found = await findSession(o.sessionId);
   if (!found) throw new Error('Unknown session');
 
   const status = o.plan === 'waitlist' ? 'waitlist' : o.plan === 'trial' ? 'trial' : 'active';
@@ -302,13 +299,13 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
 }
 
 async function sendOrderConfirmation(o: typeof order.$inferSelect) {
-  const found = findSession(o.sessionId);
+  const found = await findSession(o.sessionId);
   if (!found) return;
   const { program, session } = found;
   const guardians = await householdGuardians(o.householdId);
   const kids = (await listStudents(o.householdId)).filter((s) => o.studentIds.includes(s.id)).map((s) => s.firstName);
   const first = meetings(session).find((m) => m >= todayInAthens()) ?? session.startDate;
-  const loc = locationById(session.locationId);
+  const loc = (await getCatalog()).locationById(session.locationId);
   const firstDate = new Date(`${first}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
   const heading = o.plan === 'waitlist' ? 'You’re on the waitlist' : 'You’re in!';
   const lines = [

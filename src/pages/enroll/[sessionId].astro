@@ -12,7 +12,6 @@ import {
   createDraftOrder,
   createStudent,
   ensureHousehold,
-  findSession,
   fitsAges,
   listEnrollments,
   listStudents,
@@ -24,7 +23,7 @@ import { ageLabel } from '@/lib/format';
 export const prerender = false;
 
 const { sessionId } = Astro.params;
-const found = findSession(sessionId ?? '');
+const found = Astro.locals.content.findSession(sessionId ?? '');
 if (!found || found.session.status === 'closed') return new Response('Not found', { status: 404 });
 const { program, session } = found;
 if (session.externalUrl && !session.externalUrl.includes('docs.google.com')) return Astro.redirect(session.externalUrl);

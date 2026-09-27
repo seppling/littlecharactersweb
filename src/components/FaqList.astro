@@ -1,10 +1,12 @@
 ---
-import type { Faq } from '@/data/types';
+import type { Faq } from '@/content/types';
+import { rich } from '@/content/rich';
 
 interface Props {
   items: Faq[];
 }
 const { items } = Astro.props;
+const { vars } = Astro.locals.content;
 ---
 
 <div class="faqs">
@@ -15,7 +17,7 @@ const { items } = Astro.props;
           <span>{f.q}</span>
           <span class="faq__icon" aria-hidden="true" />
         </summary>
-        <p>{f.a}</p>
+        <p set:html={rich(f.a, vars)} />
       </details>
     ))
   }

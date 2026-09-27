@@ -1,12 +1,11 @@
 ---
 import Base from '@/layouts/Base.astro';
 import { roster } from '@/server/admin';
-import { findSession } from '@/server/family';
 import { dayList, timeRange } from '@/lib/format';
 
 export const prerender = false;
 if (!Astro.locals.isAdmin || !Astro.locals.user) return new Response('Not found', { status: 404 });
-const found = findSession(Astro.params.sessionId ?? '');
+const found = Astro.locals.content.findSession(Astro.params.sessionId ?? '');
 if (!found) return new Response('Not found', { status: 404 });
 const people = await roster(found.session.id, Astro.locals.user.id);
 ---

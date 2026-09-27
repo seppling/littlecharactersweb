@@ -3,72 +3,65 @@ import Base from '@/layouts/Base.astro';
 import ProgramRow from '@/components/ProgramRow.astro';
 import EventTicket from '@/components/EventTicket.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
-import { geodePrograms, programBySlug } from '@/data/programs';
-import { events } from '@/data/events';
-import geodeGroup from '@/assets/photos/geode-cast-group.webp';
-import geodeFestival from '@/assets/photos/geode-marigold-festival.webp';
-import geodeImprovNight from '@/assets/photos/geode-improv-night.webp';
+import { rich } from '@/content/rich';
 
+const { programs, events, programBySlug, vars, pages } = Astro.locals.content;
+const page = pages.geode;
+const geodePrograms = programs.filter((p) => p.brand === 'geode');
 const geodeEvents = events.filter((e) => e.brand === 'geode').slice(0, 3);
-const troupe = programBySlug('performance-troupe')!;
-const rows = [geodePrograms[0], troupe, ...geodePrograms.slice(1)];
-
-// "Past events", from the current Geode page.
-const past = [
-  { image: { src: geodeFestival, alt: 'Geode performers on an outdoor stage at the Winterville Marigold Festival' }, caption: 'Our first performance at the Winterville Marigold Festival, May 2024. It was sweaty, it was silly, and it was FUN!' },
-  { image: { src: geodeGroup, alt: 'A group of Geode improvisers after a show' }, caption: 'Performing with some amazing improvisers at the Bad Ath Babes show, June 2024.' },
-  { image: { src: geodeImprovNight, alt: 'Adults laughing at an improv night', position: '50% 45%' }, caption: 'A sneak peek into one of our monthly improv nights.' },
-];
+// The Performance Troupe is a Little Characters class for ages 9–17, listed here for teens too.
+const troupe = programBySlug('performance-troupe');
+const rows = [geodePrograms[0], troupe, ...geodePrograms.slice(1)].filter((p) => p !== undefined);
 ---
 
-<Base title="Geode: theater for tweens, teens & adults" description="Geode is Little Characters’ sister company for tweens, teens and adults: acting classes, a performance troupe, improv nights and workshops.">
+<Base
+  title="Geode: theater for tweens, teens & adults"
+  description="Geode is Little Characters’ sister company for tweens, teens and adults: acting classes, a performance troupe, improv nights and workshops."
+  seo={page.seo}
+  edit="/admin/content/pages/geode"
+>
   <div class="geode" data-gel="purple">
     <section class="geode-hero">
       <div class="crystals" aria-hidden="true">
         <span></span><span></span><span></span><span></span>
       </div>
       <div class="wrap geode-hero__inner">
-        <p class="eyebrow">A Little Characters company</p>
-        <h1>Geode</h1>
-        <p class="geode-hero__line">For when you’re still a character, but not so little.</p>
-        <p class="lede">
-          Beauty surprises us when we crack open our exterior and reveal what’s inside. Geode offers classes, events and private lessons for tweens, teens and adults: fun, community-building theater without the commitment of nightly rehearsals.
-        </p>
+        {page.hero.eyebrow && <p class="eyebrow">{page.hero.eyebrow}</p>}
+        <h1>{page.hero.headline}</h1>
+        <p class="geode-hero__line">{page.hero.line}</p>
+        <p class="lede" set:html={rich(page.hero.intro, vars)} />
         <div class="geode-hero__ctas">
-          <a class="btn btn--primary" href="#geode-programs">Classes <span class="arrow" aria-hidden="true">→</span></a>
-          <a class="btn btn--outline" href="#improv-nights">Adult improv nights</a>
+          <a class="btn btn--primary" href="#geode-programs">{page.hero.classesButton} <span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn--outline" href="#improv-nights">{page.hero.improvButton}</a>
         </div>
       </div>
     </section>
 
     <section class="section section--tight" aria-labelledby="growing-title">
       <div class="wrap growing">
-        <h2 id="growing-title">Geode used to be just for adults. Now it’s 11 and up.</h2>
+        <h2 id="growing-title">{page.growing.heading}</h2>
         <div class="prose">
-          <p>Since 2022, Little Characters has worked with students of all ages and abilities. As we’ve grown, our little kids have turned into kids, and our kids have turned into big kids, and big kids don’t always like being called little.</p>
-          <p>Starting in summer 2026, Geode includes kids 11 and up. We still have adult-only programs and 11–17 programs, all under the name Geode. And how cool will it be when we can mix these groups to put on family-friendly shows with actors the ages of their characters?</p>
+          {page.growing.paragraphs.map((para) => <p set:html={rich(para, vars)} />)}
         </div>
       </div>
     </section>
 
     <section class="section section--hall" id="geode-programs" aria-labelledby="gp-title">
       <div class="wrap">
-        <h2 id="gp-title" class="geode__h2">Classes this fall</h2>
+        <h2 id="gp-title" class="geode__h2">{page.classes.heading}</h2>
         <div class="rows">
           {rows.map((p) => <ProgramRow program={p} />)}
         </div>
-        <p class="geode__lessons">
-          Want something custom? Been writing a script and want people to read it? Pipe dreams of a show? Could your workplace use an improv-for-communication workshop? <a href="/contact?topic=general">Let’s make it happen</a>.
-        </p>
+        {page.classes.note && <p class="geode__lessons" set:html={rich(page.classes.note, vars)} />}
       </div>
     </section>
 
     <section class="section section--stage" id="improv-nights" aria-labelledby="fi-title">
       <div class="wrap">
         <div class="section-head">
-          <p class="eyebrow">Adults · 18+</p>
-          <h2 id="fi-title">Third Thursday Improv Nights</h2>
-          <p class="lede">First Friday Improv Nights are back, and now they’re on the third Thursday! Come hang out, play as little or as much as you like, drink what you want (we’ll check IDs), and explore improv through group and partner games.</p>
+          {page.improv.eyebrow && <p class="eyebrow">{page.improv.eyebrow}</p>}
+          <h2 id="fi-title">{page.improv.heading}</h2>
+          {page.improv.lede && <p class="lede" set:html={rich(page.improv.lede, vars)} />}
         </div>
         <div class="tickets">
           {geodeEvents.map((e) => <EventTicket event={e} />)}
@@ -76,21 +69,25 @@ const past = [
       </div>
     </section>
 
-    <section class="section" aria-labelledby="past-title">
-      <div class="wrap">
-        <h2 id="past-title" class="geode__h2">Past events</h2>
-        <div class="past">
-          {
-            past.map((p) => (
-              <figure>
-                <PhotoFrame image={p.image} gel="purple" ratio="4 / 3" sizes="(max-width: 860px) 100vw, 380px" />
-                <figcaption>{p.caption}</figcaption>
-              </figure>
-            ))
-          }
-        </div>
-      </div>
-    </section>
+    {
+      page.past.items.length > 0 && (
+        <section class="section" aria-labelledby="past-title">
+          <div class="wrap">
+            <h2 id="past-title" class="geode__h2">
+              {page.past.heading}
+            </h2>
+            <div class="past">
+              {page.past.items.map((item) => (
+                <figure>
+                  <PhotoFrame image={item.photo} gel="purple" ratio="4 / 3" sizes="(max-width: 860px) 100vw, 380px" />
+                  <figcaption set:html={rich(item.caption, vars)} />
+                </figure>
+              ))}
+            </div>
+          </div>
+        </section>
+      )
+    }
   </div>
 </Base>
 

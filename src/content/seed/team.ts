@@ -1,14 +1,14 @@
-import type { TeamMember } from './types';
+import type { TeamMember } from '../types';
 
-import hannah from '@/assets/team/hannah-eppling.webp';
-import cc from '@/assets/team/cc-conner.webp';
-import zack from '@/assets/team/zack-newcott.webp';
-import shondra from '@/assets/team/shondra-taylor.webp';
-import kidd from '@/assets/team/kidd-fielteau.webp';
-import carley from '@/assets/team/carley-pedan.webp';
-import emily from '@/assets/team/emily-greene.webp';
-import alli from '@/assets/team/alli-tyra.webp';
-import ileana from '@/assets/team/ileana-deppner.webp';
+const hannah = 'builtin:team/hannah-eppling';
+const cc = 'builtin:team/cc-conner';
+const zack = 'builtin:team/zack-newcott';
+const shondra = 'builtin:team/shondra-taylor';
+const kidd = 'builtin:team/kidd-fielteau';
+const carley = 'builtin:team/carley-pedan';
+const emily = 'builtin:team/emily-greene';
+const alli = 'builtin:team/alli-tyra';
+const ileana = 'builtin:team/ileana-deppner';
 
 /* From the live "Our Team" page (captured Sep 25, 2026), lightly trimmed. */
 export const team: TeamMember[] = [

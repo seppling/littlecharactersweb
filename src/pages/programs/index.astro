@@ -3,9 +3,12 @@ import Base from '@/layouts/Base.astro';
 import ProgramRow from '@/components/ProgramRow.astro';
 import JourneySteps from '@/components/JourneySteps.astro';
 import Character from '@/components/Character.astro';
-import { programs, kindLabels, ageBands, focusLabels } from '@/data/programs';
-import type { Focus } from '@/data/types';
-import { locations } from '@/data/locations';
+import { kindLabels, ageBands, focusLabels } from '@/content/catalog';
+import { rich } from '@/content/rich';
+import type { Focus } from '@/content/types';
+
+const { programs, locations, vars, pages } = Astro.locals.content;
+const page = pages.classes;
 
 const kinds = [...new Set(programs.map((p) => p.kind))];
 const focuses = (Object.keys(focusLabels) as Focus[]).filter((f) => programs.some((p) => p.focus?.includes(f)));
@@ -19,14 +22,19 @@ const sorted = [...programs].sort(
 );
 ---
 
-<Base title="Find a class" description="Search every Little Characters class, camp, workshop and party by age, day and location.">
+<Base
+  title="Find a class"
+  description="Search every Little Characters class, camp, workshop and party by age, day and location."
+  seo={page.seo}
+  edit="/admin/content/programs"
+>
   <section class="finder-head">
     <div class="wrap">
       <div class="finder-head__inner">
         <div class="stack">
-          <p class="eyebrow">Classes, camps & more</p>
-          <h1>Find a class</h1>
-          <p class="lede">Start with your child’s age. Every program shows its times, place, price and open spots, so you can enroll right from this page.</p>
+          {page.hero.eyebrow && <p class="eyebrow">{page.hero.eyebrow}</p>}
+          <h1>{page.hero.headline}</h1>
+          <p class="lede" set:html={rich(page.hero.intro, vars)} />
         </div>
         <div class="finder-head__cast" aria-hidden="true">
           <Character name="artist" size={78} />

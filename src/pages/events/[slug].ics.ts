@@ -1,19 +1,16 @@
-import type { APIRoute, GetStaticPaths } from 'astro';
-import { events } from '@/data/events';
-import { locationById } from '@/data/locations';
+import type { APIRoute } from 'astro';
 import { site } from '@/config/site';
 
-/** "Add to calendar" files, one per event, built at deploy time. */
-export const getStaticPaths: GetStaticPaths = () =>
-  events.filter((e) => e.times.length > 0).map((e) => ({ params: { slug: e.slug } }));
-
+/** "Add to calendar" files, one per dated event. */
 // Floating local times with an explicit Eastern TZID, which every major calendar accepts.
 const stamp = (iso: string) => iso.replace(/[-:]/g, '').slice(0, 13) + '00';
 const escape = (s: string) => s.replace(/\\/g, '\\\\').replace(/([,;])/g, '\\$1').replace(/\n/g, '\\n');
 
-export const GET: APIRoute = ({ params }) => {
-  const event = events.find((e) => e.slug === params.slug)!;
-  const loc = event.locationId ? locationById(event.locationId) : undefined;
+export const GET: APIRoute = ({ params, locals }) => {
+  const { events, locationById } = locals.content;
+  const event = events.find((e) => e.slug === params.slug);
+  if (!event || !event.times.length) return new Response('Not found', { status: 404 });
+  const loc = locationById(event.locationId);
   const where = event.venue ?? (loc ? `${loc.name}, ${loc.address.join(', ')}` : '');
   const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
 
