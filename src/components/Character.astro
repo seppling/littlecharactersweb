@@ -1,7 +1,7 @@
 ---
 /**
  * The "little characters": a small cast of shape-people in gel colors, each
- * with a costume prop. Used where a photo isn't needed (or doesn't exist yet)
+ * with a costume prop (crown, top hat, beret, glasses, bow, stagehand's headset). Used where a photo isn't needed (or doesn't exist yet)
  * and as the brand's illustration system.
  */
 import type { CharacterName, Gel } from '@/data/types';
@@ -15,16 +15,17 @@ interface Props {
 }
 
 const defaults: Record<CharacterName, Gel> = {
-  royal: 'magenta',
-  magician: 'cyan',
-  artist: 'amber',
-  professor: 'green',
-  dancer: 'lilac',
+  royal: 'red',
+  magician: 'teal',
+  artist: 'orange',
+  professor: 'yellow',
+  dancer: 'purple',
+  stagehand: 'red',
 };
 
 const { name, gel = defaults[name], size = 120, class: className = '', style } = Astro.props;
 const fill = `var(--${gel})`;
-const ink = 'var(--ink)';
+const ink = gel === 'purple' ? 'var(--paper)' : 'var(--ink)';
 ---
 
 <svg
@@ -39,8 +40,8 @@ const ink = 'var(--ink)';
     name === 'royal' && (
       <g>
         <circle cx="60" cy="95" r="45" fill={fill} />
-        <polygon points="36,56 42,32 52,47 60,26 68,47 78,32 84,56" fill="var(--amber)" />
-        <circle cx="60" cy="27" r="3.5" fill="var(--magenta-ink)" />
+        <polygon points="36,56 42,32 52,47 60,26 68,47 78,32 84,56" fill="var(--orange)" />
+        <circle cx="60" cy="27" r="3.5" fill="var(--red-ink)" />
         <circle cx="46" cy="88" r="5" fill={ink} />
         <circle cx="74" cy="88" r="5" fill={ink} />
         <circle cx="37" cy="100" r="5.5" fill="var(--paper)" opacity="0.35" />
@@ -54,7 +55,7 @@ const ink = 'var(--ink)';
       <g>
         <rect x="34" y="40" width="52" height="100" rx="26" fill={fill} />
         <rect x="38" y="4" width="44" height="32" rx="3" fill={ink} />
-        <rect x="38" y="25" width="44" height="6" fill="var(--magenta)" />
+        <rect x="38" y="25" width="44" height="6" fill="var(--red)" />
         <rect x="24" y="33" width="72" height="8" rx="4" fill={ink} />
         <circle cx="50" cy="72" r="4.5" fill={ink} />
         <circle cx="70" cy="72" r="4.5" fill={ink} />
@@ -86,7 +87,7 @@ const ink = 'var(--ink)';
         <circle cx="74" cy="90" r="11" stroke={ink} stroke-width="3.5" fill="none" />
         <path d="M57 89 Q60 86 63 89" stroke={ink} stroke-width="3.5" fill="none" stroke-linecap="round" />
         <path d="M50 112 Q60 119 70 112" stroke={ink} stroke-width="4" stroke-linecap="round" fill="none" />
-        <path d="M44 140 L60 128 L76 140 Z" fill="var(--magenta)" />
+        <path d="M44 140 L60 128 L76 140 Z" fill="var(--red)" />
       </g>
     )
   }
@@ -94,12 +95,28 @@ const ink = 'var(--ink)';
     name === 'dancer' && (
       <g>
         <path d="M14 140 A46 46 0 0 1 106 140 Z" fill={fill} />
-        <path d="M60 94 L42 82 L42 106 Z" fill="var(--magenta)" />
-        <path d="M60 94 L78 82 L78 106 Z" fill="var(--magenta)" />
-        <circle cx="60" cy="94" r="5" fill="var(--magenta-ink)" />
+        <path d="M60 94 L42 82 L42 106 Z" fill="var(--red)" />
+        <path d="M60 94 L78 82 L78 106 Z" fill="var(--red)" />
+        <circle cx="60" cy="94" r="5" fill="var(--red-ink)" />
         <path d="M44 118 Q48 114 52 118" stroke={ink} stroke-width="3.5" stroke-linecap="round" fill="none" />
         <path d="M68 118 Q72 114 76 118" stroke={ink} stroke-width="3.5" stroke-linecap="round" fill="none" />
         <path d="M53 127 Q60 134 67 127" stroke={ink} stroke-width="3.5" stroke-linecap="round" fill="none" />
+      </g>
+    )
+  }
+  {
+    name === 'stagehand' && (
+      <g>
+        <polygon points="38,60 82,60 104,99 82,138 38,138 16,99" fill={fill} stroke={fill} stroke-width="8" stroke-linejoin="round" />
+        <path d="M21 94 C21 40 99 40 99 94" stroke={ink} stroke-width="6" stroke-linecap="round" fill="none" />
+        <rect x="11" y="84" width="16" height="26" rx="7" fill={ink} />
+        <rect x="93" y="84" width="16" height="26" rx="7" fill={ink} />
+        <path d="M20 108 Q24 124 42 121" stroke={ink} stroke-width="4" stroke-linecap="round" fill="none" />
+        <circle cx="45" cy="120.5" r="5" fill={ink} />
+        <circle cx="48" cy="92" r="4.5" fill={ink} />
+        <circle cx="72" cy="92" r="4.5" fill={ink} />
+        <circle cx="84" cy="105" r="5.5" fill="var(--paper)" opacity="0.35" />
+        <path d="M55 110 Q63 117 71 110" stroke={ink} stroke-width="4" stroke-linecap="round" fill="none" />
       </g>
     )
   }

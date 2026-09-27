@@ -1,74 +1,258 @@
 ---
+/**
+ * About: the story and team first, then the plain facts (what we do, what's
+ * different, who it's for, how it works, key facts, FAQ) that families skim
+ * and that search engines and AI assistants quote. Every fact here comes from
+ * src/data or src/config, so it can't drift from the rest of the site.
+ */
 import Base from '@/layouts/Base.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
 import Character from '@/components/Character.astro';
+import JourneySteps from '@/components/JourneySteps.astro';
 import { team } from '@/data/team';
+import { faqs } from '@/data/faqs';
 import { locations } from '@/data/locations';
+import { programBySlug, programs } from '@/data/programs';
+import { testimonials, staffQuote } from '@/data/testimonials';
 import { site } from '@/config/site';
+import { PRICING } from '@/lib/pricing';
+import rehearsalCircle from '@/assets/photos/rehearsal-circle.webp';
+import fullHouse from '@/assets/photos/full-house-twisted-tales.webp';
 
+// Core values, from the FAQ page.
 const values = [
-  { title: 'Confidence', gel: 'amber', body: 'Kids practice using their voices, making choices and standing in front of a friendly crowd.', cast: 'royal' },
-  { title: 'Creativity', gel: 'cyan', body: 'Students write, design and improvise. Many of our shows are made up by the kids themselves.', cast: 'artist' },
-  { title: 'Belonging', gel: 'green', body: 'Every student gets a place in the cast, whatever their age, ability or experience.', cast: 'dancer' },
+  { title: 'Integrity', body: 'How we treat each other, our people, our community and our performances.', gel: 'red' },
+  { title: 'Connection', body: 'Building lasting relationships and trust with each other and our students.', gel: 'orange' },
+  { title: 'Professionalism', body: 'Upholding our mission and working as a team so students can be part of something meaningful.', gel: 'teal' },
+  { title: 'Flexibility', body: 'Having each other’s backs, pivoting when needed, taking breaks and regrouping.', gel: 'purple' },
+  { title: 'Fun', body: 'Not taking ourselves too seriously, being okay with messing up, encouraging each other’s creativity.', gel: 'yellow' },
 ] as const;
+
+const [lead, ...crew] = team;
+const hq = locations.find((l) => l.id === 'hq')!;
+const pct = (n: number) => `${Math.round(n * 100)}%`;
+
+const program = (slug: string) => {
+  const p = programBySlug(slug);
+  if (!p) throw new Error(`about.astro: no program "${slug}"`);
+  return p;
+};
+
+// Monthly tuition range across this term's weekly classes.
+const monthly = programs
+  .filter((p) => p.brand === 'lc' && p.kind === 'class')
+  .flatMap((p) => [p.priceFrom, ...p.sessions.map((s) => s.price)])
+  .filter((price) => price?.unit === 'month')
+  .map((price) => price!.amount);
+const tuitionRange = `$${Math.min(...monthly)}–$${Math.max(...monthly)} a month`;
+const campDay = program('summer-camp').priceFrom?.amount;
+
+const services = [
+  {
+    title: 'Weekly classes',
+    body: 'Acting, improv, filmmaking, writing and stagecraft, once a week through the fall and spring. Every class builds to a mid-semester showcase and an end-of-term show.',
+    href: '/programs?kind=class',
+    link: 'Find a class',
+    gel: 'teal',
+  },
+  {
+    title: 'Camps',
+    body: 'Summer camp weeks, plus mini camps on CCSD school holidays, usually 9 am to 1 pm with snacks and materials included. Camp weeks end with a performance for family and friends.',
+    href: '/camps',
+    link: 'See camps',
+    gel: 'orange',
+  },
+  {
+    title: 'Shows & events',
+    body: 'Showcases and end-of-term shows, a free community class once a month, and Parents’ Night Out, when kids play at HQ while grown-ups get an evening off.',
+    href: '/events',
+    link: 'See what’s on',
+    gel: 'red',
+  },
+  {
+    title: 'Ovation',
+    body: 'Our adaptive theater class for friends of all ages and abilities and their caregivers: an hour of games, movement and costumes in a fun, safe space.',
+    href: '/programs/ovation',
+    link: 'About Ovation',
+    gel: 'teal',
+  },
+  {
+    title: 'Parties, lessons & schools',
+    body: 'Two-hour birthday parties, private lessons, and after-school programs at Athens schools as a verified CCSD school vendor.',
+    href: '/programs/parties',
+    link: 'Plan a party',
+    gel: 'yellow',
+  },
+  {
+    title: 'Geode',
+    body: 'Our sister company for tweens, teens and adults: an acting studio, a performance troupe and monthly improv nights for grown-ups.',
+    href: '/geode',
+    link: 'Visit Geode',
+    gel: 'purple',
+  },
+] as const;
+
+const differences = [
+  {
+    title: 'Every class ends in a show',
+    body: 'Students perform in a mid-semester showcase and a full show at the end of the term, and each family gets 2 free tickets per student.',
+  },
+  {
+    title: 'Small classes, more teachers',
+    body: 'Classes run about 8–12 kids, with about 7–8 students per teacher. We add a teacher whenever a friend needs extra attention.',
+  },
+  {
+    title: 'A place in the cast for every ability',
+    body: 'All of our staff have worked with kids of all ages and abilities. Through the UGA Speech and Hearing Clinic, students with higher needs get a one-on-one class buddy at no cost to parents, and Ovation is our adaptive class.',
+  },
+  {
+    title: 'Taught by people who make theater',
+    body: `${lead.name.split(' ')[0]} has worked in theater education since 2016, with kids and adults from 3 to 50. The team includes a designer who worked on three Academy Award–nominated films at Laika, trained improvisers and a GACE-certified K–\u206012 teacher.`,
+  },
+  {
+    title: 'Our own home on W Broad St',
+    body: 'A 5,000 sq ft accessible space bursting with color and natural light, about a mile from downtown, with a stage, a lobby for waiting parents and room to play.',
+  },
+  {
+    title: 'Easy to try, fair to pay',
+    body: `New students try most weekly classes free. Pay monthly, or save ${pct(PRICING.payInFullDiscount)} paying the term up front or ${pct(PRICING.multiDiscount)} with more than one student or class, and ask us about pay-what-you-can rates.`,
+  },
+];
+
+const audiences = [
+  { label: 'Ages 4–6', gel: 'yellow', body: 'Pre-K and kindergarten: songs, stories and a first taste of the stage.', links: [program('stories-and-songs')] },
+  { label: 'Ages 7 and up', gel: 'orange', body: 'Learn the basics, write and stage an original play, or build confidence through improv.', links: [program('intro-to-theater'), program('produce-a-show'), program('yes-and-improv')] },
+  { label: 'Ages 9 and up', gel: 'red', body: 'Students ready for bigger roles, and young filmmakers who want to act and shoot on a green screen.', links: [program('performance-troupe'), program('film-creation')] },
+  { label: 'Homeschool families', gel: 'teal', body: 'A Friday-afternoon class for homeschool students ages 6 and up.', links: [program('homeschool-class')] },
+  { label: 'Every ability', gel: 'purple', body: 'An adaptive class for all ages, and one-on-one class buddies for students with higher needs.', links: [program('ovation')] },
+  { label: 'Tweens, teens & adults', gel: 'teal', body: 'Geode, our sister company: acting classes for ages 11–17 and monthly improv nights for adults.', links: [{ title: 'Geode', slug: '', href: '/geode' }] },
+] as const;
+
+const aboutFaqs = ['Who do you serve?', 'Can my child try a class first?', 'Will my child perform?', 'Do you offer scholarships?'].map((q) => {
+  const f = faqs.find((x) => x.q === q);
+  if (!f) throw new Error(`about.astro: no FAQ "${q}"`);
+  return f;
+});
+
+const siteHost = new URL(site.url).hostname.replace(/^www\./, '');
+// Keep the phone number on one line.
+const phone = site.contact.phone.replace(' ', '\u00a0').replace('-', '\u2011');
 ---
 
-<Base title="Our story & team" description="Little Characters was founded in 2022 by Athens mom and theater educator Hannah Eppling. Meet the team.">
+<Base
+  title="About Little Characters"
+  description={`Little Characters is a children’s theater in Athens, Georgia, founded in ${site.founded} by ${site.founder}: weekly classes, camps and shows for ages 4 and up.`}
+>
   <section class="about-hero">
     <div class="wrap about-hero__grid">
       <div class="stack" style="--stack: var(--space-l)">
         <p class="eyebrow">Our story</p>
         <h1>Bringing play back to Athens.</h1>
+        <p class="about-hero__what">
+          <strong>Little Characters</strong> is a children’s theater in Athens, Georgia, that runs weekly classes, camps and shows where kids ages 4 and up build confidence and creativity on stage.
+        </p>
         <div class="prose lede-prose">
           <p>
-            A few years ago, Athens lost several of its historic kids’ theater companies, and a lot of kids and families lost a place to belong. In a Pre-K moms’ group text, Hannah Eppling started asking what it would take to bring one back.
+            A few years ago, Athens lost several of its historic kids’ theater companies, and a lot of kids and families lost a place to belong. In a Pre‑K moms’ group text, local mom and theater educator {site.founder} started asking what it would take to bring one back.
           </p>
           <p>
-            In {site.founded}, she started Little Characters with a handful of summer camps. Today we run weekly classes, camps, workshops, shows and an inclusive program in Athens and Winterville, plus Geode for teens and adults.
+            In {site.founded}, she started Little Characters with summer camps. Today we run weekly classes, camps, workshops and shows from our own 5,000 sq ft space on W Broad St, plus Geode for tweens, teens and adults.
           </p>
         </div>
       </div>
-      <PhotoFrame shape="arch" ratio="4 / 5" gel="magenta" class="about-hero__photo" eager image={{ alt: 'Hannah Eppling leading a warm-up with students', placeholder: 'Hannah leading warm-ups' }} />
+      <PhotoFrame shape="arch" ratio="4 / 5" gel="red" class="about-hero__photo" eager sizes="(max-width: 960px) 70vw, 400px" image={{ src: rehearsalCircle, alt: 'Students sitting in a circle on the stage floor during rehearsal', position: '50% 60%' }} />
     </div>
   </section>
 
-  <section class="section section--hall" aria-labelledby="mission-title">
+  <section class="section section--hall" aria-labelledby="does-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">What we do</p>
+        <h2 id="does-title">What Little Characters does</h2>
+      </div>
+      <ul class="services">
+        {
+          services.map((s) => (
+            <li class="service" data-gel={s.gel}>
+              <h3>{s.title}</h3>
+              <p>{s.body}</p>
+              <a class="link-arrow" href={s.href}>{s.link} <span aria-hidden="true">→</span></a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="different-title">
+    <div class="wrap different">
+      <div class="different__side">
+        <div class="section-head">
+          <p class="eyebrow">Why families choose us</p>
+          <h2 id="different-title">What makes Little Characters different</h2>
+        </div>
+        <PhotoFrame shape="rounded" ratio="3 / 2" gel="teal" sizes="(max-width: 960px) 100vw, 480px" image={{ src: fullHouse, alt: 'A full audience at a Little Characters show' }} />
+      </div>
+      <ol class="differences">
+        {
+          differences.map((d) => (
+            <li>
+              <h3>{d.title}</h3>
+              <p>{d.body}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <section class="section section--hall" aria-labelledby="who-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Who it’s for</p>
+        <h2 id="who-title">Who Little Characters is for</h2>
+        <p class="lede">Some of our students have been acting for years and some are tiptoeing on stage for the first time. Here’s where each of them fits.</p>
+      </div>
+      <ul class="audiences">
+        {
+          audiences.map((a) => (
+            <li class="audience" data-gel={a.gel}>
+              <span class="tape">{a.label}</span>
+              <p>{a.body}</p>
+              <p class="audience__links">
+                {a.links.map((l, i) => (
+                  <>
+                    {i > 0 && <span aria-hidden="true"> · </span>}
+                    <a href={'href' in l ? l.href : `/programs/${l.slug}`}>{l.title}</a>
+                  </>
+                ))}
+              </p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="mission-title">
     <div class="wrap">
       <div class="section-head">
         <p class="eyebrow">What we believe</p>
         <h2 id="mission-title">Every person has a story worth telling.</h2>
         <p class="lede">
-          We use theater to help children, teens and adults discover confidence, creativity and a place where they belong. We believe everyone is born with beautiful, unique gifts, and we help students find theirs and flourish, on stage and off.
+          We use theater to help children, teens and adults discover confidence, creativity and a place where they belong. Theater is an expression of the human condition. We are all born beautiful individuals with differing gifts, and theater is a beautiful way to grow and share them.
         </p>
       </div>
-      <div class="values">
+      <h3 class="values__title">Our core values</h3>
+      <ul class="values">
         {
           values.map((v) => (
-            <article class="value" data-gel={v.gel}>
-              <div class="value__cast" aria-hidden="true">
-                <Character name={v.cast} size={70} />
-              </div>
-              <h3>{v.title}</h3>
+            <li class="value" data-gel={v.gel}>
+              <h4>{v.title}</h4>
               <p>{v.body}</p>
-            </article>
+            </li>
           ))
         }
-      </div>
-    </div>
-  </section>
-
-  <section class="section" aria-labelledby="teach-title">
-    <div class="wrap teach">
-      <div class="stack">
-        <p class="eyebrow">How we teach</p>
-        <h2 id="teach-title">Small rooms, real stages, and lots of talking with parents.</h2>
-      </div>
-      <ul class="teach__list">
-        <li><strong>About 7 students per teacher.</strong> Classes are capped at 20 or fewer, and camps run 8 campers per counselor.</li>
-        <li><strong>We meet students where they are.</strong> Some kids are made for the spotlight; some would rather build the set. Both belong here.</li>
-        <li><strong>Everyone performs.</strong> Most classes and camps end with a show for families.</li>
-        <li><strong>We talk to parents.</strong> Rich communication with families is how we make sure every student’s needs are met.</li>
-        <li><strong>Cost shouldn’t decide who gets to play.</strong> Scholarships are available; just ask.</li>
       </ul>
     </div>
   </section>
@@ -77,13 +261,27 @@ const values = [
     <div class="wrap">
       <div class="section-head">
         <p class="eyebrow">The troupe</p>
-        <h2 id="team-title">Meet the team</h2>
+        <h2 id="team-title">The team behind Little Characters</h2>
+        <p class="lede">An incredible group of creative individuals. We are so grateful for what each of them brings to our little corner of the world.</p>
+        <p class="team__social">
+          Follow along on <a href={site.social.instagram} rel="me">Instagram</a> and <a href={site.social.facebook} rel="me">Facebook</a>.
+        </p>
       </div>
+
+      <article class="lead" data-gel={lead.gel}>
+        <PhotoFrame shape="arch" ratio="4 / 5" gel={lead.gel} image={lead.image} sizes="(max-width: 960px) 80vw, 340px" class="lead__photo" />
+        <div class="lead__text">
+          <h3>{lead.name}</h3>
+          <p class="member__role">{lead.role}</p>
+          {lead.bio.map((para) => <p class="lead__bio">{para}</p>)}
+        </div>
+      </article>
+
       <div class="team">
         {
-          team.map((m, i) => (
-            <article class:list={['member', { 'member--lead': i === 0 }]} data-gel={m.gel}>
-              <PhotoFrame shape={i === 0 ? 'arch' : 'circle'} ratio={i === 0 ? '4 / 5' : '1'} gel={m.gel} image={m.image} class="member__photo" />
+          crew.map((m) => (
+            <article class="member" data-gel={m.gel}>
+              <PhotoFrame shape="circle" gel={m.gel} image={m.image} class="member__photo" sizes="140px" />
               <div class="member__text">
                 <h3>{m.name}</h3>
                 <p class="member__role">{m.role}</p>
@@ -93,30 +291,107 @@ const values = [
           ))
         }
       </div>
+
+      <figure class="work">
+        <blockquote><p>“{staffQuote.quote}”</p></blockquote>
+        <figcaption>{staffQuote.attribution}</figcaption>
+        <p class="work__cta">Interested in working with us? Email <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a>.</p>
+      </figure>
     </div>
   </section>
 
-  <section class="section" aria-labelledby="where-title">
+  <section class="section" id="schools" aria-labelledby="schools-title">
+    <div class="wrap schools">
+      <div class="stack" style="--stack: var(--space-m)">
+        <p class="eyebrow">Schools & community</p>
+        <h2 id="schools-title">Theater at your school</h2>
+        <p class="lede">Little Characters is a verified CCSD school vendor. We offer after-school programs and weekend events throughout the county.</p>
+        <p>We’ve run programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens. <a href="/contact?topic=general">Ask about bringing us to your school</a>.</p>
+      </div>
+      <figure class="quote-card">
+        <blockquote><p>“{testimonials[2].quote}”</p></blockquote>
+        <figcaption>{testimonials[2].attribution}</figcaption>
+        <div class="quote-card__cast" aria-hidden="true"><Character name="magician" size={70} /></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section section--hall" aria-labelledby="how-title">
     <div class="wrap">
       <div class="section-head">
-        <p class="eyebrow">Where we play</p>
-        <h2 id="where-title">Our spaces & partners</h2>
+        <p class="eyebrow">Getting started</p>
+        <h2 id="how-title">How Little Characters works</h2>
       </div>
-      <div class="grid" style="--min: 250px">
+      <JourneySteps />
+      <ul class="how-notes">
+        <li>
+          <h3>Talk to a person</h3>
+          <p>
+            Questions about classes, billing or your child’s needs all go to one place: <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a> or <a href={site.contact.phoneHref}>{phone}</a>.
+          </p>
+        </li>
         {
-          locations.map((l) => (
-            <article class="loc">
-              <h3>{l.name}</h3>
-              <p class="script">{l.address.join(', ')}</p>
-              {l.usedFor && <p>{l.usedFor}</p>}
-              <a class="link-arrow" href={l.mapUrl} rel="noopener">Directions</a>
-            </article>
+          site.portal.mode === 'native' && (
+            <li>
+              <h3>Your family account</h3>
+              <p>
+                Enrollments, upcoming payments, receipts and your children’s care details, all in <a href="/account">one place</a>. Sign in with a code we email you. There’s no password to remember.
+              </p>
+            </li>
+          )
+        }
+        <li>
+          <h3>The first day</h3>
+          <p>Park on Minor St and walk your child to the front door, where a teacher checks everyone in. Doors lock 5 minutes after class starts.</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="facts-title">
+    <div class="wrap facts-wrap">
+      <div class="section-head">
+        <p class="eyebrow">At a glance</p>
+        <h2 id="facts-title">Key facts about Little Characters</h2>
+      </div>
+      <dl class="key-facts">
+        <div><dt>Name</dt><dd>{site.name} ({site.shortName})</dd></div>
+        <div><dt>Type</dt><dd>Children’s theater school and performance company</dd></div>
+        <div><dt>Founded</dt><dd>{site.founded}, in Athens, Georgia</dd></div>
+        <div><dt>Founder</dt><dd>{site.founder}, {lead.role.toLowerCase().replace(/ \+ /g, ', ').replace(/, (?=[^,]*$)/, ' and ')}</dd></div>
+        <div><dt>Location</dt><dd><a href={hq.mapUrl}>{hq.address.join(', ')}</a></dd></div>
+        <div><dt>Ages</dt><dd>4 and up. Tweens, teens and adults take classes through Geode, our sister company.</dd></div>
+        <div><dt>Programs</dt><dd>Weekly classes, camps, workshops, shows, Parents’ Night Out, parties, private lessons, school programs and Ovation (adaptive theater)</dd></div>
+        <div><dt>Class size</dt><dd>About 8–12 students, with about 7–8 per teacher</dd></div>
+        <div><dt>Tuition</dt><dd>{tuitionRange} for weekly classes, by class length{campDay ? `; camps about $${campDay} a day` : ''}</dd></div>
+        <div><dt>Payment</dt><dd>Monthly, charged on the 1st, or the whole term for {pct(PRICING.payInFullDiscount)} off. {pct(PRICING.multiDiscount)} off for multiple students or classes. Pay-what-you-can rates on request.</dd></div>
+        <div><dt>Free trial</dt><dd>First class free in most weekly classes</dd></div>
+        <div><dt>Accessibility</dt><dd>Accessible building, one-on-one class buddies through the UGA Speech and Hearing Clinic at no cost, and Ovation, an adaptive class</dd></div>
+        <div><dt>Schools</dt><dd>Verified CCSD school vendor. Programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens</dd></div>
+        <div><dt>Team</dt><dd>{team.length} teachers, designers and staff</dd></div>
+        <div><dt>Contact</dt><dd><a href={`mailto:${site.contact.email}`}>{site.contact.email}</a> · <a href={site.contact.phoneHref}>{phone}</a></dd></div>
+        <div><dt>Website</dt><dd><a href={site.url}>{siteHost}</a></dd></div>
+        <div><dt>Social</dt><dd><a href={site.social.instagram} rel="me">Instagram</a> · <a href={site.social.facebook} rel="me">Facebook</a></dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="section section--hall" aria-labelledby="about-faq-title">
+    <div class="wrap">
+      <div class="section-head section-head--split">
+        <h2 id="about-faq-title">Frequently asked questions</h2>
+        <a class="link-arrow" href="/faq">All questions <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="about-faqs">
+        {
+          aboutFaqs.map((f) => (
+            <div>
+              <h3>{f.q}</h3>
+              <p>{f.a}</p>
+            </div>
           ))
         }
       </div>
-      <p class="partners">
-        With thanks to our partners: It’s Good to See You Productions, Athens Academy, and the Winterville Campus for Arts & Culture.
-      </p>
     </div>
   </section>
 </Base>
@@ -125,60 +400,110 @@ const values = [
   .about-hero { padding-block: var(--space-2xl); }
   .about-hero__grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: var(--space-2xl); align-items: center; }
   .about-hero :global(.about-hero__photo) { width: 100%; max-width: 400px; justify-self: end; }
+  .about-hero__what { font-size: var(--step-1); line-height: 1.5; max-width: var(--measure); padding-left: var(--space-m); border-left: 6px solid var(--red); }
   .lede-prose p { font-size: var(--step-1); line-height: 1.55; color: var(--ink-soft); }
 
-  .values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-l); }
-  .value {
+  .services { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: var(--space-m); }
+  .service { display: grid; grid-template-rows: auto 1fr auto; gap: 0.6rem; padding: var(--space-l); background: var(--paper); border-radius: var(--r-md); border-top: 8px solid var(--gel); }
+  .service h3 { font-size: var(--step-1); font-stretch: 92%; }
+  .service p { color: var(--ink-soft); }
+  .service .link-arrow { justify-self: start; margin-top: 0.4rem; }
+
+  .different { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: var(--space-2xl); align-items: start; }
+  .different__side { position: sticky; top: calc(76px + var(--space-l)); }
+  .different__side .section-head { margin-bottom: var(--space-l); }
+  .differences { list-style: none; margin: 0; padding: 0; counter-reset: diff; display: grid; gap: var(--space-l); }
+  .differences li { counter-increment: diff; display: grid; grid-template-columns: 2.6rem 1fr; column-gap: var(--space-m); row-gap: 0.35rem; padding-bottom: var(--space-l); border-bottom: 1.5px solid var(--line-strong); }
+  .differences li:last-child { border-bottom: 0; padding-bottom: 0; }
+  .differences li::before {
+    content: counter(diff);
+    grid-row: span 2;
     display: grid;
-    gap: 0.6rem;
-    align-content: start;
-    padding: var(--space-xl);
-    background: var(--paper);
-    border-radius: var(--r-lg);
-    border-top: 8px solid var(--gel);
+    place-items: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--font-display);
+    font-weight: 750;
   }
-  .value__cast { height: 90px; display: flex; align-items: flex-end; }
-  .value h3 { font-size: var(--step-3); }
-  .value p { color: var(--ink-soft); }
+  .differences h3 { font-size: var(--step-1); font-stretch: 92%; align-self: center; }
+  .differences p { color: var(--ink-soft); }
 
-  .teach { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: var(--space-2xl); align-items: start; }
-  .teach h2 { font-size: var(--step-3); }
-  .teach__list { list-style: none; margin: 0; padding: 0; display: grid; border-top: 2px solid var(--ink); }
-  .teach__list li { padding: 1rem 0; border-bottom: 1.5px solid var(--line-strong); color: var(--ink-soft); }
-  .teach__list strong { color: var(--ink); display: block; font-family: var(--font-display); font-size: 1.15rem; font-stretch: 92%; }
+  .audiences { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: var(--space-m); }
+  .audience { display: grid; grid-template-rows: auto 1fr auto; gap: 0.7rem; align-content: start; padding: var(--space-l); background: var(--paper); border-radius: var(--r-md); }
+  .audience p { color: var(--ink-soft); }
+  .audience__links { font-family: var(--font-display); font-weight: 700; font-stretch: 92%; }
+  .audience__links a { color: var(--ink); text-decoration-color: var(--gel); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 
-  .team { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xl) var(--space-l); }
-  .member { display: grid; gap: var(--space-m); align-content: start; }
-  .member :global(.member__photo) { width: 132px; }
-  .member--lead {
-    grid-column: 1 / -1;
+  .values__title { font-size: var(--step-2); margin-bottom: var(--space-l); }
+  .values { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-m); }
+  .value { flex: 1 1 12rem; display: grid; gap: 0.5rem; align-content: start; padding: var(--space-l); background: var(--hall); border-radius: var(--r-md); border-top: 8px solid var(--gel); }
+  .value h4 { font-size: var(--step-1); font-stretch: 90%; }
+  .value p { color: var(--ink-soft); font-size: var(--step--1); }
+
+  .team__social { color: var(--ink-soft); }
+
+  .lead {
+    display: grid;
     grid-template-columns: minmax(0, 0.45fr) minmax(0, 1fr);
     gap: var(--space-2xl);
     align-items: center;
-    padding-bottom: var(--space-xl);
+    padding-bottom: var(--space-2xl);
+    margin-bottom: var(--space-2xl);
     border-bottom: 2px solid var(--ink);
   }
-  .member--lead :global(.member__photo) { width: 100%; max-width: 340px; }
-  .member--lead h3 { font-size: var(--step-4); }
-  .member h3 { font-size: var(--step-2); }
-  .member__role { font-family: var(--font-script); font-weight: 700; color: var(--gel-ink); margin-bottom: 0.5rem; }
-  .member__bio { color: var(--ink-soft); font-size: var(--step--1); }
-  .member--lead .member__bio { font-size: var(--step-0); max-width: var(--measure); }
+  .lead :global(.lead__photo) { width: 100%; max-width: 340px; }
+  .lead h3 { font-size: var(--step-4); }
+  .lead__bio { color: var(--ink-soft); max-width: var(--measure); }
+  .lead__bio + .lead__bio { margin-top: 0.9em; }
 
-  .loc { display: grid; gap: 0.4rem; align-content: start; padding: var(--space-l); border: 1.5px solid var(--line); border-radius: var(--r-md); }
-  .loc h3 { font-size: var(--step-1); }
-  .loc p { color: var(--ink-soft); font-size: var(--step--1); }
-  .loc .link-arrow { justify-self: start; font-size: var(--step--1); margin-top: 0.3rem; }
-  .partners { margin-top: var(--space-xl); color: var(--ink-soft); }
+  .team { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--space-xl) var(--space-l); }
+  .member { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-m); align-items: start; }
+  .member :global(.member__photo) { width: 120px; box-shadow: 0 0 0 5px var(--gel-tint); }
+  .member h3 { font-size: var(--step-1); font-stretch: 92%; }
+  .member__role { font-family: var(--font-script); font-weight: 700; font-size: var(--step--1); color: var(--gel-ink); margin: 0.2rem 0 0.5rem; }
+  .member__bio { color: var(--ink-soft); font-size: var(--step--1); }
+
+  .work { margin: var(--space-2xl) 0 0; padding: var(--space-xl); background: var(--paper); border-radius: var(--r-lg); }
+  .work blockquote { margin: 0; }
+  .work p { font-family: var(--font-display); font-size: var(--step-1); font-weight: 550; line-height: 1.4; }
+  .work figcaption { margin-top: 0.6rem; font-family: var(--font-script); font-weight: 700; color: var(--purple); }
+  .work .work__cta { margin-top: var(--space-m); font-family: var(--font-body); font-size: var(--step-0); font-weight: 400; color: var(--ink-soft); }
+
+  .schools { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: var(--space-2xl); align-items: center; }
+  .schools h2 { font-size: var(--step-3); }
+  .schools p:not(.lede):not(.eyebrow) { color: var(--ink-soft); }
+  .quote-card { position: relative; margin: 0; padding: var(--space-xl) var(--space-xl) var(--space-2xl); border: 2px solid var(--ink); border-radius: var(--r-lg); box-shadow: 8px 8px 0 var(--teal); }
+  .quote-card blockquote { margin: 0; }
+  .quote-card p { font-family: var(--font-display); font-size: var(--step-1); font-weight: 550; line-height: 1.4; }
+  .quote-card figcaption { margin-top: var(--space-m); font-family: var(--font-script); font-weight: 700; color: var(--purple); }
+  .quote-card__cast { position: absolute; right: 1.2rem; bottom: -1.1rem; }
+
+  .how-notes { list-style: none; margin: var(--space-2xl) 0 0; padding: var(--space-xl) 0 0; border-top: 2px solid var(--ink); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--space-l); }
+  .how-notes li { display: grid; gap: 0.4rem; align-content: start; }
+  .how-notes h3 { font-size: var(--step-1); font-stretch: 92%; }
+  .how-notes p { color: var(--ink-soft); }
+
+  .key-facts { margin: 0; border-top: 2px solid var(--ink); }
+  .key-facts > div { display: grid; grid-template-columns: minmax(8rem, 0.3fr) 1fr; gap: var(--space-m); padding: 0.85rem 0.25rem; border-bottom: 1.5px solid var(--line-strong); }
+  .key-facts dt { font-family: var(--font-display); font-weight: 700; font-stretch: 92%; }
+  .key-facts dd { margin: 0; color: var(--ink-soft); }
+
+  .about-faqs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: var(--space-xl) var(--space-2xl); }
+  .about-faqs div { display: grid; gap: 0.5rem; align-content: start; }
+  .about-faqs h3 { font-size: var(--step-1); font-stretch: 92%; }
+  .about-faqs p { color: var(--ink-soft); }
 
   @media (max-width: 960px) {
-    .about-hero__grid, .teach { grid-template-columns: 1fr; }
+    .about-hero__grid, .lead, .schools, .different { grid-template-columns: 1fr; }
     .about-hero :global(.about-hero__photo) { justify-self: start; max-width: 300px; order: -1; }
-    .values { grid-template-columns: 1fr; }
-    .team { grid-template-columns: 1fr 1fr; }
-    .member--lead { grid-template-columns: 1fr; }
+    .different__side { position: static; }
   }
-  @media (max-width: 560px) {
-    .team { grid-template-columns: 1fr; }
+  @media (max-width: 520px) {
+    .member { grid-template-columns: 88px 1fr; }
+    .member :global(.member__photo) { width: 88px; }
+    .key-facts > div { grid-template-columns: 1fr; gap: 0.2rem; }
   }
 </style>

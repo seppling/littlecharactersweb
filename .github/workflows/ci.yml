@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type-check
+        run: npm run check
+      - name: Unit tests (pricing, autopay, import, access control)
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Command-line scripts start (billing, import)
+        run: |
+          npm run -s billing:run -- --today 2026-10-01
+          npm run -s import:studio-director -- tests/e2e/fixtures/studio-director-families.csv tests/e2e/fixtures/studio-director-students.csv
+        env:
+          APP_ENV: development
+          PGLITE_DIR: memory://
+      - name: Render preview database opens within the free plan's memory
+        run: |
+          set -o pipefail
+          npm run -s db:prepare-preview | tee prepare.log
+          peak=$(sed -n 's/.*peak memory \([0-9]*\) MB.*/\1/p' prepare.log)
+          if [ -z "$peak" ] || [ "$peak" -gt 450 ]; then echo "::error::Preparing the preview database peaked at ${peak} MB; Render's free plan allows 512 MB."; exit 1; fi
+        env:
+          APP_ENV: development
+          PGLITE_DIR: .data/ci-preview

@@ -2,18 +2,19 @@
 import Base from '@/layouts/Base.astro';
 import EventTicket from '@/components/EventTicket.astro';
 import Character from '@/components/Character.astro';
-import { events } from '@/data/events';
+import { events, sortKey } from '@/data/events';
 
-// Group by month in date order.
-const sorted = [...events].sort((a, b) => a.times[0].start.localeCompare(b.times[0].start));
+// Group by month in date order; undated events sit at the end of their month.
+const sorted = [...events].sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
 const months = new Map<string, typeof events>();
 for (const e of sorted) {
-  const key = new Date(e.times[0].start).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const when = e.times[0]?.start ?? `${e.tba}-15T12:00`;
+  const key = new Date(when).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   months.set(key, [...(months.get(key) ?? []), e]);
 }
 ---
 
-<Base title="Shows & events" description="Variety shows, Parents’ Night Out, Ovation, First Friday Improv and community events from Little Characters.">
+<Base title="Shows & events" description="Variety shows, performances around town, Parents’ Night Out, free community classes and Geode improv nights from Little Characters.">
   <div class="house">
     <section class="house__head">
       <div class="house__lights" aria-hidden="true"></div>
@@ -22,14 +23,13 @@ for (const e of sorted) {
           <p class="eyebrow">House lights down</p>
           <h1>Shows & events</h1>
           <p class="lede">
-            Come see what our students have been working on, drop the kids off for a night of crafts and games, or play along yourself.
+            Come see what our students have been working on, drop the kids off for a night of games and crafts, try a free class, or play along yourself.
           </p>
           <ul class="legend" aria-label="Event types">
-            <li><span class="tape" data-gel="magenta">Show</span></li>
-            <li><span class="tape" data-gel="cyan" data-tilt="right">Drop-off</span></li>
-            <li><span class="tape" data-gel="green">Inclusive</span></li>
-            <li><span class="tape" data-gel="amber" data-tilt="right">Community</span></li>
-            <li><span class="tape" data-gel="lilac">Geode · 18+</span></li>
+            <li><span class="tape" data-gel="orange">Show</span></li>
+            <li><span class="tape" data-gel="red" data-tilt="right">Drop-off</span></li>
+            <li><span class="tape" data-gel="yellow">Free class</span></li>
+            <li><span class="tape" data-gel="purple" data-tilt="right">Geode · 18+</span></li>
           </ul>
         </div>
         <div class="house__cast" aria-hidden="true">
@@ -58,8 +58,8 @@ for (const e of sorted) {
     <section class="wrap perform">
       <div class="perform__card">
         <h2>Want your kid on this stage?</h2>
-        <p>Most classes and camps end with a performance. Weekly classes perform in the end-of-term LC Variety Show at Marigold Auditorium.</p>
-        <a class="btn btn--amber" href="/programs">Find a class <span class="arrow" aria-hidden="true">→</span></a>
+        <p>Every class has a mid-semester showcase and ends with a big show, and each student gets 2 free tickets for family.</p>
+        <a class="btn btn--orange" href="/programs">Find a class <span class="arrow" aria-hidden="true">→</span></a>
       </div>
     </section>
   </div>
@@ -70,16 +70,16 @@ for (const e of sorted) {
     background: var(--stage);
     color: var(--on-stage);
     padding-bottom: var(--space-3xl);
-    --accent: var(--amber);
+    --accent: var(--orange);
   }
   .house__head { position: relative; overflow: hidden; padding-block: var(--space-3xl) var(--space-2xl); border-bottom: 3px solid var(--stage-line); }
   .house__lights {
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(ellipse 26% 70% at 15% -10%, color-mix(in srgb, var(--magenta) 28%, transparent), transparent 70%),
-      radial-gradient(ellipse 24% 70% at 55% -15%, color-mix(in srgb, var(--amber) 22%, transparent), transparent 70%),
-      radial-gradient(ellipse 26% 70% at 90% -10%, color-mix(in srgb, var(--cyan) 26%, transparent), transparent 70%);
+      radial-gradient(ellipse 26% 70% at 15% -10%, color-mix(in srgb, var(--red) 28%, transparent), transparent 70%),
+      radial-gradient(ellipse 24% 70% at 55% -15%, color-mix(in srgb, var(--orange) 22%, transparent), transparent 70%),
+      radial-gradient(ellipse 26% 70% at 90% -10%, color-mix(in srgb, var(--teal) 26%, transparent), transparent 70%);
   }
   .house__intro { position: relative; display: flex; justify-content: space-between; align-items: end; gap: var(--space-xl); }
   .house h1 { color: var(--on-stage); }
@@ -95,7 +95,7 @@ for (const e of sorted) {
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--amber);
+    color: var(--orange);
     margin-bottom: var(--space-m);
   }
   .month__items { display: grid; gap: var(--space-m); }

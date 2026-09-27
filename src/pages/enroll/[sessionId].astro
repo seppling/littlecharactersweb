@@ -1,0 +1,211 @@
+---
+/** Enrollment step 1: sign in (if needed), then choose who's coming. */
+import { eq } from 'drizzle-orm';
+import { z } from 'zod';
+import Base from '@/layouts/Base.astro';
+import EnrollShell from '@/components/portal/EnrollShell.astro';
+import SignInPanel from '@/components/portal/SignInPanel.astro';
+import { getDb, schema } from '@/server/db';
+import {
+  ageOn,
+  capacityFor,
+  createDraftOrder,
+  createStudent,
+  ensureHousehold,
+  findSession,
+  fitsAges,
+  listEnrollments,
+  listStudents,
+  studentInput,
+  takenSpots,
+} from '@/server/family';
+import { ageLabel } from '@/lib/format';
+
+export const prerender = false;
+
+const { sessionId } = Astro.params;
+const found = findSession(sessionId ?? '');
+if (!found || found.session.status === 'closed') return new Response('Not found', { status: 404 });
+const { program, session } = found;
+if (session.externalUrl && !session.externalUrl.includes('docs.google.com')) return Astro.redirect(session.externalUrl);
+
+const user = Astro.locals.user;
+const errors: Record<string, string> = {};
+let values: Record<string, string> = {};
+
+if (user && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = form.get('action');
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+
+  if (action === 'profile') {
+    const parsed = z
+      .object({
+        name: z.string().trim().min(2, 'Add your first and last name').max(100),
+        phone: z.string().trim().regex(/^[\d\s()+.-]{7,20}$/, 'Add a phone number we can reach you at'),
+      })
+      .safeParse(values);
+    if (parsed.success) {
+      const db = await getDb();
+      await db.update(schema.user).set({ name: parsed.data.name, phone: parsed.data.phone }).where(eq(schema.user.id, user.id));
+      await ensureHousehold({ ...user, name: parsed.data.name });
+      return Astro.redirect(Astro.url.pathname, 303);
+    }
+    for (const issue of parsed.error.issues) errors[String(issue.path[0])] = issue.message;
+  }
+
+  if (action === 'add-student') {
+    const h = await ensureHousehold(user);
+    const parsed = studentInput.safeParse(values);
+    if (parsed.success) {
+      const s = await createStudent(h.id, parsed.data, user.id);
+      return Astro.redirect(`${Astro.url.pathname}?added=${s.id}#students`, 303);
+    }
+    for (const issue of parsed.error.issues) errors[String(issue.path[0])] = issue.message;
+  }
+
+  if (action === 'continue') {
+    const h = await ensureHousehold(user);
+    const ids = form.getAll('studentId').map(String);
+    if (!ids.length) {
+      errors.students = 'Pick at least one student.';
+    } else {
+      const o = await createDraftOrder(h.id, user.id, session.id, ids);
+      return Astro.redirect(`/enroll/details?order=${o.id}`, 303);
+    }
+  }
+}
+
+const needsProfile = !!user && !user.name?.trim();
+const household = user && !needsProfile ? await ensureHousehold(user) : null;
+const students = household ? await listStudents(household.id) : [];
+// Enrolled or waitlisted students can't be picked again; after a free trial they can continue.
+const statusHere = new Map(
+  household ? (await listEnrollments(household.id)).filter((r) => r.enrollment.sessionId === session.id).map((r) => [r.student.id, r.enrollment.status]) : [],
+);
+const added = Astro.url.searchParams.get('added');
+const cap = capacityFor(program, session);
+const full = cap !== undefined && (await takenSpots(session.id)) >= cap;
+const comingSoon = session.status === 'coming-soon';
+---
+
+<Base title={`Enroll: ${program.title}`} noindex>
+  <EnrollShell step={1} program={program} session={session}>
+    {
+      comingSoon ? (
+        <div class="stack">
+          <h1>Registration opens soon</h1>
+          <p class="lede">We haven’t opened registration for this date yet.</p>
+          <a class="btn btn--outline" href={`/programs/${program.slug}#notify`}>Get notified</a>
+        </div>
+      ) : !user ? (
+        <SignInPanel
+          heading="First, who’s signing up?"
+          intro="Enter your email and we’ll send a 6-digit code. New here? That’s all it takes to create your family account. This device stays signed in for 90 days."
+        />
+      ) : needsProfile ? (
+        <form method="post" class="form">
+          <input type="hidden" name="action" value="profile" />
+          <h1>Nice to meet you!</h1>
+          <p class="lede">Just two things about you, the grown-up. We’ll only use these for your family’s classes.</p>
+          <div class="field">
+            <label for="p-name">Your name</label>
+            <input id="p-name" name="name" autocomplete="name" required value={values.name ?? ''} aria-invalid={errors.name ? 'true' : undefined} />
+            {errors.name && <p class="error">{errors.name}</p>}
+          </div>
+          <div class="field">
+            <label for="p-phone">Mobile phone</label>
+            <input id="p-phone" name="phone" type="tel" autocomplete="tel" required value={values.phone ?? ''} aria-invalid={errors.phone ? 'true' : undefined} />
+            {errors.phone && <p class="error">{errors.phone}</p>}
+          </div>
+          <button class="btn btn--primary" type="submit">Continue <span class="arrow" aria-hidden="true">→</span></button>
+        </form>
+      ) : (
+        <>
+          <form method="post" class="form" id="students">
+            <input type="hidden" name="action" value="continue" />
+            <h1>Who’s coming to {program.title}?</h1>
+            {full && <p class="notice">This class is full. Choose your students to join the waitlist, and we’ll email you if a spot opens.</p>}
+            {students.length > 0 ? (
+              <fieldset class="picks">
+                <legend class="sr-only">Students</legend>
+                {students.map((s) => {
+                  const age = ageOn(s.birthdate);
+                  const fits = fitsAges(program, age);
+                  const status = statusHere.get(s.id);
+                  const already = status === 'active' || status === 'waitlist';
+                  return (
+                    <label class:list={['pick', { 'pick--off': already }]}>
+                      <input type="checkbox" name="studentId" value={s.id} disabled={already} checked={!already && (s.id === added || students.length === 1)} />
+                      <span class="pick__body">
+                        <strong>{s.firstName} {s.lastName}</strong>
+                        <span class="pick__meta">
+                          {age !== null ? `Age ${age}` : 'Age not set'}
+                          {already ? <span class="badge badge--ok">{status === 'waitlist' ? 'On the waitlist' : 'Already enrolled'}</span> : status === 'trial' ? <span class="badge badge--ok">Trial class taken · continue</span> : fits ? <span class="badge badge--ok">Fits {ageLabel(program.ages, program.agesLabel).toLowerCase()}</span> : <span class="badge badge--warn">Outside {ageLabel(program.ages, program.agesLabel).toLowerCase()}</span>}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </fieldset>
+            ) : (
+              <p class="lede">Add your first student below.</p>
+            )}
+            {errors.students && <p class="error">{errors.students}</p>}
+            {students.length > 0 && <button class="btn btn--primary" type="submit">Continue <span class="arrow" aria-hidden="true">→</span></button>}
+          </form>
+
+          <details class="add" open={students.length === 0 || !!errors.firstName || !!errors.lastName || !!errors.birthdate}>
+            <summary>{students.length ? '+ Add another student' : 'Add a student'}</summary>
+            <form method="post" class="form form--inline">
+              <input type="hidden" name="action" value="add-student" />
+              <div class="row">
+                <div class="field">
+                  <label for="s-first">First name</label>
+                  <input id="s-first" name="firstName" autocomplete="off" required value={values.firstName ?? ''} />
+                  {errors.firstName && <p class="error">{errors.firstName}</p>}
+                </div>
+                <div class="field">
+                  <label for="s-last">Last name</label>
+                  <input id="s-last" name="lastName" autocomplete="family-name" required value={values.lastName ?? ''} />
+                  {errors.lastName && <p class="error">{errors.lastName}</p>}
+                </div>
+              </div>
+              <div class="field">
+                <label for="s-bday">Birthday</label>
+                <input id="s-bday" name="birthdate" type="date" required value={values.birthdate ?? ''} />
+                {errors.birthdate && <p class="error">{errors.birthdate}</p>}
+              </div>
+              <button class="btn btn--outline" type="submit">Save student</button>
+            </form>
+          </details>
+          <p class="signed-in">Signed in as {user.email}. <a href="/account">Your family account</a></p>
+        </>
+      )
+    }
+  </EnrollShell>
+</Base>
+
+<style>
+  h1 { font-size: var(--step-3); }
+  .form { display: grid; gap: var(--space-m); }
+  .form .btn { justify-self: start; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-m); }
+  .error { color: var(--red-ink); font-size: var(--step--1); font-weight: 600; }
+  .notice { padding: 0.8rem 1rem; background: var(--yellow-tint); border-radius: var(--r-md); }
+  .picks { border: 0; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+  .pick { position: relative; display: block; cursor: pointer; }
+  .pick input { position: absolute; left: 1rem; top: 1.15rem; width: 1.25rem; height: 1.25rem; accent-color: var(--purple); }
+  .pick__body { display: grid; gap: 0.2rem; padding: 0.9rem 1rem 0.9rem 3rem; border: 2px solid var(--line-strong); border-radius: var(--r-md); }
+  .pick:has(input:checked) .pick__body { border-color: var(--ink); background: var(--gel-tint); }
+  .pick--off { cursor: default; opacity: 0.7; }
+  .pick__meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; color: var(--ink-soft); font-size: var(--step--1); }
+  .badge { font-size: var(--step--2); font-weight: 700; padding: 0.2em 0.6em; border-radius: 999px; }
+  .badge--ok { background: var(--ok-tint); color: var(--ok); }
+  .badge--warn { background: var(--yellow-tint); color: var(--yellow-ink); }
+  .add { border-top: 1.5px dashed var(--line-strong); padding-top: var(--space-m); }
+  .add summary { cursor: pointer; font-family: var(--font-display); font-weight: 700; color: var(--purple); }
+  .form--inline { margin-top: var(--space-m); }
+  .signed-in { font-size: var(--step--1); color: var(--ink-mute); }
+  @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+</style>

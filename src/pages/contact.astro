@@ -1,43 +1,46 @@
 ---
+import LeadFormFields from '@/components/LeadFormFields.astro';
 import Base from '@/layouts/Base.astro';
 import { site } from '@/config/site';
-import { locations } from '@/data/locations';
+import { locations, parking } from '@/data/locations';
 
 const topics = [
   { value: 'general', label: 'A general question' },
-  { value: 'class', label: 'Help picking a class or camp' },
+  { value: 'class', label: 'Help picking a class' },
+  { value: 'camps', label: 'Camps & workshops' },
   { value: 'private-lessons', label: 'Private lessons' },
-  { value: 'party', label: 'A birthday party' },
-  { value: 'scholarship', label: 'Scholarships' },
+  { value: 'party', label: 'A party' },
+  { value: 'scholarship', label: 'Scholarships & pay-what-you-can' },
   { value: 'needs', label: 'My child’s specific needs' },
 ];
-const venues = locations.filter((l) => l.id === 'hq' || l.id === 'marigold');
+const hq = locations.find((l) => l.id === 'hq')!;
 ---
 
-<Base title="Contact" description="Get in touch with Little Characters Theater Troupe in Athens, GA.">
+<Base title="Contact" description="Get in touch with Little Characters Theater Troupe at 1635 W Broad St, Athens, GA.">
   <section class="contact">
     <div class="wrap contact__grid">
       <div class="stack" style="--stack: var(--space-l)">
         <p class="eyebrow">Say hello</p>
-        <h1>Talk to Hannah.</h1>
-        <p class="lede">Not sure which class fits? Want to plan a party or ask about a scholarship? Send a note and we’ll get back to you.</p>
+        <h1>Contact us!</h1>
+        <p class="lede">Interested but need more info? The class times don’t work for you? Questions about scholarships? We’re eager to make a class work for your family.</p>
         <dl class="direct">
           <div><dt>Email</dt><dd><a href={`mailto:${site.contact.email}`}>{site.contact.email}</a></dd></div>
           <div><dt>Phone</dt><dd><a href={site.contact.phoneHref}>{site.contact.phone}</a></dd></div>
-          <div><dt>Instagram</dt><dd><a href={site.social.instagram} rel="noopener">@littlecharactersathens</a></dd></div>
+          <div><dt>Visit</dt><dd><a href={hq.mapUrl} rel="noopener">{hq.address.join(', ')}</a></dd></div>
+          <div><dt>Follow</dt><dd><a href={site.social.instagram} rel="noopener">Instagram</a> · <a href={site.social.facebook} rel="noopener">Facebook</a></dd></div>
         </dl>
-        {
-          venues.map((v) => (
-            <address class="venue">
-              <strong>{v.name}</strong>
-              <span class="script">{v.address.join(', ')}</span>
-              <a href={v.mapUrl} rel="noopener">Directions</a>
-            </address>
-          ))
-        }
       </div>
 
-      <form class="contact__form" action={site.forms.contactAction || undefined} method="post" id="contact-form">
+      <form
+        class="contact__form"
+        action="/api/leads"
+        method="post"
+        id="contact-form"
+        data-lead-form
+        data-success-title="Thanks! Your message is on its way."
+        data-success-body={`Hannah will reply by email. If it’s urgent, call us at ${site.contact.phone.replaceAll('-', '\u2011').replaceAll(' ', '\u00a0')}.`}
+      >
+        <LeadFormFields kind="contact" />
         <div class="field">
           <label for="c-name">Your name</label>
           <input id="c-name" name="name" autocomplete="name" required />
@@ -64,6 +67,23 @@ const venues = locations.filter((l) => l.id === 'hq' || l.id === 'marigold');
       </form>
     </div>
   </section>
+
+  <section class="section section--hall" id="parking" aria-labelledby="parking-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">One of our favorite topics</p>
+        <h2 id="parking-title">Parking & drop-off</h2>
+        <p class="lede">{hq.notes}</p>
+      </div>
+      <dl class="parking">
+        <div data-gel="teal"><dt>Walk in</dt><dd>{parking.walkIn}</dd></div>
+        <div data-gel="orange"><dt>Drop off (after 5 pm)</dt><dd>{parking.dropOff}</dd></div>
+        <div data-gel="red"><dt>Please don’t</dt><dd>{parking.staffOnly}</dd></div>
+        <div data-gel="purple"><dt>Running late?</dt><dd>{parking.late}</dd></div>
+      </dl>
+      <p class="parking__more"><a href={parking.guideUrl} rel="noopener">Download the full parking guide (PDF)</a></p>
+    </div>
+  </section>
 </Base>
 
 <script>
@@ -80,19 +100,15 @@ const venues = locations.filter((l) => l.id === 'hq' || l.id === 'marigold');
   .direct div { display: grid; grid-template-columns: 6.5rem 1fr; gap: 0.5rem; }
   .direct dt { font-family: var(--font-script); font-weight: 700; color: var(--ink-mute); text-transform: uppercase; font-size: var(--step--1); padding-top: 0.15rem; }
   .direct dd { margin: 0; font-weight: 600; }
-  .venue { font-style: normal; display: grid; gap: 0.15rem; padding-top: var(--space-m); border-top: 1.5px dashed var(--line-strong); }
-  .venue .script { color: var(--ink-soft); }
-  .venue a { width: fit-content; font-size: var(--step--1); }
-  .contact__form {
-    display: grid;
-    gap: var(--space-m);
-    padding: var(--space-xl);
-    background: var(--hall);
-    border-radius: var(--r-lg);
-  }
+  .contact__form { display: grid; gap: var(--space-m); padding: var(--space-xl); background: var(--hall); border-radius: var(--r-lg); }
   .contact__form .btn { justify-self: start; }
   .opt { font-weight: 400; color: var(--ink-mute); }
+  .parking { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-m); }
+  .parking div { padding: 1.1rem 1.3rem; background: var(--paper); border-radius: var(--r-md); border-left: 6px solid var(--gel); }
+  .parking dt { font-family: var(--font-display); font-weight: 750; font-size: 1.1rem; font-stretch: 92%; }
+  .parking dd { margin: 0.2rem 0 0; color: var(--ink-soft); }
+  .parking__more { margin-top: var(--space-l); }
   @media (max-width: 860px) {
-    .contact__grid { grid-template-columns: 1fr; }
+    .contact__grid, .parking { grid-template-columns: 1fr; }
   }
 </style>

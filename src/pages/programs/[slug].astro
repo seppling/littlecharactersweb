@@ -1,4 +1,5 @@
 ---
+import LeadFormFields from '@/components/LeadFormFields.astro';
 import Base from '@/layouts/Base.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
 import ProgramCard from '@/components/ProgramCard.astro';
@@ -7,8 +8,9 @@ import { programs, kindLabels } from '@/data/programs';
 import { faqs } from '@/data/faqs';
 import { locationById } from '@/data/locations';
 import type { Program } from '@/data/types';
-import { ageLabel, dateRange, dayList, price, spotsLabel, timeRange } from '@/lib/format';
+import { ageLabel, dateRange, dayList, feeLabel, price, spotsLabel, timeRange } from '@/lib/format';
 import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
+import { hasFreeFirstClass } from '@/lib/pricing';
 
 export function getStaticPaths() {
   return programs.map((program) => ({ params: { slug: program.slug }, props: { program } }));
@@ -26,9 +28,13 @@ const locIds = [...new Set(program.sessions.map((s) => s.locationId))];
 const where = locIds.map((id) => locationById(id)?.name).filter(Boolean).join(' or ');
 const isCamp = program.kind === 'camp';
 const comingSoon = bookable.length > 0 && bookable.every((s) => s.status === 'coming-soon');
-const partnerOnly = bookable.length > 0 && bookable.every((s) => s.externalUrl);
+const partnerOnly = bookable.length > 0 && bookable.every((s) => s.externalUrl && !s.externalUrl.includes('docs.google.com'));
+const formOnly = bookable.length > 0 && bookable.every((s) => s.externalUrl?.includes('docs.google.com'));
+const datesSoon = bookable.length === 0 && program.notify;
+const monthly = program.priceFrom?.unit === 'month';
+const freeTrial = hasFreeFirstClass(program) && !partnerOnly && !formOnly;
 
-const faqGroups = isCamp ? ['Camps', 'Payments & discounts'] : ['Classes', 'Payments & discounts', 'Performances'];
+const faqGroups = isCamp || program.kind === 'party' ? ['Camps & parties', 'Payments & discounts'] : ['Classes', 'Payments & discounts', 'Performances'];
 const relevantFaqs = faqs.filter((f) => faqGroups.includes(f.group)).slice(0, 5);
 
 const related = programs
@@ -52,7 +58,7 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
           </nav>
           <div class="phero__tags">
             <span class="tape">{kindLabels[program.kind].singular}</span>
-            <span class="tape tape--quiet" data-tilt="right">{ageLabel(program.ages)}</span>
+            <span class="tape tape--quiet" data-tilt="right">{ageLabel(program.ages, program.agesLabel)}</span>
             {program.brand === 'geode' && <span class="tape tape--ink" data-tilt="flat">Geode</span>}
           </div>
           <h1>{program.title}</h1>
@@ -66,10 +72,23 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
             )}
             <div>
               <dt>Cost</dt>
-              <dd>{fromPrice ? `${price(fromPrice)}${fromPrice.note ? ` · ${fromPrice.note}` : ''}` : partnerOnly ? 'Set by the school' : program.requestCta ? 'Ask us for rates' : 'Pricing TBA'}</dd>
+              <dd>
+                {fromPrice ? price(fromPrice) : partnerOnly ? 'Set by the school' : program.requestCta ? 'Ask us for rates' : 'Pricing TBA'}
+                {program.fee && <span class="fee"> {feeLabel(program.fee)}</span>}
+                {fromPrice?.note && fromPrice.amount > 0 && <span class="fee"> · {fromPrice.note}</span>}
+              </dd>
             </div>
+            {program.teachers && (
+              <div><dt>{program.teachers.length > 1 ? 'Teachers' : 'Teacher'}</dt><dd>{program.teachers.join(' & ')}</dd></div>
+            )}
+            {program.runs && (
+              <div><dt>Runs</dt><dd>{program.runs}</dd></div>
+            )}
             {program.showcase && (
               <div><dt>The finale</dt><dd>{program.showcase}</dd></div>
+            )}
+            {program.prerequisite && (
+              <div><dt>Good to know</dt><dd>{program.prerequisite}</dd></div>
             )}
           </dl>
         </div>
@@ -78,7 +97,7 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
     </header>
 
     <div class="wrap pbody">
-      <div class="pbody__main stack" style="--stack: var(--space-2xl)">
+      <div class="pbody__main">
         <section class="stack" aria-labelledby="about-title">
           <h2 id="about-title">About this {program.kind === 'camp' ? 'camp' : program.kind === 'class' ? 'class' : 'program'}</h2>
           <div class="prose">{program.description.map((para) => <p>{para}</p>)}</div>
@@ -94,17 +113,17 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
         <section class="money" aria-labelledby="money-title">
           <h2 id="money-title">Pricing & discounts</h2>
           <ul>
-            {program.kind === 'class' && program.brand === 'lc' && !partnerOnly && (
-              <li><strong>First class free.</strong> New students always try their first class free.</li>
+            {freeTrial && (
+              <li><strong>First class free.</strong> New students can try it before paying: choose “Try the first class free” when you enroll. Nothing is due until you decide to stay.</li>
             )}
-            {program.kind === 'class' && !partnerOnly && (
-              <li><strong>Monthly tuition.</strong> $85 for 45-minute classes, $95 for 1-hour classes, $115 for 1¼-hour classes.</li>
+            {monthly && (
+              <li><strong>Monthly or up front.</strong> Pay monthly, or pay the semester in full and save 10%.</li>
             )}
-            {isCamp && (
-              <li><strong>$50 deposit holds your spot.</strong> The balance is due the week before camp starts.</li>
+            {program.fee && (
+              <li><strong>One-time {program.fee.label}: ${program.fee.amount}.</strong> It covers extra rehearsal time, costumes, props and space for the show.</li>
             )}
-            <li><strong>15% off</strong> for siblings and for students in more than one class a week.</li>
-            <li><strong>Scholarships are available.</strong> <a href="/contact?topic=scholarship">Ask us privately</a>; cost should never keep a student out.</li>
+            <li><strong>15% off</strong> for multiple students or multiple classes.</li>
+            <li><strong>Pay-what-you-can is available.</strong> <a href="/contact?topic=scholarship">Ask us privately</a>; we never want cost to keep a student from joining.</li>
           </ul>
         </section>
 
@@ -119,6 +138,12 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
 
       <aside class="enroll" id="enroll" aria-labelledby="enroll-title">
         <div class="enroll__card">
+          {freeTrial && (
+            <p class="enroll__trial">
+              <span class="tape" data-gel="yellow">First class free</span>
+              <span>New students try it free. Nothing is due until you decide to stay.</span>
+            </p>
+          )}
           {
             bookable.length > 0 ? (
               <form class="enroll__form" data-enroll-form>
@@ -168,15 +193,22 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
                 <p class="enroll__note">
                   {partnerOnly
                     ? 'Registration for this program is handled by the school.'
-                    : isCamp
-                      ? 'A $50 deposit holds your spot. Next you’ll add camper details and pay.'
-                      : 'Next you’ll add your student’s details and pay. Your first class is free.'}
+                    : formOnly
+                      ? 'Registration is a short online form.'
+                      : comingSoon
+                        ? 'Registration opens soon.'
+                        : `Next you’ll pick your student and pay in our family portal.${freeTrial ? ' New students’ first class is free.' : ''}${monthly ? ' Joining more than a week into the term? The first month is prorated to the classes left.' : ''}`}
                 </p>
               </form>
+            ) : datesSoon ? (
+              <div class="enroll__form">
+                <h2 id="enroll-title">Dates coming soon</h2>
+                <p>We announce {program.title.toLowerCase()} a few weeks ahead. Leave your email and we’ll tell you as soon as registration opens.</p>
+              </div>
             ) : (
               <div class="enroll__form">
                 <h2 id="enroll-title">Book it</h2>
-                <p>{program.title} are scheduled around your family. Tell us what you have in mind and we’ll reply within two business days.</p>
+                <p>{program.kind === 'inclusive' ? 'Tell us a little about your participant and we’ll share the next dates.' : 'Scheduled around your family. Tell us what you have in mind and we’ll get back to you.'}</p>
                 {program.requestCta && (
                   <a class="btn btn--primary btn--block" href={program.requestCta.href}>
                     {program.requestCta.label} <span class="arrow" aria-hidden="true">→</span>
@@ -185,8 +217,17 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
               </div>
             )
           }
-          {comingSoon && (
-            <form class="notify" id="notify" action="" method="post">
+          {(comingSoon || datesSoon) && (
+            <form
+              class="notify"
+              id="notify"
+              action="/api/leads"
+              method="post"
+              data-lead-form
+              data-success-title="Got it!"
+              data-success-body={`We’ll email you as soon as registration opens for ${program.title}.`}
+            >
+              <LeadFormFields kind="notify" program={program.slug} />
               <label for="notify-email">Get an email when registration opens</label>
               <div class="notify__row">
                 <input class="input" id="notify-email" type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
@@ -216,7 +257,7 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
       <div class="mobile-enroll">
         <span>
           <strong>{fromPrice ? price(fromPrice) : 'Pick a time'}</strong>
-          <span class="script">{ageLabel(program.ages)}</span>
+          <span class="script">{ageLabel(program.ages, program.agesLabel)}</span>
         </span>
         <a class="btn btn--primary btn--sm" href="#enroll">{comingSoon ? 'See dates' : 'Choose a time'}</a>
       </div>
@@ -262,6 +303,7 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
   }
   .phero__facts dt { font-family: var(--font-script); font-weight: 700; font-size: var(--step--1); text-transform: uppercase; letter-spacing: 0.04em; color: var(--gel-ink); }
   .phero__facts dd { margin: 0.2rem 0 0; font-weight: 600; }
+  .phero__facts .fee { font-weight: 400; color: var(--ink-soft); }
 
   .pbody {
     display: grid;
@@ -270,6 +312,7 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
     align-items: start;
     padding-block: var(--space-2xl) var(--space-3xl);
   }
+  .pbody__main { display: grid; gap: var(--space-2xl); align-content: start; }
   .pbody h2 { font-size: var(--step-3); }
   .skills { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.8rem 1rem; }
   .skills .tape { --tape: var(--gel-tint); white-space: normal; }
@@ -291,6 +334,7 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
     box-shadow: 8px 8px 0 var(--gel);
   }
   .enroll__form { display: grid; gap: var(--space-m); }
+  .enroll__trial { display: grid; justify-items: start; gap: 0.4rem; margin: 0 0 var(--space-m); padding-bottom: var(--space-m); border-bottom: 1.5px dashed var(--line-strong); font-size: var(--step--1); color: var(--ink-soft); }
   .enroll h2 { font-size: var(--step-2); }
   .enroll fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
   .opt { position: relative; display: block; cursor: pointer; }
@@ -334,7 +378,7 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
   .mobile-enroll { display: none; }
 
   @media (max-width: 960px) {
-    .phero__grid, .pbody { grid-template-columns: 1fr; }
+    .phero__grid, .pbody { grid-template-columns: minmax(0, 1fr); }
     .phero :global(.phero__photo) { justify-self: start; max-width: 320px; order: -1; }
     .enroll { position: static; order: -1; }
     .mobile-enroll {

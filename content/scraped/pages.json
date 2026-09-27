@@ -1,0 +1,756 @@
+[
+  {
+    "slug": "events",
+    "title": "EVENTS",
+    "url": "https://www.littlecharacters.org/events",
+    "type": "page:events-stacked",
+    "description": ""
+  },
+  {
+    "slug": "events__botanical-gardens-insectival-performance",
+    "title": "Jack and The Beanstalk Performance!",
+    "url": "https://www.littlecharacters.org/events/botanical-gardens-insectival-performance",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2026-09-27T17:30:00.791Z",
+    "endDate": "2026-09-27T18:00:00.791Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1789406870163-NIB8LS46B941U8NVH38J/Jack+and+the+Beanstalk.png"
+  },
+  {
+    "slug": "events__8uepmlluu1px9twdv3vksheyuwj1t6-kxpf3",
+    "title": "September Parents Night Out!",
+    "url": "https://www.littlecharacters.org/events/8uepmlluu1px9twdv3vksheyuwj1t6-kxpf3",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2026-09-25T21:00:00.347Z",
+    "endDate": "2026-09-26T00:00:00.347Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1789406844865-5OT8OE070P385VUU4IXG/Parents+Night+Out.png"
+  },
+  {
+    "slug": "events__spring-2026-variety-show",
+    "title": "Spring 2026 Variety Show! ",
+    "url": "https://www.littlecharacters.org/events/spring-2026-variety-show",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2026-05-16T22:00:00.928Z",
+    "endDate": "2026-05-17T20:30:00.928Z",
+    "location": "",
+    "heroImage": "https://static1.squarespace.com/static/61fc0808d7415f6a4cd36b0a/6368fe4e5fb73b358b8cbbde/69e77968c640382e4bd6a285/1776777674422/"
+  },
+  {
+    "slug": "events__oliver-twist",
+    "title": "Oliver Twist",
+    "url": "https://www.littlecharacters.org/events/oliver-twist",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2026-05-01T22:00:00.333Z",
+    "endDate": "2026-05-02T17:00:00.333Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1775520739640-FSEYB81C9US5OTI37WP2/Screenshot+2026-04-06+at+8.09.06%E2%80%AFPM.png"
+  },
+  {
+    "slug": "events__squatters-on-the-roof",
+    "title": "Squatters on the Roof",
+    "url": "https://www.littlecharacters.org/events/squatters-on-the-roof",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2026-05-02T22:00:00.908Z",
+    "endDate": "2026-05-03T19:00:00.908Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1775520962446-IBE7EOC3CAJWOBCTK4QG/Screenshot+2026-04-06+at+8.14.15%E2%80%AFPM.png"
+  },
+  {
+    "slug": "events__8uepmlluu1px9twdv3vksheyuwj1t6",
+    "title": "Parents Night Out!",
+    "url": "https://www.littlecharacters.org/events/8uepmlluu1px9twdv3vksheyuwj1t6",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2026-03-27T21:00:00.347Z",
+    "endDate": "2026-03-28T01:00:00.347Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1772829139427-87R3EHEABHCDYPVYD121/Screenshot+2026-03-06+at+3.24.32%E2%80%AFPM.png"
+  },
+  {
+    "slug": "events__night-crew-performance",
+    "title": "Night Crew Performance ",
+    "url": "https://www.littlecharacters.org/events/night-crew-performance",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2026-03-14T20:00:00.378Z",
+    "endDate": "2026-03-14T21:00:00.378Z",
+    "location": "Athens-Clarke County Library, 2025 Baxter Street, Athens, GA, 30606",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1772756860518-MIG0TCXWXG201G04MO5L/Screenshot+2026-03-05+at+7.26.15%E2%80%AFPM.png"
+  },
+  {
+    "slug": "events__into-the-woods-workshop",
+    "title": "Into the Woods Workshop",
+    "url": "https://www.littlecharacters.org/events/into-the-woods-workshop",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2026-03-21T13:00:00.951Z",
+    "endDate": "2026-03-21T16:00:00.951Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1772672415508-PIU3TICKKB00NT1A54X5/Screenshot+2026-03-04+at+7.30.45%E2%80%AFPM.png"
+  },
+  {
+    "slug": "events__v-day-parents-night-out",
+    "title": "V-Day Parents Night Out! ",
+    "url": "https://www.littlecharacters.org/events/v-day-parents-night-out",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2026-02-14T22:00:00.009Z",
+    "endDate": "2026-02-15T02:00:00.009Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1770241729405-Z8FCOL8Y23YQRNLL93F5/Valentine%E2%80%99s+Day+Party.png"
+  },
+  {
+    "slug": "events__kpop-a-palooza-workshop",
+    "title": "KPOP-A-PALOOZA Workshop",
+    "url": "https://www.littlecharacters.org/events/kpop-a-palooza-workshop",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-11-25T14:00:00.955Z",
+    "endDate": "2025-11-25T17:00:00.955Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1762401404257-21E74H0FXESDES84OMNS/2.png"
+  },
+  {
+    "slug": "events__prop-making-workshop",
+    "title": "Prop Making Workshop!",
+    "url": "https://www.littlecharacters.org/events/prop-making-workshop",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-11-24T18:00:00.678Z",
+    "endDate": "2025-11-24T21:00:00.678Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1762401972507-Y4V2VJ33FC1VGWZAZTP5/thanksgiving+25+workshops.png"
+  },
+  {
+    "slug": "events__fall-2025-end-of-semester-showcase",
+    "title": "P is for Pom Poms - Three Peculiar Student-Produced Plays",
+    "url": "https://www.littlecharacters.org/events/fall-2025-end-of-semester-showcase",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-12-06T22:00:00.041Z",
+    "endDate": "2025-12-07T01:00:00.041Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1762453102296-6IBYM7D4MU178NITWNP3/LC+Big+Show+F25-3.png"
+  },
+  {
+    "slug": "events__mt-workshop",
+    "title": "NEWSIES! Musical Theater Workshop",
+    "url": "https://www.littlecharacters.org/events/mt-workshop",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-09-13T14:00:00.064Z",
+    "endDate": "2025-09-13T16:00:00.064Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1757262196309-F6EGFP3U393RO5WU1Y7S/IMG_B78F98046948-1.jpeg"
+  },
+  {
+    "slug": "events__lc-variety-show",
+    "title": "LC Variety Show!",
+    "url": "https://www.littlecharacters.org/events/lc-variety-show",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-11-15T23:00:00.229Z",
+    "endDate": "2025-11-16T22:00:00.229Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1760719223201-KUQBEVM108S4H669VQCP/1.png"
+  },
+  {
+    "slug": "events__athens-farmers-market-kids-booth",
+    "title": "Athens Farmers Market - Kids' Booth",
+    "url": "https://www.littlecharacters.org/events/athens-farmers-market-kids-booth",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-08-30T13:00:00.972Z",
+    "endDate": "2025-08-30T16:00:00.972Z",
+    "location": "",
+    "heroImage": "https://static1.squarespace.com/static/61fc0808d7415f6a4cd36b0a/6368fe4e5fb73b358b8cbbde/689e9517714d2a616f48debe/1755223422926/"
+  },
+  {
+    "slug": "events__piq31hl9wuo46ol5rds5wbtpc2c6yt",
+    "title": "Trapped!",
+    "url": "https://www.littlecharacters.org/events/piq31hl9wuo46ol5rds5wbtpc2c6yt",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-05-17T22:00:00.675Z",
+    "endDate": "2025-05-18T19:00:00.675Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1744909477630-3CLLON3NC6JAXY9NTNEI/trapped%21+%281%29.png"
+  },
+  {
+    "slug": "events__variety-show",
+    "title": "Variety Show!",
+    "url": "https://www.littlecharacters.org/events/variety-show",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-05-03T21:30:00.488Z",
+    "endDate": "2025-05-03T23:30:00.488Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1744310571748-JYBCL7INHE3NENLSYE2K/option+1+%281%29.png"
+  },
+  {
+    "slug": "events__improv-ice-cream-with-lovecraft",
+    "title": "Improv & Ice Cream with Love.Craft",
+    "url": "https://www.littlecharacters.org/events/improv-ice-cream-with-lovecraft",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-03-20T21:30:00.316Z",
+    "endDate": "2025-03-20T22:30:00.316Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1741358679228-6QKETXNH4MIL2YW9XWQK/IMG_2644.png"
+  },
+  {
+    "slug": "events__athens-farmers-market-free-improv-class",
+    "title": "Athens Farmers Market Free Improv Class",
+    "url": "https://www.littlecharacters.org/events/athens-farmers-market-free-improv-class",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-03-29T13:45:00.613Z",
+    "endDate": "2025-03-29T14:00:00.613Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1741358516525-4U8RF653J622JLUMVZFR/m.png"
+  },
+  {
+    "slug": "events__acting-and-directing-fundamentals",
+    "title": "Acting and Directing FUNdamentals",
+    "url": "https://www.littlecharacters.org/events/acting-and-directing-fundamentals",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-03-13T14:00:00.852Z",
+    "endDate": "2025-03-14T18:00:00.852Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1739753808878-2006FRV2SFIR58Y0W0HM/Workshop+%281%29.png"
+  },
+  {
+    "slug": "events__parents-night-out",
+    "title": "Parent's Night Out!",
+    "url": "https://www.littlecharacters.org/events/parents-night-out",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-02-14T22:00:00.864Z",
+    "endDate": "2025-02-15T02:00:00.864Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1738258973523-6YSBDTTG0UHDA9RBOFE8/Parents+Night+Out+%281%29.png"
+  },
+  {
+    "slug": "events__family-improv-workshop",
+    "title": "Family Improv Workshop",
+    "url": "https://www.littlecharacters.org/events/family-improv-workshop",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-01-20T19:00:00.123Z",
+    "endDate": "2025-01-20T21:00:00.123Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1736457179468-Z247EQGMPE23T67FAMRI/Family+Improv+Workshop+%28MLK%29+%281%29.png"
+  },
+  {
+    "slug": "events__geode-first-friday-improv-night",
+    "title": "Geode First Friday Improv Night",
+    "url": "https://www.littlecharacters.org/events/geode-first-friday-improv-night",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2025-01-11T01:00:00.739Z",
+    "endDate": "2025-01-11T03:00:00.739Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1736456347971-TSMFGVBXGGJVB6XZXISU/Friday%2C+July+5th+from+8-10pm+at+Frog+Stomp+Studio+%283%29.png"
+  },
+  {
+    "slug": "events__end-of-semester-plays",
+    "title": "LC Presents: FLORIDA! A Compilation of Student-Written Plays",
+    "url": "https://www.littlecharacters.org/events/end-of-semester-plays",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-12-14T23:00:00.083Z",
+    "endDate": "2024-12-15T22:30:00.083Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1731520922047-CSYY8MROVZXPKFSIZIS5/Little+Characters+Theater+Troupe+Presents+%288%29.png"
+  },
+  {
+    "slug": "events__lc-fall-variety-show",
+    "title": "LC Fall Variety Show! ",
+    "url": "https://www.littlecharacters.org/events/lc-fall-variety-show",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-11-23T23:00:00.320Z",
+    "endDate": "2024-11-24T22:00:00.320Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1730736835100-P7TE3LPDSN20IAY6CV8M/Copy+of+LC+Variety+Show+2024.png"
+  },
+  {
+    "slug": "events__lc-at-the-uga-museum",
+    "title": "LC at the UGA Museum",
+    "url": "https://www.littlecharacters.org/events/lc-at-the-uga-museum",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-11-09T15:00:00.586Z",
+    "endDate": "2024-11-09T17:00:00.586Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1730915270136-V1ZSG7BC54ACD1USUEHP/Improv+Workshop.png"
+  },
+  {
+    "slug": "events__lc-kid-zone-at-wild-rumpus",
+    "title": "LC Kid Zone at Wild Rumpus! ",
+    "url": "https://www.littlecharacters.org/events/lc-kid-zone-at-wild-rumpus",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-10-26T21:00:00.846Z",
+    "endDate": "2024-10-26T23:30:00.846Z",
+    "location": "",
+    "heroImage": "https://static1.squarespace.com/static/61fc0808d7415f6a4cd36b0a/6368fe4e5fb73b358b8cbbde/6711163c6e933355008640ba/1729173173410/"
+  },
+  {
+    "slug": "events__free-improv-class",
+    "title": "FREE IMPROV CLASS!",
+    "url": "https://www.littlecharacters.org/events/free-improv-class",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-10-09T20:00:00.335Z",
+    "endDate": "2024-10-09T21:00:00.335Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1728294210391-7CJS0RHG3GX93L551I4A/Improv+Workshop+%282%29.png"
+  },
+  {
+    "slug": "events__costume-workshop",
+    "title": "Costume Workshop! ",
+    "url": "https://www.littlecharacters.org/events/costume-workshop",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-10-14T16:30:00.802Z",
+    "endDate": "2024-10-14T20:30:00.802Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1728294322747-B7WUBAN2FOHSH79O4VKU/1.png"
+  },
+  {
+    "slug": "events__october-9th-improv-workshop",
+    "title": "October 9th Improv Workshop",
+    "url": "https://www.littlecharacters.org/events/october-9th-improv-workshop",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-10-09T18:00:00.202Z",
+    "endDate": "2024-10-09T21:00:00.202Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1728294116820-1HZJWP7ATM7RDPZDI60I/Improv+Workshop+%281%29.png"
+  },
+  {
+    "slug": "events__fall-break-storybook-camp",
+    "title": "Fall Break Storybook Camp! ",
+    "url": "https://www.littlecharacters.org/events/fall-break-storybook-camp",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-10-10T13:00:00.485Z",
+    "endDate": "2024-10-11T17:00:00.485Z",
+    "location": "Work.Shop Athens, 160 Winston Drive #9, Athens, GA, 30607",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1728294269589-EPCNN1LI5QLQ61CW0XNU/Storybook+Camp.png"
+  },
+  {
+    "slug": "events__5v6fqqkldqby1vnyiw6m9dzp1yfqs6",
+    "title": "Beetlejuice Fall Break Improv and Craft Camp",
+    "url": "https://www.littlecharacters.org/events/5v6fqqkldqby1vnyiw6m9dzp1yfqs6",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-10-10T14:00:00.555Z",
+    "endDate": "2024-10-11T20:00:00.555Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1728294293359-OUN6BJR1GGQD9L34HGJF/Screenshot+2024-10-01+at+9.16.49+AM.png"
+  },
+  {
+    "slug": "events__ovation-nxtgr-nb9ac",
+    "title": "LCTT Presents: Ovation! in September",
+    "url": "https://www.littlecharacters.org/events/ovation-nxtgr-nb9ac",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-09-21T14:00:00.387Z",
+    "endDate": "2024-09-21T15:00:00.387Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1723233345755-6EATTN2A2YIABC164JF4/August+17+September+21+October+19+December+14+%281%29.png"
+  },
+  {
+    "slug": "events__ovation-nxtgr",
+    "title": "LCTT Presents: Ovation! in August ",
+    "url": "https://www.littlecharacters.org/events/ovation-nxtgr",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-08-17T14:00:00.039Z",
+    "endDate": "2024-08-17T15:00:00.039Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1723233228724-27D31QSC3E4SUR4X7H8F/August+17+September+21+October+19+December+14+%281%29.png"
+  },
+  {
+    "slug": "events__jurassic-moods-stories-brought-to-life-by-our-4-6-year-olds",
+    "title": "Jurassic Moods: Stories Brought to Life by our 4-6 Year Olds",
+    "url": "https://www.littlecharacters.org/events/jurassic-moods-stories-brought-to-life-by-our-4-6-year-olds",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-05-18T15:30:00.706Z",
+    "endDate": "2024-05-18T17:00:00.706Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1713837375602-UEML3EP71RKZ7QQFFF5X/I+need+to+come+up+with+a+title+%281%29.png"
+  },
+  {
+    "slug": "events__that-one-time-we-put-on-a-show-film-screening",
+    "title": "\"That One Time We Put on a Show\" Film Screening!",
+    "url": "https://www.littlecharacters.org/events/that-one-time-we-put-on-a-show-film-screening",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-05-16T23:00:00.641Z",
+    "endDate": "2024-05-17T00:30:00.641Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1713837219184-K4TE4RDWVJ4M6QKFFBKT/Little+Characters+first+ever.png"
+  },
+  {
+    "slug": "events__twisted-tales-your-favorite-magical-stories-with-an-11-17-year-old-twist-9en6n",
+    "title": "Twisted Tales: Your Favorite Magical Stories with a 7-10 year old twist",
+    "url": "https://www.littlecharacters.org/events/twisted-tales-your-favorite-magical-stories-with-an-11-17-year-old-twist-9en6n",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-05-04T22:30:00.984Z",
+    "endDate": "2024-05-05T00:30:00.984Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1713836863353-T5TGWZCMGYYOSIV5RPT3/Twisted+Tails.png"
+  },
+  {
+    "slug": "events__twisted-tales-your-favorite-magical-stories-with-an-11-17-year-old-twist",
+    "title": "Twisted Tales: Your Favorite Magical Stories with an 11-17 year old twist ",
+    "url": "https://www.littlecharacters.org/events/twisted-tales-your-favorite-magical-stories-with-an-11-17-year-old-twist",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-05-03T22:30:00.857Z",
+    "endDate": "2024-05-04T00:30:00.857Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1713836863353-T5TGWZCMGYYOSIV5RPT3/Twisted+Tails.png"
+  },
+  {
+    "slug": "events__the-eras-workshop-1",
+    "title": "The Eras Workshop ",
+    "url": "https://www.littlecharacters.org/events/the-eras-workshop-1",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2024-02-19T15:30:00.490Z",
+    "endDate": "2024-02-19T18:30:00.490Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1707150305660-L1DF7CAWI3QV9SYDVVDT/The+Eras+Workshop+Take+2.png"
+  },
+  {
+    "slug": "events__here-we-come-a-caroling-a-thanksgiving-break-mini-camp-1-zjbzn",
+    "title": "Here We Come A Caroling: A Thanksgiving Break Mini Camp - Day 3",
+    "url": "https://www.littlecharacters.org/events/here-we-come-a-caroling-a-thanksgiving-break-mini-camp-1-zjbzn",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-11-22T14:00:00.097Z",
+    "endDate": "2023-11-22T17:00:00.097Z",
+    "location": "Winterville Cultural Center, 371 North Church Street, Winterville, GA, 30683",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1699537136063-K4LWZR4L8GQAN5UN0LOR/Here+We+Come+A+Caroling.png"
+  },
+  {
+    "slug": "events__here-we-come-a-caroling-a-thanksgiving-break-mini-camp-1",
+    "title": "Here We Come A Caroling: A Thanksgiving Break Mini Camp - Day 2",
+    "url": "https://www.littlecharacters.org/events/here-we-come-a-caroling-a-thanksgiving-break-mini-camp-1",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-11-21T14:00:00.866Z",
+    "endDate": "2023-11-21T17:00:00.866Z",
+    "location": "Winterville Cultural Center, 371 North Church Street, Winterville, GA, 30683",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1699537136063-K4LWZR4L8GQAN5UN0LOR/Here+We+Come+A+Caroling.png"
+  },
+  {
+    "slug": "events__here-we-come-a-caroling-a-thanksgiving-break-mini-camp",
+    "title": "Here We Come A Caroling: A Thanksgiving Break Mini Camp - Day 1",
+    "url": "https://www.littlecharacters.org/events/here-we-come-a-caroling-a-thanksgiving-break-mini-camp",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-11-20T14:00:00.564Z",
+    "endDate": "2023-11-20T17:00:00.564Z",
+    "location": "Winterville Cultural Center, 371 North Church Street, Winterville, GA, 30683",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1699536796823-JQ360OXM3LJUQMFE2KN0/Here+We+Come+A+Caroling.png"
+  },
+  {
+    "slug": "events__mommy-and-me-toddler-theatrics",
+    "title": "Mommy and Me - Toddler Theatrics ",
+    "url": "https://www.littlecharacters.org/events/mommy-and-me-toddler-theatrics",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-10-04T13:00:00.258Z",
+    "endDate": "2023-10-04T15:00:00.258Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1695758431661-BL8ON50QM2LHCHK7CEM5/Mommy+and+Me+Classes+Flyer.png"
+  },
+  {
+    "slug": "events__wizarding-school-workshop",
+    "title": "Wizarding School Workshop ",
+    "url": "https://www.littlecharacters.org/events/wizarding-school-workshop",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-10-16T18:00:00.253Z",
+    "endDate": "2023-10-16T21:00:00.253Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1694878560301-7HOV3FN4A5FPGKZR36BH/HP++Workshop+Story+%28Facebook+Event+Cover%29.png"
+  },
+  {
+    "slug": "events__the-games-of-bluey-day-camp",
+    "title": "The Games of Bluey Day Camp ",
+    "url": "https://www.littlecharacters.org/events/the-games-of-bluey-day-camp",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-10-16T13:00:00.806Z",
+    "endDate": "2023-10-16T16:00:00.806Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1694877444257-6IV85E1RVGSF6W28MENP/1.png"
+  },
+  {
+    "slug": "events__the-eras-workshop",
+    "title": "The Eras Workshop",
+    "url": "https://www.littlecharacters.org/events/the-eras-workshop",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-09-09T18:00:00.017Z",
+    "endDate": "2023-09-09T22:00:00.017Z",
+    "location": "Work.Shop, 160 Winston Drive #8, Athens, GA, 30607",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1693073646458-VAVPJCNYGBIQB0D291GI/The+Eras+WorkshopGraphic.png"
+  },
+  {
+    "slug": "events__ovation",
+    "title": "Ovation! ",
+    "url": "https://www.littlecharacters.org/events/ovation",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-12-09T15:00:00.448Z",
+    "endDate": "2023-12-09T16:00:00.448Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1702049249387-P45XXDG1H2PEFQYJ19XD/9.png"
+  },
+  {
+    "slug": "events__musical-theatre-workshop-song-interpretation-and-audition-technique-czx9g",
+    "title": "Musical Theatre Workshop: Song Interpretation and Audition Technique Day 2",
+    "url": "https://www.littlecharacters.org/events/musical-theatre-workshop-song-interpretation-and-audition-technique-czx9g",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-08-17T19:30:00.001Z",
+    "endDate": "2023-08-17T22:30:00.001Z",
+    "location": "",
+    "heroImage": "https://static1.squarespace.com/static/61fc0808d7415f6a4cd36b0a/6368fe4e5fb73b358b8cbbde/64ab667f6f6fe63329a46e5b/1689466252015/"
+  },
+  {
+    "slug": "events__musical-theater-master-class-workshop",
+    "title": "Musical Theater Master Class Workshop ",
+    "url": "https://www.littlecharacters.org/events/musical-theater-master-class-workshop",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-08-14T20:30:00.177Z",
+    "endDate": "2023-08-19T00:30:00.177Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1689450132523-96GRU3P6UBL266RIH2MH/LC+Musical+Theater+Workshops.png"
+  },
+  {
+    "slug": "events__musical-theatre-workshop-song-interpretation-and-audition-technique",
+    "title": "Musical Theatre Workshop: Song Interpretation and Audition Technique",
+    "url": "https://www.littlecharacters.org/events/musical-theatre-workshop-song-interpretation-and-audition-technique",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-08-15T20:30:00.498Z",
+    "endDate": "2023-08-15T23:30:00.498Z",
+    "location": "",
+    "heroImage": "https://static1.squarespace.com/static/61fc0808d7415f6a4cd36b0a/6368fe4e5fb73b358b8cbbde/64a7127ee6037e3d7c43fb55/1689466277726/"
+  },
+  {
+    "slug": "events__summer-camp-week-3",
+    "title": "SUMMER CAMP: Week 3",
+    "url": "https://www.littlecharacters.org/events/summer-camp-week-3",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-07-24T13:00:00.944Z",
+    "endDate": "2023-07-28T17:00:00.944Z",
+    "location": "",
+    "heroImage": "https://static1.squarespace.com/static/61fc0808d7415f6a4cd36b0a/6368fe4e5fb73b358b8cbbde/63da99d5039704599aaeb100/1685925955272/"
+  },
+  {
+    "slug": "events__izir60dmg6thllpxdb2e2c3qfz98xo",
+    "title": "SUMMER CAMP: Week 2",
+    "url": "https://www.littlecharacters.org/events/izir60dmg6thllpxdb2e2c3qfz98xo",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-07-05T13:00:00.151Z",
+    "endDate": "2023-07-07T17:00:00.151Z",
+    "location": "",
+    "heroImage": "https://static1.squarespace.com/static/61fc0808d7415f6a4cd36b0a/6368fe4e5fb73b358b8cbbde/63da982a9347ad7bdfefda44/1687366180506/"
+  },
+  {
+    "slug": "events__summer-camp-week-1",
+    "title": "SUMMER CAMP Week 1",
+    "url": "https://www.littlecharacters.org/events/summer-camp-week-1",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-06-05T13:00:00.619Z",
+    "endDate": "2023-06-09T17:00:00.619Z",
+    "location": "",
+    "heroImage": "https://static1.squarespace.com/static/61fc0808d7415f6a4cd36b0a/6368fe4e5fb73b358b8cbbde/63da95357d9a7f6ed6efc3e9/1675272413634/"
+  },
+  {
+    "slug": "events__march-89-mini-camp",
+    "title": "March 9-10 Mini Camp",
+    "url": "https://www.littlecharacters.org/events/march-89-mini-camp",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-03-09T14:00:00.008Z",
+    "endDate": "2023-03-10T18:00:00.008Z",
+    "location": "",
+    "heroImage": "https://static1.squarespace.com/static/61fc0808d7415f6a4cd36b0a/6368fe4e5fb73b358b8cbbde/63d73f014ee01c2c03a098e1/1675546344671/"
+  },
+  {
+    "slug": "events__standing-ovation-a-space-to-interact-create-and-play",
+    "title": "Ovation: a space to interact, create and play",
+    "url": "https://www.littlecharacters.org/events/standing-ovation-a-space-to-interact-create-and-play",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-03-04T15:00:00.121Z",
+    "endDate": "2023-03-04T16:00:00.121Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1677255751390-KHC8ENCSKGIAV3WDZRGM/Image+2-4-23+at+3.58+PM.jpg"
+  },
+  {
+    "slug": "events__acting-workshop-4-7-year-olds",
+    "title": "Acting Workshop (4-10 year olds)",
+    "url": "https://www.littlecharacters.org/events/acting-workshop-4-7-year-olds",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-02-20T14:00:00.233Z",
+    "endDate": "2023-02-20T16:00:00.233Z",
+    "location": "",
+    "heroImage": "https://static1.squarespace.com/static/61fc0808d7415f6a4cd36b0a/6368fe4e5fb73b358b8cbbde/63d73aac4d990233149d3bc8/1676993252552/"
+  },
+  {
+    "slug": "events__noon-years-eve-dance-party",
+    "title": "Noon Years Eve Dance Party! ",
+    "url": "https://www.littlecharacters.org/events/noon-years-eve-dance-party",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2022-12-31T16:00:00.606Z",
+    "endDate": "2022-12-31T17:30:00.606Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1671045016296-NBLRTIYC1WUP8XKTYN4S/Noon+Years+Eve.png"
+  },
+  {
+    "slug": "events__actingfundamentals",
+    "title": "Acting FUNdamentals Workshop! Ages 11-17",
+    "url": "https://www.littlecharacters.org/events/actingfundamentals",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2022-11-21T15:00:00.987Z",
+    "endDate": "2022-11-21T19:00:00.987Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1667825529901-61BCT1DDIVXTHNBPYW15/Little%2BCharacters%2BFlyer%2B%2528Instagram%2BPost%2B%2528Square%2529%2529%2B%25281%2529.jpg"
+  },
+  {
+    "slug": "events__winterbreak",
+    "title": "Winter Break Mini Camp",
+    "url": "https://www.littlecharacters.org/events/winterbreak",
+    "type": "item:events-stacked",
+    "description": "",
+    "startDate": "2023-01-02T14:00:00.701Z",
+    "endDate": "2023-01-04T18:00:00.701Z",
+    "location": "",
+    "heroImage": "https://images.squarespace-cdn.com/content/v1/61fc0808d7415f6a4cd36b0a/1671071085563-JIFIWCG6DFGHO1JGKJ3U/5.png"
+  },
+  {
+    "slug": "home",
+    "title": "Home",
+    "url": "https://www.littlecharacters.org/home",
+    "type": "page:page",
+    "description": ""
+  },
+  {
+    "slug": "contact",
+    "title": "Contact",
+    "url": "https://www.littlecharacters.org/contact",
+    "type": "page:page",
+    "description": ""
+  },
+  {
+    "slug": "spring2024",
+    "title": "Classes",
+    "url": "https://www.littlecharacters.org/spring2024",
+    "type": "page:page",
+    "description": "improv, character development, kids, classes, acting, athens, georgia, theater, theatre, tech classes, fall activities, Athens, GA "
+  },
+  {
+    "slug": "geode",
+    "title": "Geode Theater Co.",
+    "url": "https://www.littlecharacters.org/geode",
+    "type": "page:page",
+    "description": ""
+  },
+  {
+    "slug": "team",
+    "title": "Our Team",
+    "url": "https://www.littlecharacters.org/team",
+    "type": "page:page",
+    "description": ""
+  },
+  {
+    "slug": "classes1",
+    "title": "Classes",
+    "url": "https://www.littlecharacters.org/classes1",
+    "type": "page:page",
+    "description": "improv, character development, kids, classes, acting, athens, georgia, theater, theatre, tech classes, fall activities, Athens, GA "
+  },
+  {
+    "slug": "athens2024",
+    "title": "Athens Classes Spring 2025",
+    "url": "https://www.littlecharacters.org/athens2024",
+    "type": "page:page",
+    "description": "improv, character development, kids, classes, acting, athens, georgia, theater, theatre, tech classes, fall activities, Athens, GA "
+  },
+  {
+    "slug": "winterville2024",
+    "title": "Winterville Classes Spring 2025",
+    "url": "https://www.littlecharacters.org/winterville2024",
+    "type": "page:page",
+    "description": "improv, character development, kids, classes, acting, athens, georgia, theater, theatre, tech classes, fall activities, Athens, GA "
+  },
+  {
+    "slug": "giving-page",
+    "title": "Donations",
+    "url": "https://www.littlecharacters.org/giving-page",
+    "type": "page:page",
+    "description": ""
+  },
+  {
+    "slug": "classes",
+    "title": "Spring 2026 Classes",
+    "url": "https://www.littlecharacters.org/classes",
+    "type": "page:page",
+    "description": "improv, character development, kids, classes, acting, athens, georgia, theater, theatre, tech classes, fall activities, Athens, GA "
+  },
+  {
+    "slug": "faqs",
+    "title": "FAQs",
+    "url": "https://www.littlecharacters.org/faqs",
+    "type": "page:page",
+    "description": ""
+  },
+  {
+    "slug": "services",
+    "title": "Services",
+    "url": "https://www.littlecharacters.org/services",
+    "type": "page:page",
+    "description": ""
+  },
+  {
+    "slug": "classes-1",
+    "title": "Fall 2026 Classes",
+    "url": "https://www.littlecharacters.org/classes-1",
+    "type": "page:page",
+    "description": "improv, character development, kids, classes, acting, athens, georgia, theater, theatre, tech classes, fall activities, Athens, GA "
+  },
+  {
+    "slug": "store",
+    "title": "Store",
+    "url": "https://www.littlecharacters.org/store",
+    "type": "page:products",
+    "description": ""
+  }
+]

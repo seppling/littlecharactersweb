@@ -49,13 +49,29 @@ function imagesFromHtml(html, pageUrl) {
   const root = parse(html ?? '');
   const found = [];
   for (const el of root.querySelectorAll('img, [data-image], [data-src]')) {
-    const src = el.getAttribute('data-src') || el.getAttribute('data-image') || el.getAttribute('src');
+    const src =
+      el.getAttribute('data-src') ||
+      el.getAttribute('data-image') ||
+      el.getAttribute('src') ||
+      el.getAttribute('srcset')?.split(/[\s,]/)[0];
     if (!src || src.startsWith('data:')) continue;
     const abs = new URL(src, pageUrl).href;
     if (!IMAGE_HOSTS.test(abs) && !abs.startsWith(SITE)) continue;
     found.push({ src: abs.split('?')[0], alt: el.getAttribute('alt') ?? '', page: pageUrl });
   }
   return found;
+}
+
+/**
+ * Squarespace 7.1 pages keep their content in rendered "sections" rather than
+ * in the JSON view's mainContent, so for regular pages we read the HTML.
+ */
+async function renderedMain(url) {
+  const root = parse(await get(url));
+  const main = root.querySelector('main#page') ?? root.querySelector('main') ?? root.querySelector('body');
+  if (!main) return '';
+  for (const el of main.querySelectorAll('script, style, noscript, svg, form, .sqs-cart-dropzone')) el.remove();
+  return main.innerHTML;
 }
 
 function toMarkdown(html) {
@@ -95,7 +111,8 @@ async function main() {
 
       const item = json.item;
       const collection = json.collection ?? {};
-      const bodyHtml = item?.body ?? json.mainContent ?? '';
+      let bodyHtml = item?.body ?? json.mainContent ?? '';
+      if (!item && toMarkdown(bodyHtml).length < 200) bodyHtml = await renderedMain(url);
       const title = item?.title ?? collection.title ?? '';
 
       const meta = {
@@ -157,7 +174,8 @@ async function main() {
   }
 
   if (site?.website?.logoImageUrl) {
-    images.set(site.website.logoImageUrl, { src: site.website.logoImageUrl, alt: 'Site logo', page: SITE });
+    const logo = new URL(site.website.logoImageUrl, SITE).href;
+    images.set(logo, { src: logo, alt: 'Site logo', page: SITE });
   }
 
   const manifest = [];

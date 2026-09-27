@@ -4,7 +4,8 @@ import { locationById } from '@/data/locations';
 import { site } from '@/config/site';
 
 /** "Add to calendar" files, one per event, built at deploy time. */
-export const getStaticPaths: GetStaticPaths = () => events.map((e) => ({ params: { slug: e.slug } }));
+export const getStaticPaths: GetStaticPaths = () =>
+  events.filter((e) => e.times.length > 0).map((e) => ({ params: { slug: e.slug } }));
 
 // Floating local times with an explicit Eastern TZID, which every major calendar accepts.
 const stamp = (iso: string) => iso.replace(/[-:]/g, '').slice(0, 13) + '00';

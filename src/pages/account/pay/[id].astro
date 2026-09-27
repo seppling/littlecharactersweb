@@ -1,0 +1,115 @@
+---
+/**
+ * Pay a monthly charge that didn't go through (linked from the "we couldn't
+ * charge your card" email). Paying here also makes this card the saved card for
+ * future months.
+ */
+import { eq } from 'drizzle-orm';
+import Base from '@/layouts/Base.astro';
+import { householdForUser } from '@/server/family';
+import { failureReason, getInstallment, holdForManualPayment, markInstallmentPaid, totalDue } from '@/server/billing';
+import { completeCheckout, createInstallmentCheckout, paymentsMode, testPaymentsAllowed } from '@/server/payments';
+import { config } from '@/server/env';
+import { getDb, schema } from '@/server/db';
+import { formatCents } from '@/lib/pricing';
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/account');
+const household = await householdForUser(user.id);
+let i = household ? await getInstallment(household.id, Astro.params.id ?? '') : null;
+if (!household || !i) return Astro.redirect('/account');
+
+// Back from Stripe: record the payment now (the webhook may not have landed yet).
+const checkoutId = Astro.url.searchParams.get('checkout');
+if (i.status !== 'paid' && checkoutId && paymentsMode === 'stripe') {
+  await completeCheckout(checkoutId, user.id);
+  i = await getInstallment(household.id, i.id);
+}
+if (!i) return Astro.redirect('/account');
+
+if (Astro.request.method === 'POST') {
+  if (!testPaymentsAllowed()) return new Response('Test payments are disabled', { status: 403 });
+  if (await holdForManualPayment(household.id, i.id)) {
+    const db = await getDb();
+    await db.update(schema.household).set({ stripeCustomerId: 'test_customer', stripePaymentMethodId: 'test_card' }).where(eq(schema.household.id, household.id));
+    await markInstallmentPaid(i.id, { paymentIntentId: `test_pi_manual_${i.id.slice(0, 8)}`, amountCents: totalDue(i) }, user.id);
+  }
+  return Astro.redirect(`/account/pay/${i.id}`, 303);
+}
+
+const fmt = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' });
+let clientSecret = '';
+let error = '';
+// Showing the card form pauses automatic retries so we can't charge twice; if
+// the form expires unused (1 hour), the webhook turns retries back on.
+if (i.status === 'failed' && paymentsMode === 'stripe' && (await holdForManualPayment(household.id, i.id))) {
+  try {
+    clientSecret = await createInstallmentCheckout({ installment: i, householdName: household.name, email: user.email });
+  } catch (e) {
+    console.error(e);
+    error = 'We couldn’t start the payment form. Please refresh, or email us if it keeps happening.';
+  }
+}
+---
+
+<Base title="Pay tuition" noindex>
+  <section class="acct">
+    <div class="wrap narrow card">
+      <a class="back" href="/account">← Family account</a>
+      <h1>{i.label}</h1>
+      <p class="amount">{formatCents(totalDue(i))}</p>
+      {i.lateFeeCents > 0 && <p class="muted">{formatCents(i.amountCents)} tuition + {formatCents(i.lateFeeCents)} late fee (unpaid after the 10th)</p>}
+      {
+        i.status === 'paid' ? (
+          <p class="ok" role="status">Paid, thank you! A receipt is on its way{i.paidAt ? ` (${i.paidAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}.</p>
+        ) : i.status === 'scheduled' ? (
+          <p>This will be charged automatically to your saved card on {fmt(i.dueDate)}. Nothing to do now.</p>
+        ) : i.status === 'processing' ? (
+          <p>We’re charging your saved card right now. Check back in a minute.</p>
+        ) : i.status === 'cancelled' ? (
+          <p>This charge was cancelled. Nothing is due.</p>
+        ) : (
+          <>
+            <p class="warn">We couldn’t charge your saved card: {failureReason(i.lastError ?? '')}. Pay below with any card. We’ll use it for the rest of the term.</p>
+            {paymentsMode === 'stripe' ? (
+              error ? <p class="error" role="alert">{error}</p> : <div id="checkout" class="checkout" data-client-secret={clientSecret} data-publishable-key={config.stripePublishableKey} />
+            ) : (
+              <form method="post" class="test-pay">
+                <span class="tape" data-gel="yellow">Test mode</span>
+                <p>Stripe keys aren’t set up yet, so this stands in for the card form. No money moves.</p>
+                <button class="btn btn--primary" type="submit">Complete test payment of {formatCents(totalDue(i))}</button>
+              </form>
+            )}
+          </>
+        )
+      }
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { loadStripe } from '@stripe/stripe-js';
+  const el = document.getElementById('checkout');
+  if (el?.dataset.clientSecret && el.dataset.publishableKey) {
+    const stripe = await loadStripe(el.dataset.publishableKey);
+    const checkout = await stripe?.createEmbeddedCheckoutPage({ clientSecret: el.dataset.clientSecret });
+    checkout?.mount(el);
+  }
+</script>
+
+<style>
+  .acct { padding-block: var(--space-2xl) var(--space-3xl); background: var(--hall); min-height: 60vh; }
+  .card { display: grid; gap: var(--space-m); padding: var(--space-xl); background: var(--paper); border-radius: var(--r-lg); }
+  .narrow { max-width: 640px; }
+  h1 { font-size: var(--step-2); }
+  .amount { font-family: var(--font-display); font-size: var(--step-3); font-weight: 700; }
+  .ok { color: var(--ok); font-weight: 700; }
+  .muted { color: var(--ink-mute); font-size: var(--step--1); margin-top: -0.5rem; }
+  .warn { color: var(--orange-ink); font-weight: 600; }
+  .error { color: var(--red-ink); font-weight: 600; }
+  .back { font-size: var(--step--1); }
+  .checkout { min-height: 420px; }
+  .test-pay { display: grid; gap: var(--space-m); justify-items: start; padding: var(--space-l); border: 2px dashed var(--yellow-ink); border-radius: var(--r-md); background: var(--yellow-tint); }
+</style>

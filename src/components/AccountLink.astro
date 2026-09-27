@@ -1,10 +1,8 @@
 ---
 /**
- * Account entry point in the header.
- *
- * Phase 2 hook: the element carries data-account-slot so the portal can swap
- * "Log in" for the signed-in family ("Hi, Sam · 2 upcoming") by reading the
- * session cookie, without changing the static page. See docs/portal-phase-2.md.
+ * Account entry point in the header. Pages are static and identical for
+ * everyone, so a signed-in family's name is filled in after load from /api/me
+ * (only when the lc_signed_in hint cookie says it's worth asking). See docs/portal.md.
  */
 import { accountHref, isExternal } from '@/lib/enroll';
 
@@ -25,8 +23,22 @@ const href = accountHref();
     <circle cx="12" cy="8.5" r="4" fill="none" stroke="currentColor" stroke-width="2"></circle>
     <path d="M4.5 20c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
   </svg>
-  <span>Family login</span>
+  <span data-account-label>Family login</span>
 </a>
+
+<script>
+  // Static pages are the same for everyone; if this browser has signed in
+  // before, ask the server who it is and greet them.
+  if (document.cookie.includes('lc_signed_in=1')) {
+    fetch('/api/me', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((me) => {
+        if (!me?.signedIn) return;
+        for (const el of document.querySelectorAll<HTMLElement>('[data-account-label]')) el.textContent = `Hi, ${me.firstName}`;
+      })
+      .catch(() => {});
+  }
+</script>
 
 <style>
   .account-link {

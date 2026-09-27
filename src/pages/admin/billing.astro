@@ -1,0 +1,105 @@
+---
+/** Staff: monthly autopay at a glance. Charges that need a person, and what's coming on the 1st. */
+import Base from '@/layouts/Base.astro';
+import { billingOverview, failureReason, markPaidOutsideStripe, stopRemainingPayments, totalDue, waiveLateFee } from '@/server/billing';
+import { formatCents } from '@/lib/pricing';
+
+export const prerender = false;
+const viewer = Astro.locals.user;
+if (!Astro.locals.isAdmin || !viewer) return new Response('Not found', { status: 404 });
+
+let notice = '';
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const id = String(form.get('id') ?? '');
+  if (form.get('action') === 'paid' && (await markPaidOutsideStripe(id, viewer.id))) notice = 'Marked as paid.';
+  if (form.get('action') === 'waive' && (await waiveLateFee(id, viewer.id))) notice = 'Late fee waived.';
+  if (form.get('action') === 'stop') notice = `Stopped ${await stopRemainingPayments(id, viewer.id)} upcoming charge(s) for that family’s class.`;
+}
+
+const { needsAttention, nextDue, nextDueRows } = await billingOverview();
+const fmt = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
+---
+
+<Base title="Billing" noindex>
+  <section class="wrap admin">
+    <p class="eyebrow"><a href="/admin">Staff</a></p>
+    <h1>Monthly autopay</h1>
+    {notice && <p class="notice" role="status">{notice}</p>}
+
+    <h2>Needs attention ({needsAttention.length})</h2>
+    {
+      needsAttention.length ? (
+        <table>
+          <thead><tr><th>Family</th><th>For</th><th>Amount</th><th>What happened</th><th></th></tr></thead>
+          <tbody>
+            {needsAttention.map(({ i, family }) => (
+              <tr>
+                <td>{family}</td>
+                <td>{i.label}<br /><span class="muted">due {fmt(i.dueDate)}</span></td>
+                <td>{formatCents(totalDue(i))}{i.lateFeeCents > 0 && <><br /><span class="muted">incl. {formatCents(i.lateFeeCents)} late fee</span></>}</td>
+                <td>
+                  {i.status === 'processing' ? 'Charge in progress' : `${failureReason(i.lastError ?? '')} (${i.attempts} ${i.attempts === 1 ? 'try' : 'tries'})`}
+                  <br /><span class="muted">{i.status === 'failed' ? (i.retryOn ? `Retrying ${fmt(i.retryOn)}` : 'Waiting for the family to pay') : ''}</span>
+                </td>
+                <td>
+                  <div class="actions">
+                    <form method="post"><input type="hidden" name="id" value={i.id} /><button name="action" value="paid" class="btn btn--outline btn--sm">Paid by cash/check</button></form>
+                    {i.lateFeeCents > 0 && <form method="post"><input type="hidden" name="id" value={i.id} /><button name="action" value="waive" class="btn btn--outline btn--sm">Waive late fee</button></form>}
+                    <form method="post" data-confirm="Stop all remaining charges for this family’s class?"><input type="hidden" name="id" value={i.orderId} /><button name="action" value="stop" class="btn btn--outline btn--sm">Stop payments</button></form>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p class="muted">Nothing. Every charge so far has gone through.</p>
+      )
+    }
+
+    <h2>{nextDue ? `Next: ${fmt(nextDue)}, ${nextDueRows.length} charge${nextDueRows.length === 1 ? '' : 's'}, ${formatCents(total)}` : 'No upcoming charges'}</h2>
+    {
+      nextDueRows.length > 0 && (
+        <table>
+          <thead><tr><th>Family</th><th>For</th><th>Amount</th><th></th></tr></thead>
+          <tbody>
+            {nextDueRows.map(({ i, family }) => (
+              <tr>
+                <td>{family}</td>
+                <td>{i.label}</td>
+                <td>{formatCents(i.amountCents)}</td>
+                <td>
+                  <div class="actions">
+                    <form method="post" data-confirm="Stop all remaining charges for this family’s class? Use this when a family withdraws."><input type="hidden" name="id" value={i.orderId} /><button name="action" value="stop" class="btn btn--outline btn--sm">Stop payments</button></form>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )
+    }
+    <p class="muted">Charges run automatically each morning. Failed charges are retried on the 4th and 7th, and the family is emailed each time with a link to pay. A month still unpaid on the 11th gets a $15 late fee (you can waive it here). When a family withdraws, use Stop payments; refunds are issued in the Stripe dashboard.</p>
+  </section>
+</Base>
+
+<script>
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-confirm]')) {
+    form.addEventListener('submit', (e) => {
+      if (!confirm(form.dataset.confirm)) e.preventDefault();
+    });
+  }
+</script>
+
+<style>
+  .admin { padding-block: var(--space-2xl) var(--space-3xl); display: grid; gap: var(--space-m); }
+  h2 { font-size: var(--step-1); margin-top: var(--space-m); }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+  .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: flex-end; }
+  .notice { padding: 0.7rem 1rem; background: var(--ok-tint); color: var(--ok); border-radius: var(--r-sm); font-weight: 600; }
+</style>

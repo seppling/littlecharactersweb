@@ -27,7 +27,7 @@ const fromPrice = program.priceFrom ?? next?.price;
     <span class="tape pcard__kind">{kindLabels[program.kind].singular}</span>
     <div class="pcard__body">
       <H class="pcard__title">{program.title}</H>
-      <span class="pcard__age">{ageLabel(program.ages)}</span>
+      <span class="pcard__age">{ageLabel(program.ages, program.agesLabel)}</span>
       <p class="pcard__tagline">{program.tagline}</p>
       <dl class="pcard__facts">
         {

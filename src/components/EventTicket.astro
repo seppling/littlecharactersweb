@@ -9,11 +9,14 @@ interface Props {
 }
 
 const { event } = Astro.props;
-const first = eventDate(event.times[0].start);
+const dated = event.times.length > 0;
+const first = dated
+  ? eventDate(event.times[0].start)
+  : { month: new Date(`${event.tba}-15T12:00`).toLocaleDateString('en-US', { month: 'short' }), day: 'TBA', weekday: 'Save the date' };
 const venue = event.venue ?? locationById(event.locationId ?? '')?.name;
 const kindLabel: Record<EventItem['kind'], string> = {
   show: 'Show',
-  community: 'Community',
+  community: 'Free class',
   'drop-off': 'Drop-off',
   inclusive: 'Inclusive',
   geode: 'Geode · 18+',
@@ -30,6 +33,7 @@ const kindLabel: Record<EventItem['kind'], string> = {
     <span class="tape">{kindLabel[event.kind]}</span>
     <h3>{event.title}</h3>
     <p class="ticket__times script">
+      {!dated && <span>Date coming soon</span>}
       {
         event.times.map((t, i) => {
           const d = eventDate(t.start);
@@ -46,8 +50,8 @@ const kindLabel: Record<EventItem['kind'], string> = {
     </p>
     <p class="ticket__summary">{event.summary}</p>
     <div class="ticket__actions">
-      {event.cta && <a class="btn btn--sm btn--amber" href={event.cta.href}>{event.cta.label}</a>}
-      <a class="ticket__cal" href={`/events/${event.slug}.ics`} download>Add to calendar</a>
+      {event.cta && <a class="btn btn--sm btn--orange" href={event.cta.href}>{event.cta.label}</a>}
+      {dated && <a class="ticket__cal" href={`/events/${event.slug}.ics`} download>Add to calendar</a>}
       {(event.price || event.ages) && (
         <span class="ticket__price script">{[event.ages && `Ages ${event.ages}`, event.price].filter(Boolean).join(' · ')}</span>
       )}
@@ -79,7 +83,7 @@ const kindLabel: Record<EventItem['kind'], string> = {
     gap: 0.1rem;
     padding: 1.2rem 0.5rem;
     background: var(--gel);
-    color: var(--ink);
+    color: var(--gel-on);
     border-radius: var(--r-md) 0 0 var(--r-md);
     border-right: 3px dashed var(--stage-raise);
     text-align: center;
@@ -93,6 +97,7 @@ const kindLabel: Record<EventItem['kind'], string> = {
   }
   .ticket__day {
     font-family: var(--font-display);
+    white-space: nowrap;
     font-weight: 800;
     font-stretch: 75%;
     font-size: 3rem;

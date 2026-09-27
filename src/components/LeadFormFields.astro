@@ -1,0 +1,19 @@
+---
+/**
+ * Hidden fields every lead form needs: which form it is, which program (for
+ * "notify me"), and a honeypot that people never see but spam bots fill in.
+ * Forms using this post to /api/leads; the script in Base.astro shows the
+ * confirmation in place.
+ */
+interface Props {
+  kind: 'contact' | 'newsletter' | 'notify' | 'camps';
+  program?: string;
+}
+const { kind, program } = Astro.props;
+---
+
+<input type="hidden" name="kind" value={kind} />
+{program && <input type="hidden" name="program" value={program} />}
+<div class="hp" aria-hidden="true">
+  <label>Leave this empty <input name="website" tabindex="-1" autocomplete="off" /></label>
+</div>

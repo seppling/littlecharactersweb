@@ -1,4 +1,5 @@
 ---
+import LeadFormFields from '@/components/LeadFormFields.astro';
 import Base from '@/layouts/Base.astro';
 import AgePicker from '@/components/AgePicker.astro';
 import Character from '@/components/Character.astro';
@@ -6,29 +7,62 @@ import PhotoFrame from '@/components/PhotoFrame.astro';
 import ProgramCard from '@/components/ProgramCard.astro';
 import EventTicket from '@/components/EventTicket.astro';
 import { programs, programBySlug } from '@/data/programs';
-import { events } from '@/data/events';
-import { locations } from '@/data/locations';
+import { events, sortKey } from '@/data/events';
+import { locations, parking } from '@/data/locations';
 import { testimonials } from '@/data/testimonials';
+import { team } from '@/data/team';
 import { site } from '@/config/site';
 
+import castSillyFaces from '@/assets/photos/cast-silly-faces.webp';
+import teacherWithStudents from '@/assets/photos/teacher-with-students.webp';
+import rehearsingOnStage from '@/assets/photos/rehearsing-on-stage.webp';
+import carnivalShow from '@/assets/photos/carnival-show.webp';
+
 const featured = programs.filter((p) => p.featured);
-const upcoming = events.filter((e) => e.brand === 'lc').slice(0, 3);
-const miniCamp = programBySlug('thanksgiving-mini-camp')!;
-const venues = locations.filter((l) => l.id === 'hq' || l.id === 'marigold');
+const upcoming = [...events]
+  .filter((e) => e.brand === 'lc' && e.times.length)
+  .sort((a, b) => sortKey(a).localeCompare(sortKey(b)))
+  .slice(0, 3);
+const hq = locations.find((l) => l.id === 'hq')!;
+const hannah = team[0];
 
 // The pathway is a real progression: where most students start, and where they go next.
 const pathway = [
-  { age: '4–6', title: 'First steps', cast: 'dancer', gel: 'lilac', slugs: ['abcs-of-theater', 'little-characters-camp'] },
-  { age: '5–10', title: 'Find your voice', cast: 'magician', gel: 'cyan', slugs: ['theater-games', 'intro-to-theater', 'kids-improv'] },
-  { age: '7–13', title: 'Make your own', cast: 'artist', gel: 'amber', slugs: ['produce-a-show', 'intermediate-improv', 'film-101'] },
-  { age: '10–17', title: 'Take the stage', cast: 'royal', gel: 'magenta', slugs: ['scenes-and-monologues', 'middle-school-improv', 'techies'] },
+  { age: '4–6', title: 'First steps', cast: 'professor', gel: 'yellow', slugs: ['stories-and-songs'] },
+  { age: '7–10', title: 'Find your voice', cast: 'magician', gel: 'teal', slugs: ['intro-to-theater', 'yes-and-improv'] },
+  { age: '7+', title: 'Make your own', cast: 'artist', gel: 'orange', slugs: ['produce-a-show', 'film-creation'] },
+  { age: '9–17', title: 'Take the stage', cast: 'dancer', gel: 'purple', slugs: ['performance-troupe', 'geode-acting-studio'] },
+] as const;
+
+// "Our Approach", from the current home page.
+const approach = [
+  {
+    title: 'Meet you where you’re at',
+    body: 'We are all born beautiful individuals with differing gifts. We meet students where they are, whether nervous or excited, first-timers or masters of the stage, and help each little character feel comfortable and curious to learn.',
+    image: { src: teacherWithStudents, alt: 'A teacher with a group of young students' },
+    gel: 'yellow',
+  },
+  {
+    title: 'Learn and rehearse',
+    body: 'We build a team through games, exercises and trust experiences. Then we build confidence, express emotions and grow communication skills by working on scenes, scripts and character development.',
+    image: { src: rehearsingOnStage, alt: 'Students rehearsing a scene on stage', position: '50% 60%' },
+    gel: 'teal',
+  },
+  {
+    title: 'Encourage and perform!',
+    body: 'Performing can be intimidating! We share affirmations with each other and give one-on-one prep time with teachers. It’s a gift to showcase our hard work for our loved ones.',
+    image: { src: carnivalShow, alt: 'Students performing a carnival-themed show on stage', position: '60% 50%' },
+    gel: 'red',
+  },
 ] as const;
 
 const extras = [
-  { slug: 'private-lessons', title: 'Private lessons', body: 'Audition prep, playwriting, acting and singing, one-on-one.', cast: 'professor' },
-  { slug: 'ovation', title: 'Ovation', body: 'A monthly class for people with special needs, made with It’s Good to See You Productions.', cast: 'artist' },
-  { slug: 'birthday-parties', title: 'Birthday parties', body: 'Two hours on our stage, with games, a party coordinator and room for cake.', cast: 'royal' },
-  { slug: 'parents-night-out', title: 'Parents’ Night Out', body: 'Crafts, games and snacks at HQ until 8. Downtown is a mile away.', cast: 'magician' },
+  { href: '/programs/parents-night-out', title: 'Parents’ Night Out', body: 'Once a month, 5–8 pm. Games, crafts and snacks while you head downtown. $30 for the first child.', cast: 'royal', geode: false },
+  { href: '/programs/parties', title: 'Parties', body: 'Two hours on our stage for any occasion, with your own teacher/party coordinator.', cast: 'artist', geode: false },
+  { href: '/programs/private-lessons', title: 'Private lessons', body: 'Audition help, playwriting, one-on-one acting and singing, by the hour.', cast: 'professor', geode: false },
+  { href: '/programs/free-community-class', title: 'Free community class', body: 'A free theater class once a month, open to all ages.', cast: 'magician', geode: false },
+  { href: '/about#schools', title: 'At your school', body: 'We’re a verified CCSD school vendor, running after-school programs around the county.', cast: 'stagehand', geode: false },
+  { href: '/geode', title: 'Geode: tweens, teens & adults', body: 'Acting Studio, Performance Troupe and Third Thursday Improv Nights for 11 and up.', cast: 'dancer', geode: true },
 ] as const;
 ---
 
@@ -37,69 +71,87 @@ const extras = [
   <section class="hero">
     <div class="wrap hero__grid">
       <div class="hero__copy">
-        <p class="eyebrow">Theater for kids in Athens & Winterville, GA</p>
+        <p class="eyebrow">Encouraging creative hearts through theater · Athens, GA</p>
         <h1>Every person has a <span class="lit">story</span> worth telling.</h1>
         <p class="lede">
-          Classes, camps and shows where kids ages 4 and up build confidence, creativity, and a place where they belong.
+          Through dramatic play, improv, storytelling and script writing, we help children, teens and adults discover confidence, creativity, and a place where they belong.
         </p>
         <AgePicker />
         <ul class="hero__promises" aria-label="Why families choose us">
-          <li><span class="tape" data-gel="amber">First class free</span></li>
-          <li><span class="tape" data-gel="cyan" data-tilt="right">7 students per teacher</span></li>
-          <li><span class="tape" data-gel="green">Scholarships available</span></li>
+          <li><span class="tape" data-gel="yellow">First class free</span></li>
+          <li><span class="tape" data-gel="teal" data-tilt="right">Classes of 8–12 kids</span></li>
+          <li><span class="tape" data-gel="orange">Pay-what-you-can available</span></li>
         </ul>
       </div>
 
-      <div class="hero__stage" aria-hidden="false">
-        <div class="pool pool--magenta" aria-hidden="true"></div>
-        <div class="pool pool--cyan" aria-hidden="true"></div>
-        <div class="pool pool--amber" aria-hidden="true"></div>
+      <div class="hero__stage">
+        <div class="pool pool--red" aria-hidden="true"></div>
+        <div class="pool pool--teal" aria-hidden="true"></div>
+        <div class="pool pool--orange" aria-hidden="true"></div>
         <PhotoFrame
           shape="arch"
-          ratio="4 / 5"
-          gel="amber"
+          ratio="5 / 6"
+          gel="orange"
           eager
           class="hero__photo"
-          image={{ alt: 'Little Characters campers taking a bow on the Marigold Auditorium stage', placeholder: 'Curtain call at Marigold Auditorium' }}
+          sizes="(max-width: 960px) 80vw, 440px"
+          image={{ src: castSillyFaces, alt: 'A cast of Little Characters students and teachers making silly faces on stage', position: '42% 35%' }}
         />
         <div class="hero__cast" aria-hidden="true">
-          <Character name="royal" size={96} />
-          <Character name="magician" size={74} />
-          <Character name="artist" size={88} />
+          <Character name="royal" size={84} />
+          <Character name="magician" size={64} />
+          <Character name="artist" size={76} />
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ───────────── Now enrolling (call sheet) ───────────── -->
+  <!-- ───────────── Now (call sheet) ───────────── -->
   <section class="now" aria-labelledby="now-title">
     <div class="wrap">
       <div class="now__sheet">
         <h2 id="now-title" class="now__title">On the call sheet</h2>
         <ul class="now__list">
-          <li>
+          <li data-gel="yellow">
             <a href="/programs?kind=class">
-              <span class="now__when script">Fall 2026 · now through Dec 12</span>
-              <strong>Weekly classes are in session</strong>
-              <span>Join anytime. Your first class is free.</span>
+              <span class="now__when script">Fall 2026 · Aug 17 – Dec 18</span>
+              <strong>Registration is open for all classes</strong>
+              <span>New to Little Characters? Your first class is free.</span>
             </a>
           </li>
-          <li>
-            <a href={`/programs/${miniCamp.slug}`}>
-              <span class="now__when script">Nov 23–25 · Ages 5–11</span>
-              <strong>{miniCamp.title}</strong>
-              <span>9 spots left for Thanksgiving break mornings.</span>
+          <li data-gel="teal">
+            <a href="/events#jack-and-the-beanstalk">
+              <span class="now__when script">Sun, Sep 27 · 1:30 pm</span>
+              <strong>Jack and the Beanstalk</strong>
+              <span>Our Performance Troupe at the Botanical Garden’s Insectival.</span>
             </a>
           </li>
-          <li>
-            <a href="/events#fall-variety-show">
-              <span class="now__when script">Nov 14 & 15 · Marigold Auditorium</span>
-              <strong>LC Fall Variety Show</strong>
-              <span>Improv, scenes and short films by our students.</span>
+          <li data-gel="orange">
+            <a href="/programs/stories-and-songs">
+              <span class="now__when script">Starts Tue, Oct 20</span>
+              <strong>Stories and Songs & Acting Studio</strong>
+              <span>New Tuesday classes for ages 4–6 and 11–17.</span>
             </a>
           </li>
         </ul>
       </div>
+    </div>
+  </section>
+
+  <!-- ───────────── First class free ───────────── -->
+  <section class="trial" aria-labelledby="trial-title">
+    <div class="wrap trial__inner">
+      <div class="trial__copy">
+        <p class="eyebrow">Not sure yet?</p>
+        <h2 id="trial-title">The first class is on us.</h2>
+        <p>New students can try a weekly class free. Come see if it clicks, and only pay if your child wants to stay.</p>
+        <a class="btn btn--primary" href="/programs?trial=1">Find a class to try <span class="arrow" aria-hidden="true">→</span></a>
+      </div>
+      <ol class="trial__steps">
+        <li><span class="trial__n">1</span><strong>Pick a class</strong><span>Look for the “First class free” tag in the class finder.</span></li>
+        <li><span class="trial__n">2</span><strong>Choose “Try the first class free”</strong><span>Nothing is due when you enroll.</span></li>
+        <li><span class="trial__n">3</span><strong>Stay if they love it</strong><span>Continue monthly or pay the semester, right from your family account.</span></li>
+      </ol>
     </div>
   </section>
 
@@ -109,7 +161,7 @@ const extras = [
       <div class="section-head">
         <p class="eyebrow">Where does my kid start?</p>
         <h2 id="path-title">A class for every age, and a next step when they’re ready.</h2>
-        <p class="lede">Most students start with games and pretend play, then move on to making their own shows, films and scenes. Teachers will help you pick.</p>
+        <p class="lede">Classes are grouped by age, from pretend play for 4-year-olds to writing and staging an original show. Not sure which fits? <a href="/contact?topic=class">Ask us</a> and we’ll help you pick.</p>
       </div>
 
       <ol class="risers">
@@ -140,15 +192,37 @@ const extras = [
     </div>
   </section>
 
+  <!-- ───────────── Approach ───────────── -->
+  <section class="section section--hall" aria-labelledby="approach-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Our approach</p>
+        <h2 id="approach-title">From “I’m nervous” to a bow on stage.</h2>
+      </div>
+      <ol class="approach">
+        {
+          approach.map((a, i) => (
+            <li class="approach__step" data-gel={a.gel}>
+              <PhotoFrame image={a.image} gel={a.gel} ratio="4 / 3" sizes="(max-width: 960px) 100vw, 380px" />
+              <span class="approach__num">{i + 1}</span>
+              <h3>{a.title}</h3>
+              <p>{a.body}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
   <!-- ───────────── Featured programs ───────────── -->
-  <section class="section section--hall" aria-labelledby="featured-title">
+  <section class="section" aria-labelledby="featured-title">
     <div class="wrap">
       <div class="section-head section-head--split">
         <div class="stack">
-          <p class="eyebrow">Enrolling now</p>
-          <h2 id="featured-title">Classes & camps</h2>
+          <p class="eyebrow">Fall 2026 · registration open</p>
+          <h2 id="featured-title">This semester’s classes</h2>
         </div>
-        <a class="btn btn--outline" href="/programs">See all programs <span class="arrow" aria-hidden="true">→</span></a>
+        <a class="btn btn--outline" href="/programs">See everything <span class="arrow" aria-hidden="true">→</span></a>
       </div>
       <div class="grid" style="--min: 300px">
         {featured.map((p) => <ProgramCard program={p} />)}
@@ -157,27 +231,27 @@ const extras = [
   </section>
 
   <!-- ───────────── Why families choose us ───────────── -->
-  <section class="section" aria-labelledby="why-title">
+  <section class="section section--hall" aria-labelledby="why-title">
     <div class="wrap why">
       <div class="why__facts">
         <p class="eyebrow">Why families choose Little Characters</p>
         <h2 id="why-title">Small groups. Big confidence.</h2>
         <dl class="facts">
-          <div data-gel="cyan">
-            <dt>7 : 1</dt>
-            <dd>Students per teacher in every class, with classes capped at 20. Camps run 8 campers per counselor.</dd>
+          <div data-gel="teal">
+            <dt>8–12</dt>
+            <dd>Kids in a typical class, with about 7 students per teacher. We add teachers when friends need extra attention.</dd>
           </div>
-          <div data-gel="amber">
+          <div data-gel="orange">
             <dt>Free</dt>
-            <dd>A new student’s first class is always free, so your child can try it before you commit.</dd>
+            <dd>New students can try most weekly classes free, so your child can see if it clicks before you commit.</dd>
           </div>
-          <div data-gel="magenta">
+          <div data-gel="red">
             <dt>15% off</dt>
-            <dd>For siblings, and for students taking more than one class a week.</dd>
+            <dd>For multiple students or multiple classes. Pay the semester up front and save 10%.</dd>
           </div>
-          <div data-gel="green">
-            <dt>Always</dt>
-            <dd>Scholarships are available. We never want cost to keep a student off the stage.</dd>
+          <div data-gel="purple">
+            <dt>1 : 1</dt>
+            <dd>Class buddies for students with higher needs, through the UGA Speech and Hearing Clinic, at no cost to parents.</dd>
           </div>
         </dl>
       </div>
@@ -186,20 +260,20 @@ const extras = [
           <p>“{testimonials[0].quote}”</p>
         </blockquote>
         <figcaption>{testimonials[0].attribution}</figcaption>
-        <div class="quote__cast" aria-hidden="true"><Character name="professor" size={82} /></div>
+        <div class="quote__cast" aria-hidden="true"><Character name="royal" size={82} /></div>
       </figure>
     </div>
   </section>
 
   <!-- ───────────── More ways to play ───────────── -->
-  <section class="section section--tight section--hall" aria-labelledby="extras-title">
+  <section class="section section--tight" aria-labelledby="extras-title">
     <div class="wrap">
       <h2 id="extras-title" class="extras__title">More ways to play</h2>
       <ul class="extras">
         {
           extras.map((x) => (
             <li>
-              <a href={`/programs/${x.slug}`} class="extra">
+              <a href={x.href} class:list={['extra', { 'extra--geode': x.geode }]}>
                 <span class="extra__cast" aria-hidden="true">
                   <Character name={x.cast} size={54} />
                 </span>
@@ -211,15 +285,6 @@ const extras = [
             </li>
           ))
         }
-        <li>
-          <a href="/geode" class="extra extra--geode">
-            <span class="extra__cast" aria-hidden="true"><Character name="dancer" gel="lilac" size={54} /></span>
-            <span class="extra__text">
-              <strong>Geode, for teens & adults</strong>
-              <span>Acting, improv and First Friday Improv Nights for ages 12 to 100.</span>
-            </span>
-          </a>
-        </li>
       </ul>
     </div>
   </section>
@@ -244,56 +309,60 @@ const extras = [
   <!-- ───────────── Founder ───────────── -->
   <section class="section" aria-labelledby="founder-title">
     <div class="wrap founder">
-      <PhotoFrame shape="arch" ratio="4 / 5" gel="magenta" class="founder__photo" image={{ alt: 'Hannah Eppling, founder of Little Characters', placeholder: 'Hannah with students' }} />
+      <PhotoFrame shape="arch" ratio="4 / 5" gel="red" class="founder__photo" image={hannah.image} sizes="(max-width: 960px) 70vw, 420px" />
       <div class="founder__text stack" style="--stack: var(--space-l)">
         <p class="eyebrow">Our story</p>
-        <h2 id="founder-title">It started with a Pre-K moms’ group text.</h2>
+        <h2 id="founder-title">It started with a Pre‑K moms’ group text.</h2>
         <div class="prose">
           <p>
-            In recent years, Athens lost several of its historic kids’ theater companies. Hannah Eppling, a local mom and theater educator, started Little Characters in {site.founded} to keep the joy and connection of theater going for students of every age and ability, beginning with a few summer camps.
+            A few years ago, Athens lost several of its historic kids’ theater companies. Hannah Eppling, a local mom and theater educator who has taught theater to 3- to 50-year-olds, started Little Characters in {site.founded} to keep the joy and connection of theater going for students of all ages and abilities, beginning with summer camps.
           </p>
-          <p>
-            We believe everyone is born with beautiful, unique gifts. Our job is to help students find theirs and help them flourish, on stage and off.
-          </p>
+          <p>“I have a yearning to encourage the hearts of others, and my favorite way to do so is through theater.”</p>
         </div>
         <div class="founder__links">
-          <a class="btn btn--outline" href="/about">Meet the team <span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn--outline" href="/about">Meet the whole team <span class="arrow" aria-hidden="true">→</span></a>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ───────────── Places ───────────── -->
-  <section class="section section--tight section--hall" aria-labelledby="places-title">
-    <div class="wrap">
-      <h2 id="places-title" class="places__title">Where you’ll find us</h2>
-      <div class="places">
-        {
-          venues.map((v, i) => (
-            <article class="place" data-gel={i === 0 ? 'amber' : 'cyan'}>
-              <span class="tape">{v.usedFor}</span>
-              <h3>{v.name}</h3>
-              <p class="script">{v.address.join(', ')}</p>
-              {v.notes && <p>{v.notes}</p>}
-              <a class="link-arrow" href={v.mapUrl} rel="noopener">Get directions</a>
-            </article>
-          ))
-        }
+  <!-- ───────────── Visit ───────────── -->
+  <section class="section section--tight section--hall" aria-labelledby="visit-title">
+    <div class="wrap visit">
+      <div class="visit__place stack">
+        <p class="eyebrow">Visit HQ</p>
+        <h2 id="visit-title">Come see our space</h2>
+        <p class="script">{hq.address.join(', ')}</p>
+        <p>{hq.notes}</p>
+        <a class="link-arrow" href={hq.mapUrl} rel="noopener">Get directions</a>
       </div>
+      <dl class="visit__parking">
+        <div data-gel="teal"><dt>Walk in</dt><dd>{parking.walkIn}</dd></div>
+        <div data-gel="orange"><dt>Drop off (after 5 pm)</dt><dd>{parking.dropOff}</dd></div>
+        <div data-gel="red"><dt>Running late?</dt><dd>{parking.late}</dd></div>
+      </dl>
     </div>
   </section>
 
   <!-- ───────────── Give + list ───────────── -->
   <section class="section section--tight" aria-labelledby="give-title">
     <div class="wrap signup">
-      <div class="signup__give" data-gel="magenta">
+      <div class="signup__give">
         <h2 id="give-title">Help a kid take the stage.</h2>
-        <p>Every gift goes to the scholarship fund, so any student can join, whatever their family can pay. $85 covers a month of ABCs of Theater.</p>
-        <a class="btn btn--primary" href="/give">Give to the scholarship fund</a>
+        <p>Gifts to our scholarship fund let us invite anyone to our programs without cost getting in the way. You can also volunteer, donate costumes and props, or shop our wish list.</p>
+        <a class="btn btn--primary" href="/give">Ways to support LC</a>
       </div>
-      <form class="signup__list" action={site.forms.newsletterAction || undefined} method="post">
-        <h2>Be first in line for summer camp.</h2>
-        <p>Camps fill fast. Get registration dates, new classes and show announcements. About one email a month.</p>
+      <form
+        class="signup__list"
+        action="/api/leads"
+        method="post"
+        data-lead-form
+        data-success-title="You’re on the list!"
+        data-success-body="We’ll email you camp dates, new classes and show announcements. No spam, and you can unsubscribe any time."
+      >
+        <LeadFormFields kind="newsletter" />
+        <h2>Be first to hear about camps.</h2>
+        <p>Mini camps, workshops and summer camp fill fast. Get dates, new classes and show announcements by email.</p>
         <div class="signup__row">
           <label class="sr-only" for="signup-email">Email address</label>
           <input class="input" id="signup-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
@@ -335,7 +404,7 @@ const extras = [
     z-index: -1;
     inset: 12% -10% -2%;
     border-radius: 50%;
-    background: radial-gradient(closest-side, var(--amber) 0 62%, color-mix(in srgb, var(--amber) 40%, transparent) 78%, transparent);
+    background: radial-gradient(closest-side, var(--yellow) 0 62%, color-mix(in srgb, var(--yellow) 40%, transparent) 78%, transparent);
   }
   .hero__promises {
     list-style: none;
@@ -360,9 +429,9 @@ const extras = [
     filter: blur(2px);
     z-index: 0;
   }
-  .pool--magenta { width: 58%; aspect-ratio: 1; background: radial-gradient(closest-side, var(--magenta-tint), color-mix(in srgb, var(--magenta) 55%, transparent) 70%, transparent); top: 4%; left: -6%; }
-  .pool--cyan { width: 64%; aspect-ratio: 1; background: radial-gradient(closest-side, var(--cyan-tint), color-mix(in srgb, var(--cyan) 50%, transparent) 70%, transparent); top: -4%; right: -10%; }
-  .pool--amber { width: 70%; aspect-ratio: 1; background: radial-gradient(closest-side, var(--amber-tint), color-mix(in srgb, var(--amber) 60%, transparent) 70%, transparent); bottom: 2%; left: 18%; }
+  .pool--red { width: 58%; aspect-ratio: 1; background: radial-gradient(closest-side, var(--red-tint), color-mix(in srgb, var(--red) 50%, transparent) 70%, transparent); top: 4%; left: -6%; }
+  .pool--teal { width: 64%; aspect-ratio: 1; background: radial-gradient(closest-side, var(--teal-tint), color-mix(in srgb, var(--teal) 50%, transparent) 70%, transparent); top: -4%; right: -10%; }
+  .pool--orange { width: 70%; aspect-ratio: 1; background: radial-gradient(closest-side, var(--orange-tint), color-mix(in srgb, var(--orange) 55%, transparent) 70%, transparent); bottom: 2%; left: 18%; }
 
   .hero__cast {
     position: absolute;
@@ -374,7 +443,6 @@ const extras = [
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-    padding-inline: 0;
     pointer-events: none;
   }
   .hero__cast :global(.character) {
@@ -392,22 +460,16 @@ const extras = [
   .now { background: var(--ink); color: var(--on-stage); padding-bottom: var(--space-xl); }
   .now__sheet {
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: var(--space-l);
-    align-items: center;
+    gap: var(--space-m);
     padding-top: var(--space-l);
   }
   .now__title {
     font-family: var(--font-script);
-    font-size: var(--step--1);
+    font-size: var(--step-0);
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--amber);
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    align-self: stretch;
-    text-align: center;
+    letter-spacing: 0.08em;
+    color: var(--yellow);
   }
   .now__list {
     list-style: none;
@@ -419,18 +481,33 @@ const extras = [
   }
   .now__list a {
     display: grid;
-    gap: 0.2rem;
+    gap: 0.25rem;
     height: 100%;
-    padding: 1rem 1.2rem;
-    border: 1.5px solid var(--stage-line);
-    border-radius: var(--r-md);
-    color: var(--on-stage-mute);
+    padding: 1rem 1.2rem 1.1rem;
+    background: var(--paper);
+    border-top: 6px solid var(--gel);
+    border-radius: var(--r-sm) var(--r-sm) var(--r-md) var(--r-md);
+    color: var(--ink-soft);
     text-decoration: none;
-    transition: border-color 150ms, background 150ms;
+    box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.7);
+    transition: transform 150ms, box-shadow 150ms;
   }
-  .now__list a:hover { border-color: var(--amber); background: var(--stage-raise); }
-  .now__when { color: var(--amber); font-size: var(--step--1); }
-  .now__list strong { font-family: var(--font-display); font-size: var(--step-1); font-stretch: 90%; color: var(--on-stage); }
+  .now__list a:hover { transform: translateY(-3px); box-shadow: 0 16px 30px -14px rgba(0, 0, 0, 0.85), 0 0 0 3px var(--gel); }
+  .now__when { color: var(--gel-ink); font-size: var(--step--1); font-weight: 700; }
+  .now__list strong { font-family: var(--font-display); font-size: var(--step-1); font-stretch: 90%; color: var(--ink); }
+
+  /* ── First class free ── */
+  .trial { background: var(--yellow); color: var(--ink); padding-block: var(--space-xl); }
+  .trial__inner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: var(--space-xl); align-items: center; }
+  .trial__copy { display: grid; gap: var(--space-s); justify-items: start; }
+  .trial__copy .eyebrow { color: var(--ink); }
+  .trial h2 { font-size: var(--step-4); }
+  .trial__copy p { max-width: 38ch; }
+  .trial__steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-m); counter-reset: none; }
+  .trial__steps li { display: grid; align-content: start; gap: 0.3rem; padding: 1rem 1.1rem; background: var(--paper); border: 2px solid var(--ink); border-radius: var(--r-md); box-shadow: 4px 4px 0 var(--ink); }
+  .trial__steps span:last-child { font-size: var(--step--1); color: var(--ink-soft); }
+  .trial__n { display: grid; place-items: center; width: 1.9rem; height: 1.9rem; border-radius: 50%; background: var(--ink); color: var(--yellow); font-family: var(--font-display); font-weight: 800; }
+  .trial__steps strong { font-family: var(--font-display); font-size: var(--step-0); line-height: 1.2; }
 
   /* ── Risers ── */
   .risers {
@@ -439,7 +516,6 @@ const extras = [
     padding: 0;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0;
     align-items: end;
   }
   .riser { display: grid; justify-items: start; }
@@ -447,7 +523,7 @@ const extras = [
   .riser__cast :global(.character) { margin-bottom: -2px; }
   .riser__block {
     width: 100%;
-    min-height: calc(12rem + var(--rise) * 3.25rem);
+    min-height: calc(10rem + var(--rise) * 3rem);
     padding: 1.2rem 1.2rem 1.4rem;
     background: var(--gel-tint);
     border-top: 6px solid var(--gel);
@@ -461,6 +537,34 @@ const extras = [
   .riser h3 { font-size: var(--step-2); }
   .riser ul { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gap: 0.3rem; }
   .riser ul a { color: var(--ink); font-weight: 600; text-decoration-color: var(--gel); }
+
+  /* ── Approach ── */
+  .approach {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-l);
+  }
+  .approach__step { position: relative; display: grid; gap: 0.7rem; align-content: start; }
+  .approach__num {
+    position: absolute;
+    top: 0.8rem;
+    left: 0.8rem;
+    display: grid;
+    place-items: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 50%;
+    background: var(--gel);
+    color: var(--gel-on);
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.2rem;
+  }
+  .approach h3 { font-size: var(--step-2); margin-top: 0.3rem; }
+  .approach p { color: var(--ink-soft); }
 
   /* ── Why ── */
   .why {
@@ -490,8 +594,10 @@ const extras = [
     position: relative;
     margin: 0;
     padding: var(--space-xl) var(--space-xl) var(--space-2xl);
-    background: var(--amber-tint);
+    background: var(--paper);
+    border: 2px solid var(--ink);
     border-radius: var(--r-lg);
+    box-shadow: 8px 8px 0 var(--yellow);
   }
   .quote blockquote { margin: 0; }
   .quote p {
@@ -500,7 +606,7 @@ const extras = [
     font-size: var(--step-1);
     line-height: 1.4;
   }
-  .quote figcaption { margin-top: var(--space-m); font-family: var(--font-script); font-weight: 700; color: var(--amber-ink); }
+  .quote figcaption { margin-top: var(--space-m); font-family: var(--font-script); font-weight: 700; color: var(--purple); }
   .quote__cast { position: absolute; right: 1.2rem; bottom: -1.2rem; }
 
   /* ── Extras ── */
@@ -510,7 +616,7 @@ const extras = [
     margin: 0;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-m);
   }
   .extra {
@@ -533,10 +639,7 @@ const extras = [
   .extra__text { display: grid; gap: 0.15rem; }
   .extra__text strong { font-family: var(--font-display); font-size: 1.15rem; font-stretch: 90%; }
   .extra__text span { color: var(--ink-soft); font-size: var(--step--1); line-height: 1.45; }
-  .extra--geode { background: var(--lilac-tint); border-color: transparent; }
-  @media (min-width: 1040px) {
-    .extras li:last-child { grid-column: span 2; }
-  }
+  .extra--geode { background: var(--purple-tint); border-color: transparent; }
 
   /* ── Shows ── */
   .shows { position: relative; overflow: hidden; }
@@ -544,8 +647,8 @@ const extras = [
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(ellipse 30% 55% at 12% 0%, color-mix(in srgb, var(--magenta) 22%, transparent), transparent 70%),
-      radial-gradient(ellipse 28% 50% at 88% 0%, color-mix(in srgb, var(--cyan) 20%, transparent), transparent 70%);
+      radial-gradient(ellipse 30% 55% at 12% 0%, color-mix(in srgb, var(--red) 22%, transparent), transparent 70%),
+      radial-gradient(ellipse 28% 50% at 88% 0%, color-mix(in srgb, var(--teal) 22%, transparent), transparent 70%);
     pointer-events: none;
   }
   .shows .wrap { position: relative; }
@@ -563,21 +666,15 @@ const extras = [
   .founder h2 { font-size: var(--step-3); }
   .founder__links { display: flex; gap: var(--space-m); flex-wrap: wrap; }
 
-  /* ── Places ── */
-  .places__title { font-size: var(--step-3); margin-bottom: var(--space-xl); }
-  .places { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-l); }
-  .place {
-    display: grid;
-    gap: 0.6rem;
-    align-content: start;
-    padding: var(--space-xl);
-    background: var(--paper);
-    border-radius: var(--r-lg);
-    border: 1.5px solid var(--line);
-  }
-  .place h3 { font-size: var(--step-2); margin-top: 0.4rem; }
-  .place p { color: var(--ink-soft); }
-  .place .link-arrow { justify-self: start; margin-top: 0.3rem; }
+  /* ── Visit ── */
+  .visit { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: var(--space-2xl); align-items: start; }
+  .visit h2 { font-size: var(--step-3); }
+  .visit__place p { color: var(--ink-soft); }
+  .visit__place .link-arrow { display: inline-block; }
+  .visit__parking { margin: 0; display: grid; gap: var(--space-m); }
+  .visit__parking div { padding: 1.1rem 1.3rem; background: var(--paper); border-radius: var(--r-md); border-left: 6px solid var(--gel); }
+  .visit__parking dt { font-family: var(--font-display); font-weight: 750; font-size: 1.1rem; font-stretch: 92%; }
+  .visit__parking dd { margin: 0.2rem 0 0; color: var(--ink-soft); font-size: var(--step--1); }
 
   /* ── Give + signup ── */
   .signup { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-l); }
@@ -589,9 +686,9 @@ const extras = [
     border-radius: var(--r-lg);
   }
   .signup h2 { font-size: var(--step-3); }
-  .signup__give { background: var(--magenta-tint); }
+  .signup__give { background: var(--red-tint); }
   .signup__give .btn { justify-self: start; }
-  .signup__list { background: var(--cyan-tint); }
+  .signup__list { background: var(--teal-tint); }
   .signup__row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
   .signup__row .input { flex: 1 1 14rem; border-radius: 999px; }
 
@@ -599,20 +696,21 @@ const extras = [
   @media (max-width: 960px) {
     .hero__grid { grid-template-columns: 1fr; gap: var(--space-l); }
     .hero__copy { padding-bottom: 0; }
-    .hero__stage :global(.hero__photo) { width: min(78%, 380px); }
-    .now__sheet { grid-template-columns: 1fr; }
-    .now__title { writing-mode: horizontal-tb; transform: none; text-align: left; }
+    .hero__stage :global(.hero__photo) { width: min(80%, 380px); }
     .now__list { grid-template-columns: 1fr; }
+    .trial__inner { grid-template-columns: 1fr; }
     .risers { grid-template-columns: 1fr 1fr; row-gap: var(--space-l); }
     .riser__block { min-height: 0; border-radius: var(--r-md) !important; }
-    .why, .founder { grid-template-columns: 1fr; }
+    .approach { grid-template-columns: 1fr; max-width: 520px; }
+    .why, .founder, .visit { grid-template-columns: 1fr; }
     .founder :global(.founder__photo) { width: min(70%, 340px); }
-    .signup, .places { grid-template-columns: 1fr; }
+    .signup { grid-template-columns: 1fr; }
+    .extras { grid-template-columns: 1fr 1fr; }
   }
-  @media (max-width: 560px) {
-    .risers { grid-template-columns: 1fr; }
+  @media (max-width: 600px) {
+    .risers, .extras, .trial__steps { grid-template-columns: 1fr; }
     .facts { grid-template-columns: 1fr; }
-    .hero__cast :global(.character) { width: 62px; }
+    .hero__cast :global(.character) { width: 58px; }
     .hero__cast { width: 100%; }
   }
 </style>
