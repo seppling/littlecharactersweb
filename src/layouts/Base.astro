@@ -2,18 +2,33 @@
 import '@/styles/global.css';
 import SiteHeader from '@/components/SiteHeader.astro';
 import SiteFooter from '@/components/SiteFooter.astro';
-import { site } from '@/config/site';
+import StaffBar from '@/components/StaffBar.astro';
+import { href, rich } from '@/content/rich';
+import type { Seo } from '@/content/types';
 
 interface Props {
   title?: string;
   description?: string;
+  /** Search-engine title and description set in the editor; they win over the page's own. */
+  seo?: Seo;
   /** Pages that paint their own first band set this to skip the default top spacing. */
   bleed?: boolean;
   /** Keep portal pages out of search engines. */
   noindex?: boolean;
+  /** Where staff edit this page's content (shows an "Edit this page" button to them). */
+  edit?: string;
+  /** Staff pages have their own navigation. */
+  staffBar?: boolean;
 }
 
-const { title, description = site.description, noindex = false } = Astro.props;
+const { site, vars, locationById } = Astro.locals.content;
+const { seo, noindex = false, edit, staffBar = true } = Astro.props;
+const title = seo?.title || Astro.props.title;
+const description = seo?.description || Astro.props.description || site.description;
+const hq = locationById('hq');
+const announcement = site.announcement?.show && site.announcement.text ? site.announcement : undefined;
+/** Structured data for search engines. `<` is escaped so text from the editor can't close the script tag. */
+const jsonLd = (data: unknown) => JSON.stringify(data).replace(/</g, '\\u003c');
 const fullTitle = title ? `${title} · ${site.shortName}` : `${site.name} · Athens, GA`;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
 ---
@@ -36,7 +51,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
     <meta property="og:url" content={canonical} />
     <script
       type="application/ld+json"
-      set:html={JSON.stringify({
+      set:html={jsonLd({
         '@context': 'https://schema.org',
         '@type': 'PerformingArtsTheater',
         name: site.name,
@@ -49,18 +64,33 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
         founder: { '@type': 'Person', name: site.founder },
         address: {
           '@type': 'PostalAddress',
-          streetAddress: '1635 W Broad St',
+          streetAddress: hq?.address[0] ?? '1635 W Broad St',
           addressLocality: 'Athens',
           addressRegion: 'GA',
-          postalCode: '30606',
+          postalCode: hq?.address.at(-1)?.match(/\d{5}/)?.[0] ?? '30606',
           addressCountry: 'US',
         },
-        sameAs: [site.social.instagram, site.social.facebook],
+        sameAs: [site.social.instagram, site.social.facebook].filter(Boolean),
       })}
     />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
+    {staffBar && <StaffBar edit={edit} />}
+    {
+      announcement && (
+        <div class="announce" data-gel={announcement.gel ?? 'yellow'} role="note">
+          <p>
+            <span set:html={rich(announcement.text, vars)} />
+            {announcement.link?.label && (
+              <a href={href(announcement.link.href, vars)}>
+                {announcement.link.label} <span aria-hidden="true">→</span>
+              </a>
+            )}
+          </p>
+        </div>
+      )
+    }
     {
       site.preview && (
         <div class="preview-banner" role="note">
@@ -122,6 +152,15 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
 </script>
 
 <style>
+  .announce {
+    padding: 0.55rem var(--gutter);
+    background: var(--gel);
+    color: var(--gel-on);
+    text-align: center;
+    font-weight: 600;
+  }
+  .announce p { margin: 0 auto; max-width: 70ch; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.25rem 0.75rem; }
+  .announce :global(a) { color: inherit; font-weight: 700; text-underline-offset: 0.2em; }
   .preview-banner {
     display: flex;
     flex-wrap: wrap;

@@ -1,11 +1,12 @@
 /**
  * Database schema (Postgres, via Drizzle).
  *
- * The class catalog stays in src/data/ for now; enrollments reference catalog
- * sessions by their stable `sessionId`. Everything family-related lives here.
+ * Families, enrollments and billing, plus the site's editable content (the
+ * class catalog, events, page text and photos). Enrollments reference catalog
+ * sessions by their stable `sessionId`.
  */
 import { relations } from 'drizzle-orm';
-import { bigint, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { bigint, boolean, customType, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 const id = () => text('id').primaryKey().$defaultFn(() => crypto.randomUUID());
 const created = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
@@ -152,7 +153,7 @@ export const order = pgTable(
     householdId: text('household_id')
       .notNull()
       .references(() => household.id, { onDelete: 'cascade' }),
-    /** Catalog session id (src/data/programs.ts). */
+    /** Catalog session id (a session of a program in the site content). */
     sessionId: text('session_id').notNull(),
     status: text('status', { enum: ['draft', 'pending_payment', 'paid', 'cancelled'] }).notNull().default('draft'),
     plan: text('plan', { enum: ['monthly', 'full', 'trial', 'once', 'waitlist'] }).notNull().default('monthly'),
@@ -261,6 +262,80 @@ export const devEmail = pgTable('dev_email', {
   text: text('text').notNull(),
   createdAt: created(),
 });
+
+// ───────────── Site content (edited at /admin/content) ─────────────
+
+const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({ dataType: () => 'bytea' });
+
+/**
+ * One class, event, FAQ, team member… or one page's text. The public site
+ * shows `published`; `draft` holds edits that haven't been published yet.
+ * An entry with no `published` isn't on the site.
+ */
+export const contentEntry = pgTable(
+  'content_entry',
+  {
+    /** programs | events | faqs | team | testimonials | locations | pages */
+    collection: text('collection').notNull(),
+    id: text('id').notNull(),
+    /** Order within its list. */
+    position: integer('position').notNull().default(0),
+    published: jsonb('published'),
+    draft: jsonb('draft'),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    publishedBy: text('published_by'),
+    updatedAt: updated(),
+    updatedBy: text('updated_by'),
+  },
+  (t) => [primaryKey({ columns: [t.collection, t.id] })],
+);
+
+/** Every version that went live, for the history page and "Restore". `data` is null when the item was deleted. */
+export const contentVersion = pgTable(
+  'content_version',
+  {
+    id: id(),
+    collection: text('collection').notNull(),
+    entryId: text('entry_id').notNull(),
+    data: jsonb('data'),
+    action: text('action', { enum: ['seed', 'publish', 'restore', 'delete'] }).notNull(),
+    userId: text('user_id'),
+    createdAt: created(),
+  },
+  (t) => [index('content_version_entry_idx').on(t.collection, t.entryId, t.createdAt)],
+);
+
+/** Goes up by one on every content change, so each running server knows to reload. */
+export const contentRevision = pgTable('content_revision', {
+  id: integer('id').primaryKey(),
+  revision: bigint('revision', { mode: 'number' }).notNull().default(0),
+});
+
+/** Photos uploaded in the editor. The resized copies the site serves are in mediaFile. */
+export const media = pgTable('media', {
+  id: text('id').primaryKey(),
+  filename: text('filename').notNull(),
+  /** Suggested description, filled into the photo field when it's picked. */
+  alt: text('alt'),
+  width: integer('width').notNull(),
+  height: integer('height').notNull(),
+  bytes: integer('bytes').notNull(),
+  uploadedBy: text('uploaded_by'),
+  createdAt: created(),
+});
+
+export const mediaFile = pgTable(
+  'media_file',
+  {
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => media.id, { onDelete: 'cascade' }),
+    width: integer('width').notNull(),
+    contentType: text('content_type').notNull(),
+    data: bytea('data').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.mediaId, t.width] })],
+);
 
 /** Who did what: payments, admin views, data changes. Kept small on purpose. */
 export const auditLog = pgTable(

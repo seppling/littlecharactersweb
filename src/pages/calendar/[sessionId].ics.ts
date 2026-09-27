@@ -1,18 +1,15 @@
-import type { APIRoute, GetStaticPaths } from 'astro';
-import { programs } from '@/data/programs';
-import { locationById } from '@/data/locations';
+import type { APIRoute } from 'astro';
 import { site } from '@/config/site';
 
 /** "Add to calendar" for a class: one repeating event for the whole term. */
-export const getStaticPaths: GetStaticPaths = () =>
-  programs.flatMap((program) => program.sessions.map((session) => ({ params: { sessionId: session.id }, props: { program, session } })));
-
 const BYDAY = { Mon: 'MO', Tue: 'TU', Wed: 'WE', Thu: 'TH', Fri: 'FR', Sat: 'SA', Sun: 'SU' } as const;
 const escape = (s: string) => s.replace(/\\/g, '\\\\').replace(/([,;])/g, '\\$1').replace(/\n/g, '\\n');
 
-export const GET: APIRoute = ({ props }) => {
-  const { program, session } = props as { program: (typeof programs)[number]; session: (typeof programs)[number]['sessions'][number] };
-  const loc = locationById(session.locationId);
+export const GET: APIRoute = ({ params, locals }) => {
+  const found = locals.content.findSession(params.sessionId ?? '');
+  if (!found) return new Response('Not found', { status: 404 });
+  const { program, session } = found;
+  const loc = locals.content.locationById(session.locationId);
   // First meeting on or after the start date that falls on one of the class days.
   const days = session.days.map((d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(d));
   const first = new Date(`${session.startDate}T12:00:00Z`);

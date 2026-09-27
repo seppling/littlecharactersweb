@@ -14,7 +14,7 @@
  *  - New students' first class is free (a "trial": nothing due today).
  *  - Parents' Night Out: first child full price, each additional child less.
  */
-import type { Program, Session, Weekday } from '@/data/types';
+import type { Program, Session, Weekday } from '@/content/types';
 
 export const PRICING = {
   multiDiscount: 0.15,

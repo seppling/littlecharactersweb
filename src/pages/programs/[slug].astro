@@ -4,22 +4,16 @@ import Base from '@/layouts/Base.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
 import ProgramCard from '@/components/ProgramCard.astro';
 import FaqList from '@/components/FaqList.astro';
-import { programs, kindLabels } from '@/data/programs';
-import { faqs } from '@/data/faqs';
-import { locationById } from '@/data/locations';
-import type { Program } from '@/data/types';
+import { kindLabels } from '@/content/catalog';
+import { rich } from '@/content/rich';
 import { ageLabel, dateRange, dayList, feeLabel, price, spotsLabel, timeRange } from '@/lib/format';
 import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
 import { hasFreeFirstClass } from '@/lib/pricing';
 
-export function getStaticPaths() {
-  return programs.map((program) => ({ params: { slug: program.slug }, props: { program } }));
-}
-
-interface Props {
-  program: Program;
-}
-const { program } = Astro.props;
+const { programs, faqs, locationById, programBySlug, vars } = Astro.locals.content;
+const found = programBySlug(Astro.params.slug ?? '');
+if (!found) return Astro.rewrite('/404');
+const program = found;
 
 const bookable = program.sessions.filter((s) => s.status !== 'closed');
 const firstOpen = bookable.find((s) => s.status === 'open' || s.status === 'few-left') ?? bookable[0];
@@ -46,7 +40,7 @@ const backHref = program.brand === 'geode' ? '/geode' : isCamp ? '/camps' : `/pr
 const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindLabels[program.kind].plural;
 ---
 
-<Base title={program.title} description={program.summary}>
+<Base title={program.title} description={program.summary} edit={`/admin/content/programs/${program.slug}`}>
   <article data-gel={program.gel}>
     <header class="phero">
       <div class="wrap phero__grid">
@@ -100,7 +94,7 @@ const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindL
       <div class="pbody__main">
         <section class="stack" aria-labelledby="about-title">
           <h2 id="about-title">About this {program.kind === 'camp' ? 'camp' : program.kind === 'class' ? 'class' : 'program'}</h2>
-          <div class="prose">{program.description.map((para) => <p>{para}</p>)}</div>
+          <div class="prose">{program.description.map((para) => <p set:html={rich(para, vars)} />)}</div>
         </section>
 
         <section class="stack" aria-labelledby="skills-title">

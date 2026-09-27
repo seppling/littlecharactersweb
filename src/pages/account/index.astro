@@ -6,13 +6,13 @@ import Base from '@/layouts/Base.astro';
 import Character from '@/components/Character.astro';
 import SignInPanel from '@/components/portal/SignInPanel.astro';
 import { getDb, schema } from '@/server/db';
-import { ageOn, createStudent, detailsFresh, ensureHousehold, findSession, listEnrollments, listOrders, listStudents, studentInput } from '@/server/family';
-import { locationById } from '@/data/locations';
+import { ageOn, createStudent, detailsFresh, ensureHousehold, listEnrollments, listOrders, listStudents, studentInput } from '@/server/family';
 import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
 import { failureReason, listInstallments, totalDue } from '@/server/billing';
 
 export const prerender = false;
+const { locationById } = Astro.locals.content;
 
 const user = Astro.locals.user;
 const errors: Record<string, string> = {};
@@ -56,7 +56,7 @@ const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', d
 const receipts = [
   ...orders.map((o) => ({
     date: o.paidAt!,
-    label: `${findSession(o.sessionId)?.program.title ?? o.sessionId}${o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (semester)' : o.plan === 'monthly' ? ' (first month + fees)' : ''}`,
+    label: `${Astro.locals.content.findSession(o.sessionId)?.program.title ?? o.sessionId}${o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (semester)' : o.plan === 'monthly' ? ' (first month + fees)' : ''}`,
     amountCents: o.totalCents,
   })),
   ...installments.filter((i) => i.status === 'paid').map((i) => ({ date: i.paidAt!, label: `${i.label}${i.lateFeeCents ? ' + late fee' : ''}`, amountCents: totalDue(i) })),
@@ -65,7 +65,7 @@ const today = todayInAthens();
 
 const upcoming = enrollments
   .map(({ enrollment, student }) => {
-    const found = findSession(enrollment.sessionId);
+    const found = Astro.locals.content.findSession(enrollment.sessionId);
     if (!found) return null;
     const next = meetings(found.session).find((m) => m >= today);
     return { enrollment, student, ...found, next };

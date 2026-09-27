@@ -1,0 +1,142 @@
+---
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { collections, collectionKeys } from '@/content/collections';
+import { pages, pageKeys } from '@/content/pages';
+import { listEntries, pendingCounts, recentChanges } from '@/server/content';
+import { BASE, editTarget, when } from '@/lib/editor';
+
+export const prerender = false;
+
+const isAdmin = Astro.locals.isAdmin;
+const pending = isAdmin ? await pendingCounts() : new Map<string, number>();
+const pageEntries = isAdmin ? new Map((await listEntries('pages')).map((e) => [e.id, e])) : new Map();
+const counts = isAdmin ? new Map(await Promise.all(collectionKeys.map(async (k) => [k, (await listEntries(k)).length] as const))) : new Map();
+const recent = isAdmin ? await recentChanges() : [];
+const anyDrafts = [...pending.values()].some((n) => n > 0);
+const verb = { publish: 'published', restore: 'restored', delete: 'deleted', seed: 'added' } as const;
+---
+
+<AdminShell title="Site content">
+  <div class="admin-page">
+    <div class="admin-head">
+      <div>
+        <h1>Site content</h1>
+        <p class="admin-intro">
+          Change what families see on the site. Your edits are saved as drafts, and nothing changes on the site until you press <strong>Publish</strong>.
+        </p>
+      </div>
+      {
+        anyDrafts && (
+          <a class="btn btn--outline" href={`${BASE}/preview?to=/`}>
+            Preview unpublished changes
+          </a>
+        )
+      }
+    </div>
+
+    <section class="admin-section" aria-labelledby="common-title">
+      <h2 id="common-title">Most used</h2>
+      <ul class="tiles">
+        <li>
+          <a class="tile tile--feature" href={`${BASE}/pages/site`}>
+            <strong>Announcement & site settings</strong>
+            <span>The announcement bar, contact details, social links and parking directions.</span>
+            {pageEntries.get('site')?.draft && <span class="badge badge--changed">Unpublished changes</span>}
+          </a>
+        </li>
+        <li>
+          <a class="tile tile--feature" href={`${BASE}/programs`}>
+            <strong>Classes & camps</strong>
+            <span>Dates, times, prices and registration for each term.</span>
+            {pending.get('programs') ? <span class="badge badge--changed">{pending.get('programs')} unpublished</span> : null}
+          </a>
+        </li>
+        <li>
+          <a class="tile tile--feature" href={`${BASE}/pages/home#f-callSheet`}>
+            <strong>What’s on now</strong>
+            <span>The “On the call sheet” cards near the top of the home page.</span>
+          </a>
+        </li>
+        <li>
+          <a class="tile tile--feature" href={`${BASE}/events`}>
+            <strong>Shows & events</strong>
+            <span>Performances, Parents’ Night Out, free classes and improv nights.</span>
+            {pending.get('events') ? <span class="badge badge--changed">{pending.get('events')} unpublished</span> : null}
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <section class="admin-section" aria-labelledby="pages-title">
+      <h2 id="pages-title">Pages</h2>
+      <ul class="tiles">
+        {
+          pageKeys
+            .filter((k) => k !== 'site')
+            .map((k) => (
+              <li>
+                <a class="tile" href={`${BASE}/pages/${k}`}>
+                  <strong>{pages[k].label}</strong>
+                  <span>{pages[k].url}</span>
+                  {pageEntries.get(k)?.draft && <span class="badge badge--changed">Unpublished changes</span>}
+                </a>
+              </li>
+            ))
+        }
+      </ul>
+    </section>
+
+    <section class="admin-section" aria-labelledby="lists-title">
+      <h2 id="lists-title">Lists</h2>
+      <ul class="tiles">
+        {
+          collectionKeys.map((k) => (
+            <li>
+              <a class="tile" href={`${BASE}/${k}`}>
+                <strong>{collections[k].label}</strong>
+                <span>{counts.get(k) ?? 0} in the list</span>
+                {pending.get(k) ? <span class="badge badge--changed">{pending.get(k)} unpublished</span> : null}
+              </a>
+            </li>
+          ))
+        }
+        <li>
+          <a class="tile" href={`${BASE}/photos`}>
+            <strong>Photos</strong>
+            <span>Upload photos and describe them. Pick them from any photo field.</span>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    {
+      recent.length > 0 && (
+        <section class="admin-section" aria-labelledby="recent-title">
+          <h2 id="recent-title">Recent changes</h2>
+          <ul class="versions">
+            {recent.map((r) => {
+              const target = editTarget(r.collection, r.entryId);
+              const name = target ? (r.data ? target.title(r.data as Record<string, unknown>) : r.entryId) : r.entryId;
+              return (
+                <li class="version">
+                  <p>
+                    {r.action === 'delete' ? (
+                      <strong>{name}</strong>
+                    ) : (
+                      <a href={`${BASE}/${r.collection}/${r.entryId}`}>
+                        <strong>{name}</strong>
+                      </a>
+                    )}{' '}
+                    {verb[r.action]}
+                    {r.userName ? ` by ${r.userName.split(' ')[0]}` : ''}
+                  </p>
+                  <small>{when(r.createdAt)}</small>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )
+    }
+  </div>
+</AdminShell>

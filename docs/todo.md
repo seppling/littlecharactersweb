@@ -15,10 +15,12 @@ A running checklist for the new site and family portal. Check items off in a com
 
 ## Hannah: content gaps
 
+These can now be done directly in the editor at /admin/content once the site is live (see `content-editor.md`).
+
 - [ ] Fall 2026 Variety Show date, times and ticket link (shows as "date coming soon" on `/events`).
-- [ ] Summer 2027 camp weeks, ages and prices. Add them as sessions labeled "Week 1", "Week 2"… and the week grid on `/camps` appears on its own.
-- [ ] Does Ovation continue? If so, the next dates. If not, remove it from `src/data/programs.ts`.
-- [ ] A donation link (Stripe Payment Link, Givebutter, PayPal…) for `site.givingUrl`.
+- [ ] Summer 2027 camp weeks, ages and prices. Add them as sessions named "Week 1", "Week 2"… on Summer Camp, and the week grid on `/camps` appears on its own.
+- [ ] Does Ovation continue? If so, add the next dates in the editor. If not, delete it there.
+- [ ] A donation link (Stripe Payment Link, Givebutter, PayPal…): Site settings → Giving → Donation link.
 - [ ] 3–5 more testimonials from families, with permission to use a first name.
 - [ ] Remaining non-price conflicts on the old site (Carley Pedan vs Peden; Yes, And… on Monday or Wednesday; Produce a Show teachers; the 7:1 vs 8:1 ratio). See `content-inventory.md`.
 - [ ] Adult improv night: $25 (Fall 2026 page) or $20 (Geode page)? There's no monthly option, so this one needs a call.
@@ -34,8 +36,9 @@ A running checklist for the new site and family portal. Check items off in a com
 ## Launch checklist (Phase 1 site)
 
 - [ ] Create hosting, database and email accounts (see `infrastructure.md`) and add their keys as environment variables.
+- [ ] Put Hannah's email (and any other staff) in `ADMIN_EMAILS` on the host, and walk through `content-editor.md` together.
 - [x] Contact, newsletter, "notify me" and summer-camp forms work: saved on the site, contact messages emailed to Hannah (`LEADS_EMAIL`), confirmation shown in place. Staff see everything at `/admin/leads`, with a CSV of signup emails.
-- [ ] Set `site.preview = false`.
+- [ ] Turn off the "Design preview" note: /admin/content → Announcement & site settings.
 - [ ] Add 301 redirects from old Squarespace URLs (listed in `content-inventory.md`).
 - [ ] Point littlecharacters.org at the new host, then cancel Squarespace after a quiet month.
 - [ ] Delete the stray `/services` interior-design demo page on the old site in the meantime.
@@ -75,6 +78,5 @@ Launch:
 - [ ] Run Studio Director and the portal side by side for one term, then cancel Studio Director.
 
 Next features (after launch):
-- [ ] Move the class catalog into the database with an admin editor, so a new term doesn't need a deploy.
+- [x] Content editor at /admin/content: classes and sessions, events, FAQs, team, page text, photos and an announcement bar, with drafts, preview, publish and history (`content-editor.md`).
 - [ ] Waitlist offers by email, reminders before the first class, "sign out everywhere", optional passkeys.
-- [ ] Keystatic editor for FAQs, team and events, if Hannah wants to edit copy herself.

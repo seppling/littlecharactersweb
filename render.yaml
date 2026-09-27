@@ -2,7 +2,8 @@
 # (Render dashboard → New → Blueprint → pick this repository).
 #
 # This is a demo, not production:
-#  - a throwaway database that resets when the preview sleeps or redeploys;
+#  - a throwaway database that resets when the preview sleeps or redeploys
+#    (including anything changed in the content editor at /admin/content);
 #  - sign-in codes and all other emails appear at /dev/mailbox instead of being sent;
 #  - payments use the "test payment" button, or Stripe's real card form if you
 #    add Stripe TEST keys below (card 4242 4242 4242 4242).
@@ -31,7 +32,11 @@ services:
         value: .data/pglite
       - key: CRON_SECRET
         generateValue: true
-      # Your email, to see the staff pages (/admin) after signing in.
+      # Fewer memory pools: resizing uploaded photos then peaks around 370 MB
+      # instead of 430 MB, well inside the free plan's 512 MB.
+      - key: MALLOC_ARENA_MAX
+        value: "2"
+      # Your email, to see the staff pages and the content editor (/admin) after signing in.
       - key: ADMIN_EMAILS
         sync: false
       # Optional: Stripe TEST keys (sk_test_…, pk_test_…) to try the real card form.

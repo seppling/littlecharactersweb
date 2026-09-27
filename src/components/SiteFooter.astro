@@ -1,11 +1,10 @@
 ---
 import Logo from './Logo.astro';
 import Character from './Character.astro';
-import { site } from '@/config/site';
-import { locations } from '@/data/locations';
 import { accountHref } from '@/lib/enroll';
 
-const hq = locations.find((l) => l.id === 'hq')!;
+const { site, locations, locationById } = Astro.locals.content;
+const hq = locationById('hq') ?? locations[0];
 const year = new Date().getFullYear();
 ---
 
@@ -24,8 +23,8 @@ const year = new Date().getFullYear();
         <Logo tone="light" />
         <p>Encouraging creative hearts through theater. Classes, camps and shows for ages 4 to 100, since {site.founded}.</p>
         <div class="socials">
-          <a href={site.social.instagram} rel="noopener">Instagram</a>
-          <a href={site.social.facebook} rel="noopener">Facebook</a>
+          {site.social.instagram && <a href={site.social.instagram} rel="noopener">Instagram</a>}
+          {site.social.facebook && <a href={site.social.facebook} rel="noopener">Facebook</a>}
         </div>
       </div>
 

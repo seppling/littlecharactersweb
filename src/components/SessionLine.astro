@@ -3,10 +3,11 @@
  * One schedulable session, formatted like a line on a call sheet.
  * The Enroll button is where Discovery hands off to Enrollment.
  */
-import type { Program, Session } from '@/data/types';
-import { locationById } from '@/data/locations';
+import type { Program, Session } from '@/content/types';
 import { dateRange, dayList, price, spotsLabel, timeRange } from '@/lib/format';
 import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
+
+const { locationById } = Astro.locals.content;
 
 interface Props {
   program: Program;

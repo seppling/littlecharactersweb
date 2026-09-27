@@ -6,97 +6,51 @@ import Character from '@/components/Character.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
 import ProgramCard from '@/components/ProgramCard.astro';
 import EventTicket from '@/components/EventTicket.astro';
-import { programs, programBySlug } from '@/data/programs';
-import { events, sortKey } from '@/data/events';
-import { locations, parking } from '@/data/locations';
-import { testimonials } from '@/data/testimonials';
-import { team } from '@/data/team';
-import { site } from '@/config/site';
+import { sortKey } from '@/content/catalog';
+import { href, rich } from '@/content/rich';
 
-import castSillyFaces from '@/assets/photos/cast-silly-faces.webp';
-import teacherWithStudents from '@/assets/photos/teacher-with-students.webp';
-import rehearsingOnStage from '@/assets/photos/rehearsing-on-stage.webp';
-import carnivalShow from '@/assets/photos/carnival-show.webp';
+const { programs, events, programBySlug, locationById, locations, testimonial, testimonials, site, vars, pages } = Astro.locals.content;
+const page = pages.home;
 
 const featured = programs.filter((p) => p.featured);
 const upcoming = [...events]
   .filter((e) => e.brand === 'lc' && e.times.length)
   .sort((a, b) => sortKey(a).localeCompare(sortKey(b)))
   .slice(0, 3);
-const hq = locations.find((l) => l.id === 'hq')!;
-const hannah = team[0];
-
-// The pathway is a real progression: where most students start, and where they go next.
-const pathway = [
-  { age: '4–6', title: 'First steps', cast: 'professor', gel: 'yellow', slugs: ['stories-and-songs'] },
-  { age: '7–10', title: 'Find your voice', cast: 'magician', gel: 'teal', slugs: ['intro-to-theater', 'yes-and-improv'] },
-  { age: '7+', title: 'Make your own', cast: 'artist', gel: 'orange', slugs: ['produce-a-show', 'film-creation'] },
-  { age: '9–17', title: 'Take the stage', cast: 'dancer', gel: 'purple', slugs: ['performance-troupe', 'geode-acting-studio'] },
-] as const;
-
-// "Our Approach", from the current home page.
-const approach = [
-  {
-    title: 'Meet you where you’re at',
-    body: 'We are all born beautiful individuals with differing gifts. We meet students where they are, whether nervous or excited, first-timers or masters of the stage, and help each little character feel comfortable and curious to learn.',
-    image: { src: teacherWithStudents, alt: 'A teacher with a group of young students' },
-    gel: 'yellow',
-  },
-  {
-    title: 'Learn and rehearse',
-    body: 'We build a team through games, exercises and trust experiences. Then we build confidence, express emotions and grow communication skills by working on scenes, scripts and character development.',
-    image: { src: rehearsingOnStage, alt: 'Students rehearsing a scene on stage', position: '50% 60%' },
-    gel: 'teal',
-  },
-  {
-    title: 'Encourage and perform!',
-    body: 'Performing can be intimidating! We share affirmations with each other and give one-on-one prep time with teachers. It’s a gift to showcase our hard work for our loved ones.',
-    image: { src: carnivalShow, alt: 'Students performing a carnival-themed show on stage', position: '60% 50%' },
-    gel: 'red',
-  },
-] as const;
-
-const extras = [
-  { href: '/programs/parents-night-out', title: 'Parents’ Night Out', body: 'Once a month, 5–8 pm. Games, crafts and snacks while you head downtown. $30 for the first child.', cast: 'royal', geode: false },
-  { href: '/programs/parties', title: 'Parties', body: 'Two hours on our stage for any occasion, with your own teacher/party coordinator.', cast: 'artist', geode: false },
-  { href: '/programs/private-lessons', title: 'Private lessons', body: 'Audition help, playwriting, one-on-one acting and singing, by the hour.', cast: 'professor', geode: false },
-  { href: '/programs/free-community-class', title: 'Free community class', body: 'A free theater class once a month, open to all ages.', cast: 'magician', geode: false },
-  { href: '/about#schools', title: 'At your school', body: 'We’re a verified CCSD school vendor, running after-school programs around the county.', cast: 'stagehand', geode: false },
-  { href: '/geode', title: 'Geode: tweens, teens & adults', body: 'Acting Studio, Performance Troupe and Third Thursday Improv Nights for 11 and up.', cast: 'dancer', geode: true },
-] as const;
+const hq = locationById('hq') ?? locations[0];
+const quote = testimonial(page.why.testimonial) ?? testimonials[0];
+const tapes = [{ gel: 'yellow' }, { gel: 'teal', tilt: 'right' }, { gel: 'orange' }] as const;
 ---
 
-<Base>
+<Base seo={page.seo} edit="/admin/content/pages/home">
   <!-- ───────────── Hero ───────────── -->
   <section class="hero">
     <div class="wrap hero__grid">
       <div class="hero__copy">
-        <p class="eyebrow">Encouraging creative hearts through theater · Athens, GA</p>
-        <h1>Every person has a <span class="lit">story</span> worth telling.</h1>
-        <p class="lede">
-          Through dramatic play, improv, storytelling and script writing, we help children, teens and adults discover confidence, creativity, and a place where they belong.
-        </p>
+        {page.hero.eyebrow && <p class="eyebrow">{page.hero.eyebrow}</p>}
+        <h1 set:html={rich(page.hero.headline, vars, { spotlight: 'lit' })} />
+        <p class="lede" set:html={rich(page.hero.intro, vars)} />
         <AgePicker />
-        <ul class="hero__promises" aria-label="Why families choose us">
-          <li><span class="tape" data-gel="yellow">First class free</span></li>
-          <li><span class="tape" data-gel="teal" data-tilt="right">Classes of 8–12 kids</span></li>
-          <li><span class="tape" data-gel="orange">Pay-what-you-can available</span></li>
-        </ul>
+        {
+          page.hero.promises.length > 0 && (
+            <ul class="hero__promises" aria-label="Why families choose us">
+              {page.hero.promises.map((promise, i) => (
+                <li>
+                  <span class="tape" data-gel={tapes[i % tapes.length].gel} data-tilt={'tilt' in tapes[i % tapes.length] ? 'right' : undefined}>
+                    {promise}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )
+        }
       </div>
 
       <div class="hero__stage">
         <div class="pool pool--red" aria-hidden="true"></div>
         <div class="pool pool--teal" aria-hidden="true"></div>
         <div class="pool pool--orange" aria-hidden="true"></div>
-        <PhotoFrame
-          shape="arch"
-          ratio="5 / 6"
-          gel="orange"
-          eager
-          class="hero__photo"
-          sizes="(max-width: 960px) 80vw, 440px"
-          image={{ src: castSillyFaces, alt: 'A cast of Little Characters students and teachers making silly faces on stage', position: '42% 35%' }}
-        />
+        <PhotoFrame shape="arch" ratio="5 / 6" gel="orange" eager class="hero__photo" sizes="(max-width: 960px) 80vw, 440px" image={page.hero.photo} />
         <div class="hero__cast" aria-hidden="true">
           <Character name="royal" size={84} />
           <Character name="magician" size={64} />
@@ -107,50 +61,50 @@ const extras = [
   </section>
 
   <!-- ───────────── Now (call sheet) ───────────── -->
-  <section class="now" aria-labelledby="now-title">
-    <div class="wrap">
-      <div class="now__sheet">
-        <h2 id="now-title" class="now__title">On the call sheet</h2>
-        <ul class="now__list">
-          <li data-gel="yellow">
-            <a href="/programs?kind=class">
-              <span class="now__when script">Fall 2026 · Aug 17 – Dec 18</span>
-              <strong>Registration is open for all classes</strong>
-              <span>New to Little Characters? Your first class is free.</span>
-            </a>
-          </li>
-          <li data-gel="teal">
-            <a href="/events#jack-and-the-beanstalk">
-              <span class="now__when script">Sun, Sep 27 · 1:30 pm</span>
-              <strong>Jack and the Beanstalk</strong>
-              <span>Our Performance Troupe at the Botanical Garden’s Insectival.</span>
-            </a>
-          </li>
-          <li data-gel="orange">
-            <a href="/programs/stories-and-songs">
-              <span class="now__when script">Starts Tue, Oct 20</span>
-              <strong>Stories and Songs & Acting Studio</strong>
-              <span>New Tuesday classes for ages 4–6 and 11–17.</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </section>
+  {
+    page.callSheet.items.length > 0 && (
+      <section class="now" aria-labelledby="now-title">
+        <div class="wrap">
+          <div class="now__sheet">
+            <h2 id="now-title" class="now__title">
+              {page.callSheet.heading}
+            </h2>
+            <ul class="now__list">
+              {page.callSheet.items.map((item) => (
+                <li data-gel={item.gel}>
+                  <a href={item.href ? href(item.href, vars) : undefined}>
+                    <span class="now__when script">{item.when}</span>
+                    <strong>{item.title}</strong>
+                    {item.text && <span>{item.text}</span>}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   <!-- ───────────── First class free ───────────── -->
   <section class="trial" aria-labelledby="trial-title">
     <div class="wrap trial__inner">
       <div class="trial__copy">
-        <p class="eyebrow">Not sure yet?</p>
-        <h2 id="trial-title">The first class is on us.</h2>
-        <p>New students can try a weekly class free. Come see if it clicks, and only pay if your child wants to stay.</p>
-        <a class="btn btn--primary" href="/programs?trial=1">Find a class to try <span class="arrow" aria-hidden="true">→</span></a>
+        {page.trial.eyebrow && <p class="eyebrow">{page.trial.eyebrow}</p>}
+        <h2 id="trial-title">{page.trial.heading}</h2>
+        <p set:html={rich(page.trial.body, vars)} />
+        <a class="btn btn--primary" href="/programs?trial=1">{page.trial.button} <span class="arrow" aria-hidden="true">→</span></a>
       </div>
       <ol class="trial__steps">
-        <li><span class="trial__n">1</span><strong>Pick a class</strong><span>Look for the “First class free” tag in the class finder.</span></li>
-        <li><span class="trial__n">2</span><strong>Choose “Try the first class free”</strong><span>Nothing is due when you enroll.</span></li>
-        <li><span class="trial__n">3</span><strong>Stay if they love it</strong><span>Continue monthly or pay the semester, right from your family account.</span></li>
+        {
+          page.trial.steps.map((step, i) => (
+            <li>
+              <span class="trial__n">{i + 1}</span>
+              <strong>{step.title}</strong>
+              <span>{step.text}</span>
+            </li>
+          ))
+        }
       </ol>
     </div>
   </section>
@@ -159,30 +113,30 @@ const extras = [
   <section class="section" aria-labelledby="path-title">
     <div class="wrap">
       <div class="section-head">
-        <p class="eyebrow">Where does my kid start?</p>
-        <h2 id="path-title">A class for every age, and a next step when they’re ready.</h2>
-        <p class="lede">Classes are grouped by age, from pretend play for 4-year-olds to writing and staging an original show. Not sure which fits? <a href="/contact?topic=class">Ask us</a> and we’ll help you pick.</p>
+        {page.pathway.eyebrow && <p class="eyebrow">{page.pathway.eyebrow}</p>}
+        <h2 id="path-title">{page.pathway.heading}</h2>
+        {page.pathway.lede && <p class="lede" set:html={rich(page.pathway.lede, vars)} />}
       </div>
 
       <ol class="risers">
         {
-          pathway.map((step, i) => (
+          page.pathway.steps.map((step, i) => (
             <li class="riser" data-gel={step.gel} style={`--rise: ${i}`}>
               <div class="riser__cast" aria-hidden="true">
-                <Character name={step.cast} size={72} />
+                <Character name={step.character} size={72} />
               </div>
               <div class="riser__block">
                 <span class="riser__age">Ages {step.age}</span>
                 <h3>{step.title}</h3>
                 <ul>
-                  {step.slugs.map((slug) => {
-                    const p = programBySlug(slug)!;
-                    return (
+                  {step.programs
+                    .map((slug) => programBySlug(slug))
+                    .filter((p) => p !== undefined)
+                    .map((p) => (
                       <li>
-                        <a href={`/programs/${slug}`}>{p.title}</a>
+                        <a href={`/programs/${p.slug}`}>{p.title}</a>
                       </li>
-                    );
-                  })}
+                    ))}
                 </ul>
               </div>
             </li>
@@ -196,17 +150,17 @@ const extras = [
   <section class="section section--hall" aria-labelledby="approach-title">
     <div class="wrap">
       <div class="section-head">
-        <p class="eyebrow">Our approach</p>
-        <h2 id="approach-title">From “I’m nervous” to a bow on stage.</h2>
+        {page.approach.eyebrow && <p class="eyebrow">{page.approach.eyebrow}</p>}
+        <h2 id="approach-title">{page.approach.heading}</h2>
       </div>
       <ol class="approach">
         {
-          approach.map((a, i) => (
+          page.approach.steps.map((a, i) => (
             <li class="approach__step" data-gel={a.gel}>
-              <PhotoFrame image={a.image} gel={a.gel} ratio="4 / 3" sizes="(max-width: 960px) 100vw, 380px" />
+              <PhotoFrame image={a.photo} gel={a.gel} ratio="4 / 3" sizes="(max-width: 960px) 100vw, 380px" />
               <span class="approach__num">{i + 1}</span>
               <h3>{a.title}</h3>
-              <p>{a.body}</p>
+              <p set:html={rich(a.body, vars)} />
             </li>
           ))
         }
@@ -215,67 +169,73 @@ const extras = [
   </section>
 
   <!-- ───────────── Featured programs ───────────── -->
-  <section class="section" aria-labelledby="featured-title">
-    <div class="wrap">
-      <div class="section-head section-head--split">
-        <div class="stack">
-          <p class="eyebrow">Fall 2026 · registration open</p>
-          <h2 id="featured-title">This semester’s classes</h2>
+  {
+    featured.length > 0 && (
+      <section class="section" aria-labelledby="featured-title">
+        <div class="wrap">
+          <div class="section-head section-head--split">
+            <div class="stack">
+              {page.featured.eyebrow && <p class="eyebrow">{page.featured.eyebrow}</p>}
+              <h2 id="featured-title">{page.featured.heading}</h2>
+            </div>
+            <a class="btn btn--outline" href="/programs">
+              See everything <span class="arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
+          <div class="grid" style="--min: 300px">
+            {featured.map((p) => (
+              <ProgramCard program={p} />
+            ))}
+          </div>
         </div>
-        <a class="btn btn--outline" href="/programs">See everything <span class="arrow" aria-hidden="true">→</span></a>
-      </div>
-      <div class="grid" style="--min: 300px">
-        {featured.map((p) => <ProgramCard program={p} />)}
-      </div>
-    </div>
-  </section>
+      </section>
+    )
+  }
 
   <!-- ───────────── Why families choose us ───────────── -->
   <section class="section section--hall" aria-labelledby="why-title">
     <div class="wrap why">
       <div class="why__facts">
-        <p class="eyebrow">Why families choose Little Characters</p>
-        <h2 id="why-title">Small groups. Big confidence.</h2>
+        {page.why.eyebrow && <p class="eyebrow">{page.why.eyebrow}</p>}
+        <h2 id="why-title">{page.why.heading}</h2>
         <dl class="facts">
-          <div data-gel="teal">
-            <dt>8–12</dt>
-            <dd>Kids in a typical class, with about 7 students per teacher. We add teachers when friends need extra attention.</dd>
-          </div>
-          <div data-gel="orange">
-            <dt>Free</dt>
-            <dd>New students can try most weekly classes free, so your child can see if it clicks before you commit.</dd>
-          </div>
-          <div data-gel="red">
-            <dt>15% off</dt>
-            <dd>For multiple students or multiple classes. Pay the semester up front and save 10%.</dd>
-          </div>
-          <div data-gel="purple">
-            <dt>1 : 1</dt>
-            <dd>Class buddies for students with higher needs, through the UGA Speech and Hearing Clinic, at no cost to parents.</dd>
-          </div>
+          {
+            page.why.facts.map((f) => (
+              <div data-gel={f.gel}>
+                <dt>{f.big}</dt>
+                <dd set:html={rich(f.text, vars)} />
+              </div>
+            ))
+          }
         </dl>
       </div>
-      <figure class="quote">
-        <blockquote>
-          <p>“{testimonials[0].quote}”</p>
-        </blockquote>
-        <figcaption>{testimonials[0].attribution}</figcaption>
-        <div class="quote__cast" aria-hidden="true"><Character name="royal" size={82} /></div>
-      </figure>
+      {
+        quote && (
+          <figure class="quote">
+            <blockquote>
+              <p>“{quote.quote}”</p>
+            </blockquote>
+            <figcaption>{quote.attribution}</figcaption>
+            <div class="quote__cast" aria-hidden="true">
+              <Character name="royal" size={82} />
+            </div>
+          </figure>
+        )
+      }
     </div>
   </section>
 
   <!-- ───────────── More ways to play ───────────── -->
   <section class="section section--tight" aria-labelledby="extras-title">
     <div class="wrap">
-      <h2 id="extras-title" class="extras__title">More ways to play</h2>
+      <h2 id="extras-title" class="extras__title">{page.extras.heading}</h2>
       <ul class="extras">
         {
-          extras.map((x) => (
+          page.extras.items.map((x) => (
             <li>
-              <a href={x.href} class:list={['extra', { 'extra--geode': x.geode }]}>
+              <a href={href(x.href, vars)} class:list={['extra', { 'extra--geode': x.geode }]}>
                 <span class="extra__cast" aria-hidden="true">
-                  <Character name={x.cast} size={54} />
+                  <Character name={x.character} size={54} />
                 </span>
                 <span class="extra__text">
                   <strong>{x.title}</strong>
@@ -295,8 +255,8 @@ const extras = [
     <div class="wrap">
       <div class="section-head section-head--split">
         <div class="stack">
-          <p class="eyebrow">House lights down</p>
-          <h2 id="shows-title">Shows & events</h2>
+          {page.shows.eyebrow && <p class="eyebrow">{page.shows.eyebrow}</p>}
+          <h2 id="shows-title">{page.shows.heading}</h2>
         </div>
         <a class="btn btn--ghost-light" href="/events">Full calendar <span class="arrow" aria-hidden="true">→</span></a>
       </div>
@@ -309,15 +269,12 @@ const extras = [
   <!-- ───────────── Founder ───────────── -->
   <section class="section" aria-labelledby="founder-title">
     <div class="wrap founder">
-      <PhotoFrame shape="arch" ratio="4 / 5" gel="red" class="founder__photo" image={hannah.image} sizes="(max-width: 960px) 70vw, 420px" />
+      <PhotoFrame shape="arch" ratio="4 / 5" gel="red" class="founder__photo" image={page.story.photo} sizes="(max-width: 960px) 70vw, 420px" />
       <div class="founder__text stack" style="--stack: var(--space-l)">
-        <p class="eyebrow">Our story</p>
-        <h2 id="founder-title">It started with a Pre‑K moms’ group text.</h2>
+        {page.story.eyebrow && <p class="eyebrow">{page.story.eyebrow}</p>}
+        <h2 id="founder-title">{page.story.heading}</h2>
         <div class="prose">
-          <p>
-            A few years ago, Athens lost several of its historic kids’ theater companies. Hannah Eppling, a local mom and theater educator who has taught theater to 3- to 50-year-olds, started Little Characters in {site.founded} to keep the joy and connection of theater going for students of all ages and abilities, beginning with summer camps.
-          </p>
-          <p>“I have a yearning to encourage the hearts of others, and my favorite way to do so is through theater.”</p>
+          {page.story.paragraphs.map((para) => <p set:html={rich(para, vars)} />)}
         </div>
         <div class="founder__links">
           <a class="btn btn--outline" href="/about">Meet the whole team <span class="arrow" aria-hidden="true">→</span></a>
@@ -327,29 +284,44 @@ const extras = [
   </section>
 
   <!-- ───────────── Visit ───────────── -->
-  <section class="section section--tight section--hall" aria-labelledby="visit-title">
-    <div class="wrap visit">
-      <div class="visit__place stack">
-        <p class="eyebrow">Visit HQ</p>
-        <h2 id="visit-title">Come see our space</h2>
-        <p class="script">{hq.address.join(', ')}</p>
-        <p>{hq.notes}</p>
-        <a class="link-arrow" href={hq.mapUrl} rel="noopener">Get directions</a>
-      </div>
-      <dl class="visit__parking">
-        <div data-gel="teal"><dt>Walk in</dt><dd>{parking.walkIn}</dd></div>
-        <div data-gel="orange"><dt>Drop off (after 5 pm)</dt><dd>{parking.dropOff}</dd></div>
-        <div data-gel="red"><dt>Running late?</dt><dd>{parking.late}</dd></div>
-      </dl>
-    </div>
-  </section>
+  {
+    hq && (
+      <section class="section section--tight section--hall" aria-labelledby="visit-title">
+        <div class="wrap visit">
+          <div class="visit__place stack">
+            {page.visit.eyebrow && <p class="eyebrow">{page.visit.eyebrow}</p>}
+            <h2 id="visit-title">{page.visit.heading}</h2>
+            <p class="script">{hq.address.join(', ')}</p>
+            {hq.notes && <p>{hq.notes}</p>}
+            <a class="link-arrow" href={hq.mapUrl} rel="noopener">
+              Get directions
+            </a>
+          </div>
+          <dl class="visit__parking">
+            <div data-gel="teal">
+              <dt>Walk in</dt>
+              <dd>{site.parking.walkIn}</dd>
+            </div>
+            <div data-gel="orange">
+              <dt>Drop off (after 5 pm)</dt>
+              <dd>{site.parking.dropOff}</dd>
+            </div>
+            <div data-gel="red">
+              <dt>Running late?</dt>
+              <dd>{site.parking.late}</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+    )
+  }
 
   <!-- ───────────── Give + list ───────────── -->
   <section class="section section--tight" aria-labelledby="give-title">
     <div class="wrap signup">
       <div class="signup__give">
-        <h2 id="give-title">Help a kid take the stage.</h2>
-        <p>Gifts to our scholarship fund let us invite anyone to our programs without cost getting in the way. You can also volunteer, donate costumes and props, or shop our wish list.</p>
+        <h2 id="give-title">{page.give.heading}</h2>
+        <p set:html={rich(page.give.body, vars)} />
         <a class="btn btn--primary" href="/give">Ways to support LC</a>
       </div>
       <form
@@ -361,8 +333,8 @@ const extras = [
         data-success-body="We’ll email you camp dates, new classes and show announcements. No spam, and you can unsubscribe any time."
       >
         <LeadFormFields kind="newsletter" />
-        <h2>Be first to hear about camps.</h2>
-        <p>Mini camps, workshops and summer camp fill fast. Get dates, new classes and show announcements by email.</p>
+        <h2>{page.signup.heading}</h2>
+        <p set:html={rich(page.signup.body, vars)} />
         <div class="signup__row">
           <label class="sr-only" for="signup-email">Email address</label>
           <input class="input" id="signup-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
@@ -393,12 +365,13 @@ const extras = [
     align-self: center;
   }
   .hero h1 { max-width: 12ch; }
-  .lit {
+  /* The spotlit word comes from editable text (set:html), so it's styled with :global. */
+  .hero h1 :global(.lit) {
     position: relative;
     white-space: nowrap;
     z-index: 0;
   }
-  .lit::before {
+  .hero h1 :global(.lit)::before {
     content: '';
     position: absolute;
     z-index: -1;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Program, Session } from '@/data/types';
+import type { Program, Session } from '@/content/types';
 import { availablePlans, formatCents, meetings, monthlySchedule, quote, type Plan } from '@/lib/pricing';
 import { toStripeLineItems } from '@/server/payments';
 

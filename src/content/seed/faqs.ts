@@ -1,4 +1,4 @@
-import type { Faq } from './types';
+import type { Faq } from '../types';
 
 /*
  * From the live FAQ page, the Fall 2026 classes page, the Fall 2026 tuition
