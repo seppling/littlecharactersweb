@@ -1,0 +1,98 @@
+---
+/** Every version of an item that went live, with what changed, and a way to bring an older one back. */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { sameContent, getEntry, history, restoreToDraft } from '@/server/content';
+import { BASE, describe, editTarget, when } from '@/lib/editor';
+import type { Data } from '@/content/fields';
+
+export const prerender = false;
+
+const kind = Astro.params.kind ?? '';
+const id = Astro.params.id ?? '';
+const target = editTarget(kind, id);
+if (!target) return Astro.rewrite('/404');
+const { isAdmin, user } = Astro.locals;
+
+if (isAdmin && user && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const result = await restoreToDraft(target.kind, id, String(form.get('version')), user.id);
+  if (result.ok) return Astro.redirect(`${BASE}/${kind}/${id}?done=restored`, 303);
+}
+
+const versions = isAdmin ? await history(target.kind, id) : [];
+const entry = isAdmin ? await getEntry(target.kind, id) : undefined;
+const latest = versions.find((v) => v.data != null)?.data as Data | undefined;
+const name = latest ? target.title(latest) : id;
+const deleted = isAdmin && !entry && versions[0]?.action === 'delete';
+const verb = { seed: 'Starting content', publish: 'Published', restore: 'Restored and published', delete: 'Deleted' } as const;
+
+/** Which parts differ from the version before, by their labels in the form. */
+function changes(now: Data | null, before: Data | null | undefined) {
+  if (!now || !before) return [];
+  return target!.fields.filter((f) => !sameContent(now[f.key], before[f.key])).map((f) => f.label);
+}
+---
+
+<AdminShell title={`History: ${name}`}>
+  <div class="admin-page">
+    <nav class="admin-crumbs" aria-label="Breadcrumb">
+      <a href={BASE}>Site content</a><span aria-hidden="true">/</span>
+      <a href={target.parent.href}>{target.parent.label}</a><span aria-hidden="true">/</span>
+      {entry ? <a href={`${BASE}/${kind}/${id}`}>{name}</a> : <span>{name}</span>}<span aria-hidden="true">/</span>
+      <span>History</span>
+    </nav>
+    <div class="admin-head">
+      <div>
+        <h1>History: {name}</h1>
+        <p class="admin-intro">
+          {
+            deleted
+              ? 'This was deleted. Bring back any version below as a draft, then publish it to put it back on the site.'
+              : 'Every version that went live. Restoring one loads it as a draft, so you can check it before publishing.'
+          }
+        </p>
+      </div>
+    </div>
+
+    {versions.length === 0 && <p>No history yet.</p>}
+    <ul class="versions">
+      {
+        versions.map((v, i) => {
+          const older = versions.slice(i + 1).find((x) => x.data != null);
+          const changed = changes(v.data as Data | null, older?.data as Data | undefined);
+          const isLive = !!entry?.published && i === versions.findIndex((x) => x.data != null) && sameContent(entry.published, v.data);
+          return (
+            <li class="version">
+              <p>
+                <strong>{verb[v.action]}</strong>
+                {v.userName ? ` by ${v.userName}` : ''}
+                {isLive && <span class="badge">On the site</span>}
+                <br />
+                <small>
+                  {when(v.createdAt)}
+                  {changed.length > 0 && ` · Changed: ${changed.join(', ')}`}
+                </small>
+              </p>
+              {v.data && !isLive ? (
+                <form method="post">
+                  <input type="hidden" name="version" value={v.id} />
+                  <button class="btn btn--sm btn--outline" type="submit">
+                    {deleted ? 'Bring back this version' : 'Restore this version'}
+                  </button>
+                </form>
+              ) : (
+                <span />
+              )}
+              {v.data && (
+                <details>
+                  <summary>Show this version</summary>
+                  <pre>{describe(target.fields, v.data as Data).join('\n')}</pre>
+                </details>
+              )}
+            </li>
+          );
+        })
+      }
+    </ul>
+  </div>
+</AdminShell>

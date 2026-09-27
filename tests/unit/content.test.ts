@@ -12,6 +12,7 @@ import { readForm, toFormData, validate, type Data } from '@/content/fields';
 import { seedEntries } from '@/content/seed';
 import { rich, plain, href } from '@/content/rich';
 import { withRequiredDefaults } from '@/content/site-content';
+import { describe as describeVersion, labelOf } from '@/lib/editor';
 import {
   deleteEntry,
   discardDraft,
@@ -72,6 +73,28 @@ describe('field definitions', () => {
     fd.append('callSheet.items.new1.title', '');
     const data = readForm(fields, fd) as { callSheet: { items: { title: string }[] } };
     expect(data.callSheet.items.map((i) => i.title)).toEqual(['Stories and Songs & Acting Studio', 'Registration is open for all classes', 'Jack and the Beanstalk']);
+  });
+
+  it('says “Required” for a missing required field, and names it in the list of problems', () => {
+    const fields = collections.programs.fields;
+    const program = structuredClone(entries.find((e) => e.id === 'intro-to-theater')!.data) as Data & { sessions: Data[] };
+    delete program.title;
+    delete program.sessions[0].term;
+    const result = validate(fields, program);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.title).toBe('Required');
+      expect(result.errors['sessions.0.term']).toBe('Required');
+      expect(labelOf(fields, 'sessions.0.term', program)).toBe('Sessions › Session 1 › Term');
+      expect(labelOf(fields, 'ages.max', program)).toBe('Ages › To age');
+    }
+  });
+
+  it('writes an old version out in words for the history page', () => {
+    const faq = entries.find((e) => e.id === 'who-do-you-serve')!;
+    const lines = describeVersion(collections.faqs.fields, faq.data as Data);
+    expect(lines[0]).toBe('Section: Getting started');
+    expect(lines[1]).toBe('Question: Who do you serve?');
   });
 
   it('refuses links that could run code', () => {

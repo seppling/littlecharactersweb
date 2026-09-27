@@ -1,0 +1,131 @@
+---
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { collections, isCollectionKey } from '@/content/collections';
+import { deletedEntries, listEntries, reorder, statusOf, workingCopy } from '@/server/content';
+import { BASE, when } from '@/lib/editor';
+
+export const prerender = false;
+
+const kind = Astro.params.kind ?? '';
+if (kind === 'pages') return Astro.redirect(BASE);
+if (!isCollectionKey(kind)) return Astro.rewrite('/404');
+const def = collections[kind];
+const { isAdmin, user } = Astro.locals;
+
+if (isAdmin && user && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const ids = (await listEntries(kind)).map((e) => e.id);
+  const id = String(form.get('id'));
+  const from = ids.indexOf(id);
+  const to = form.get('move') === 'up' ? from - 1 : from + 1;
+  if (from >= 0 && to >= 0 && to < ids.length) {
+    [ids[from], ids[to]] = [ids[to], ids[from]];
+    await reorder(kind, ids, user.id);
+  }
+  return Astro.redirect(`${BASE}/${kind}#entry-${id}`, 303);
+}
+
+const entries = isAdmin ? await listEntries(kind) : [];
+const deleted = isAdmin ? await deletedEntries(kind) : [];
+const done = Astro.url.searchParams.get('done');
+const labels = { live: 'On the site', changed: 'Unpublished changes', new: 'Not published yet' } as const;
+---
+
+<AdminShell title={def.label}>
+  <div class="admin-page">
+    <nav class="admin-crumbs" aria-label="Breadcrumb"><a href={BASE}>Site content</a><span aria-hidden="true">/</span><span>{def.label}</span></nav>
+    <div class="admin-head">
+      <div>
+        <h1>{def.label}</h1>
+        <p class="admin-intro">{def.intro}</p>
+      </div>
+      <a class="btn btn--primary" href={`${BASE}/${kind}/new`}>+ Add a {def.singular}</a>
+    </div>
+
+    {done === 'deleted' && <p class="notice" role="status">Deleted. It’s off the site. Changed your mind? It’s under “Recently deleted” at the bottom of this page.</p>}
+    {done === 'discarded' && <p class="notice" role="status">Discarded the draft.</p>}
+
+    {
+      entries.length > 8 && (
+        <div class="cf filter-box">
+          <label for="filter">Find</label>
+          <input id="filter" type="search" placeholder={`Type to find a ${def.singular}`} data-filter />
+        </div>
+      )
+    }
+
+    <p class="admin-intro">The order here is the order on the site. Use the arrows to move things.</p>
+    <ul class="entries">
+      {
+        entries.map((e, i) => {
+          const data = workingCopy(e);
+          const status = statusOf(e);
+          return (
+            <li class="entry" id={`entry-${e.id}`} data-entry data-text={`${def.title(data as never)} ${def.subtitle?.(data as never) ?? ''}`.toLowerCase()}>
+              <form method="post" class="entry__order">
+                <input type="hidden" name="id" value={e.id} />
+                <button type="submit" name="move" value="up" aria-label={`Move ${def.title(data as never)} up`} disabled={i === 0}>
+                  ↑
+                </button>
+                <button type="submit" name="move" value="down" aria-label={`Move ${def.title(data as never)} down`} disabled={i === entries.length - 1}>
+                  ↓
+                </button>
+              </form>
+              <div class="entry__main">
+                <a href={`${BASE}/${kind}/${e.id}`}>{def.title(data as never)}</a>
+                <span>{def.subtitle?.(data as never)}</span>
+              </div>
+              <div class="entry__side">
+                <span class:list={['badge', { 'badge--changed': status === 'changed', 'badge--new': status === 'new' }]} title={e.publishedAt ? `Published ${when(e.publishedAt)}` : undefined}>
+                  {labels[status]}
+                </span>
+                {status !== 'new' && (
+                  <a class="btn btn--sm btn--outline" href={def.url(data as never)} target="_blank" rel="noopener">
+                    View
+                  </a>
+                )}
+                <a class="btn btn--sm btn--outline" href={`${BASE}/${kind}/${e.id}`}>
+                  Edit
+                </a>
+              </div>
+            </li>
+          );
+        })
+      }
+    </ul>
+
+    {
+      deleted.length > 0 && (
+        <details class="admin-section">
+          <summary>
+            <strong>Recently deleted ({deleted.length})</strong>
+          </summary>
+          <ul class="entries">
+            {deleted.map((d) => (
+              <li class="entry">
+                <span />
+                <div class="entry__main">
+                  <strong>{def.title(d.data as never)}</strong>
+                  <span>Deleted {when(d.deletedAt)}</span>
+                </div>
+                <div class="entry__side">
+                  <a class="btn btn--sm btn--outline" href={`${BASE}/${kind}/${d.id}/history`}>
+                    Bring back
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )
+    }
+  </div>
+</AdminShell>
+
+<script>
+  const input = document.querySelector<HTMLInputElement>('[data-filter]');
+  input?.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    for (const row of document.querySelectorAll<HTMLElement>('[data-entry]')) row.hidden = !!q && !row.dataset.text!.includes(q);
+  });
+</script>

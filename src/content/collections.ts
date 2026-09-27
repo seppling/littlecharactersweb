@@ -33,6 +33,8 @@ export interface CollectionDef<T = unknown> {
   url(item: T): string;
   /** Checks that involve more than one field. */
   check?(item: T): FieldErrors;
+  /** What a new item starts with. */
+  blank: Partial<T>;
 }
 
 export const gelOptions = options(gelLabels);
@@ -101,6 +103,7 @@ const sessionFields: Field[] = [
 
 export const programs: CollectionDef<Program> = {
   key: 'programs',
+  blank: { kind: 'class', brand: 'lc', gel: 'teal', ages: { min: 4 }, description: [], highlights: [], sessions: [] },
   label: 'Classes & camps',
   singular: 'class or camp',
   intro: 'Everything families can sign up for: weekly classes, camps, workshops, lessons and parties, each with its dates and prices.',
@@ -192,6 +195,7 @@ export const programs: CollectionDef<Program> = {
 
 export const events: CollectionDef<EventItem> = {
   key: 'events',
+  blank: { kind: 'show', brand: 'lc', gel: 'orange', times: [] },
   label: 'Shows & events',
   singular: 'event',
   intro: 'Shows, showcases, community classes and nights out, listed on the events page and the home page.',
@@ -237,6 +241,7 @@ export const events: CollectionDef<EventItem> = {
 
 export const faqs: CollectionDef<Faq> = {
   key: 'faqs',
+  blank: { group: 'Getting started' },
   label: 'FAQs',
   singular: 'question',
   intro: 'Questions parents ask, grouped into sections on the FAQ page. Some also appear on class pages and the About page.',
@@ -252,6 +257,7 @@ export const faqs: CollectionDef<Faq> = {
 
 export const team: CollectionDef<TeamMember> = {
   key: 'team',
+  blank: { gel: 'teal', bio: [] },
   label: 'Team',
   singular: 'team member',
   intro: 'The people on the About page. The first person is shown larger, with a longer bio.',
@@ -270,6 +276,7 @@ export const team: CollectionDef<TeamMember> = {
 
 export const testimonials: CollectionDef<Testimonial> = {
   key: 'testimonials',
+  blank: {},
   label: 'Testimonials',
   singular: 'testimonial',
   intro: 'Quotes from families and students. Choose where each one appears in the Home and About page settings.',
@@ -285,6 +292,7 @@ export const testimonials: CollectionDef<Testimonial> = {
 
 export const locations: CollectionDef<Location> = {
   key: 'locations',
+  blank: { address: [] },
   label: 'Locations',
   singular: 'location',
   intro: 'Where classes and events happen. Sessions and events point to one of these.',

@@ -1,0 +1,321 @@
+---
+/**
+ * One field of the content editor, drawn from its definition
+ * (src/content/fields.ts). Groups and lists render their own fields with
+ * this same component. The browser side (adding, moving and removing list
+ * items, picking photos) is in src/scripts/editor.ts.
+ */
+import type { Data, Field, FieldErrors, Option, RefCollection } from '@/content/fields';
+import { inputValue, join } from '@/content/fields';
+import { thumbnail, type UploadInfo } from '@/lib/media';
+import { timeOf } from '@/lib/format';
+
+interface Props {
+  field: Field;
+  path: string;
+  value: unknown;
+  errors: FieldErrors;
+  refs: Record<RefCollection, Option[]>;
+  uploads: Map<string, UploadInfo>;
+  /** How many lists this field is inside; names each level's placeholder token. */
+  depth?: number;
+  /** Fields that can't change any more (a published item's web address). */
+  locked?: string[];
+}
+
+const { field: f, path, value, errors, refs, uploads, depth = 0, locked = [] } = Astro.props;
+const isLocked = locked.includes(path);
+const id = `f-${path.replace(/[^\w-]+/g, '-')}`;
+const error = errors[path];
+const helpId = f.help ? `${id}-help` : undefined;
+const errorId = error ? `${id}-error` : undefined;
+const describedBy = [helpId, errorId].filter(Boolean).join(' ') || undefined;
+const text = inputValue(f, value);
+const optional = !f.required && f.type !== 'toggle' && f.type !== 'hidden' && f.type !== 'group' && f.type !== 'list';
+
+/** The heading of a list item, from its title fields. */
+function itemTitle(item: Data | undefined, keys: string[] | undefined, fallback: string) {
+  const parts = (keys ?? [])
+    .map((k) => {
+      const v = item?.[k];
+      if (Array.isArray(v)) return v.join(', ');
+      if (typeof v === 'string' && /^\d{2}:\d{2}$/.test(v)) return timeOf(v);
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v))
+        return new Date(v).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      return typeof v === 'string' || typeof v === 'number' ? String(v) : '';
+    })
+    .filter(Boolean);
+  return parts.join(' · ') || fallback;
+}
+const hasErrorsUnder = (prefix: string) => Object.keys(errors).some((k) => k.startsWith(`${prefix}.`) || k === prefix);
+
+const Self = Astro.self;
+const token = `__T${depth}__`;
+const image = f.type === 'image' ? ((value ?? {}) as { src?: string; alt?: string; position?: string; placeholder?: string }) : undefined;
+const thumb = image?.src ? thumbnail(image.src, uploads) : undefined;
+const [fx, fy] = (image?.position ?? '50% 50%').split(' ');
+---
+
+{
+  f.type === 'hidden' ? (
+    <input type="hidden" name={path} value={text} />
+  ) : f.type === 'group' ? (
+    <fieldset class:list={['cf-group', { 'has-error': hasErrorsUnder(path) }]} id={id}>
+      <legend>
+        {f.label}
+        {!f.required && <span class="cf__opt">optional</span>}
+      </legend>
+      {f.help && <p class="cf__help">{f.help}</p>}
+      <div class="cf-grid">
+        {f.fields.map((sub) => (
+          <Self field={sub} path={join(path, sub.key)} value={(value as Data | undefined)?.[sub.key]} errors={errors} refs={refs} uploads={uploads} depth={depth} locked={locked} />
+        ))}
+      </div>
+    </fieldset>
+  ) : f.type === 'list' ? (
+    <fieldset class:list={['cf-list', { 'has-error': hasErrorsUnder(path) }]} id={id} data-list data-token={token}>
+      <legend>{f.label}</legend>
+      {f.help && <p class="cf__help">{f.help}</p>}
+      {error && (
+        <p class="cf__error" id={errorId}>
+          {error}
+        </p>
+      )}
+      <div class="cf-list__items" data-list-items>
+        {((value as Data[] | undefined) ?? []).map((item, i) => {
+          const itemPath = `${path}.${i}`;
+          return (
+            <details class="cf-item" open={!f.collapsed || hasErrorsUnder(itemPath)} data-item data-title-keys={(f.titleKeys ?? []).join(',')} data-item-label={f.itemLabel}>
+              <summary>
+                <span class="cf-item__title" data-item-title>
+                  {itemTitle(item, f.titleKeys, `${f.itemLabel[0].toUpperCase()}${f.itemLabel.slice(1)} ${i + 1}`)}
+                </span>
+                <span class="cf-item__tools">
+                  <button type="button" data-move="up" aria-label={`Move this ${f.itemLabel} up`} title="Move up">
+                    ↑
+                  </button>
+                  <button type="button" data-move="down" aria-label={`Move this ${f.itemLabel} down`} title="Move down">
+                    ↓
+                  </button>
+                  <button type="button" data-copy aria-label={`Copy this ${f.itemLabel}`} title="Copy">
+                    Copy
+                  </button>
+                  <button type="button" data-remove aria-label={`Remove this ${f.itemLabel}`} title="Remove">
+                    Remove
+                  </button>
+                </span>
+              </summary>
+              <input type="hidden" name={`${path}[]`} value={String(i)} />
+              <div class="cf-grid">
+                {f.fields.map((sub) => (
+                  <Self field={sub} path={join(itemPath, sub.key)} value={item?.[sub.key]} errors={errors} refs={refs} uploads={uploads} depth={depth + 1} />
+                ))}
+              </div>
+            </details>
+          );
+        })}
+      </div>
+      <template data-list-template>
+        <details class="cf-item" open data-item data-title-keys={(f.titleKeys ?? []).join(',')} data-item-label={f.itemLabel}>
+          <summary>
+            <span class="cf-item__title" data-item-title>
+              New {f.itemLabel}
+            </span>
+            <span class="cf-item__tools">
+              <button type="button" data-move="up" aria-label={`Move this ${f.itemLabel} up`} title="Move up">
+                ↑
+              </button>
+              <button type="button" data-move="down" aria-label={`Move this ${f.itemLabel} down`} title="Move down">
+                ↓
+              </button>
+              <button type="button" data-copy aria-label={`Copy this ${f.itemLabel}`} title="Copy">
+                Copy
+              </button>
+              <button type="button" data-remove aria-label={`Remove this ${f.itemLabel}`} title="Remove">
+                Remove
+              </button>
+            </span>
+          </summary>
+          <input type="hidden" name={`${path}[]`} value={token} />
+          <div class="cf-grid">
+            {f.fields.map((sub) => (
+              <Self field={sub} path={join(`${path}.${token}`, sub.key)} value={undefined} errors={{}} refs={refs} uploads={uploads} depth={depth + 1} />
+            ))}
+          </div>
+        </details>
+      </template>
+      <button type="button" class="btn btn--sm btn--outline cf-list__add" data-add-item data-max={f.max}>
+        + Add {f.itemLabel}
+      </button>
+    </fieldset>
+  ) : f.type === 'toggle' ? (
+    <div class:list={['cf', 'cf--toggle', { 'cf--half': f.half }]}>
+      <label class="cf-toggle" for={id}>
+        <input type="checkbox" id={id} name={path} checked={value === true} aria-describedby={describedBy} />
+        <span>{f.label}</span>
+      </label>
+      {f.help && (
+        <p class="cf__help" id={helpId}>
+          {f.help}
+        </p>
+      )}
+    </div>
+  ) : f.type === 'multi' || (f.type === 'ref' && f.multiple) ? (
+    <fieldset class:list={['cf', 'cf-choices', { 'has-error': !!error, 'cf-choices--long': f.type === 'ref' && refs[f.collection].length > 12 }]} id={id} aria-describedby={describedBy}>
+      <legend>
+        {f.label}
+        {optional && <span class="cf__opt">optional</span>}
+      </legend>
+      {f.help && (
+        <p class="cf__help" id={helpId}>
+          {f.help}
+        </p>
+      )}
+      <div class="cf-choices__list">
+        {(f.type === 'multi' ? f.options : refs[f.collection]).map((o) => (
+          <label class="chip">
+            <input type="checkbox" name={path} value={o.value} checked={Array.isArray(value) && value.includes(o.value)} /> {o.label}
+          </label>
+        ))}
+        {/* Keep choices that no longer exist (a deleted class), so saving doesn't silently drop them. */}
+        {f.type === 'ref' &&
+          Array.isArray(value) &&
+          value
+            .filter((v) => !refs[f.collection].some((o) => o.value === v))
+            .map((v) => (
+              <label class="chip chip--missing">
+                <input type="checkbox" name={path} value={v} checked /> {v} (not found)
+              </label>
+            ))}
+      </div>
+      {error && (
+        <p class="cf__error" id={errorId}>
+          {error}
+        </p>
+      )}
+    </fieldset>
+  ) : f.type === 'image' ? (
+    <div class:list={['cf', 'cf--image', { 'has-error': hasErrorsUnder(path) }]} data-image-field>
+      <span class="cf__label" id={`${id}-label`}>
+        {f.label}
+        {optional && <span class="cf__opt">optional</span>}
+      </span>
+      {f.help && <p class="cf__help">{f.help}</p>}
+      <div class="img-field">
+        <button
+          type="button"
+          class="img-field__preview"
+          data-focus-picker
+          aria-describedby={`${id}-focus-help`}
+          aria-label={thumb ? 'Set the focus point: click the most important part of the photo' : 'Choose a photo'}
+        >
+          {thumb ? <img src={thumb} alt="" style={`object-position: ${image?.position ?? '50% 50%'}`} data-image-thumb /> : <span class="img-field__empty">No photo yet</span>}
+          <span class="img-field__dot" style={`left: ${fx}; top: ${fy}`} hidden={!thumb} data-focus-dot />
+        </button>
+        <div class="img-field__side">
+          <p class="cf__help" id={`${id}-focus-help`} hidden={!thumb} data-focus-help>
+            Click the photo on the most important part (a face), so it stays in view when the photo is cropped.
+          </p>
+          <div class="img-field__actions">
+            <button type="button" class="btn btn--sm btn--outline" data-choose-photo>
+              {thumb ? 'Change photo' : 'Choose photo'}
+            </button>
+            <button type="button" class="btn btn--sm btn--outline" data-remove-photo hidden={!thumb}>
+              Remove
+            </button>
+          </div>
+          <div class="field">
+            <label for={`${id}-alt`}>Describe the photo</label>
+            <input
+              id={`${id}-alt`}
+              name={`${path}.alt`}
+              value={image?.alt ?? ''}
+              placeholder="Students rehearsing a scene on stage"
+              aria-describedby={`${id}-alt-help`}
+              aria-invalid={errors[`${path}.alt`] ? 'true' : undefined}
+            />
+            <p class="cf__help" id={`${id}-alt-help`}>
+              For people who can’t see it, and for search engines.
+            </p>
+            {errors[`${path}.alt`] && <p class="cf__error">{errors[`${path}.alt`]}</p>}
+          </div>
+        </div>
+      </div>
+      <input type="hidden" name={`${path}.src`} value={image?.src ?? ''} data-image-src />
+      <input type="hidden" name={`${path}.position`} value={image?.position ?? ''} data-image-position />
+      <input type="hidden" name={`${path}.placeholder`} value={image?.placeholder ?? ''} />
+    </div>
+  ) : (
+    <div class:list={['cf', { 'cf--half': f.half, 'has-error': !!error }]}>
+      <label for={id}>
+        {f.label}
+        {optional && <span class="cf__opt">optional</span>}
+      </label>
+      {f.help && (
+        <p class="cf__help" id={helpId}>
+          {isLocked ? 'Fixed now that it’s published: links and enrollments use it.' : f.help}
+        </p>
+      )}
+      {f.type === 'textarea' || f.type === 'paragraphs' || f.type === 'lines' ? (
+        <textarea
+          id={id}
+          name={path}
+          rows={f.rows ?? (f.type === 'lines' ? 3 : 4)}
+          placeholder={f.placeholder}
+          aria-describedby={describedBy}
+          aria-invalid={error ? 'true' : undefined}
+          set:text={text}
+        />
+      ) : f.type === 'select' || f.type === 'ref' ? (
+        <select id={id} name={path} aria-describedby={describedBy} aria-invalid={error ? 'true' : undefined}>
+          <option value="">{f.required ? 'Choose…' : '—'}</option>
+          {(f.type === 'select' ? f.options : refs[f.collection]).map((o) => (
+            <option value={o.value} selected={o.value === text}>
+              {o.label}
+            </option>
+          ))}
+          {f.type === 'ref' && text && !refs[f.collection].some((o) => o.value === text) && (
+            <option value={text} selected>
+              {text} (not found)
+            </option>
+          )}
+        </select>
+      ) : (
+        <input
+          id={id}
+          name={path}
+          value={text}
+          placeholder={f.placeholder}
+          aria-describedby={describedBy}
+          aria-invalid={error ? 'true' : undefined}
+          {...(f.type === 'date'
+            ? { type: 'date' }
+            : f.type === 'time'
+              ? { type: 'time' }
+              : f.type === 'datetime'
+                ? { type: 'datetime-local' }
+                : f.type === 'month'
+                  ? { type: 'month', placeholder: f.placeholder ?? '2026-12' }
+                  : f.type === 'number'
+                    ? { type: 'number', inputmode: 'numeric', step: f.integer ? 1 : 'any', min: f.min, max: f.max }
+                    : f.type === 'money'
+                      ? { type: 'text', inputmode: 'decimal' }
+                      : f.type === 'url'
+                        ? { type: 'text', inputmode: 'url', autocapitalize: 'off', spellcheck: 'false' }
+                        : f.type === 'text' && f.format === 'email'
+                          ? { type: 'email' }
+                          : f.type === 'text' && f.format === 'slug'
+                            ? { type: 'text', autocapitalize: 'off', spellcheck: 'false' }
+                            : { type: 'text' })}
+          {...(f.type === 'text' && f.max ? { maxlength: f.max } : {})}
+          readonly={isLocked}
+        />
+      )}
+      {error && (
+        <p class="cf__error" id={errorId}>
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}

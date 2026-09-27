@@ -439,6 +439,45 @@ export async function reorder(kind: CollectionKey, ids: string[], userId: string
   });
 }
 
+/** Items deleted from a list (and not brought back), newest first, with their last content. */
+export async function deletedEntries(kind: CollectionKey) {
+  const db = await getDb();
+  const versions = await db
+    .select()
+    .from(contentVersion)
+    .where(eq(contentVersion.collection, kind))
+    .orderBy(desc(contentVersion.createdAt));
+  const existing = new Set((await listEntries(kind)).map((e) => e.id));
+  const seen = new Set<string>();
+  const deleted: { id: string; deletedAt: Date; data: Data }[] = [];
+  for (const v of versions) {
+    if (seen.has(v.entryId) || existing.has(v.entryId)) continue;
+    seen.add(v.entryId);
+    const last = versions.find((x) => x.entryId === v.entryId && x.data != null);
+    if (v.action === 'delete' && last) deleted.push({ id: v.entryId, deletedAt: v.createdAt, data: last.data as Data });
+  }
+  return deleted.slice(0, 20);
+}
+
+/** The latest changes across all content, for the editor's front page. */
+export async function recentChanges(limit = 12) {
+  const db = await getDb();
+  return db
+    .select({
+      collection: contentVersion.collection,
+      entryId: contentVersion.entryId,
+      action: contentVersion.action,
+      data: contentVersion.data,
+      createdAt: contentVersion.createdAt,
+      userName: schema.user.name,
+    })
+    .from(contentVersion)
+    .leftJoin(schema.user, eq(schema.user.id, contentVersion.userId))
+    .where(sql`${contentVersion.action} <> 'seed'`)
+    .orderBy(desc(contentVersion.createdAt))
+    .limit(limit);
+}
+
 export async function history(kind: Kind, id: string) {
   const db = await getDb();
   return db

@@ -1,0 +1,102 @@
+---
+/**
+ * Frame for the staff pages: sign-in for staff who aren't signed in, a
+ * "not here" for everyone else, and the staff navigation.
+ */
+import Base from '@/layouts/Base.astro';
+import SignInPanel from '@/components/portal/SignInPanel.astro';
+import '@/styles/admin.css';
+
+interface Props {
+  title: string;
+  /** Which staff section this page belongs to. */
+  section?: 'content' | 'rosters' | 'billing' | 'leads';
+  /** The page wants every bit of width (the editor). */
+  wide?: boolean;
+}
+const { title, section = 'content', wide = false } = Astro.props;
+const { user, isAdmin } = Astro.locals;
+const here = Astro.url.pathname + Astro.url.search;
+
+const links = [
+  { key: 'content', label: 'Site content', href: '/admin/content' },
+  { key: 'rosters', label: 'Rosters', href: '/admin' },
+  { key: 'billing', label: 'Monthly autopay', href: '/admin/billing' },
+  { key: 'leads', label: 'Messages & signups', href: '/admin/leads' },
+];
+---
+
+<Base title={title} noindex staffBar={false}>
+  {
+    !isAdmin ? (
+      <section class="wrap wrap--narrow gate">
+        {user ? (
+          <div class="stack">
+            <h1>Staff only</h1>
+            <p>You’re signed in as {user.email}, which isn’t a staff account. Sign out, then sign in with your staff email.</p>
+            <form method="post" action="/account/sign-out">
+              <button class="btn btn--outline" type="submit">
+                Sign out
+              </button>
+            </form>
+          </div>
+        ) : (
+          <SignInPanel heading="Staff sign-in" intro="Enter your staff email and we’ll send you a 6-digit code." next={here} />
+        )}
+      </section>
+    ) : (
+      <div class:list={['admin-shell', { 'admin-shell--wide': wide }]}>
+        <nav class="admin-nav" aria-label="Staff">
+          <span class="admin-nav__label">Staff</span>
+          <ul>
+            {links.map((l) => (
+              <li>
+                <a href={l.href} aria-current={l.key === section ? 'page' : undefined}>
+                  {l.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <slot />
+      </div>
+    )
+  }
+</Base>
+
+<style>
+  .gate { padding-block: var(--space-2xl) var(--space-3xl); }
+  .admin-shell { --admin-max: 1100px; }
+  .admin-shell--wide { --admin-max: 1280px; }
+  .admin-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-m);
+    flex-wrap: wrap;
+    max-width: calc(var(--admin-max) + 2 * var(--gutter));
+    margin: 0 auto;
+    padding: var(--space-m) var(--gutter) 0;
+  }
+  .admin-nav__label {
+    font-family: var(--font-script);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .admin-nav ul { display: flex; flex-wrap: wrap; gap: 0.35rem; list-style: none; margin: 0; padding: 0; }
+  .admin-nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 0.85rem;
+    border-radius: 999px;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: var(--step--1);
+    text-decoration: none;
+    border: 1.5px solid var(--line-strong);
+  }
+  .admin-nav a:hover { border-color: var(--ink); }
+  .admin-nav a[aria-current='page'] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+</style>

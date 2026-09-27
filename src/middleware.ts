@@ -11,11 +11,10 @@ import { defineMiddleware } from 'astro:middleware';
 import { getAuth, isAdmin } from '@/server/auth';
 import { assertProductionConfig } from '@/server/env';
 import { getContent } from '@/server/content';
+import { PREVIEW_COOKIE } from '@/lib/editor';
 
 /** A readable, non-sensitive hint so public pages know to ask /api/me who's signed in. */
 const HINT_COOKIE = 'lc_signed_in';
-/** Set by staff to see unpublished edits on the site (see /admin/content/preview). */
-export const PREVIEW_COOKIE = 'lc_preview';
 
 const PORTAL = /^\/(account|enroll|admin|api|dev)(\/|$)/;
 

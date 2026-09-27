@@ -188,7 +188,7 @@ export function isSafeUrl(url: string) {
 const required = 'Required';
 
 function textSchema(max: number, isRequired?: boolean) {
-  const s = z.string().max(max, `Keep this under ${max} characters`);
+  const s = z.string({ error: required }).max(max, `Keep this under ${max} characters`);
   return isRequired ? s.min(1, required) : s.optional();
 }
 
@@ -197,8 +197,8 @@ function schemaFor(f: Field): z.ZodType {
   switch (f.type) {
     case 'text': {
       const max = f.max ?? 300;
-      if (f.format === 'email') return opt(z.email('Check the email address').max(max));
-      let s = z.string().max(max, `Keep this under ${max} characters`);
+      if (f.format === 'email') return opt(z.email({ error: (issue) => (issue.input === undefined ? required : 'Check the email address') }).max(max));
+      let s = z.string({ error: required }).max(max, `Keep this under ${max} characters`);
       if (f.format === 'slug') s = s.regex(SLUG, 'Use lowercase letters, numbers and dashes, like “summer-camp”');
       return f.required ? s.min(1, required) : s.optional();
     }
@@ -208,11 +208,11 @@ function schemaFor(f: Field): z.ZodType {
       return textSchema(f.max ?? 5000, f.required);
     case 'paragraphs':
     case 'lines': {
-      const s = z.array(z.string().max(5000));
+      const s = z.array(z.string().max(5000), { error: required });
       return f.required ? s.min(1, required) : f.keepEmpty ? s : s.optional();
     }
     case 'number': {
-      let s = z.number({ error: 'Enter a number' });
+      let s = z.number({ error: (issue) => (issue.input === undefined ? required : 'Enter a number') });
       if (f.integer) s = s.int('Enter a whole number');
       if (f.min !== undefined) s = s.min(f.min, `At least ${f.min}`);
       if (f.max !== undefined) s = s.max(f.max, `At most ${f.max}`);
@@ -221,7 +221,7 @@ function schemaFor(f: Field): z.ZodType {
     case 'money':
       return opt(
         z
-          .number({ error: 'Enter an amount, like 95 or 12.50' })
+          .number({ error: (issue) => (issue.input === undefined ? required : 'Enter an amount, like 95 or 12.50') })
           .min(0, 'Can’t be negative')
           .max(100_000)
           .refine((n) => Math.abs(Math.round(n * 100) - n * 100) < 1e-6, 'Use dollars and cents, like 12.50'),
@@ -229,23 +229,23 @@ function schemaFor(f: Field): z.ZodType {
     case 'select':
       return opt(z.enum(f.options.map((o) => o.value) as [string, ...string[]], { error: 'Choose one' }));
     case 'multi': {
-      const s = z.array(z.enum(f.options.map((o) => o.value) as [string, ...string[]]));
+      const s = z.array(z.enum(f.options.map((o) => o.value) as [string, ...string[]]), { error: 'Choose at least one' });
       return f.required ? s.min(1, 'Choose at least one') : s.optional();
     }
     case 'toggle':
       return z.boolean().optional();
     case 'date':
-      return opt(z.string().regex(DATE, 'Use a date like 2026-10-05'));
+      return opt(z.string({ error: required }).regex(DATE, 'Use a date like 2026-10-05'));
     case 'month':
-      return opt(z.string().regex(MONTH, 'Use a month like 2026-12'));
+      return opt(z.string({ error: required }).regex(MONTH, 'Use a month like 2026-12'));
     case 'time':
-      return opt(z.string().regex(TIME, 'Use a time like 16:30'));
+      return opt(z.string({ error: required }).regex(TIME, 'Use a time like 16:30'));
     case 'datetime':
-      return opt(z.string().regex(DATETIME, 'Use a date and time like 2026-10-05T16:30'));
+      return opt(z.string({ error: required }).regex(DATETIME, 'Use a date and time like 2026-10-05T16:30'));
     case 'url':
       return opt(
         z
-          .string()
+          .string({ error: required })
           .max(2000)
           .refine(isSafeUrl, 'Use a full web address (https://…), a page on this site (/about), mailto: or tel:'),
       );
@@ -263,23 +263,23 @@ function schemaFor(f: Field): z.ZodType {
           }),
       );
     case 'group':
-      return opt(objectSchema(f.fields));
+      return opt(objectSchema(f.fields, required));
     case 'list': {
-      let s = z.array(objectSchema(f.fields));
+      let s = z.array(objectSchema(f.fields), { error: required });
       if (f.min !== undefined) s = s.min(f.min, `Add at least ${f.min}`);
       if (f.max !== undefined) s = s.max(f.max, `No more than ${f.max}`);
       return f.required ? s.min(1, `Add at least one ${f.itemLabel}`) : f.keepEmpty ? s : s.optional();
     }
     case 'ref': {
-      const one = z.string().max(200);
+      const one = z.string({ error: 'Choose one' }).max(200);
       if (f.multiple) return f.required ? z.array(one).min(1, 'Choose at least one') : z.array(one).optional();
       return f.required ? one.min(1, 'Choose one') : one.optional();
     }
   }
 }
 
-export function objectSchema(fields: Field[]) {
-  return z.object(Object.fromEntries(fields.map((f) => [f.key, schemaFor(f)])));
+export function objectSchema(fields: Field[], error?: string) {
+  return z.object(Object.fromEntries(fields.map((f) => [f.key, schemaFor(f)])), error ? { error } : undefined);
 }
 
 export type FieldErrors = Record<string, string>;

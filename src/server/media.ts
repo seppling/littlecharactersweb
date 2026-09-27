@@ -89,7 +89,7 @@ export async function listUploads() {
 export async function photoUsage(src: string) {
   const db = await getDb();
   const rows = await db
-    .select({ collection: contentEntry.collection, id: contentEntry.id })
+    .select({ collection: contentEntry.collection, id: contentEntry.id, data: sql<Record<string, unknown>>`coalesce(${contentEntry.draft}, ${contentEntry.published})` })
     .from(contentEntry)
     .where(sql`coalesce(${contentEntry.published}::text, '') like ${'%"' + src + '"%'} or coalesce(${contentEntry.draft}::text, '') like ${'%"' + src + '"%'}`);
   return rows;
