@@ -82,3 +82,10 @@ Questions 1–10 of the research plan are answered. The answers, and how the wri
 - **Parties:** details to come.
 
 Questions 11–20 use the plan's defaults until they're answered.
+
+More answers (October 11):
+- **Questions 10–15:** still to be set, so the defaults apply.
+- **Business Profile:** one exists ("Little Characters Theater Troupe"), so the kit improves it rather than creating one.
+- **Schools:** Timothy Elementary and Barrow Elementary join the four already listed.
+- **Geode Acting Studio:** welcomes beginners.
+- **Questions 16 (hours) and 20 (Emily Greene):** unanswered, so the defaults apply.

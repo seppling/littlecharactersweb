@@ -423,17 +423,19 @@ These override the defaults above and in the report. Writers apply them as follo
 9. **Under age 4:** nothing. Say "ages 4 and up".
 10. **Parties:** details still to be set. Keep "ask for a date", and add no price, guest count or rules.
 
-Questions 11–20 aren't answered yet. Use the report's defaults:
-- **Private lessons:** "booked by the hour", with no price.
-- **Parents' Night Out:** ages 4–12.
-- **Summer 2027:** "dates coming soon", with the email list.
-- **Mini camps:** list past ones only.
-- **Performance Troupe:** "for students who have worked in theater before".
-- **Hours:** leave them out.
-- **Business Profile:** the kit covers both creating and claiming one.
-- **Schools list:** keep it as the About page has it.
-- **Acting Studio:** say nothing about level.
-- **Emily Greene:** don't tie her to a class.
+11. **Private lessons:** still to be set. Say "booked by the hour", with no price.
+12. **Parents' Night Out:** still to be set. Say ages 4–12, and nothing about dinner.
+13. **Summer 2027:** still to be set. Say "dates coming soon", with the email list.
+14. **Holiday mini camps:** still to be set. List past ones only.
+15. **Performance Troupe:** still to be set. Say "for students who have worked in theater before".
+16. **Hours:** not answered. Leave them out.
+17. **Google Business Profile:** one exists, under the name "Little Characters Theater Troupe" (Google's id `/g/11jsl724l3`; Hannah's share link is https://share.google/t9c6Myl1nQwhJNz5k).
+    - The kit improves this profile. It doesn't create a new one.
+    - Its owner, category and review count can't be seen from here, so the kit starts with a short checklist for Hannah to read them off the profile.
+18. **Schools:** add Timothy Elementary and Barrow Elementary to the four already listed. All six are current.
+    - Check each school's official name with a web search first (for example, "Timothy Road Elementary" and "David C. Barrow Elementary" in the Clarke County School District).
+19. **Geode Acting Studio:** beginners are welcome. Say so.
+20. **Emily Greene:** not answered. Don't tie her to a class.
 
 ## 7. What matters most
 
