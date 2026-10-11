@@ -22,7 +22,7 @@ const quote = testimonial(page.why.testimonial) ?? testimonials[0];
 const tapes = [{ gel: 'yellow' }, { gel: 'teal', tilt: 'right' }, { gel: 'orange' }] as const;
 ---
 
-<Base seo={page.seo} edit="/admin/content/pages/home">
+<Base seo={page.seo} image={page.hero.photo} edit="/admin/content/pages/home">
   <!-- ───────────── Hero ───────────── -->
   <section class="hero">
     <div class="wrap hero__grid">

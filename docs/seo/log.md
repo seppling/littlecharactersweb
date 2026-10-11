@@ -89,3 +89,71 @@ More answers (October 11):
 - **Schools:** Timothy Elementary and Barrow Elementary join the four already listed.
 - **Geode Acting Studio:** welcomes beginners.
 - **Questions 16 (hours) and 20 (Emily Greene):** unanswered, so the defaults apply.
+
+### 3. Draft loader (merged October 11)
+
+**What changed.**
+- The format for wording drafts is in `src/content/seo-draft/`. Each change names the field, the exact text it replaces, the new text and the reason.
+- `npm run seo:load-drafts` saves the drafts in the content editor as unpublished drafts, through the editor's own save and its checks. Without `--commit` it only shows what it would do.
+- `npm run seo:review` writes `docs/seo/review.md`, the before-and-after page for Hannah and Stephen.
+- The Render preview loads the drafts, so they can be reviewed in the preview's editor.
+- The guide is `docs/seo/drafts.md`.
+
+**Proof.** 14 new tests prove the safety rules against a real (in-memory) database:
+- nothing is ever published;
+- a page with Hannah's unpublished changes is left alone;
+- a field that changed since the draft was written is skipped, with the field named;
+- running it twice changes nothing;
+- each draft file is checked against the starting content and the editor's rules.
+
+The helper also ran it for real: the public page kept its wording, and the editor showed "Unpublished changes" with the draft in Preview. The preview database step peaks at 357–369 MB, under its 450 MB limit. CI passed.
+
+**Decisions.**
+- **Who saved a draft:** it's recorded as "seo-drafts", which isn't an account. When Hannah publishes, the history records her.
+- **Partial drafts:** if any change to a page no longer fits, that page's whole draft is skipped.
+- **When to run it:** once on the real database at launch, and remove rejected drafts from the files afterwards. A discarded draft would come back on a second run.
+- **Accepted risk:** if Hannah saved a draft in the same instant the loader runs, the loader's save would replace hers. Running the loader when nobody is editing avoids it.
+
+**Follow-up.** Show "saved by seo-drafts" in the editor's status box.
+
+**Cost.** $3.20.
+
+### 2. Google setup (merged October 11)
+
+**What changed** (no wording on the pages changed):
+- **Search fields:** class pages have a "Search engines" field (title and description), like the site pages.
+- **Titles:** a search title that already contains "Little Characters" no longer gets the ending added a second time.
+- **Link previews:** every page shows a photo when shared, as a 1200×630 JPEG cropped around the photo's focus point.
+- **Structured data:** class pages carry breadcrumb and course details, `/programs` carries a course list, and the organization block is corrected (`TheaterGroup` and `EducationalOrganization`, with logo, image and locations).
+- **Redirects:** old Squarespace addresses send 301 redirects to their new pages: `/home`, `/classes-1`, `/classes`, `/classes1`, `/camp`, `/team`, `/faqs`, `/giving-page`, and old `/events/...` pages. Calendar files (`.ics`) are left alone.
+
+**Proof.**
+- 20 new tests.
+- The helper's build memory peak didn't rise (708 MB before, 676–693 MB after). The cost is about 20 s more build time and 26 MB of preview images.
+- The JSON-LD of 11 pages was parsed and checked, and every page's preview image is a 1200×630 JPEG.
+- CI passed.
+- At merge, on the combined branch: type check clean, 191 unit tests pass, the build passes, and both browser tests pass. `/camp` and `/classes-1` return 301, and `.ics` files return 200.
+
+**Decisions.**
+- **No event markup on `/events`.** Google now requires one page per event for event results.
+- **No FAQ markup.** Google stopped showing it in May 2026.
+- **Course markup** only for classes, lessons, the free class and Ovation, not for camps or parties.
+- **Redirects** run in the middleware, so they can be tested.
+
+**For Stephen and Hannah.**
+- **The parking guide link will break at launch.** The site settings point to a PDF on the Squarespace site. Copy the PDF onto the new site at the same address before the domain moves. *A launch-checklist item.*
+- **Old semester pages** (`/spring2024`, `/athens2024`, `/winterville2024`): redirect them to `/programs` (decided: better for families than a "page not found").
+- **The teaching-philosophy PDF** (`/s/Hannah-Eppling-Experience-and-Teaching-Philosophy-1.pdf`): ask Hannah whether to keep it.
+
+**Follow-up.**
+- A page for each event, so shows can appear in Google's event results. The research plan also suggests it.
+- A preview photo for Geode, which shows the default children's photo today.
+- Save the preview images of uploaded photos instead of making them on each request.
+- After launch, run Google's Rich Results Test and submit the sitemap in Search Console.
+
+**Notes for the wording units.**
+- **Field names:** `seo.title` and `seo.description` on pages and programs. Events have none.
+- **Class summaries become the course description Google reads,** so keep them factual.
+- **Preview photos:** each class page uses its photo. Home, About and Camps use their top photo. Every other page uses the home photo.
+
+**Cost.** $5.82.

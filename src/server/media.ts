@@ -77,6 +77,18 @@ export async function getMediaFile(id: string, width: number) {
   return rows[0];
 }
 
+/** The widest stored copy of an upload, for making its link-preview image. */
+export async function getLargestMediaFile(id: string) {
+  const db = await getDb();
+  const rows = await db
+    .select({ data: mediaFile.data })
+    .from(mediaFile)
+    .where(eq(mediaFile.mediaId, id))
+    .orderBy(desc(mediaFile.width))
+    .limit(1);
+  return rows[0];
+}
+
 export async function listUploads() {
   const db = await getDb();
   return db

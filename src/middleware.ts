@@ -12,6 +12,7 @@ import { getAuth, isAdmin } from '@/server/auth';
 import { assertProductionConfig } from '@/server/env';
 import { getContent } from '@/server/content';
 import { PREVIEW_COOKIE } from '@/lib/editor';
+import { oldSiteRedirect } from '@/lib/redirects';
 
 /** A readable, non-sensitive hint so public pages know to ask /api/me who's signed in. */
 const HINT_COOKIE = 'lc_signed_in';
@@ -42,6 +43,9 @@ const SECURITY_HEADERS: Record<string, string> = {
 export const onRequest = defineMiddleware(async (ctx, next) => {
   if (ctx.isPrerendered) return next();
   const path = ctx.url.pathname;
+  // Addresses from the old site (Squarespace) go to their new pages, for good.
+  const moved = oldSiteRedirect(path);
+  if (moved) return new Response(null, { status: 301, headers: { Location: moved, 'Cache-Control': 'public, max-age=86400' } });
   // Uploaded photos: served as-is, cached for good by the route itself.
   if (path.startsWith('/media/')) {
     const response = await next();
