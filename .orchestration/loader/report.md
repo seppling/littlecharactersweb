@@ -67,7 +67,7 @@ By file:
   - re-run on the same database: 296 MB, all skipped.
   
   For comparison, the base branch's script measures 348 MB on this machine. All runs are under the 450 MB limit. The temporary drafts were removed and not committed.
-- CI: see the last section, checked after the push.
+- CI on `claude/seo-loader`: run 52 (commit 2b587c0, all the code and tests) **passed**. Run 56 (commit b276ba3, which added docs, state and this report and changed no code) was still running when I ended the turn. The coordinator should check that run, and the run for this report commit.
 
 ## Decisions
 
