@@ -157,3 +157,39 @@ The helper also ran it for real: the public page kept its wording, and the edito
 - **Preview photos:** each class page uses its photo. Home, About and Camps use their top photo. Every other page uses the home photo.
 
 **Cost.** $5.82.
+
+### 6. Google Business Profile kit (merged October 11)
+
+**What changed.** `docs/seo/business-profile.md`, a step-by-step kit for Hannah, in eleven parts:
+- a five-minute checklist on the existing profile;
+- the exact name, address, phone, website and email for every listing;
+- categories;
+- a 622-character description, with a 110-character short version;
+- 14 services;
+- the service area;
+- links tagged so profile visits can be counted;
+- photos and a post calendar through spring 2027;
+- the review kit;
+- 12 other listings, Macaroni KID first;
+- questions for Hannah.
+
+**Proof.**
+- The description was counted (622 of 750).
+- Facts were taken from the site settings and seed. I checked the name, address, phone and email at merge.
+- Links were checked with a script. Flagpole and GigSalad block scripts and weren't checked.
+- Google's help pages were read on October 11.
+
+**Decisions.**
+- **Primary category:** "Drama school". The additional categories are Children's theater, Theater company, Performing arts group, Summer camp and Children's party service. Google publishes no category list, so Hannah confirms each one in the picker. Two of them appeared in only one list.
+- **Service area:** add one (Athens, Watkinsville, Winterville, Bogart, Statham), keeping the storefront address visible.
+- **Left out:** Q&A, messaging and Offers, which couldn't be confirmed as current features.
+- **Macaroni KID:** email them in early December 2026 for the 2027 summer camp guide.
+- **Fixed at merge:** the review rule "don't ask people to review in your lobby" now says what Google's policy actually forbids: a review station or device at the space. A printed QR code that families scan on their own phones stays allowed.
+
+**For Stephen and Hannah.**
+- Hours.
+- Whether the sign says "Little Characters" or the full name.
+- Whether to add "Children's party service" once party details are set.
+- Which holiday mini camps will run.
+
+**Cost.** $1.03.
