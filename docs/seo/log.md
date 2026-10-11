@@ -66,3 +66,19 @@ Each merged unit gets an entry here: what changed, the proof, the decisions, fol
 - The `/camp` → `/camps` redirect is critical, because the old `/camp` page still ranks for summer camp.
 
 **Cost.** $2.87.
+
+### Answers from Stephen and Hannah (October 11)
+
+Questions 1–10 of the research plan are answered. The answers, and how the writers apply them, are recorded under §6 of `docs/seo/research.md`:
+- **Towns:** lead with "the Greater Athens area" and weave in Watkinsville, Winterville, Bogart and Statham.
+- **Winterville:** the Fall 2026 Variety Show is at the Marigold Auditorium in Winterville.
+- **Numbers:** none yet.
+- **Press:** link the coverage that can be found.
+- **Claims:** no "only" claims.
+- **Nonprofit:** not a nonprofit, so never "nonprofit" or "tax-deductible".
+- **Ovation:** continues, with details to come.
+- **Adult classes:** none beyond improv night.
+- **Ages:** 4 and up.
+- **Parties:** details to come.
+
+Questions 11–20 use the plan's defaults until they're answered.

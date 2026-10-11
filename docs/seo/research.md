@@ -399,6 +399,42 @@ Each is a fact the wording would need that the repository doesn't give. Suggeste
 19. **Geode Acting Studio.** Are beginners welcome?
 20. **Emily Greene.** Does she design for specific classes (Produce a Show) or for shows in general?
 
+### Answers (October 11, from Stephen and Hannah)
+
+These override the defaults above and in the report. Writers apply them as follows.
+
+1. **Towns served: the Greater Athens area,** including Watkinsville (Oconee County), Winterville, Bogart and Statham.
+   - Lead with "the Greater Athens area", which reads more naturally to local families.
+   - Weave the town names in where they fit, for example once each on the home, About, Contact and FAQ pages ("families come from Athens, Watkinsville, Winterville, Bogart and Statham").
+   - Titles keep "Athens, GA" (rule 1 in §0). Don't list towns in titles, and don't make a page for each town.
+2. **Winterville:** Little Characters puts on occasional productions at the Marigold Auditorium in Winterville.
+   - The Fall 2026 Variety Show (event `fall-variety-show`) will be there. Its venue is empty in the seed, so a draft can fill it in. Check the auditorium's exact name and address with a web search first.
+   - Present Winterville as a place where shows happen, not where classes are held.
+3. **Numbers:** not yet. Use no student, show or camp counts.
+4. **Press and awards:** yes, link them.
+   - Link only coverage you can find and open: for example, the Macaroni KID Athens article and the UGA Grady Newsource story. Use Flagpole only if an article about Little Characters exists.
+   - Name an award only if a public source shows it. List any you find as an open point, so Stephen and Hannah confirm it before it's used.
+5. **"Only" claims:** none.
+6. **Nonprofit:** Little Characters is **not** a nonprofit (it plans to become one).
+   - Never write "nonprofit", "charity", "501(c)(3)" or "tax-deductible".
+   - On `/give`, gifts support scholarships, pay-what-you-can places and the program, given to a small local business.
+7. **Ovation continues.** Dates, who it's for and price are still to be set. Keep the page evergreen ("ask about the next dates"), and add no facts beyond the seed.
+8. **Adult classes:** list nothing beyond Geode's Adult Improv Night.
+9. **Under age 4:** nothing. Say "ages 4 and up".
+10. **Parties:** details still to be set. Keep "ask for a date", and add no price, guest count or rules.
+
+Questions 11–20 aren't answered yet. Use the report's defaults:
+- **Private lessons:** "booked by the hour", with no price.
+- **Parents' Night Out:** ages 4–12.
+- **Summer 2027:** "dates coming soon", with the email list.
+- **Mini camps:** list past ones only.
+- **Performance Troupe:** "for students who have worked in theater before".
+- **Hours:** leave them out.
+- **Business Profile:** the kit covers both creating and claiming one.
+- **Schools list:** keep it as the About page has it.
+- **Acting Studio:** say nothing about level.
+- **Emily Greene:** don't tie her to a class.
+
 ## 7. What matters most
 
 The ten changes with the largest expected effect, in order.
