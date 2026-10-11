@@ -18,7 +18,9 @@
     "test": "vitest run",
     "import:studio-director": "tsx scripts/import-studio-director.ts",
     "invite:imported": "tsx scripts/invite-imported-families.ts",
-    "billing:run": "tsx scripts/run-billing.ts"
+    "billing:run": "tsx scripts/run-billing.ts",
+    "seo:load-drafts": "tsx scripts/seo-load-drafts.ts",
+    "seo:review": "tsx scripts/seo-review.ts"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.6",
