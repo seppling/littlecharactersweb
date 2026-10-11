@@ -193,3 +193,92 @@ The helper also ran it for real: the public page kept its wording, and the edito
 - Which holiday mini camps will run.
 
 **Cost.** $1.03.
+
+### 4. Wording drafts for the site pages (merged October 11)
+
+**What changed.** `src/content/seo-draft/pages.ts`: 10 page drafts with 44 edits.
+- **Search fields:** every page gets a search title and description.
+- **Site description:** "kids 4 and up, teens and adults" and the Greater Athens area.
+- **Small wording edits:**
+  - home: a plain opening line, "Birthday parties", and tuition through `{tuitionRange}`;
+  - Ovation and FAQ links;
+  - the towns named once each on home, About, Contact and FAQ;
+  - the two new schools on About;
+  - a Macaroni KID Athens article link on About;
+  - Geode: "teen & adult" and "beginners are welcome";
+  - Give: "a small local business" (never "nonprofit");
+  - Camps: "half-day summer camp", naming past mini camps only.
+
+**Proof.**
+- **Lengths:** titles 56–60 characters with the ending; descriptions 131–155.
+- **Banned words:** none, checked by script at merge.
+- **Live site unchanged:** loaded into a local editor, all 10 showed "Unpublished changes", and the public pages were unchanged.
+- **Layout:** no sideways overflow at 1280 px or 390 px.
+- **Browser tests:** both passed.
+- **CI:** passed.
+
+**Decisions.**
+- **School names:** "Barrow Elementary School" and "Timothy Elementary School", the federal school-directory names.
+- **No Grady Newsource link:** no story about Little Characters could be found (only Athens Little Playhouse photos).
+- **No awards** named.
+
+**For Stephen and Hannah.**
+- Send the Grady Newsource link if there is one.
+- Short or long school names?
+- Keep "small local business" on Give?
+- The playful "ages 4 to 100" became "4 and up".
+
+**Will go stale.** Geode's "this fall" heading, the $25 improv price and times, and the camp and Give price examples.
+
+**Cost.** $4.29.
+
+### 5. Wording drafts for classes, camps, events and FAQs (merged October 11)
+
+**What changed.** `src/content/seo-draft/programs.ts`, `events.ts` and `faqs.ts`: 41 drafts (17 programs, 9 upcoming events, 10 changed FAQ answers and 5 new questions).
+- **Programs:** every program gets a search title and description.
+- **Search words** added where true: pre-K and kindergarten, birthday parties, special needs (beside "differently-abled"), singing (voice) lessons, teens and tweens, and "beginners are welcome" on the Acting Studio.
+- **Links by need** between pages.
+- **Summaries:** no class summary changed, so the course description Google reads stays as Hannah wrote it.
+- **Events:**
+  - the Variety Show venue is "Marigold Auditorium for Arts and Culture, 373 N Church St, Winterville" (the city's page gives the name; the old site and venue listings give the address);
+  - Parents' Night Out says ages 4–12.
+- **New FAQs:**
+  - What age can my child start?
+  - Does my child need acting experience?
+  - Do you serve families outside Athens?
+  - Can I stay and watch?
+  - Do you have summer camps?
+
+**Proof.**
+- **Lengths:** titles 52–60 characters with the ending; descriptions 120–155.
+- **Banned words:** none (scripted at merge).
+- **"First class free":** only on classes that offer it.
+- **Preview:** all 41 previewed in the editor at desktop and 390 px, with no overflow and no page errors.
+- **Merged result:** 242 unit tests pass, the build passes, and both browser tests pass.
+- **Preview database:** all 51 drafts load into it at a 391 MB peak (limit 450). A second run skips all 51, and the public pages keep today's wording.
+- **CI:** passed on the helper's branch.
+
+**Decisions.**
+- **Event tickets show plain text,** so links from events to their class pages need a small code change (follow-up).
+- **Summer 2027:** the year is only in the search fields.
+- **Past events:** the October and early November event drafts will be past at a mid-November launch. Remove them from `events.ts` before the launch load.
+
+**For Stephen and Hannah.**
+- Is the free class "all ages" or "ages 4 and up"?
+- Change the Parents' Night Out label from "All kids welcome" to "Ages 4–12"?
+- Ovation's price, once it's set.
+- "Who do you serve?" says grades 6–12, but Geode starts at 11: which is right?
+- What should children wear to class?
+
+**Will go stale.** The homeschool class dates (October 30), "Summer 2027" in the search fields, and Ovation's "Spring 2026 Variety Show".
+
+**Follow-up.**
+- Link event tickets to their class pages.
+- Move the homeschool dates into session fields.
+- A page per show.
+
+**Cost.** $4.13.
+
+### Merging the two wording units
+
+`docs/seo/review.md` is generated from all the drafts, and both units had regenerated it. At merge it was regenerated from the combined drafts: 51 drafts, 131 edits and new entries.
