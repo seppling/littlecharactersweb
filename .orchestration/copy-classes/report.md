@@ -46,7 +46,7 @@ Wording drafts for the 17 programs, the upcoming events and the FAQs. Branch `cl
   - I looked at screenshots of Ovation, Parties, Stories and Songs, Summer Camp, the Variety Show and Parents' Night Out tickets, and the FAQ page, at desktop and phone widths. A few are in `.orchestration/copy-classes/shots/`.
   - The look led to two fixes: the Variety Show summary had repeated the full venue shown on the line above it, and "Find a class by age" had appeared in two neighbouring FAQ answers.
 - **Not run:** the e2e browser tests (`enroll-journey.mjs`, `content-editor.mjs`). This unit changes only draft data, which those tests don't load.
-- **CI:** see the Handoff section; the result after the final push is recorded there.
+- **CI passed** on both pushes: run 65 (`fa10731`, the drafts) and run 67 (`8375812`, the fixes and this report). This commit changes only this report.
 
 ## Decisions
 
