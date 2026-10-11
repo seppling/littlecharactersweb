@@ -97,6 +97,8 @@ export interface Program {
   /** No dates yet: show a "tell me when" signup instead of sessions. */
   notify?: boolean;
   featured?: boolean;
+  /** What Google shows for the class page. Empty = its name and summary. */
+  seo?: Seo;
 }
 
 export interface ImageRef {

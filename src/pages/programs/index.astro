@@ -6,8 +6,9 @@ import Character from '@/components/Character.astro';
 import { kindLabels, ageBands, focusLabels } from '@/content/catalog';
 import { rich } from '@/content/rich';
 import type { Focus } from '@/content/types';
+import { courseListLd, isCourse } from '@/lib/seo';
 
-const { programs, locations, vars, pages } = Astro.locals.content;
+const { programs, locations, vars, pages, site } = Astro.locals.content;
 const page = pages.classes;
 
 const kinds = [...new Set(programs.map((p) => p.kind))];
@@ -20,12 +21,17 @@ const order = ['class', 'camp', 'inclusive', 'lesson', 'party', 'workshop'];
 const sorted = [...programs].sort(
   (a, b) => order.indexOf(a.kind) - order.indexOf(b.kind) || a.ages.min - b.ages.min,
 );
+
+// Google's course list: every class on this page, each pointing to its own page (which has the class's Course markup).
+const courseUrls = sorted.filter(isCourse).map((p) => new URL(`/programs/${p.slug}`, site.url).href);
+const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
 ---
 
 <Base
   title="Find a class"
   description="Search every Little Characters class, camp, workshop and party by age, day and location."
   seo={page.seo}
+  structuredData={structuredData}
   edit="/admin/content/programs"
 >
   <section class="finder-head">

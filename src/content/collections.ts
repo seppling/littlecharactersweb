@@ -6,6 +6,7 @@
  */
 import type { Field, FieldErrors, Option } from './fields';
 import { brandLabels, characterLabels, eventKindLabels, faqGroups, focusLabels, gelLabels, kindLabels, options, statusLabels, weekdays } from './catalog';
+import { seo } from './pages';
 import type { EventItem, Faq, Location, Program, TeamMember, Testimonial } from './types';
 
 export type CollectionKey = 'programs' | 'events' | 'faqs' | 'team' | 'testimonials' | 'locations';
@@ -174,6 +175,7 @@ export const programs: CollectionDef<Program> = {
       fields: linkFields,
       help: 'For lessons and parties: a button to ask, instead of sessions.',
     },
+    seo,
   ],
   title: (p) => p.title,
   subtitle: (p) => {

@@ -6,7 +6,7 @@
  * {email}, are filled in from the site settings, so they stay in step.
  */
 import type { Field } from './fields';
-import { characterOptions, gelOptions } from './collections';
+import { characterLabels, gelLabels, options } from './catalog';
 import type { PageKey } from './types';
 
 export interface PageDef {
@@ -21,11 +21,12 @@ export interface PageDef {
 const RICH = 'Links: [text](/page or https://…). Bold: **text**.';
 const VARS = 'You can use {email}, {phone}, {founded} and {founder}; they’re filled in from the site settings.';
 
-const seo: Field = {
+/** What Google shows. Pages and classes both have it; see src/layouts/Base.astro for how titles are built. */
+export const seo: Field = {
   key: 'seo',
   label: 'Search engines',
   type: 'group',
-  help: 'What Google shows for this page. Leave empty to use the page’s usual title and description.',
+  help: 'What Google shows for this page. Leave empty to use its usual title and description. Titles get “ · Little Characters” added at the end, unless they already say Little Characters.',
   fields: [
     { key: 'title', label: 'Title', type: 'text', max: 70 },
     { key: 'description', label: 'Description', type: 'textarea', rows: 2, max: 300 },
@@ -36,8 +37,9 @@ const eyebrow: Field = { key: 'eyebrow', label: 'Small label above', type: 'text
 const heading: Field = { key: 'heading', label: 'Heading', type: 'text', required: true, max: 160 };
 const lede: Field = { key: 'lede', label: 'Intro', type: 'textarea', rows: 3, max: 800, help: RICH };
 const head = (withLede = true): Field[] => (withLede ? [eyebrow, heading, lede] : [eyebrow, heading]);
+const gelOptions = options(gelLabels);
 const gel: Field = { key: 'gel', label: 'Color', type: 'select', options: gelOptions, required: true };
-const character: Field = { key: 'character', label: 'Character', type: 'select', options: characterOptions, required: true };
+const character: Field = { key: 'character', label: 'Character', type: 'select', options: options(characterLabels), required: true };
 const link = (label = 'Link'): Field => ({
   key: 'link',
   label,

@@ -9,8 +9,9 @@ import { rich } from '@/content/rich';
 import { ageLabel, dateRange, dayList, feeLabel, price, spotsLabel, timeRange } from '@/lib/format';
 import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
 import { hasFreeFirstClass } from '@/lib/pricing';
+import { breadcrumbLd, courseLd, isCourse } from '@/lib/seo';
 
-const { programs, faqs, locationById, programBySlug, vars } = Astro.locals.content;
+const { programs, faqs, locationById, programBySlug, vars, site } = Astro.locals.content;
 const found = programBySlug(Astro.params.slug ?? '');
 if (!found) return Astro.rewrite('/404');
 const program = found;
@@ -38,9 +39,27 @@ const related = programs
 
 const backHref = program.brand === 'geode' ? '/geode' : isCamp ? '/camps' : `/programs?kind=${program.kind}`;
 const backLabel = program.brand === 'geode' ? 'Geode' : isCamp ? 'Camps' : kindLabels[program.kind].plural;
+
+// For search engines: the same trail as the links above the heading, and the class itself.
+const pageUrl = new URL(`/programs/${program.slug}`, site.url).href;
+const structuredData = [
+  breadcrumbLd([
+    { name: 'Find a class', url: new URL('/programs', site.url).href },
+    { name: backLabel, url: new URL(backHref, site.url).href },
+    { name: program.title },
+  ]),
+  ...(isCourse(program) ? [courseLd(program, { site, url: pageUrl })] : []),
+];
 ---
 
-<Base title={program.title} description={program.summary} edit={`/admin/content/programs/${program.slug}`}>
+<Base
+  title={program.title}
+  description={program.summary}
+  seo={program.seo}
+  image={program.image}
+  structuredData={structuredData}
+  edit={`/admin/content/programs/${program.slug}`}
+>
   <article data-gel={program.gel}>
     <header class="phero">
       <div class="wrap phero__grid">

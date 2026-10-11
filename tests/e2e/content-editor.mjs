@@ -123,6 +123,10 @@ const mediaUrl = (await live('/about')).match(new RegExp(`/media/${src.slice(6)}
 check(mediaUrl, 'About page uses the upload');
 const served = await fetch(BASE + mediaUrl);
 check(served.ok && served.headers.get('content-type') === 'image/webp', 'upload served as WebP');
+const share = await fetch(`${BASE}/media/share/${src.slice(6)}/50.jpg`);
+const shareMeta = await sharp(Buffer.from(await share.arrayBuffer())).metadata();
+check(share.ok && shareMeta.format === 'jpeg' && shareMeta.width === 1200 && shareMeta.height === 630, 'link-preview image made as a 1200×630 JPEG');
+check(share.headers.get('cache-control')?.includes('immutable'), 'link-preview image cached for good');
 step('Uploaded a photo and used it');
 
 // 7. History: bring back the previous photo.
