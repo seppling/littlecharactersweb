@@ -24,7 +24,8 @@ Done. Report: `.orchestration/google-setup/report.md`. No compaction or restart.
 
 ## CI
 - `f6f3840`: passed.
-- `657cbfe`: run 38112010222, see the latest line below.
+- `657cbfe`: run 38112010222 passed.
+- `e82b9f0`: run 38112072957 passed.
 
 ## Next action
 None; waiting for the coordinator.

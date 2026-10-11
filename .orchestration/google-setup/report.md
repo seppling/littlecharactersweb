@@ -44,7 +44,7 @@ By file:
 - From the local server, a script parsed every JSON-LD block of `/`, `/events`, `/programs`, `/programs/yes-and-improv`, `/programs/stories-and-songs`, `/programs/summer-camp`, `/about`, `/camps`, `/geode`, `/faq` and `/contact`. It checked the required fields (organization: name, url, logo, address, location; Course: name, description, provider; breadcrumb positions and links) and found no Event blocks. It also fetched each page's `og:image`: every one returned 200 `image/jpeg` at 1200×630. Result: "all checks passed". Breadcrumb example: Find a class (/programs) › Weekly classes (/programs?kind=class) › Yes, And… Improv. The `/programs` list has 13 courses.
 - Redirects, from the local server: `/home`→`/`, `/classes-1`, `/classes`, `/classes1`→`/programs`, `/camp`→`/camps`, `/team`→`/about#team`, `/faqs`→`/faq`, `/giving-page`→`/give`. `/events/parents-night-out`, `/events/8uepmlluu1px9twdv3vksheyuwj1t6-kxpf3` and `/events/lc-variety-show/` all go to `/events`. Every one returned 301. `/events/parents-night-out-nov.ics` returned 200 `text/calendar`.
 - I looked at three crops (trust game, rehearsal circle, cast photo). Faces are in frame.
-- CI: see "CI" at the end of this file.
+- CI: passed (see "CI" at the end of this file).
 
 ## Decisions
 
@@ -110,4 +110,4 @@ By file:
 
 ## CI
 
-See `state.md` for the run result.
+Passed on every commit of the branch: run 38111411570 (`f6f3840`), run 38112010222 (`657cbfe`, the code) and run 38112072957 (`e82b9f0`), all `success`. That covers type check, unit tests, build, the script start-up check and the preview-database memory check.
