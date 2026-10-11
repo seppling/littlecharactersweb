@@ -17,4 +17,8 @@ Branch `claude/seo-copy-pages`, started from `claude/seo-draft` (f1c2101).
 - See report.md.
 
 ## Next action
-- Browser preview of the drafts (desktop and 390 px), then report.md.
+- Done: report.md written. Waiting for the coordinator.
+
+## Later checks
+- Browser preview of all 9 pages at 1280 and 390 px: no overflow; screenshots in shots/.
+- e2e: enroll-journey and content-editor both passed. CI run 66 passed.
