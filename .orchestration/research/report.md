@@ -29,7 +29,7 @@
   - First-class-free wording on the home page.
   - Yes, And…: "creativity" instead of "teamwork".
 - **"First class free" rule.** The plan's list comes from `hasFreeFirstClass` in `src/lib/pricing.ts`.
-- **Web research.** I ran 14 searches with a web search tool on Oct 11, 2026:
+- **Web research.** I ran 16 searches with a web search tool on Oct 11, 2026:
   - kids theater classes Athens GA
   - summer theater camp Athens GA kids
   - kids birthday party places Athens GA

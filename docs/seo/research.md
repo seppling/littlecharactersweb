@@ -44,7 +44,7 @@ October 11, 2026. Written for the SEO draft (see `docs/seo/log.md`). This plan s
 
 ## 2. Who shows up today
 
-**How this was done, and its limits.** Fourteen searches through a web search tool on October 11, 2026 (the queries are in the report). The tool returns ordinary web results, not Google's map pack, ads or "near me" results, and it isn't located in Athens. **I could not see the map results (Google Business Profile)**, which for "near me" and "kids theater classes Athens GA" usually appear above the regular results on phones. Nothing was opened that needed a sign-in; no one was contacted.
+**How this was done, and its limits.** Sixteen searches through a web search tool on October 11, 2026 (the queries are in the report). The tool returns ordinary web results, not Google's map pack, ads or "near me" results, and it isn't located in Athens. **I could not see the map results (Google Business Profile)**, which for "near me" and "kids theater classes Athens GA" usually appear above the regular results on phones. Nothing was opened that needed a sign-in; no one was contacted.
 
 ### Who appears, by need
 
