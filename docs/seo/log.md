@@ -19,7 +19,7 @@ Optimize the existing site content for search and for discoverability in Athens,
 | # | Unit | Part | Needs | Branch |
 |---|---|---|---|---|
 | 1 | Search research: what Athens parents search for, who ranks, a page-by-page target list | 1 | — | `claude/seo-research` |
-| 2 | Google setup: search fields for classes and events, place in page titles, share previews, event and business details, redirects from old addresses | 1 | — | `claude/seo-google-setup` |
+| 2 | Google setup: search fields for class pages, share previews, event and business details for Google, redirects from old addresses (no wording changes) | 1 | — | `claude/seo-google-setup` |
 | 3 | Draft loader: puts new wording into the editor as unpublished drafts, never over newer edits | 1 | — | `claude/seo-loader` |
 | 4 | Wording drafts for the site pages | 2 | 1, 2, 3 | `claude/seo-copy-pages` |
 | 5 | Wording drafts for classes, camps, events and FAQs | 2 | 1, 2, 3 | `claude/seo-copy-classes` |
@@ -28,3 +28,41 @@ Optimize the existing site content for search and for discoverability in Athens,
 ## Log
 
 Each merged unit gets an entry here: what changed, the proof, the decisions, follow-up work and notes for later units.
+
+### 1. Search research (merged October 11)
+
+**What changed.** `docs/seo/research.md`, the search plan that all the wording follows. It has eight parts:
+- ground rules;
+- search demand in 12 groups;
+- who ranks today;
+- targets for all 9 site pages and all 17 class and camp pages;
+- local signals;
+- listings worth having;
+- 20 questions for Hannah;
+- the ten changes that matter most.
+
+**Proof.**
+- Every title and description was counted by the helper and recounted at merge: 26 titles of 40 characters or fewer (60 with " · Little Characters"), and 26 descriptions of 155 or fewer.
+- All 17 class pages are covered.
+- Spot checks against the seed matched: class sizes, the 5,000 sq ft space, and fall term dates.
+- 16 web searches were run on October 11. The map results (Google Business Profile) can't be seen from here.
+
+**Decisions.**
+- **Site name:** the plan uses the site's real name, "Little Characters Theater Troupe" (the coordinator's brief said "Theater Co." by mistake).
+- **Place:** "Athens, GA" goes in every page's title or description, because "Athens" alone brings up results for Ohio, Alabama, Florida, Tennessee and Greece.
+- **Camps:** `/camps` targets theater camps in general, and `/programs/summer-camp` targets Summer 2027.
+- **Claims:** none. Athens Creative Theatre runs an adaptive program, so "the only inclusive program" would likely be untrue.
+
+**For Stephen and Hannah.** The 20 questions in §6 of the plan. Until Hannah answers, the wording uses the plan's cautious defaults.
+
+**Follow-up.** The candidates are in §8 of the plan:
+- a page for each show;
+- watch whether `/camps` and `/programs/summer-camp` compete;
+- move fixed dates out of class descriptions;
+- `/give` still needs its real donation link.
+
+**Notes for later units.**
+- Titles are written for the " · Little Characters" ending: recount them if the Google setup changes how titles are built.
+- The `/camp` → `/camps` redirect is critical, because the old `/camp` page still ranks for summer camp.
+
+**Cost.** $2.87.
