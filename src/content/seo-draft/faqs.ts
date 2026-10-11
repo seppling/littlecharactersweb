@@ -8,7 +8,7 @@ export const faqs: CollectionDraft<'faqs'>[] = [
     create: {
       group: 'Getting started',
       q: 'What age can my child start?',
-      a: 'At 4. Our youngest class, [Stories and Songs](/programs/stories-and-songs), is for ages 4–6; we don’t have classes for children under 4. Tweens and teens from 11 can join [Geode](/geode), and adults 18 and up can come to [Adult Improv Night](/programs/geode-adult-improv). [Find a class by age](/programs).',
+      a: 'At 4. Our youngest class, [Stories and Songs](/programs/stories-and-songs), is for ages 4–6; we don’t have classes for children under 4. Tweens and teens from 11 can join [Geode](/geode), and adults 18 and up can come to [Adult Improv Night](/programs/geode-adult-improv).',
     },
     why: 'Parents search “what age can kids start acting”; this answers it and links to the class for each age.',
   },

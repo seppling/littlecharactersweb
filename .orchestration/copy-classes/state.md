@@ -1,13 +1,16 @@
 # copy-classes: state
 
-## Done
-- Drafts written: `src/content/seo-draft/programs.ts` (17 programs, 61 edits), `events.ts` (9 upcoming events, 10 edits), `faqs.ts` (5 new questions, 10 changed answers, 11 edits). `docs/seo/review.md` regenerated (41 drafts).
-- `npm test` (232 passed), `npm run check` (0 errors), titles/descriptions counted with a script (all within 60/155).
+## Status: done (report in `report.md`)
+
+## Commits
+- SEO draft: wording for classes, camps, events and FAQs (drafts + review.md)
+- copy-classes: visual-check fixes, report and screenshots
 
 ## Decisions
-- Event summaries are plain text (no links render), and the PNO and improv buttons are registration links, so event-to-program links were not added; noted as follow-up.
-- Events drafted: those still upcoming on Oct 11, 2026.
-- Variety Show venue: "Marigold Auditorium for Arts and Culture, 373 N Church St, Winterville" (web search).
+See report.md → Decisions. In short: no event-to-program links (plain-text summaries, registration buttons); events upcoming on Oct 11 drafted; "2027" only in summer camp search fields; Variety Show venue "Marigold Auditorium for Arts and Culture, 373 N Church St, Winterville".
 
-## Next
-- Visual check in the editor (Preview, desktop and 390 px), then report and push.
+## Open questions
+See report.md → Open points (free class age label, PNO age label, past events at launch, Ovation price, grades 6–12 vs 11+, what to wear/bring).
+
+## Next action
+None for this unit. Coordinator: merge, then regenerate docs/seo/review.md on the combined branch.

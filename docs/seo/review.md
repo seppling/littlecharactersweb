@@ -958,9 +958,9 @@ Before:
 
 After:
 
-> Our twice-a-year Variety Show, at the Marigold Auditorium in Winterville, just outside Athens, with performances from this fall’s classes, including Stories and Songs and Geode’s Acting Studio. Each enrolled student gets 2 free tickets.
+> Our twice-a-year Variety Show comes to Winterville, just outside Athens, with performances from this fall’s classes, including Stories and Songs and Geode’s Acting Studio. Each enrolled student gets 2 free tickets.
 
-_Why:_ Names the place in the text, for “kids shows near Athens” searches and for families planning the trip.
+_Why:_ Names the town in the text (the venue line gives the full address), for families planning the trip and “kids shows near Athens” searches.
 
 ## FAQs: new question, “What age can my child start?”
 
@@ -978,7 +978,7 @@ _Why:_ Parents search “what age can kids start acting”; this answers it and 
 
 **Answer**
 
-> At 4. Our youngest class, [Stories and Songs](/programs/stories-and-songs), is for ages 4–6; we don’t have classes for children under 4. Tweens and teens from 11 can join [Geode](/geode), and adults 18 and up can come to [Adult Improv Night](/programs/geode-adult-improv). [Find a class by age](/programs).
+> At 4. Our youngest class, [Stories and Songs](/programs/stories-and-songs), is for ages 4–6; we don’t have classes for children under 4. Tweens and teens from 11 can join [Geode](/geode), and adults 18 and up can come to [Adult Improv Night](/programs/geode-adult-improv).
 
 ## FAQs: new question, “Does my child need acting experience?”
 

@@ -42,8 +42,8 @@ export const events: CollectionDraft<'events'>[] = [
       {
         path: 'summary',
         from: 'Our twice-a-year Variety Show, with performances from this fall’s classes, including Stories and Songs and Geode’s Acting Studio. Each enrolled student gets 2 free tickets.',
-        to: 'Our twice-a-year Variety Show, at the Marigold Auditorium in Winterville, just outside Athens, with performances from this fall’s classes, including Stories and Songs and Geode’s Acting Studio. Each enrolled student gets 2 free tickets.',
-        why: 'Names the place in the text, for “kids shows near Athens” searches and for families planning the trip.',
+        to: 'Our twice-a-year Variety Show comes to Winterville, just outside Athens, with performances from this fall’s classes, including Stories and Songs and Geode’s Acting Studio. Each enrolled student gets 2 free tickets.',
+        why: 'Names the town in the text (the venue line gives the full address), for families planning the trip and “kids shows near Athens” searches.',
       },
     ],
   },
