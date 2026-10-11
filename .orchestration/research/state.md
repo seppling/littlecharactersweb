@@ -1,16 +1,20 @@
 # Research unit: state
 
-Branch: `claude/seo-research` (from `claude/seo-draft` at de709a3).
+Branch: `claude/seo-research` (from `claude/seo-draft` at de709a3). **Status: done.** The report is in `report.md`.
 
-## Done
-- Read the seed (programs, events, faqs, locations, pages, team, testimonials), Base.astro, content-inventory, research.md, the scraped old pages.
-- Facts noted: site name is "Little Characters Theater Troupe" (home title "Little Characters Theater Troupe · Athens, GA"); page titles end " · Little Characters". Winterville is supported by the old site (Spring 2025 classes, camps, variety shows at the Marigold Auditorium).
-
-## Next
-- Web searches for who ranks; write `docs/seo/research.md`; count title/description lengths; report.
+## Commits
+- Start the state file.
+- eedc176 `docs/seo/research.md`: the search plan.
+- This commit: the report and the final state.
 
 ## Decisions
-- (none yet)
+- Titles are given as a 40-character field plus the 20-character " · Little Characters" ending, to match today's `Base.astro`.
+- `/camps` targets "theater camp"; `/programs/summer-camp` targets "summer camp 2027".
+- Winterville is named only as history until Hannah confirms.
+- No "only…" claims, student numbers, towns or "tax-deductible" until Hannah answers.
 
 ## Open questions
-- (collected in the plan's "Questions for Hannah")
+- The 20 questions for Hannah are in `docs/seo/research.md` §6.
+
+## Next action
+- None for this unit. The coordinator merges the branch, then the wording and Business Profile units start.
