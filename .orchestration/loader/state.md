@@ -1,16 +1,19 @@
 # Loader unit: state
 
-## Done
-- Draft format: `src/content/seo-draft/format.ts` (+ one module per kind, `index.ts`).
-- Loader: `scripts/seo-drafts.ts` (library), `scripts/seo-load-drafts.ts` (CLI, `npm run seo:load-drafts`).
-- Review page: `src/content/seo-draft/review.ts`, `scripts/seo-review.ts` → `docs/seo/review.md`.
-- Preview DB step loads drafts (`scripts/prepare-preview-db.ts`).
-- Tests: `tests/unit/seo-drafts.test.ts` (14 passing).
+Status: done. Report: `.orchestration/loader/report.md`.
+
+## Commits (branch claude/seo-loader)
+1. SEO drafts: draft format, loader, review page and tests
+2. SEO drafts: docs, report
 
 ## Decisions
-- Loader identity: `updated_by = 'seo-drafts'` (text column, no account, cannot sign in).
-- Wrong path in a draft = "problem" (draft bug); `from` mismatch = "skipped" (content changed).
+- Loader identity: `content_entry.updated_by = 'seo-drafts'` (a text column, not an account; can't sign in).
+- A wrong path or item in a draft = "problem" (a bug in the draft file); a `from` mismatch = "skipped" (the content changed).
 - No change to `src/server/content.ts`.
+- `--from <file>` lets the loader take drafts from another file, for trying it out.
 
-## Next
-- npm run check / test / build, real run with browser, preview memory, docs/seo/drafts.md, report.
+## Open questions
+- None blocking. See the report's Open points.
+
+## Next action
+- None for this unit. Wording sessions add drafts to `src/content/seo-draft/*.ts`, run `npm test` and `npm run seo:review`.
