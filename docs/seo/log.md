@@ -10,7 +10,7 @@ Optimize the existing site content for search and for discoverability in Athens,
 
 - **The draft stays separate in two ways.** All the work is on the `claude/seo-draft` branch, outside the content-editor pull request. New wording goes into the content editor as unpublished drafts, so Hannah previews each page and publishes only what she likes. Today's wording stays live until she does.
 - **Two parts, with a stop after each.** Part 1 builds the research and the groundwork. Part 2 writes the wording.
-- **In scope:** search research, the behind-the-scenes Google setup, and wording drafts. The Google Business Profile kit is out of scope for now.
+- **In scope:** search research, the behind-the-scenes Google setup, wording drafts, and a Google Business Profile kit (added later the same day).
 - **Small wording and technical choices** are settled during the work and noted here. Any claim (such as "Athens' only…", the towns served, prices or awards) goes to Stephen and Hannah.
 - **At most three sessions run at once.**
 
@@ -23,6 +23,7 @@ Optimize the existing site content for search and for discoverability in Athens,
 | 3 | Draft loader: puts new wording into the editor as unpublished drafts, never over newer edits | 1 | — | `claude/seo-loader` |
 | 4 | Wording drafts for the site pages | 2 | 1, 2, 3 | `claude/seo-copy-pages` |
 | 5 | Wording drafts for classes, camps, events and FAQs | 2 | 1, 2, 3 | `claude/seo-copy-classes` |
+| 6 | Google Business Profile kit: profile description, categories, services, listings to claim, review-request message | 2 | 1 | `claude/seo-business-profile` |
 
 ## Log
 
