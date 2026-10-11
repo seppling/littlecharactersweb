@@ -10,7 +10,9 @@
  * then open it once to apply migrations.
  *
  * It also copies in the site's starting content (src/content/seed/), so the
- * first visitor doesn't wait for it.
+ * first visitor doesn't wait for it, and loads the wording drafts
+ * (src/content/seo-draft/) as unpublished drafts for Hannah to review in the
+ * preview's editor. Nothing is published.
  *
  * The database lives in the project folder (PGLITE_DIR=.data/pglite), because
  * Render keeps files written during the build but not /tmp. Each deploy and
@@ -23,6 +25,8 @@ import path from 'node:path';
 import { getDb } from '../src/server/db';
 import { getContent } from '../src/server/content';
 import { config } from '../src/server/env';
+import { drafts } from '../src/content/seo-draft';
+import { describeOutcomes, loadDrafts } from './seo-drafts';
 
 if (config.databaseUrl) {
   console.log('DATABASE_URL is set, so there is no embedded database to prepare.');
@@ -38,14 +42,16 @@ if (!existsSync(path.join(dir, 'PG_VERSION'))) {
   execFileSync('tar', ['-xzf', path.resolve('scripts/pglite-empty.tar.gz'), '-C', dir], { stdio: ['ignore', 'inherit', 'pipe'] });
 }
 
+let db;
 try {
-  const db = await getDb();
+  db = await getDb();
   await getContent();
-  await (db as unknown as { $client: { close(): Promise<void> } }).$client.close();
 } catch (e) {
   console.error('The empty database snapshot did not open. After a PGlite upgrade, run `npm run db:snapshot` and commit the result.');
   throw e;
 }
+if (drafts.length) console.log(`Wording drafts:\n${describeOutcomes(await loadDrafts(drafts, { commit: true }), true)}\n`);
+await (db as unknown as { $client: { close(): Promise<void> } }).$client.close();
 
 const peakMb = Math.round(Number(readFileSync('/proc/self/status', 'utf8').match(/VmHWM:\s+(\d+)/)?.[1] ?? 0) / 1024);
 console.log(`Demo database ready in ${dir} (peak memory ${peakMb} MB).`);
