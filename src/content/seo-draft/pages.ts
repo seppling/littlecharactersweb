@@ -117,13 +117,13 @@ export const pages: PageDraft[] = [
       {
         path: 'schools.body',
         from: 'We’ve run programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=general).',
-        to: 'We’ve run programs at Athens Academy, Athens Montessori School, Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=general).',
+        to: 'We’ve run programs at Athens Academy, Athens Montessori School, David C. Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Road Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=general).',
         why: 'Adds Barrow and Timothy Elementary, where programs run now, so families searching for their school’s after-school options find us.',
       },
       {
         path: 'facts.items.12.text',
         from: 'Verified CCSD school vendor. Programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens',
-        to: 'Verified Clarke County School District (CCSD) school vendor. Programs at Athens Academy, Athens Montessori School, Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Elementary School and Love.Craft Athens',
+        to: 'Verified Clarke County School District (CCSD) school vendor. Programs at Athens Academy, Athens Montessori School, David C. Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Road Elementary School and Love.Craft Athens',
         why: 'Keeps the key facts (which search engines and AI assistants quote) in step with the schools list above.',
       },
     ],

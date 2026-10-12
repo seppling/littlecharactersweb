@@ -70,7 +70,7 @@ Google gives you one **primary category** and up to nine **additional** categori
 | Additional | **Theater company** | Shows and the troupe. | All 3 |
 | Additional | **Performing arts group** | Geode, the troupe and improv. | All 3 |
 | Additional | **Summer camp** | Summer and holiday camps are the largest search group. | All 3 |
-| Additional | **Children's party service** | Birthday parties, which are a separate search. Use only if you are happy to take party requests. | 1 list; confirm in the picker |
+| Additional | **Children's party service** | Birthday parties, which are a separate search. Stephen and Hannah confirmed: add it. | 1 list; confirm in the picker |
 
 Not recommended: "Event venue" (it implies renting the room out), "Improv" and "Singing lessons" (no such category appears in the lists; "Comedy club" would be wrong, since you teach rather than run a club).
 

@@ -282,3 +282,18 @@ The helper also ran it for real: the public page kept its wording, and the edito
 ### Merging the two wording units
 
 `docs/seo/review.md` is generated from all the drafts, and both units had regenerated it. At merge it was regenerated from the combined drafts: 51 drafts, 131 edits and new entries.
+
+### Decisions after the end report (October 12)
+
+- **Parking guide PDF:** retire it, and put its content on the Contact page. Its text is already there, apart from two details (the 5 quick-stop spaces and the 10-step walk). Its two annotated maps aren't. Taken up as unit 8.
+- **Teaching-philosophy PDF:** retire it. Its old address forwards to `/about` (unit 8).
+- **Grady Newsource story:** not found, so it's dropped.
+- **Ages** (free class, Parents' Night Out label, "Who do you serve?"): on hold.
+- **Business Profile items:** on hold while Stephen reviews the kit.
+- **"A small local business" on Give:** keep.
+- **School names:** use the long forms, "David C. Barrow Elementary School" and "Timothy Road Elementary School". Applied to the About drafts.
+- **"Children's party service":** add it to the Business Profile. Applied to the kit.
+- **Next pieces:**
+  - a page for each show, and links from event cards: unit 7;
+  - a share photo for Geode: Stephen will source the photo, and unit 8 adds a field to put it in;
+  - the homeschool date: Stephen will review it.
