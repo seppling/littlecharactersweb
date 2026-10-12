@@ -11,7 +11,7 @@ import { jsonLd, organizationLd, pageTitle } from '@/lib/seo';
 interface Props {
   title?: string;
   description?: string;
-  /** Search-engine title and description set in the editor; they win over the page's own. */
+  /** Search-engine title, description and share photo set in the editor; they win over the page's own. */
   seo?: Seo;
   /** The page's main photo, for link previews. Pages without one use the home page's photo. */
   image?: ImageRef;
@@ -39,7 +39,7 @@ const canonical = new URL(Astro.url.pathname, origin).href;
 // The site's default photo: the home page's, or the cast photo it started with.
 const fallbackPhoto: ImageRef = { src: 'builtin:photos/cast-silly-faces', alt: 'A cast of campers and counselors making silly faces after a show', position: '45% 40%' };
 const siteImage = shareImage(pages.home.hero.photo, uploads) ?? shareImage(fallbackPhoto, uploads);
-const ogImage = shareImage(Astro.props.image, uploads) ?? siteImage;
+const ogImage = shareImage(seo?.image, uploads) ?? shareImage(Astro.props.image, uploads) ?? siteImage;
 const ogImageUrl = ogImage && new URL(ogImage.src, origin).href;
 const organization = organizationLd({
   site,

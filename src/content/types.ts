@@ -189,6 +189,8 @@ export interface SectionHead {
 export interface Seo {
   title?: string;
   description?: string;
+  /** The photo for link previews; wins over the page's own photo. */
+  image?: ImageRef;
 }
 
 export interface SiteSettings {
@@ -196,7 +198,7 @@ export interface SiteSettings {
   contact: { email: string; phone: string };
   social: { instagram?: string; facebook?: string };
   links: { giving?: string; wishList?: string };
-  parking: { walkIn: string; dropOff: string; staffOnly: string; late: string; guideUrl?: string };
+  parking: { walkIn: string; dropOff: string; staffOnly: string; late: string; guideUrl?: string; walkInMap?: ImageRef; dropOffMap?: ImageRef };
   description: string;
   previewBanner?: boolean;
 }

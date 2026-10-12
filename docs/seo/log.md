@@ -297,3 +297,56 @@ The helper also ran it for real: the public page kept its wording, and the edito
   - a page for each show, and links from event cards: unit 7;
   - a share photo for Geode: Stephen will source the photo, and unit 8 adds a field to put it in;
   - the homeschool date: Stephen will review it.
+
+### 7. A page for each show, and event card links (merged October 12)
+
+**What changed.**
+- **Show pages:** each show has its own page at `/events/<slug>`, with the date, place, map link, price, button, calendar link, description, photo and breadcrumb. It carries Event markup for each performance still to come. After the show, the page stays up with a note that it has happened.
+- **Event cards:** a show's name links to its page. Parents' Night Out, the free class and improv night link to their class page through a new **Class page** field. Every button stays.
+- **Event fields:** events get an optional photo and search fields.
+- **Sitemap:** lists the shows still to come.
+- **Redirects:** old Squarespace event addresses still go to `/events`.
+
+**Proof.**
+- 16 new tests: redirects, Event markup (upcoming, past, undated), which events get a page, and the card links.
+- At merge: 259 unit tests pass, the build passes, and both browser tests pass. `/events/fall-variety-show` returns 200. `/events/lc-variety-show/` and other old addresses return a 301 to `/events`. The `.ics` files return 200. The cards link correctly.
+- CI passed on the helper's branch.
+
+**Decisions.**
+- **Pages for shows only:** recurring nights link to their class pages instead.
+- **Redirect check:** the check for `/events/...` runs after the content loads, because the list of shows lives in the database.
+- **Past shows:** a past show's page drops its button and calendar link.
+
+**For Stephen and Hannah.**
+- The Variety Show will only get Event markup once it has a date *and* the Marigold Auditorium is a **Location** chosen under **Where**. The free-text venue has no street address, which Google needs. When the date is set, Hannah adds the location (the address is in the draft). Its map link is needed.
+
+**Follow-up.**
+- A photo for each show.
+- A "postponed" or "cancelled" status, if ever needed.
+
+**Cost.** Recorded in the session notes.
+
+### 8. Parking maps, retired PDFs and a share-photo field (merged October 12)
+
+**What changed.**
+- **Parking maps:** the Contact page shows the old guide's two annotated maps (walk-in and drop-off), each beside its directions. A tap opens the map full size. The maps are built-in photos in two new Site settings fields, so Hannah can replace them.
+- **Two missing details:** the 10-step walk and the 5 quick-stop spaces are added to the drop-off text as a draft. Removing the PDF link is a draft too.
+- **Parking FAQ:** links to `/contact#parking` (in its draft).
+- **Retired PDFs:** the parking PDF's address forwards to `/contact#parking`, and the teaching-philosophy PDF's address forwards to `/about`.
+- **Share photo:** the **Search engines** box gets **Photo when the page is shared** on every page, class and show. The Geode page needs it once Stephen has a photo.
+
+**Proof.**
+- At merge: tests pass, and all 51 drafts load into the preview database at a 371 MB peak (limit 450).
+- Both PDF addresses return a 301 to the right page.
+- `/contact` serves both maps in three sizes.
+- The helper tested a Geode share photo end to end: the `og:image` became a 1200×630 JPEG of the upload.
+- CI passed on the helper's branch.
+
+**Decisions.**
+- **Map crops:** the maps are cropped from the rendered PDF pages, at the photos' own resolution, so the star and labels survive.
+- **Full size:** opens the largest built size, with no lightbox script.
+- **Drop-off text:** both details go into one edit of the drop-off text.
+
+**Merge.** `docs/content-editor.md` conflicted. Both paragraphs were kept: the show and repeating-night paragraphs, plus the share-photo sentence. `docs/seo/review.md` was regenerated.
+
+**For Stephen and Hannah.** The redirects only work once the domain points at the new site. The PDFs on Squarespace go away when it does.

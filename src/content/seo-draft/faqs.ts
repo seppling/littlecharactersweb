@@ -93,8 +93,8 @@ export const faqs: CollectionDraft<'faqs'>[] = [
       {
         path: 'a',
         from: 'We’re at 1635 W Broad St, between Rocksprings and Alps on the south side of Broad. Park on Minor St and walk your child to the front door, where a teacher checks them in. After 5 pm you can drop off from the car via the neighbor’s circle driveway at 1655 W Hancock Ave. The back lot is staff-only, and doors lock 5 minutes after class starts.',
-        to: 'We’re at 1635 W Broad St in Athens, between Rocksprings and Alps on the south side of Broad. Park on Minor St and walk your child to the front door, where a teacher checks them in. After 5 pm you can drop off from the car via the neighbor’s circle driveway at 1655 W Hancock Ave. The back lot is staff-only, and doors lock 5 minutes after class starts. [Map and directions](/contact).',
-        why: 'Names the city with the address and links to the contact page’s map.',
+        to: 'We’re at 1635 W Broad St in Athens, between Rocksprings and Alps on the south side of Broad. Park on Minor St and walk your child to the front door, where a teacher checks them in. After 5 pm you can drop off from the car via the neighbor’s circle driveway at 1655 W Hancock Ave. The back lot is staff-only, and doors lock 5 minutes after class starts. [Maps and directions](/contact#parking).',
+        why: 'Names the city with the address and links to the parking maps on the contact page.',
       },
     ],
   },

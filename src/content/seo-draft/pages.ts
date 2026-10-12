@@ -12,6 +12,18 @@ export const pages: PageDraft[] = [
         to: 'Theater classes, camps and shows for kids 4 and up, teens and adults in Athens, GA and the Greater Athens area. Encouraging creative hearts since 2022.',
         why: 'Google shows this under any page without its own description, so it now names kids, teens and adults, “Athens, GA” and the wider area, in the 155 characters Google shows.',
       },
+      {
+        path: 'parking.dropOff',
+        from: 'After 5 pm, you can stay in the car: at the crosswalk where W Hancock meets W Broad, turn into the neighbor’s circle driveway at the green building (GPS: 1655 W Hancock Ave) and pull up to our front door.',
+        to: 'After 5 pm, you can stay in the car: at the crosswalk where W Hancock meets W Broad, turn into the neighbor’s circle driveway at the green building (GPS: 1655 W Hancock Ave) and pull up to our front door. From there, kids have a 10-step walk to the front, where a teacher is waiting to check them in. If you need to drop something off real quick, you can use the 5 parking spaces at the neighbor’s building.',
+        why: 'Brings over the two details from the parking guide that the site didn’t have yet (the 10-step walk and the 5 quick-stop spaces), so the guide can be retired.',
+      },
+      {
+        path: 'parking.guideUrl',
+        from: 'https://www.littlecharacters.org/s/Little-Characters-Parking-Instructions.pdf',
+        to: '',
+        why: 'The contact page now shows the guide’s two maps beside the directions, so the PDF link goes; the PDF’s old address forwards to the contact page’s parking section.',
+      },
     ],
   },
   {

@@ -217,6 +217,13 @@ describe('redirects from the old site', () => {
     expect(oldSiteRedirect('/home')).toBe('/');
     expect(oldSiteRedirect('/FAQs/')).toBe('/faq');
   });
+  it('sends the retired PDFs to the pages that replaced them, whatever the letter case', () => {
+    expect(oldSiteRedirect('/s/Little-Characters-Parking-Instructions.pdf')).toBe('/contact#parking');
+    expect(oldSiteRedirect('/s/little-characters-parking-instructions.PDF')).toBe('/contact#parking');
+    expect(oldSiteRedirect('/s/Hannah-Eppling-Experience-and-Teaching-Philosophy-1.pdf')).toBe('/about');
+    expect(oldSiteRedirect('/s/HANNAH-EPPLING-EXPERIENCE-AND-TEACHING-PHILOSOPHY-1.pdf')).toBe('/about');
+    expect(oldSiteRedirect('/s/Some-Other-File.pdf')).toBeUndefined();
+  });
   it('sends old event pages to /events, but not the calendar files', () => {
     expect(oldSiteRedirect('/events/parents-night-out')).toBe('/events');
     expect(oldSiteRedirect('/events/8uepmlluu1px9twdv3vksheyuwj1t6-kxpf3')).toBe('/events');

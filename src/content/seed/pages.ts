@@ -24,6 +24,15 @@ export const pages: Pages = {
       staffOnly: 'The lot behind the building is staff-only, so please don’t use the 1635 driveway.',
       late: 'Doors lock 5 minutes after class starts. If you’re running late, walk your student to the front door and knock.',
       guideUrl: 'https://www.littlecharacters.org/s/Little-Characters-Parking-Instructions.pdf',
+      // The two maps from that guide, cropped from its pages.
+      walkInMap: {
+        src: 'builtin:photos/parking-walk-in-map',
+        alt: 'Aerial map of the corner of W Broad St and Minor St. The 25 parking spaces run along Minor St, beside the package store on the corner. An arrow leads from them along W Broad St, past the package store, to our front door on Broad.',
+      },
+      dropOffMap: {
+        src: 'builtin:photos/parking-drop-off-map',
+        alt: 'Aerial map of W Broad St where W Hancock Ave meets it. A star marks the crosswalk: turn there into the neighbor’s circle driveway at 1655 W Hancock Ave and follow the arrow to our front door. The 5 parking spaces are beside the neighbor’s building.',
+      },
     },
     description:
       'Theater classes, camps, workshops and shows for ages 4 to 100 in Athens, Georgia. Encouraging creative hearts through theater since 2022.',
