@@ -50,7 +50,11 @@ What stays with Stephen: the layout and design, new kinds of pages, prices and d
 
 **A new photo.** In any photo field, press **Choose photo**, then **Upload a new photo**. Photos from a phone are fine; they're resized automatically and the location data the camera saves is removed. Then click the most important part of the photo (usually a face) so it stays in view when the photo is cropped, and describe it in a few words for people who can't see it. Only use photos of children whose families said yes to photos.
 
-**What Google shows.** Every page and every class has a **Search engines** box with a title and a description. Leave them empty to use the page's usual heading and intro (for a class, its name and summary). The title gets " · Little Characters" added at the end, unless it already says Little Characters. When someone shares a link to a page, the preview shows that page's main photo (a class's photo, or the photo at the top of the page), cropped around the spot you clicked; other pages show the home page photo.
+**A new show.** Under **Shows & events**, add an event with **Kind** set to **Show**. Each show gets its own page at `littlecharacters.org/events/` plus its **Short name for links** (for example `/events/fall-variety-show`), and its name on the events list links there. Give it a **Photo** if you have one: it shows on the show's page and when someone shares the link. Choose a place under **Where** (not "Or another venue") so Google can list the show in its event results: Google needs the street address and the date. After the show, the page stays up with a note that it has happened, so shared links keep working.
+
+**Nights that repeat.** Parents' Night Out, the free class and improv night don't get a page for each date. Their **Class page** field picks the class page that tells more, and the event's name links there. The **Button** (like the registration form) stays as it is.
+
+**What Google shows.** Every page, every class and every show has a **Search engines** box with a title and a description. Leave them empty to use the page's usual heading and intro (for a class, its name and summary). The title gets " · Little Characters" added at the end, unless it already says Little Characters. When someone shares a link to a page, the preview shows that page's main photo (a class's photo, or the photo at the top of the page), cropped around the spot you clicked; other pages show the home page photo.
 
 ## Writing tips
 

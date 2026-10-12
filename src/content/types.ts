@@ -140,6 +140,12 @@ export interface EventItem {
   price?: string;
   cta?: { label: string; href: string };
   ages?: string;
+  /** The class page that tells more, for recurring nights like Parents’ Night Out (a program's slug). */
+  programSlug?: string;
+  /** Shown on a show's own page and in its link previews. */
+  image?: ImageRef;
+  /** What Google shows for a show's own page. Empty = its name and description. */
+  seo?: Seo;
 }
 
 export interface TeamMember {
