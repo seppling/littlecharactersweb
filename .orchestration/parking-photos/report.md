@@ -39,7 +39,7 @@ By file:
   - `/contact` at 1280 px and at 390 px: 2 maps, lazy WebP, alt text of 229 and 248 characters, no sideways scroll. A tap opens `/media/builtin/photos/parking-drop-off-map/960.webp`, and the labels are readable. Screenshots: `screenshots/contact-parking-desktop.webp`, `contact-parking-phone.webp`, `drop-off-full-phone.webp`.
   - Geode: `og:image` before was `/media/share/builtin/photos/cast-silly-faces/0.jpg`. I uploaded a test photo into "Photo when the page is shared", set its focus point and published. After: `/media/share/<upload id>/0.jpg`, a 1200×630 JPEG (`screenshots/geode-og-test.webp`). `/about` kept its own preview. Screenshot of the field: `editor-geode-share-field.webp`. Site settings shows both map fields set to the built-in maps (`editor-site-maps.webp`). No page errors.
   - Drafts in a fresh local database: `APP_ENV=development PGLITE_DIR=.data/drafts npm run seo:load-drafts -- --commit` loaded all 51, and a second dry run skipped all 51. In the editor, the Site settings form shows the PDF link emptied. **Preview**, then `/contact` with the preview bar: it shows the 10-step walk and the 5 spaces, and has no PDF link. The public `/contact` still has today's wording and the PDF link. Screenshot: `contact-parking-drafts-phone.webp`.
-- CI: see the end of this report.
+- CI: run 76 on `758b0e2` (https://github.com/seppling/littlecharactersweb/actions/runs/38275275965) passed.
 
 ## Decisions
 

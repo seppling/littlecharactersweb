@@ -1,7 +1,7 @@
 # parking-photos: state
 
 **Branch:** `claude/seo-parking-photos` (from `claude/seo-draft`)
-**Status:** done; report in `report.md`. Waiting on CI for the pushed commit.
+**Status:** done; CI passed on `758b0e2` (run 76). Report in `report.md`.
 
 ## Commits
 - Parking maps on the Contact page, PDF redirects, share photo for search fields (this commit).
