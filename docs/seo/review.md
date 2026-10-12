@@ -22,6 +22,30 @@ After:
 
 _Why:_ Google shows this under any page without its own description, so it now names kids, teens and adults, “Athens, GA” and the wider area, in the 155 characters Google shows.
 
+### Parking & drop-off at HQ › Drop off (after 5 pm)
+
+Before:
+
+> After 5 pm, you can stay in the car: at the crosswalk where W Hancock meets W Broad, turn into the neighbor’s circle driveway at the green building (GPS: 1655 W Hancock Ave) and pull up to our front door.
+
+After:
+
+> After 5 pm, you can stay in the car: at the crosswalk where W Hancock meets W Broad, turn into the neighbor’s circle driveway at the green building (GPS: 1655 W Hancock Ave) and pull up to our front door. From there, kids have a 10-step walk to the front, where a teacher is waiting to check them in. If you need to drop something off real quick, you can use the 5 parking spaces at the neighbor’s building.
+
+_Why:_ Brings over the two details from the parking guide that the site didn’t have yet (the 10-step walk and the 5 quick-stop spaces), so the guide can be retired.
+
+### Parking & drop-off at HQ › Parking guide (PDF)
+
+Before:
+
+> https://www.littlecharacters.org/s/Little-Characters-Parking-Instructions.pdf
+
+After:
+
+> _(empty)_
+
+_Why:_ The contact page now shows the guide’s two maps beside the directions, so the PDF link goes; the PDF’s old address forwards to the contact page’s parking section.
+
 ## Home page
 
 Edit: `/admin/content/pages/home`
@@ -1680,9 +1704,9 @@ Before:
 
 After:
 
-> We’re at 1635 W Broad St in Athens, between Rocksprings and Alps on the south side of Broad. Park on Minor St and walk your child to the front door, where a teacher checks them in. After 5 pm you can drop off from the car via the neighbor’s circle driveway at 1655 W Hancock Ave. The back lot is staff-only, and doors lock 5 minutes after class starts. [Map and directions](/contact).
+> We’re at 1635 W Broad St in Athens, between Rocksprings and Alps on the south side of Broad. Park on Minor St and walk your child to the front door, where a teacher checks them in. After 5 pm you can drop off from the car via the neighbor’s circle driveway at 1655 W Hancock Ave. The back lot is staff-only, and doors lock 5 minutes after class starts. [Maps and directions](/contact#parking).
 
-_Why:_ Names the city with the address and links to the contact page’s map.
+_Why:_ Names the city with the address and links to the parking maps on the contact page.
 
 ## FAQs: How much do classes cost?
 

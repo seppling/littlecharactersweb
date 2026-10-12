@@ -30,6 +30,12 @@ export const seo: Field = {
   fields: [
     { key: 'title', label: 'Title', type: 'text', max: 70 },
     { key: 'description', label: 'Description', type: 'textarea', rows: 2, max: 300 },
+    {
+      key: 'image',
+      label: 'Photo when the page is shared',
+      type: 'image',
+      help: 'The picture shown when someone shares a link to this page (in a text, on Facebook…), in place of the page’s usual photo. It’s cropped to a wide rectangle around the focus point.',
+    },
   ],
 };
 
@@ -123,13 +129,15 @@ export const site: PageDef = {
       label: 'Parking & drop-off at HQ',
       type: 'group',
       required: true,
-      help: 'Shown on the home page, the contact page and enrollment confirmations.',
+      help: 'Shown on the home page, the contact page and enrollment confirmations. The maps are only on the contact page.',
       fields: [
         { key: 'walkIn', label: 'Walk in', type: 'textarea', rows: 3, required: true },
         { key: 'dropOff', label: 'Drop off (after 5 pm)', type: 'textarea', rows: 3, required: true },
         { key: 'staffOnly', label: 'Please don’t', type: 'textarea', rows: 2, required: true },
         { key: 'late', label: 'Running late?', type: 'textarea', rows: 2, required: true },
         { key: 'guideUrl', label: 'Parking guide (PDF)', type: 'url' },
+        { key: 'walkInMap', label: 'Walk-in map', type: 'image', help: 'Shown beside “Walk in” on the contact page. Describe the route in words, for people who can’t see the map.' },
+        { key: 'dropOffMap', label: 'Drop-off map', type: 'image', help: 'Shown beside “Drop off” on the contact page. Describe the route in words, for people who can’t see the map.' },
       ],
     },
     {

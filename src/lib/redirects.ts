@@ -12,6 +12,9 @@ const OLD_PAGES: Record<string, string> = {
   '/team': '/about#team',
   '/faqs': '/faq',
   '/giving-page': '/give',
+  // PDFs the old site linked to, now pages here (keys in lower case).
+  '/s/little-characters-parking-instructions.pdf': '/contact#parking',
+  '/s/hannah-eppling-experience-and-teaching-philosophy-1.pdf': '/about',
 };
 
 /** Where an old address now lives, or undefined when it isn't one. */

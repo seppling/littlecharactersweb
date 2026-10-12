@@ -2,6 +2,7 @@
 import LeadFormFields from '@/components/LeadFormFields.astro';
 import Base from '@/layouts/Base.astro';
 import { rich } from '@/content/rich';
+import { resolveImage } from '@/lib/media';
 
 const topics = [
   { value: 'general', label: 'A general question' },
@@ -12,10 +13,19 @@ const topics = [
   { value: 'scholarship', label: 'Scholarships & pay-what-you-can' },
   { value: 'needs', label: 'My child’s specific needs' },
 ];
-const { site, vars, locations, locationById, pages } = Astro.locals.content;
+const { site, vars, locations, locationById, pages, uploads } = Astro.locals.content;
 const page = pages.contact;
 const parking = site.parking;
 const hq = locationById('hq') ?? locations[0];
+// The parking maps, each beside its directions. A tap opens the largest size, so the labels can be read on a phone.
+const map = (ref: typeof parking.walkInMap) => {
+  const img = resolveImage(ref, uploads);
+  return img && ref && { ...img, alt: ref.alt, full: resolveImage(ref, uploads, Infinity)!.src };
+};
+const routes = [
+  { label: 'Walk in', text: parking.walkIn, gel: 'teal', map: map(parking.walkInMap) },
+  { label: 'Drop off (after 5 pm)', text: parking.dropOff, gel: 'orange', map: map(parking.dropOffMap) },
+];
 ---
 
 <Base title="Contact" description="Get in touch with Little Characters Theater Troupe at 1635 W Broad St, Athens, GA." seo={page.seo} edit="/admin/content/pages/contact">
@@ -88,12 +98,28 @@ const hq = locationById('hq') ?? locations[0];
         <h2 id="parking-title">{page.parking.heading}</h2>
         {hq.notes && <p class="lede">{hq.notes}</p>}
       </div>
-      <dl class="parking">
-        <div data-gel="teal"><dt>Walk in</dt><dd>{parking.walkIn}</dd></div>
-        <div data-gel="orange"><dt>Drop off (after 5 pm)</dt><dd>{parking.dropOff}</dd></div>
-        <div data-gel="red"><dt>Please don’t</dt><dd>{parking.staffOnly}</dd></div>
-        <div data-gel="purple"><dt>Running late?</dt><dd>{parking.late}</dd></div>
-      </dl>
+      <div class="parking">
+        {
+          routes.map((r) => (
+            <div class:list={['parking__route', { 'has-map': r.map }]}>
+              <dl class="parking__card" data-gel={r.gel}>
+                <dt>{r.label}</dt>
+                <dd>{r.text}</dd>
+              </dl>
+              {r.map && (
+                <figure class="parking__map">
+                  <a href={r.map.full}>
+                    <img src={r.map.src} srcset={r.map.srcset} sizes="(max-width: 860px) 100vw, 720px" width={r.map.width} height={r.map.height} alt={r.map.alt} loading="lazy" decoding="async" />
+                  </a>
+                  <figcaption>Tap the map to see it full size.</figcaption>
+                </figure>
+              )}
+            </div>
+          ))
+        }
+        <dl class="parking__card" data-gel="red"><dt>Please don’t</dt><dd>{parking.staffOnly}</dd></dl>
+        <dl class="parking__card" data-gel="purple"><dt>Running late?</dt><dd>{parking.late}</dd></dl>
+      </div>
       {parking.guideUrl && <p class="parking__more"><a href={parking.guideUrl} rel="noopener">Download the full parking guide (PDF)</a></p>}
     </div>
   </section>
@@ -117,11 +143,16 @@ const hq = locationById('hq') ?? locations[0];
   .contact__form .btn { justify-self: start; }
   .opt { font-weight: 400; color: var(--ink-mute); }
   .parking { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-m); }
-  .parking div { padding: 1.1rem 1.3rem; background: var(--paper); border-radius: var(--r-md); border-left: 6px solid var(--gel); }
+  .parking__card { margin: 0; padding: 1.1rem 1.3rem; background: var(--paper); border-radius: var(--r-md); border-left: 6px solid var(--gel); }
+  .parking__route.has-map { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: var(--space-m); align-items: start; }
+  .parking__map { margin: 0; display: grid; gap: 0.4rem; }
+  .parking__map a { display: block; border-radius: var(--r-md); overflow: hidden; cursor: zoom-in; }
+  .parking__map img { display: block; width: 100%; height: auto; }
+  .parking__map figcaption { font-size: var(--step--1); color: var(--ink-mute); }
   .parking dt { font-family: var(--font-display); font-weight: 750; font-size: 1.1rem; font-stretch: 92%; }
-  .parking dd { margin: 0.2rem 0 0; color: var(--ink-soft); }
+  .parking__card dd { margin: 0.2rem 0 0; color: var(--ink-soft); }
   .parking__more { margin-top: var(--space-l); }
   @media (max-width: 860px) {
-    .contact__grid, .parking { grid-template-columns: 1fr; }
+    .contact__grid, .parking, .parking__route.has-map { grid-template-columns: 1fr; }
   }
 </style>
