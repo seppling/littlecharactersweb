@@ -3,14 +3,18 @@
 Branch `claude/seo-show-pages`, from `claude/seo-draft` at c7d1587.
 
 ## Status
-In progress: reading the code, then adding show pages, the redirect change, card links, editor fields, sitemap, docs.
+Done. All checks pass locally. The report is in `report.md`.
+
+## Commits
+- f03073e: state file
+- fff6202: show pages, redirects, card links, event fields, sitemap, docs, tests, screenshots
+- (next) report and state
 
 ## Decisions
-- Show pages are for events of kind `show` only, past ones included (shared links keep working).
-- The `/events/<slug>` check needs the site content, so the middleware runs the `/events/` redirect after the content is loaded (it respects staff preview).
+See report.md → Decisions.
 
 ## Open questions
-(none yet)
+See report.md → Open points (none block the work).
 
 ## Next action
-Write `src/lib/events.ts` and the page.
+None: waiting on the coordinator to review and merge.
