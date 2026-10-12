@@ -1,11 +1,10 @@
 ---
 /**
- * Photo slot. Renders the real image when `image.src` is set; otherwise a
- * designed placeholder that names the shot we need, so the layout can be
- * reviewed before photography is migrated.
+ * Photo slot. Renders the photo when `image.src` is set; otherwise a designed
+ * placeholder that names the shot we need.
  */
-import { Image } from 'astro:assets';
-import type { Gel, ImageRef } from '@/data/types';
+import type { Gel, ImageRef } from '@/content/types';
+import { resolveImage } from '@/lib/media';
 
 interface Props {
   image?: ImageRef;
@@ -28,22 +27,24 @@ const {
   sizes = '(max-width: 720px) 100vw, 480px',
 } = Astro.props;
 const style = image?.position ? `object-position: ${image.position}` : undefined;
+const photo = resolveImage(image, Astro.locals.content.uploads);
 ---
 
 <figure class:list={['frame', `frame--${shape}`, className]} data-gel={gel} style={`--ratio: ${ratio}`}>
   {
-    image?.src && typeof image.src === 'object' ? (
-      <Image
-        src={image.src}
-        alt={image.alt}
-        widths={[360, 640, 960, 1280].filter((w) => w <= (image.src as ImageMetadata).width)}
+    photo ? (
+      <img
+        src={photo.src}
+        srcset={photo.srcset}
         sizes={sizes}
+        width={photo.width}
+        height={photo.height}
+        alt={image?.alt ?? ''}
         loading={eager ? 'eager' : 'lazy'}
         fetchpriority={eager ? 'high' : undefined}
+        decoding="async"
         style={style}
       />
-    ) : image?.src ? (
-      <img src={image.src as string} alt={image.alt} loading={eager ? 'eager' : 'lazy'} decoding="async" style={style} />
     ) : (
       <div class="frame__placeholder" role="img" aria-label={image?.alt ?? 'Photo coming soon'}>
         <span class="frame__caption">

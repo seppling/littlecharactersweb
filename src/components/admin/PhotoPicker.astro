@@ -1,0 +1,18 @@
+---
+/** The photo library dialog for the editor's photo fields (see src/scripts/editor.ts). */
+---
+
+<dialog class="picker" data-photo-picker aria-labelledby="picker-title">
+  <div class="picker__head">
+    <h2 id="picker-title">Choose a photo</h2>
+    <button type="button" class="btn btn--sm btn--outline" data-picker-close>Close</button>
+  </div>
+  <div class="picker__upload">
+    <label class="btn btn--sm btn--primary">
+      Upload a new photo
+      <input type="file" accept="image/*" data-picker-upload class="sr-only" />
+    </label>
+    <p class="picker__status" data-picker-status role="status" aria-live="polite"></p>
+  </div>
+  <div class="picker__grid" data-picker-grid></div>
+</dialog>

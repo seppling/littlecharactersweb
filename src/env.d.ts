@@ -11,5 +11,9 @@ declare namespace App {
     } | null;
     session: { id: string; expiresAt: Date } | null;
     isAdmin: boolean;
+    /** The site's content: published, or with unpublished edits while staff preview them. */
+    content: import('./content/site-content').SiteContent;
+    /** Staff are previewing unpublished edits. */
+    preview: boolean;
   }
 }

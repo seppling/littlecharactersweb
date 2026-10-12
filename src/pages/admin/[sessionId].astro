@@ -1,17 +1,17 @@
 ---
-import Base from '@/layouts/Base.astro';
+import AdminShell from '@/components/admin/AdminShell.astro';
 import { roster } from '@/server/admin';
-import { findSession } from '@/server/family';
 import { dayList, timeRange } from '@/lib/format';
 
 export const prerender = false;
-if (!Astro.locals.isAdmin || !Astro.locals.user) return new Response('Not found', { status: 404 });
-const found = findSession(Astro.params.sessionId ?? '');
+const isAdmin = Astro.locals.isAdmin && !!Astro.locals.user;
+if (!isAdmin && Astro.locals.user) return new Response('Not found', { status: 404 });
+const found = Astro.locals.content.findSession(Astro.params.sessionId ?? '');
 if (!found) return new Response('Not found', { status: 404 });
-const people = await roster(found.session.id, Astro.locals.user.id);
+const people = isAdmin ? await roster(found.session.id, Astro.locals.user!.id) : [];
 ---
 
-<Base title={`Roster: ${found.program.title}`} noindex>
+<AdminShell title={`Roster: ${found.program.title}`} section="rosters">
   <section class="wrap admin">
     <a href="/admin">← All rosters</a>
     <h1>{found.program.title}</h1>
@@ -35,7 +35,7 @@ const people = await roster(found.session.id, Astro.locals.user.id);
       </table>
     )}
   </section>
-</Base>
+</AdminShell>
 
 <style>
   .admin { padding-block: var(--space-2xl) var(--space-3xl); display: grid; gap: var(--space-m); }

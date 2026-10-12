@@ -9,14 +9,19 @@
  * scripts/pglite-empty.tar.gz (made by `npm run db:snapshot`) with plain `tar`,
  * then open it once to apply migrations.
  *
+ * It also copies in the site's starting content (src/content/seed/), so the
+ * first visitor doesn't wait for it.
+ *
  * The database lives in the project folder (PGLITE_DIR=.data/pglite), because
  * Render keeps files written during the build but not /tmp. Each deploy and
- * each wake from sleep starts from this empty database.
+ * each wake from sleep starts from this database, so content edited on the
+ * preview is lost when it restarts.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { getDb } from '../src/server/db';
+import { getContent } from '../src/server/content';
 import { config } from '../src/server/env';
 
 if (config.databaseUrl) {
@@ -35,6 +40,7 @@ if (!existsSync(path.join(dir, 'PG_VERSION'))) {
 
 try {
   const db = await getDb();
+  await getContent();
   await (db as unknown as { $client: { close(): Promise<void> } }).$client.close();
 } catch (e) {
   console.error('The empty database snapshot did not open. After a PGlite upgrade, run `npm run db:snapshot` and commit the result.');

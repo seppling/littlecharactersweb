@@ -1,5 +1,5 @@
 import { site } from '@/config/site';
-import type { Program, Session } from '@/data/types';
+import type { Program, Session } from '@/content/types';
 
 /*
  * The single seam between the marketing site and the enrollment system.

@@ -2,29 +2,38 @@
 import Base from '@/layouts/Base.astro';
 import EventTicket from '@/components/EventTicket.astro';
 import Character from '@/components/Character.astro';
-import { events, sortKey } from '@/data/events';
+import { isUpcoming, sortKey } from '@/content/catalog';
+import { rich } from '@/content/rich';
+import { todayInAthens } from '@/lib/pricing';
+
+const { events, vars, pages } = Astro.locals.content;
+const page = pages.events;
 
 // Group by month in date order; undated events sit at the end of their month.
-const sorted = [...events].sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+const today = todayInAthens();
+const sorted = events.filter((e) => isUpcoming(e, today)).sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
 const months = new Map<string, typeof events>();
 for (const e of sorted) {
-  const when = e.times[0]?.start ?? `${e.tba}-15T12:00`;
-  const key = new Date(when).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const when = e.times[0]?.start ?? (e.tba ? `${e.tba}-15T12:00` : undefined);
+  const key = when ? new Date(when).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'Dates to come';
   months.set(key, [...(months.get(key) ?? []), e]);
 }
 ---
 
-<Base title="Shows & events" description="Variety shows, performances around town, Parents’ Night Out, free community classes and Geode improv nights from Little Characters.">
+<Base
+  title="Shows & events"
+  description="Variety shows, performances around town, Parents’ Night Out, free community classes and Geode improv nights from Little Characters."
+  seo={page.seo}
+  edit="/admin/content/events"
+>
   <div class="house">
     <section class="house__head">
       <div class="house__lights" aria-hidden="true"></div>
       <div class="wrap house__intro">
         <div class="stack">
-          <p class="eyebrow">House lights down</p>
-          <h1>Shows & events</h1>
-          <p class="lede">
-            Come see what our students have been working on, drop the kids off for a night of games and crafts, try a free class, or play along yourself.
-          </p>
+          {page.hero.eyebrow && <p class="eyebrow">{page.hero.eyebrow}</p>}
+          <h1>{page.hero.headline}</h1>
+          <p class="lede" set:html={rich(page.hero.intro, vars)} />
           <ul class="legend" aria-label="Event types">
             <li><span class="tape" data-gel="orange">Show</span></li>
             <li><span class="tape" data-gel="red" data-tilt="right">Drop-off</span></li>
@@ -57,9 +66,9 @@ for (const e of sorted) {
 
     <section class="wrap perform">
       <div class="perform__card">
-        <h2>Want your kid on this stage?</h2>
-        <p>Every class has a mid-semester showcase and ends with a big show, and each student gets 2 free tickets for family.</p>
-        <a class="btn btn--orange" href="/programs">Find a class <span class="arrow" aria-hidden="true">→</span></a>
+        <h2>{page.perform.heading}</h2>
+        <p set:html={rich(page.perform.body, vars)} />
+        <a class="btn btn--orange" href="/programs">{page.perform.button} <span class="arrow" aria-hidden="true">→</span></a>
       </div>
     </section>
   </div>

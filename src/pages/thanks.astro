@@ -2,7 +2,8 @@
 /** Where lead forms land when JavaScript is off (with it, the confirmation shows in place). */
 import Base from '@/layouts/Base.astro';
 import Character from '@/components/Character.astro';
-import { site } from '@/config/site';
+
+const { site } = Astro.locals.content;
 ---
 
 <Base title="Thank you" noindex>

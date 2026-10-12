@@ -1,8 +1,7 @@
 ---
 import LeadFormFields from '@/components/LeadFormFields.astro';
 import Base from '@/layouts/Base.astro';
-import { site } from '@/config/site';
-import { locations, parking } from '@/data/locations';
+import { rich } from '@/content/rich';
 
 const topics = [
   { value: 'general', label: 'A general question' },
@@ -13,21 +12,35 @@ const topics = [
   { value: 'scholarship', label: 'Scholarships & pay-what-you-can' },
   { value: 'needs', label: 'My child’s specific needs' },
 ];
-const hq = locations.find((l) => l.id === 'hq')!;
+const { site, vars, locations, locationById, pages } = Astro.locals.content;
+const page = pages.contact;
+const parking = site.parking;
+const hq = locationById('hq') ?? locations[0];
 ---
 
-<Base title="Contact" description="Get in touch with Little Characters Theater Troupe at 1635 W Broad St, Athens, GA.">
+<Base title="Contact" description="Get in touch with Little Characters Theater Troupe at 1635 W Broad St, Athens, GA." seo={page.seo} edit="/admin/content/pages/contact">
   <section class="contact">
     <div class="wrap contact__grid">
       <div class="stack" style="--stack: var(--space-l)">
-        <p class="eyebrow">Say hello</p>
-        <h1>Contact us!</h1>
-        <p class="lede">Interested but need more info? The class times don’t work for you? Questions about scholarships? We’re eager to make a class work for your family.</p>
+        {page.hero.eyebrow && <p class="eyebrow">{page.hero.eyebrow}</p>}
+        <h1>{page.hero.headline}</h1>
+        <p class="lede" set:html={rich(page.hero.intro, vars)} />
         <dl class="direct">
           <div><dt>Email</dt><dd><a href={`mailto:${site.contact.email}`}>{site.contact.email}</a></dd></div>
           <div><dt>Phone</dt><dd><a href={site.contact.phoneHref}>{site.contact.phone}</a></dd></div>
           <div><dt>Visit</dt><dd><a href={hq.mapUrl} rel="noopener">{hq.address.join(', ')}</a></dd></div>
-          <div><dt>Follow</dt><dd><a href={site.social.instagram} rel="noopener">Instagram</a> · <a href={site.social.facebook} rel="noopener">Facebook</a></dd></div>
+          {
+            (site.social.instagram || site.social.facebook) && (
+              <div>
+                <dt>Follow</dt>
+                <dd>
+                  {site.social.instagram && <a href={site.social.instagram} rel="noopener">Instagram</a>}
+                  {site.social.instagram && site.social.facebook && ' · '}
+                  {site.social.facebook && <a href={site.social.facebook} rel="noopener">Facebook</a>}
+                </dd>
+              </div>
+            )
+          }
         </dl>
       </div>
 
@@ -71,9 +84,9 @@ const hq = locations.find((l) => l.id === 'hq')!;
   <section class="section section--hall" id="parking" aria-labelledby="parking-title">
     <div class="wrap">
       <div class="section-head">
-        <p class="eyebrow">One of our favorite topics</p>
-        <h2 id="parking-title">Parking & drop-off</h2>
-        <p class="lede">{hq.notes}</p>
+        {page.parking.eyebrow && <p class="eyebrow">{page.parking.eyebrow}</p>}
+        <h2 id="parking-title">{page.parking.heading}</h2>
+        {hq.notes && <p class="lede">{hq.notes}</p>}
       </div>
       <dl class="parking">
         <div data-gel="teal"><dt>Walk in</dt><dd>{parking.walkIn}</dd></div>
@@ -81,7 +94,7 @@ const hq = locations.find((l) => l.id === 'hq')!;
         <div data-gel="red"><dt>Please don’t</dt><dd>{parking.staffOnly}</dd></div>
         <div data-gel="purple"><dt>Running late?</dt><dd>{parking.late}</dd></div>
       </dl>
-      <p class="parking__more"><a href={parking.guideUrl} rel="noopener">Download the full parking guide (PDF)</a></p>
+      {parking.guideUrl && <p class="parking__more"><a href={parking.guideUrl} rel="noopener">Download the full parking guide (PDF)</a></p>}
     </div>
   </section>
 </Base>

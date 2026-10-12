@@ -1,37 +1,28 @@
 ---
 import Base from '@/layouts/Base.astro';
 import Character from '@/components/Character.astro';
-import { site } from '@/config/site';
+import { href, rich } from '@/content/rich';
 
-// What a gift covers, using real Fall 2026 prices.
-const impact = [
-  { amount: '$30', what: 'A student’s performance fee, so they can be in the show', gel: 'yellow' },
-  { amount: '$95', what: 'A month of Intro to Theater or Yes, And… Improv', gel: 'teal' },
-  { amount: '$160', what: 'All 8 weeks of Stories and Songs for a 4- to 6-year-old', gel: 'red' },
-  { amount: '$250', what: 'A full week of summer camp, snacks and materials included', gel: 'purple' },
-] as const;
-
-// "How can I support LC?", from the FAQ page.
-const ways = [
-  { title: 'Volunteer', body: 'Help with classes, camps, shows or events.', href: `mailto:${site.contact.email}?subject=Volunteering`, label: 'Email us' },
-  { title: 'Donate costumes & props', body: 'Costumes, props and set pieces all find a home on our stage.', href: `mailto:${site.contact.email}?subject=Donation`, label: 'Email us' },
-  { title: 'Shop our wish list', body: 'Pick up something we need from our Amazon Wish List.', href: site.wishListUrl, label: 'See the wish list' },
-  { title: 'Become a sponsor', body: 'Local businesses help keep our programs going. Let’s talk.', href: '/contact?topic=general', label: 'Get in touch' },
-];
+const { site, vars, pages } = Astro.locals.content;
+const page = pages.give;
 ---
 
-<Base title="Give" description="Support the Little Characters scholarship fund so any kid in Athens can take the stage.">
+<Base title="Give" description="Support the Little Characters scholarship fund so any kid in Athens can take the stage." seo={page.seo} edit="/admin/content/pages/give">
   <section class="give-hero">
     <div class="wrap give-hero__grid">
       <div class="stack" style="--stack: var(--space-l)">
-        <p class="eyebrow">The scholarship fund</p>
-        <h1>Help a kid take the stage.</h1>
-        <p class="lede">
-          Donations to Little Characters go directly to supporting our programs. Your gift gives kids in the Athens area a safe place to express themselves and step into the world of theater, and lets us offer pay-what-you-can rates to any family who needs them.
-        </p>
+        {page.hero.eyebrow && <p class="eyebrow">{page.hero.eyebrow}</p>}
+        <h1>{page.hero.headline}</h1>
+        <p class="lede" set:html={rich(page.hero.intro, vars)} />
         <div class="give-hero__ctas">
-          <a class="btn btn--primary" href={site.givingUrl} rel="noopener">Give now <span class="arrow" aria-hidden="true">→</span></a>
-          <a class="btn btn--outline" href="/contact?topic=scholarship">Ask about a scholarship</a>
+          {
+            site.givingUrl && (
+              <a class="btn btn--primary" href={site.givingUrl} rel="noopener">
+                {page.hero.giveButton} <span class="arrow" aria-hidden="true">→</span>
+              </a>
+            )
+          }
+          <a class="btn btn--outline" href="/contact?topic=scholarship">{page.hero.scholarshipButton}</a>
         </div>
       </div>
       <div class="give-hero__cast" aria-hidden="true">
@@ -43,10 +34,10 @@ const ways = [
 
   <section class="section section--hall" aria-labelledby="impact-title">
     <div class="wrap">
-      <h2 id="impact-title" class="impact__title">What your gift covers</h2>
+      <h2 id="impact-title" class="impact__title">{page.impact.heading}</h2>
       <ul class="impact">
         {
-          impact.map((x) => (
+          page.impact.items.map((x) => (
             <li data-gel={x.gel}>
               <span class="impact__amount">{x.amount}</span>
               <span>{x.what}</span>
@@ -59,16 +50,21 @@ const ways = [
 
   <section class="section" aria-labelledby="ways-title">
     <div class="wrap">
-      <h2 id="ways-title" class="impact__title">Other ways to help</h2>
+      <h2 id="ways-title" class="impact__title">{page.ways.heading}</h2>
       <ul class="ways">
         {
-          ways.map((w) => (
-            <li>
-              <h3>{w.title}</h3>
-              <p>{w.body}</p>
-              <a class="link-arrow" href={w.href} rel={w.href.startsWith('http') ? 'noopener' : undefined}>{w.label}</a>
-            </li>
-          ))
+          page.ways.items.map((w) => {
+            const link = href(w.link.href, vars);
+            return (
+              <li>
+                <h3>{w.title}</h3>
+                <p set:html={rich(w.body, vars)} />
+                <a class="link-arrow" href={link} rel={link.startsWith('http') ? 'noopener' : undefined}>
+                  {w.link.label}
+                </a>
+              </li>
+            );
+          })
         }
       </ul>
     </div>
@@ -76,10 +72,8 @@ const ways = [
 
   <section class="section section--tight section--hall">
     <div class="wrap wrap--narrow stack" style="--stack: var(--space-l)">
-      <h2>Need a scholarship?</h2>
-      <p class="lede">
-        We never want cost to keep a student from joining our programs, and we’re happy to arrange a pay-what-you-can rate. Email <a href={`mailto:${site.contact.email}?subject=Scholarship`}>{site.contact.email}</a> for the scholarship application.
-      </p>
+      <h2>{page.scholarship.heading}</h2>
+      <p class="lede" set:html={rich(page.scholarship.body, vars)} />
     </div>
   </section>
 </Base>

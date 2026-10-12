@@ -1,4 +1,4 @@
-import type { EventItem } from './types';
+import type { EventItem } from '../types';
 
 /*
  * Upcoming shows and events, from the live site's events calendar and the
@@ -83,8 +83,3 @@ export const events: EventItem[] = [
   improvNight('improv-night-dec', '2026-12-17'),
   pno('parents-night-out-dec', '2026-12-19'),
 ];
-
-/** Events with a real date, in order; undated ones (tba) sort by their month. */
-export const sortKey = (e: EventItem) => e.times[0]?.start ?? `${e.tba}-99`;
-
-export const eventBySlug = (slug: string) => events.find((e) => e.slug === slug);

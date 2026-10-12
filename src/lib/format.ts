@@ -1,4 +1,4 @@
-import type { Fee, Price, Program, Session, Weekday } from '@/data/types';
+import type { Fee, Price, Program, Session, Weekday } from '@/content/types';
 
 const DAY_NAMES: Record<Weekday, string> = {
   Mon: 'Mondays', Tue: 'Tuesdays', Wed: 'Wednesdays', Thu: 'Thursdays', Fri: 'Fridays', Sat: 'Saturdays', Sun: 'Sundays',
@@ -57,7 +57,7 @@ export function price(p?: Price) {
 
 export function ageLabel(ages: Program['ages'], override?: string) {
   if (override) return override;
-  if (ages.max === null) return ages.min >= 18 ? 'Adults 18+' : `Ages ${ages.min}+`;
+  if (ages.max == null) return ages.min >= 18 ? 'Adults 18+' : `Ages ${ages.min}+`;
   return `Ages ${ages.min}–${ages.max}`;
 }
 

@@ -4,23 +4,24 @@
  * (its wordmark is black); on the dark footer we pair the four-color mark
  * with live text so it stays readable.
  */
-import { Image } from 'astro:assets';
-import lockup from '@/assets/brand/logo-horizontal.webp';
-import mark from '@/assets/brand/logo-mark.png';
+import { resolveImage } from '@/lib/media';
 
 interface Props {
   tone?: 'ink' | 'light';
 }
 const { tone = 'ink' } = Astro.props;
+// Resized at build time, like the other built-in photos (src/lib/media.ts).
+const lockup = resolveImage({ src: 'builtin:brand/logo-horizontal' }, new Map(), 380)!;
+const mark = resolveImage({ src: 'builtin:brand/logo-mark' }, new Map(), 96)!;
 ---
 
 <a href="/" class:list={['logo', `logo--${tone}`]} aria-label="Little Characters Theater Troupe, home">
   {
     tone === 'ink' ? (
-      <Image src={lockup} alt="" class="logo__lockup" widths={[190, 380, 570]} sizes="190px" loading="eager" />
+      <img src={lockup.src} srcset={lockup.srcset} sizes="190px" width={lockup.width} height={lockup.height} alt="" class="logo__lockup" />
     ) : (
       <>
-        <Image src={mark} alt="" class="logo__mark" widths={[48, 96, 144]} sizes="48px" />
+        <img src={mark.src} srcset={mark.srcset} sizes="48px" width={mark.width} height={mark.height} alt="" class="logo__mark" loading="lazy" />
         <span class="logo__text">
           <span class="logo__name">Little Characters</span>
           <span class="logo__sub">Theater Troupe</span>

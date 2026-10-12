@@ -1,8 +1,9 @@
 ---
 /** A show or event as a ticket stub, for the dark "house lights down" sections. */
-import type { EventItem } from '@/data/types';
-import { locationById } from '@/data/locations';
+import type { EventItem } from '@/content/types';
 import { eventDate, timeOf } from '@/lib/format';
+
+const { locationById } = Astro.locals.content;
 
 interface Props {
   event: EventItem;
@@ -12,7 +13,11 @@ const { event } = Astro.props;
 const dated = event.times.length > 0;
 const first = dated
   ? eventDate(event.times[0].start)
-  : { month: new Date(`${event.tba}-15T12:00`).toLocaleDateString('en-US', { month: 'short' }), day: 'TBA', weekday: 'Save the date' };
+  : {
+      month: event.tba ? new Date(`${event.tba}-15T12:00`).toLocaleDateString('en-US', { month: 'short' }) : 'Soon',
+      day: 'TBA',
+      weekday: 'Save the date',
+    };
 const venue = event.venue ?? locationById(event.locationId ?? '')?.name;
 const kindLabel: Record<EventItem['kind'], string> = {
   show: 'Show',

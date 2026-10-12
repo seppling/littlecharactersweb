@@ -1,0 +1,162 @@
+---
+/** The photo library: upload, describe, and delete photos nothing uses. */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { deleteUpload, listUploads, MAX_UPLOAD_BYTES, photoUsage, saveUpload, updateUploadAlt, UploadError } from '@/server/media';
+import { builtinPhotos, thumbnail } from '@/lib/media';
+import { editTarget, BASE, when } from '@/lib/editor';
+import { getContent } from '@/server/content';
+
+export const prerender = false;
+
+const { isAdmin, user } = Astro.locals;
+let problem: string | undefined;
+
+if (isAdmin && user && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = String(form.get('_action'));
+  const id = String(form.get('id') ?? '');
+  if (action === 'upload') {
+    const file = form.get('file');
+    if (!(file instanceof File) || !file.size) problem = 'Choose a photo to upload.';
+    else if (file.size > MAX_UPLOAD_BYTES) problem = 'That file is over 25 MB. Try a smaller photo.';
+    else {
+      try {
+        await saveUpload({ bytes: new Uint8Array(await file.arrayBuffer()), filename: file.name, alt: String(form.get('alt') ?? ''), userId: user.id });
+        return Astro.redirect(`${BASE}/photos?done=uploaded`, 303);
+      } catch (e) {
+        if (!(e instanceof UploadError)) throw e;
+        problem = e.message;
+      }
+    }
+  } else if (action === 'alt') {
+    await updateUploadAlt(id, String(form.get('alt') ?? ''));
+    return Astro.redirect(`${BASE}/photos?done=saved#photo-${id}`, 303);
+  } else if (action === 'delete') {
+    const result = await deleteUpload(id);
+    if (result.ok) return Astro.redirect(`${BASE}/photos?done=deleted`, 303);
+    problem = 'That photo is still in use. Choose a different photo there first.';
+  }
+}
+
+const content = isAdmin ? await getContent('draft') : Astro.locals.content;
+const uploads = isAdmin ? await listUploads() : [];
+const usage = new Map(await Promise.all(uploads.map(async (u) => [u.id, await photoUsage(`media:${u.id}`)] as const)));
+const builtins = builtinPhotos.filter((p) => p.folder !== 'brand');
+const done = Astro.url.searchParams.get('done');
+---
+
+<AdminShell title="Photos">
+  <div class="admin-page">
+    <nav class="admin-crumbs" aria-label="Breadcrumb"><a href={BASE}>Site content</a><span aria-hidden="true">/</span><span>Photos</span></nav>
+    <div class="admin-head">
+      <div>
+        <h1>Photos</h1>
+        <p class="admin-intro">
+          Photos you upload here can be picked in any photo field. They’re resized for phones and computers automatically, and location data from the camera is removed.
+          Only use photos of children whose families agreed to it.
+        </p>
+      </div>
+    </div>
+
+    {done === 'uploaded' && <p class="notice" role="status">Uploaded. Pick it from any photo field.</p>}
+    {done === 'saved' && <p class="notice" role="status">Saved the description.</p>}
+    {done === 'deleted' && <p class="notice" role="status">Deleted the photo.</p>}
+    {problem && <p class="notice notice--error" role="alert">{problem}</p>}
+
+    <form method="post" enctype="multipart/form-data" class="tile" style="max-width: 36rem" data-upload-form>
+      <strong>Upload a photo</strong>
+      <div class="cf">
+        <label for="up-file">Photo</label>
+        <input id="up-file" type="file" name="file" accept="image/*" required />
+      </div>
+      <div class="cf">
+        <label for="up-alt">Describe it <span class="cf__opt">optional</span></label>
+        <input id="up-alt" name="alt" placeholder="Students rehearsing a scene on stage" />
+        <p class="cf__help">For people who can’t see it. Filled in when you pick this photo.</p>
+      </div>
+      <input type="hidden" name="_action" value="upload" />
+      <button class="btn btn--primary" type="submit">Upload</button>
+      <p class="picker__status" role="status" aria-live="polite" data-upload-status></p>
+    </form>
+
+    <section class="admin-section" aria-labelledby="yours-title">
+      <h2 id="yours-title">Uploaded photos</h2>
+      {uploads.length === 0 && <p class="admin-intro">None yet.</p>}
+      <ul class="photos">
+        {
+          uploads.map((u) => {
+            const used = usage.get(u.id) ?? [];
+            return (
+              <li class="photo-card" id={`photo-${u.id}`}>
+                <img src={thumbnail(`media:${u.id}`, content.uploads)} alt={u.alt ?? ''} loading="lazy" />
+                <p>
+                  <strong>{u.filename}</strong>
+                  <br />
+                  {u.width} × {u.height} · {when(u.createdAt)}
+                </p>
+                <p>{used.length ? `Used on: ${used.map((x) => editTarget(x.collection, x.id)?.title(x.data) ?? x.id).join(', ')}` : 'Not used yet'}</p>
+                <form method="post" class="cf">
+                  <label for={`alt-${u.id}`}>Description</label>
+                  <input id={`alt-${u.id}`} name="alt" value={u.alt ?? ''} />
+                  <input type="hidden" name="id" value={u.id} />
+                  <button class="btn btn--sm btn--outline" type="submit" name="_action" value="alt">
+                    Save description
+                  </button>
+                </form>
+                {used.length === 0 && (
+                  <form method="post" data-confirm-form="Delete this photo?">
+                    <input type="hidden" name="id" value={u.id} />
+                    <button class="linkish linkish--danger" type="submit" name="_action" value="delete">
+                      Delete photo
+                    </button>
+                  </form>
+                )}
+              </li>
+            );
+          })
+        }
+      </ul>
+    </section>
+
+    <details class="admin-section">
+      <summary><strong>Photos that came with the site ({builtins.length})</strong></summary>
+      <ul class="photos">
+        {
+          builtins.map((p) => (
+            <li class="photo-card">
+              <img src={thumbnail(`builtin:${p.key}`, content.uploads)} alt="" loading="lazy" />
+              <p>{p.key.split('/')[1].replace(/-/g, ' ')}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </details>
+  </div>
+</AdminShell>
+
+<script>
+  import { shrink } from '@/scripts/photos';
+
+  // Shrink big phone photos in the browser before sending them (some hosts cap uploads at 6 MB).
+  const uploadForm = document.querySelector<HTMLFormElement>('form[data-upload-form]');
+  uploadForm?.addEventListener('submit', async (e) => {
+    const input = uploadForm.querySelector<HTMLInputElement>('input[type=file]')!;
+    const file = input.files?.[0];
+    if (!file) return;
+    e.preventDefault();
+    const status = uploadForm.querySelector<HTMLElement>('[data-upload-status]')!;
+    status.textContent = 'Uploading…';
+    const body = new FormData();
+    body.append('file', await shrink(file), file.name.replace(/\.\w+$/, '') + '.jpg');
+    body.append('alt', (uploadForm.querySelector<HTMLInputElement>('input[name=alt]')?.value ?? '').trim());
+    const res = await fetch('/api/admin/media', { method: 'POST', body, credentials: 'same-origin' });
+    if (res.ok) location.assign('/admin/content/photos?done=uploaded');
+    else status.textContent = (await res.json().catch(() => ({}))).message ?? 'That upload didn’t work. Try again.';
+  });
+
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-confirm-form]')) {
+    form.addEventListener('submit', (e) => {
+      if (!confirm(form.dataset.confirmForm!)) e.preventDefault();
+    });
+  }
+</script>

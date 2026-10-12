@@ -26,9 +26,9 @@ The app is currently built with Astro's Node adapter, so it runs as-is on **Rend
 
 ```
 Family's browser ──HTTPS──▶ Netlify (littlecharacters.org)
-                             ├─ static pages (/, /programs, /camps…)   from the CDN, no server work
-                             └─ functions (/enroll, /account, /admin, /api)
-                                   ├──TLS──▶ Neon Postgres      families, students, orders, sessions
+                             ├─ photos, scripts, styles     from the CDN, no server work
+                             └─ functions (every page, /api)
+                                   ├──TLS──▶ Neon Postgres      site content, families, students, orders
                                    ├──TLS──▶ Resend             sign-in codes, confirmations
                                    └──TLS──▶ Stripe             checkout, saved cards
 Stripe ──signed webhook──▶ /api/stripe/webhook   confirms payments even if the tab was closed
@@ -53,16 +53,14 @@ Family data (households, students, orders, enrollments) sits in the same databas
 
 ## Content management
 
-There are two kinds of content, and they belong in different places.
+Everything families read (classes and their sessions, events, FAQs, the team, testimonials, locations, every page's text, contact details and the announcement bar) is in the database, and staff edit it at **`/admin/content`**. The guide for Hannah is [`content-editor.md`](content-editor.md).
 
-**1. Marketing copy** (About, FAQs, team bios, photos, event blurbs) changes a few times a term.
-- *Today:* typed files in `src/data/`. A typo in a field name fails the build instead of breaking the page. Stephen (or Claude) edits them, and every change gets a preview URL before it goes live.
-- *When Hannah wants to edit directly:* add **Keystatic**, a free, open-source editor at `/keystatic` that saves to GitHub. There's no new vendor or database, and edits get the same preview and rollback. It's about a day of work to wire up to the existing data files.
-- A hosted CMS (Sanity, Contentful) is more than this site needs.
-
-**2. The class catalog** (sessions, dates, prices, capacity) is operational data. It changes every term and is what families pay for.
-- *Today:* also in `src/data/programs.ts`. Enrollments point at each session's stable `id`, so opening a new term means adding sessions and deploying, which takes about 2 minutes.
-- *Next step (recommended once the portal is live):* move sessions into Postgres with an **admin editor** in `/admin`, so Hannah can open registration, change capacity or add a date without a deploy. The pages already read the catalog through one module, so this swap doesn't touch the design.
+- **Drafts and publishing.** Edits are drafts until someone presses Publish. Staff can preview drafts on the real site; families only ever see published content. Every published version is kept (`content_version`), so anything can be restored, including deleted items.
+- **Rendering.** Pages are rendered on request from an in-memory copy of the content. Each running server checks a revision number at most every 2 seconds and reloads when it changes, so a publish shows up everywhere within a couple of seconds. Public pages send `Cache-Control: public, max-age=0, must-revalidate`, so browsers and CDNs always check back.
+- **Photos.** Built-in photos (`src/assets/`) are resized into static files at build time. Uploads are shrunk in the browser, then resized once on the server (WebP at 360–1280px, camera location data removed) and stored in the database, served from `/media/<id>/<width>` with year-long caching. They're small (about 300 KB per photo for every size together), so even hundreds fit well inside Neon's free storage.
+- **Starting content.** `src/content/seed/` is copied into an empty database the first time the site runs. After that the database is the source of truth; editing the seed files doesn't change a running site.
+- **Safeguards.** Sessions families signed up for can't be removed (close them instead), published web addresses are fixed, and anything still used elsewhere can't be deleted. Price changes only affect new enrollments; families keep the charges they agreed to at checkout.
+- **Layout and design** stay in code. Adding a field to the editor is a few lines in `src/content/collections.ts` or `pages.ts` plus the template that shows it.
 
 ## Backups and recovery
 
@@ -71,7 +69,8 @@ There are two kinds of content, and they belong in different places.
 | Database | Neon point-in-time restore (free tier keeps a short window; paid keeps 7–30 days) | Restore to any second in the window, or branch the database to inspect it first |
 | Extra safety | Once a month: `pg_dump "$DATABASE_URL" > lc-YYYY-MM.sql`, stored encrypted (e.g. in 1Password or an encrypted drive) | `psql` it into a new Neon project |
 | Payments | Stripe is the system of record for money | Nothing to back up; the dashboard has everything |
-| Code and content | GitHub | Every version, with one-click rollback on the host |
+| Code | GitHub | Every version, with one-click rollback on the host |
+| Site content and photos | In the database, so covered by the backups above. Every published version is also kept, so staff can restore past versions themselves | History → Restore in the editor |
 | Secrets | A password manager entry ("Little Characters production") with every environment variable | Paste back into the host |
 
 ## Environment variables
@@ -100,7 +99,7 @@ The app **fails closed**: unless it's explicitly told it's in development, it re
    - Copy the test keys.
    - Add the webhook endpoint (next section) once the site has a public URL.
    - Turn on Apple Pay and Google Pay under Settings → Payment methods.
-4. **Host:** connect this GitHub repo, then switch the adapter. For Netlify: `npx astro add netlify` (replaces `@astrojs/node` in `astro.config.mjs`), and add the security headers for static pages in `public/_headers` (snippet below). Build command `npm run build`. Add the environment variables and deploy.
+4. **Host:** connect this GitHub repo, then switch the adapter. For Netlify: `npx astro add netlify` (replaces `@astrojs/node` in `astro.config.mjs`), and add the security headers for static files in `public/_headers` (snippet below). Build command `npm run build`. Add the environment variables and deploy. Photo uploads are resized with `sharp`, which Netlify's functions support; the editor shrinks photos in the browser first, so uploads stay under Netlify's 6 MB request limit.
 5. **Try it on the preview URL:** enroll a test child with Stripe's test card `4242 4242 4242 4242`.
 6. **Go live:** switch Stripe to live keys and a live webhook, point the domain at the host, and set up the uptime check on `/` and `/account`.
 
@@ -121,16 +120,17 @@ The app **fails closed**: unless it's explicitly told it's in development, it re
   - `APP_ENV` = `development`
   - `PGLITE_DIR` = `.data/pglite`
   - `ADMIN_EMAILS` = your email
+  - `MALLOC_ARENA_MAX` = `2` (keeps photo uploads well inside the memory limit)
   - Optionally, `STRIPE_SECRET_KEY` and `PUBLIC_STRIPE_PUBLISHABLE_KEY` (test keys only)
 
 Then choose **Save, rebuild, and deploy**.
 
-**Why the preview ships a ready-made database.** The preview's database is PGlite, the same Postgres that local development uses, running inside the server. Creating a new database briefly needs 550–700 MB of memory, over the free plan's 512 MB. That limit applies to the build as well as the running server, and Render stops anything that goes over. Opening an existing database needs far less: the build step peaks around 300 MB, and the server around 350 MB through the full test journey. So `npm run db:prepare-preview` unpacks `scripts/pglite-empty.tar.gz`, a brand-new empty database, into the project folder (not `/tmp`, which doesn't survive from build to start), then applies migrations. If an `@electric-sql/pglite` upgrade moves to a new Postgres version, CI's "Render preview database" step fails. To fix it, run `npm run db:snapshot` on a laptop and commit the new file.
+**Why the preview ships a ready-made database.** The preview's database is PGlite, the same Postgres that local development uses, running inside the server. Creating a new database briefly needs 550–700 MB of memory, over the free plan's 512 MB. That limit applies to the build as well as the running server, and Render stops anything that goes over. Opening an existing database needs far less: the build step peaks around 375 MB (it also copies in the starting content), and the server around 370 MB through the enrollment journey, the editor test and three full-size photo uploads. So `npm run db:prepare-preview` unpacks `scripts/pglite-empty.tar.gz`, a brand-new empty database, into the project folder (not `/tmp`, which doesn't survive from build to start), then applies migrations. If an `@electric-sql/pglite` upgrade moves to a new Postgres version, CI's "Render preview database" step fails. To fix it, run `npm run db:snapshot` on a laptop and commit the new file.
 
 What to expect on the preview:
 - Sign-in codes appear at `/dev/mailbox`.
 - Without Stripe keys, payment is a "test payment" button.
-- Data resets whenever the preview sleeps (after 15 idle minutes on the free plan) or redeploys.
+- Data resets whenever the preview sleeps (after 15 idle minutes on the free plan) or redeploys. That includes anything changed in the content editor: the preview is for trying the editor, not for real edits.
 - Anyone with the link can read `/dev/mailbox`, so use made-up family details only.
 
 Each push to that branch redeploys the preview automatically.
@@ -174,7 +174,7 @@ After that it runs every morning. It skips itself until those secrets exist, and
 
 To run it by hand against production: `DATABASE_URL=… STRIPE_SECRET_KEY=… npm run billing:run`.
 
-`public/_headers` for Netlify (static pages; portal pages set their own stricter headers):
+`public/_headers` for Netlify (static files such as the built-in photos; every page sets its own headers in `src/middleware.ts`):
 
 ```
 /*
@@ -192,5 +192,5 @@ To run it by hand against production: `DATABASE_URL=… STRIPE_SECRET_KEY=… np
 | Automatically | GitHub CI runs type checks, unit tests and a build on every push. Dependabot opens a pull request when a dependency has an update or a security fix. | — |
 | Weekly | Merge green Dependabot pull requests (the host deploys them). | 5 min |
 | Monthly (the 2nd) | Check `/admin/billing` for charges that need a person, and the Stripe dashboard for disputes. Glance at the host's error log and the audit log. Take the extra database dump. | 20 min |
-| Each term | Add the new sessions (or, later, in the admin editor). Run one test enrollment on a preview deploy. | 30 min |
+| Each term | Hannah adds the new sessions in the editor (copy last term's, change the dates) and closes the old ones. Run one test enrollment. | 30 min |
 | Yearly | Review `ADMIN_EMAILS`. Rotate `BETTER_AUTH_SECRET` (signs everyone out once). Delete families with no activity in 3 years (see `security.md`). Renew the domain. | 1 hr |

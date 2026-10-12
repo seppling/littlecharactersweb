@@ -1,19 +1,19 @@
-import type { Focus, Price, Program, Session, Weekday } from './types';
+import type { Price, Program, Session, Weekday } from '../types';
 
-import castSillyFaces from '@/assets/photos/cast-silly-faces.webp';
-import rehearsalCircle from '@/assets/photos/rehearsal-circle.webp';
-import campShowStage from '@/assets/photos/camp-show-stage.webp';
-import teacherWithStudents from '@/assets/photos/teacher-with-students.webp';
-import rehearsingOnStage from '@/assets/photos/rehearsing-on-stage.webp';
-import carnivalShow from '@/assets/photos/carnival-show.webp';
-import filmArmsOut from '@/assets/photos/film-green-screen-arms-out.webp';
-import filmWand from '@/assets/photos/film-green-screen-wand.webp';
-import filmSunhat from '@/assets/photos/film-green-screen-sunhat.webp';
-import filmPirate from '@/assets/photos/film-green-screen-pirate.webp';
-import filmMask from '@/assets/photos/film-green-screen-mask.webp';
-import filmSuperhero from '@/assets/photos/film-green-screen-superhero.webp';
-import trustGame from '@/assets/photos/trust-game-outdoors.webp';
-import geodeImprovNight from '@/assets/photos/geode-improv-night.webp';
+const castSillyFaces = 'builtin:photos/cast-silly-faces';
+const rehearsalCircle = 'builtin:photos/rehearsal-circle';
+const campShowStage = 'builtin:photos/camp-show-stage';
+const teacherWithStudents = 'builtin:photos/teacher-with-students';
+const rehearsingOnStage = 'builtin:photos/rehearsing-on-stage';
+const carnivalShow = 'builtin:photos/carnival-show';
+const filmArmsOut = 'builtin:photos/film-green-screen-arms-out';
+const filmWand = 'builtin:photos/film-green-screen-wand';
+const filmSunhat = 'builtin:photos/film-green-screen-sunhat';
+const filmPirate = 'builtin:photos/film-green-screen-pirate';
+const filmMask = 'builtin:photos/film-green-screen-mask';
+const filmSuperhero = 'builtin:photos/film-green-screen-superhero';
+const trustGame = 'builtin:photos/trust-game-outdoors';
+const geodeImprovNight = 'builtin:photos/geode-improv-night';
 
 /*
  * Program catalog.
@@ -335,7 +335,7 @@ export const programs: Program[] = [
     kind: 'workshop',
     brand: 'lc',
     gel: 'yellow',
-    ages: { min: 4, max: null },
+    ages: { min: 4 },
     agesLabel: 'All ages',
     tagline: 'A free theater class, once a month, for anyone.',
     summary: 'Join us once a month for a free community theater class. All ages welcome, with a different teacher each month.',
@@ -386,7 +386,7 @@ export const programs: Program[] = [
     kind: 'lesson',
     brand: 'lc',
     gel: 'purple',
-    ages: { min: 4, max: null },
+    ages: { min: 4 },
     agesLabel: 'All ages',
     tagline: 'One-on-one help, booked by the hour.',
     summary: 'Audition help, playwriting assistance, one-on-one acting or singing lessons, on an hourly basis.',
@@ -405,7 +405,7 @@ export const programs: Program[] = [
     kind: 'party',
     brand: 'lc',
     gel: 'orange',
-    ages: { min: 4, max: null },
+    ages: { min: 4 },
     agesLabel: 'Any occasion',
     tagline: 'Name the occasion, and we’ll make it happen!',
     summary:
@@ -427,7 +427,7 @@ export const programs: Program[] = [
     kind: 'inclusive',
     brand: 'lc',
     gel: 'teal',
-    ages: { min: 4, max: null },
+    ages: { min: 4 },
     agesLabel: 'All ages & abilities',
     tagline: 'A space to interact, create and play.',
     summary:
@@ -477,7 +477,7 @@ export const programs: Program[] = [
     kind: 'class',
     brand: 'geode',
     gel: 'purple',
-    ages: { min: 18, max: null },
+    ages: { min: 18 },
     tagline: 'Let it all loose on the third Thursday of every month.',
     summary: 'Group and partner improv games for grown-ups in a low-stakes environment. Play as little or as much as you like.',
     description: [
@@ -496,35 +496,3 @@ export const programs: Program[] = [
     ],
   },
 ];
-
-export const lcPrograms = programs.filter((p) => p.brand === 'lc');
-export const geodePrograms = programs.filter((p) => p.brand === 'geode');
-export const programBySlug = (slug: string) => programs.find((p) => p.slug === slug);
-
-export const kindLabels: Record<Program['kind'], { singular: string; plural: string }> = {
-  class: { singular: 'Weekly class', plural: 'Weekly classes' },
-  camp: { singular: 'Camp', plural: 'Camps & workshops' },
-  workshop: { singular: 'Free class', plural: 'Free classes' },
-  lesson: { singular: 'Private lessons', plural: 'Private lessons' },
-  inclusive: { singular: 'Adaptive class', plural: 'Adaptive classes' },
-  party: { singular: 'Parties & nights out', plural: 'Parties & nights out' },
-};
-
-export const focusLabels: Record<Focus, string> = {
-  acting: 'Acting',
-  improv: 'Improv',
-  produce: 'Produce a show',
-  tech: 'Tech & design',
-  film: 'Film',
-  writing: 'Writing',
-  music: 'Singing & musicals',
-};
-
-/** Age bands used by the age picker and finder. */
-export const ageBands = [
-  { id: '4-6', label: '4–6', min: 4, max: 6 },
-  { id: '7-10', label: '7–10', min: 7, max: 10 },
-  { id: '11-13', label: '11–13', min: 11, max: 13 },
-  { id: '14-17', label: '14–17', min: 14, max: 17 },
-  { id: 'adult', label: 'Adults', min: 18, max: 120 },
-] as const;

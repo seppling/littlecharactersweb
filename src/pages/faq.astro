@@ -2,20 +2,26 @@
 import Base from '@/layouts/Base.astro';
 import FaqList from '@/components/FaqList.astro';
 import Character from '@/components/Character.astro';
-import { faqs } from '@/data/faqs';
-import { site } from '@/config/site';
+import { rich } from '@/content/rich';
 
+const { faqs, vars, pages } = Astro.locals.content;
+const page = pages.faq;
 const groups = [...new Set(faqs.map((f) => f.group))];
 const slug = (g: string) => g.toLowerCase().replace(/[^a-z]+/g, '-');
 ---
 
-<Base title="Parent FAQ" description="Answers to common questions about Little Characters classes, camps, payments, discounts and performances.">
+<Base
+  title="Parent FAQ"
+  description="Answers to common questions about Little Characters classes, camps, payments, discounts and performances."
+  seo={page.seo}
+  edit="/admin/content/faqs"
+>
   <section class="faq-head">
     <div class="wrap faq-head__inner">
       <div class="stack">
-        <p class="eyebrow">Parent handbook</p>
-        <h1>Questions parents ask</h1>
-        <p class="lede">Can’t find it here? Email <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a> or call <a href={site.contact.phoneHref}>{site.contact.phone}</a>.</p>
+        {page.hero.eyebrow && <p class="eyebrow">{page.hero.eyebrow}</p>}
+        <h1>{page.hero.headline}</h1>
+        <p class="lede" set:html={rich(page.hero.intro, vars)} />
       </div>
       <Character name="professor" size={110} />
     </div>

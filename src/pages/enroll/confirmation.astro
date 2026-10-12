@@ -3,13 +3,14 @@
 import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
 import Character from '@/components/Character.astro';
-import { autopayLine, findSession, getOrder, householdForUser, listStudents } from '@/server/family';
+import { autopayLine, getOrder, householdForUser, listStudents } from '@/server/family';
 import { completeCheckout, paymentsMode } from '@/server/payments';
-import { locationById, parking } from '@/data/locations';
 import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
 
 export const prerender = false;
+const { locationById, site } = Astro.locals.content;
+const parking = site.parking;
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/account');
@@ -27,7 +28,7 @@ if (o.status !== 'paid' && checkoutId && paymentsMode === 'stripe') {
 if (!o) return Astro.redirect('/account');
 if (o.status !== 'paid') return Astro.redirect(`/enroll/review?order=${o.id}`);
 
-const { program, session } = findSession(o.sessionId)!;
+const { program, session } = Astro.locals.content.findSession(o.sessionId)!;
 const kids = (await listStudents(household.id)).filter((s) => o!.studentIds.includes(s.id));
 const names = kids.map((k) => k.firstName).join(' and ');
 const loc = locationById(session.locationId);

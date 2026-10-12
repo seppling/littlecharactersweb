@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
 import { getDb, schema } from '@/server/db';
-import { detailsFresh, findSession, getOrder, householdForUser, listStudents, readStudentNotes, studentDetailsInput, updateStudentDetails } from '@/server/family';
+import { detailsFresh, getOrder, householdForUser, listStudents, readStudentNotes, studentDetailsInput, updateStudentDetails } from '@/server/family';
 
 export const prerender = false;
 
@@ -14,7 +14,7 @@ const household = await householdForUser(user.id);
 const orderId = Astro.url.searchParams.get('order') ?? '';
 const o = household ? await getOrder(household.id, orderId) : null;
 if (!household || !o || o.status === 'paid') return Astro.redirect('/account');
-const found = findSession(o.sessionId)!;
+const found = Astro.locals.content.findSession(o.sessionId)!;
 
 const students = (await listStudents(household.id)).filter((s) => o.studentIds.includes(s.id));
 const errors: Record<string, string> = {};

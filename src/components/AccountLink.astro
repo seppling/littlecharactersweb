@@ -1,6 +1,6 @@
 ---
 /**
- * Account entry point in the header. Pages are static and identical for
+ * Account entry point in the header. Public pages are identical for
  * everyone, so a signed-in family's name is filled in after load from /api/me
  * (only when the lc_signed_in hint cookie says it's worth asking). See docs/portal.md.
  */
@@ -27,17 +27,13 @@ const href = accountHref();
 </a>
 
 <script>
-  // Static pages are the same for everyone; if this browser has signed in
+  import { me } from '@/scripts/me';
+  // Public pages are the same for everyone; if this browser has signed in
   // before, ask the server who it is and greet them.
-  if (document.cookie.includes('lc_signed_in=1')) {
-    fetch('/api/me', { credentials: 'same-origin' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((me) => {
-        if (!me?.signedIn) return;
-        for (const el of document.querySelectorAll<HTMLElement>('[data-account-label]')) el.textContent = `Hi, ${me.firstName}`;
-      })
-      .catch(() => {});
-  }
+  me().then((who) => {
+    if (!who?.signedIn) return;
+    for (const el of document.querySelectorAll<HTMLElement>('[data-account-label]')) el.textContent = `Hi, ${who.firstName}`;
+  });
 </script>
 
 <style>

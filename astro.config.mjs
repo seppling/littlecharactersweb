@@ -1,7 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
-import sitemap from '@astrojs/sitemap';
 
 /**
  * Hosts sit behind a proxy that forwards the real domain and https in
@@ -28,15 +27,10 @@ const siteHosts = [
 
 export default defineConfig({
   site: 'https://www.littlecharacters.org',
-  integrations: [
-    sitemap({
-      // Keep the family portal out of search results.
-      filter: (page) => !/\/(account|enroll|admin|dev|thanks)(\/|$)/.test(new URL(page).pathname),
-    }),
-  ],
-  // Marketing pages are prerendered (fast, cacheable). Portal routes opt into
-  // server rendering with `export const prerender = false`.
-  output: 'static',
+  // Every page is rendered on request, so content edited at /admin/content
+  // shows up as soon as it's published. The content is cached in memory (see
+  // src/server/content.ts), and photos are resized ahead of time (src/lib/media.ts).
+  output: 'server',
   adapter: node({ mode: 'standalone' }),
   security: {
     // Rejects cross-site form posts to server routes (CSRF protection).

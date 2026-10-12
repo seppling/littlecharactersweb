@@ -1,0 +1,90 @@
+---
+/**
+ * Staff tools on the public site: an "Edit this page" button, and a bar while
+ * previewing unpublished edits. Pages are the same for everyone, so the
+ * button appears after load for signed-in staff (via /api/me). In preview the
+ * page is private to that person, so the bar is rendered right away.
+ */
+interface Props {
+  /** The editor page for what's on this page. */
+  edit?: string;
+}
+const { edit } = Astro.props;
+const preview = Astro.locals.preview;
+const here = Astro.url.pathname + Astro.url.search;
+---
+
+{
+  preview ? (
+    <div class="staff-bar staff-bar--preview" role="note">
+      <p>
+        <strong>Preview:</strong> you’re seeing unpublished changes. Families still see the published site.
+      </p>
+      <div class="staff-bar__links">
+        {edit && <a href={edit}>Back to editing</a>}
+        <a href={`/admin/content/preview?off=1&to=${encodeURIComponent(here)}`}>Exit preview</a>
+      </div>
+    </div>
+  ) : (
+    <div class="staff-bar" data-staff-bar hidden>
+      <p>Staff</p>
+      <div class="staff-bar__links">
+        {edit && <a href={edit}>Edit this page</a>}
+        <a href="/admin/content">Site content</a>
+      </div>
+    </div>
+  )
+}
+
+<script>
+  import { me } from '@/scripts/me';
+  const bar = document.querySelector<HTMLElement>('[data-staff-bar]');
+  if (bar) me().then((who) => who?.isAdmin && bar.removeAttribute('hidden'));
+</script>
+
+<style>
+  .staff-bar {
+    position: fixed;
+    z-index: 60;
+    right: max(var(--gutter), env(safe-area-inset-right));
+    bottom: max(var(--gutter), env(safe-area-inset-bottom));
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.45rem 0.5rem 0.45rem 0.9rem;
+    border-radius: 999px;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: var(--step--1);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+  }
+  .staff-bar[hidden] { display: none; }
+  .staff-bar p { margin: 0; font-family: var(--font-script); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.75rem; opacity: 0.8; }
+  .staff-bar__links { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .staff-bar a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 0.9rem;
+    border-radius: 999px;
+    background: var(--yellow);
+    color: var(--ink);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .staff-bar a + a { background: transparent; color: var(--paper); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--paper) 40%, transparent); }
+
+  .staff-bar--preview {
+    position: sticky;
+    top: 0;
+    right: auto;
+    bottom: auto;
+    border-radius: 0;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 0.5rem var(--gutter);
+    background: var(--purple);
+    box-shadow: none;
+  }
+  .staff-bar--preview p { font-family: inherit; text-transform: none; letter-spacing: 0; font-size: inherit; opacity: 1; }
+</style>

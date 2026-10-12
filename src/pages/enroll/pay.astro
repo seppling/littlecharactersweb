@@ -6,7 +6,7 @@
 import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
 import { config } from '@/server/env';
-import { findSession, fulfillOrder, getOrder, householdForUser } from '@/server/family';
+import { fulfillOrder, getOrder, householdForUser } from '@/server/family';
 import { completeCheckout, createEmbeddedCheckout, paymentsMode, testPaymentsAllowed } from '@/server/payments';
 import { getDb, schema } from '@/server/db';
 import { eq } from 'drizzle-orm';
@@ -22,7 +22,7 @@ const o = household ? await getOrder(household.id, orderId) : null;
 if (!household || !o) return Astro.redirect('/account');
 if (o.status === 'paid') return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
 if (o.status !== 'pending_payment') return Astro.redirect(`/enroll/review?order=${o.id}`);
-const found = findSession(o.sessionId)!;
+const found = Astro.locals.content.findSession(o.sessionId)!;
 
 if (Astro.request.method === 'POST') {
   if (!testPaymentsAllowed()) return new Response('Test payments are disabled', { status: 403 });

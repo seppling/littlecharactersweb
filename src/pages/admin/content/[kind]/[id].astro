@@ -1,0 +1,258 @@
+---
+/**
+ * Edit one item (a class, an event, a page's text…). Saving keeps a draft;
+ * Publish puts it on the site; Preview shows the site with the draft.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import FieldInput from '@/components/admin/FieldInput.astro';
+import PhotoPicker from '@/components/admin/PhotoPicker.astro';
+import { collections, isCollectionKey } from '@/content/collections';
+import { readForm, type Data, type FieldErrors } from '@/content/fields';
+import { deleteEntry, discardDraft, getContent, getEntry, publish, referencesTo, saveDraft, signupCounts, statusOf, workingCopy } from '@/server/content';
+import { pages as seedPages } from '@/content/seed/pages';
+import { BASE, PREVIEW_COOKIE, editTarget, labelOf, refOptions, when } from '@/lib/editor';
+import type { Program } from '@/content/types';
+
+export const prerender = false;
+
+const kind = Astro.params.kind ?? '';
+const id = Astro.params.id ?? '';
+const isNew = id === 'new' && kind !== 'pages';
+const target = editTarget(kind, id);
+if (!target) return Astro.rewrite('/404');
+const { isAdmin, user } = Astro.locals;
+const self = `${BASE}/${kind}/${id}`;
+
+let values: Data | undefined;
+let errors: FieldErrors = {};
+let problem = Astro.url.searchParams.get('problem') ?? undefined;
+
+if (isAdmin && user && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = String(form.get('_action') ?? 'save');
+
+  if (action === 'discard' && !isNew) {
+    const entry = await getEntry(target.kind, id);
+    await discardDraft(target.kind, id, user.id);
+    return Astro.redirect(entry?.published != null ? `${self}?done=discarded` : `${target.parent.href}?done=discarded`, 303);
+  }
+
+  if (action === 'delete' && !isNew && isCollectionKey(kind)) {
+    const result = await deleteEntry(kind, id, user.id);
+    if (result.ok) return Astro.redirect(`${BASE}/${kind}?done=deleted`, 303);
+    problem = result.message;
+  } else {
+    const input = readForm(target.fields, form);
+    const saved = await saveDraft(target.kind, isNew ? undefined : id, input, user.id);
+    if (!saved.ok) {
+      values = input;
+      errors = saved.errors;
+      problem = saved.message ?? 'Some fields need a look.';
+    } else {
+      const to = `${BASE}/${kind}/${saved.id}`;
+      if (action === 'publish') {
+        const result = await publish(target.kind, saved.id, user.id);
+        // Published: back to seeing the site as families do.
+        if (result.ok) Astro.cookies.delete(PREVIEW_COOKIE, { path: '/' });
+        return Astro.redirect(result.ok ? `${to}?done=published` : `${to}?problem=${encodeURIComponent(result.message ?? 'Couldn’t publish.')}`, 303);
+      }
+      if (action === 'preview') {
+        Astro.cookies.set(PREVIEW_COOKIE, '1', { path: '/', httpOnly: true, sameSite: 'lax', secure: Astro.url.protocol === 'https:', maxAge: 8 * 3600 });
+        const entry = await getEntry(target.kind, saved.id);
+        return Astro.redirect(target.url(entry ? workingCopy(entry) : input), 303);
+      }
+      return Astro.redirect(`${to}?done=saved`, 303);
+    }
+  }
+}
+
+const entry = isNew || !isAdmin ? undefined : await getEntry(target.kind, id);
+if (isAdmin && !isNew && !entry && target.kind !== 'pages') {
+  // Deleted, or never existed: the history page can bring it back.
+  return Astro.redirect(`${self}/history`, 303);
+}
+
+if (!values && isNew && isCollectionKey(kind)) {
+  const from = Astro.url.searchParams.get('from');
+  const source = from ? await getEntry(kind, from) : undefined;
+  if (source) {
+    // Duplicate: same details, new address, and sessions that are new sessions.
+    const copy = structuredClone(workingCopy(source)) as Data;
+    const def = collections[kind];
+    if (def.idField) copy[def.idField] = `${String(copy[def.idField])}-copy`;
+    if (typeof copy.title === 'string') copy.title = `${copy.title} (copy)`;
+    if (Array.isArray(copy.sessions)) for (const s of copy.sessions as Data[]) delete s.id;
+    values = copy;
+  } else {
+    values = structuredClone(collections[kind].blank) as Data;
+  }
+}
+// A page that has never been saved shows its starting text.
+values ??= entry ? workingCopy(entry) : target.kind === 'pages' ? (structuredClone(seedPages[id as keyof typeof seedPages]) as unknown as Data) : {};
+
+const status = entry ? statusOf(entry) : target.kind === 'pages' ? 'live' : 'new';
+const title = isNew ? `New ${target.label}` : target.title(values);
+const done = Astro.url.searchParams.get('done');
+const content = isAdmin ? await getContent('draft') : Astro.locals.content;
+const refs = refOptions(content);
+const liveUrl = entry?.published != null ? target.url(entry.published as Data) : undefined;
+const errorList = Object.entries(errors).map(([path, message]) => ({ path, message, label: labelOf(target.fields, path, values) }));
+const labelFor = (path: string) => `f-${path.replace(/[^\w-]+/g, '-')}`;
+const idField = isCollectionKey(kind) ? collections[kind].idField : undefined;
+const locked = idField && entry?.published != null ? [idField] : [];
+
+// For classes: which sessions have sign-ups (they can be closed, not removed).
+const signups = kind === 'programs' && entry ? await signupCounts(((workingCopy(entry) as unknown as Program).sessions ?? []).map((s) => s.id)) : new Map<string, number>();
+const signedUp = kind === 'programs' ? ((values as unknown as Program).sessions ?? []).filter((s) => s.id && (signups.get(s.id) ?? 0) > 0) : [];
+const usedBy = entry && isCollectionKey(kind) && kind !== 'programs' ? await referencesTo(kind, id) : [];
+const statusLabel = { live: 'On the site', changed: 'Unpublished changes', new: 'Not published yet' }[status];
+---
+
+<AdminShell title={title} wide>
+  <div class="admin-page">
+    <nav class="admin-crumbs" aria-label="Breadcrumb">
+      <a href={BASE}>Site content</a><span aria-hidden="true">/</span>
+      <a href={target.parent.href}>{target.parent.label}</a><span aria-hidden="true">/</span>
+      <span>{title}</span>
+    </nav>
+
+    <div class="admin-head">
+      <div>
+        <h1>{title}</h1>
+        <p>
+          <span class:list={['badge', { 'badge--changed': status === 'changed', 'badge--new': status === 'new' }]}>{statusLabel}</span>
+        </p>
+      </div>
+    </div>
+
+    {done === 'saved' && <p class="notice" role="status">Saved as a draft. Families don’t see it yet: press <strong>Publish</strong> when it’s ready.</p>}
+    {
+      done === 'published' && (
+        <p class="notice" role="status">
+          Published. It’s on the site now.{' '}
+          {liveUrl && (
+            <a href={liveUrl} target="_blank" rel="noopener">
+              See it
+            </a>
+          )}
+        </p>
+      )
+    }
+    {done === 'discarded' && <p class="notice" role="status">Discarded your draft. This is what’s on the site.</p>}
+    {done === 'restored' && <p class="notice" role="status">Loaded the older version as a draft. Check it, then press <strong>Publish</strong> to put it back on the site.</p>}
+    {
+      problem && (
+        <div class="notice notice--error" role="alert" tabindex="-1" data-autofocus>
+          <p>{problem}</p>
+          {errorList.length > 0 && (
+            <ul>
+              {errorList.map(({ path, message, label }) => (
+                <li>
+                  <a href={`#${labelFor(path)}`}>{label}</a>: {message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )
+    }
+
+    <form method="post" class="editor-form" data-editor novalidate>
+      <div class="editor">
+        <div class="editor__fields">
+          <div class="cf-grid">
+            {target.fields.map((f) => <FieldInput field={f} path={f.key} value={values?.[f.key]} errors={errors} refs={refs} uploads={content.uploads} locked={locked} />)}
+          </div>
+        </div>
+
+        <aside class="editor__side">
+          <div class="tile">
+            <dl>
+              <div>
+                <dt>Status</dt>
+                <dd>{statusLabel}</dd>
+              </div>
+              {
+                entry?.publishedAt && (
+                  <div>
+                    <dt>Last published</dt>
+                    <dd>{when(entry.publishedAt)}</dd>
+                  </div>
+                )
+              }
+              {
+                entry?.draft != null && (
+                  <div>
+                    <dt>Draft saved</dt>
+                    <dd>{when(entry.updatedAt)}</dd>
+                  </div>
+                )
+              }
+            </dl>
+            {
+              liveUrl && (
+                <a href={liveUrl} target="_blank" rel="noopener">
+                  See it on the site ↗
+                </a>
+              )
+            }
+            {!isNew && <a href={`${self}/history`}>History and older versions</a>}
+            {!isNew && isCollectionKey(kind) && <a href={`${BASE}/${kind}/new?from=${encodeURIComponent(id)}`}>Duplicate (start a copy)</a>}
+            {
+              !isNew && entry?.draft != null && (
+                <button class="linkish" type="submit" name="_action" value="discard" data-confirm={entry.published != null ? 'Throw away your unpublished changes and go back to what’s on the site?' : 'Throw away this draft? It was never published.'}>
+                  Discard unpublished changes
+                </button>
+              )
+            }
+            {
+              !isNew && target.deletable && (
+                <button class="linkish linkish--danger" type="submit" name="_action" value="delete" data-confirm={`Delete “${title}” from the site? You can bring it back from “Recently deleted”.`}>
+                  Delete
+                </button>
+              )
+            }
+          </div>
+          {
+            signedUp.length > 0 && (
+              <div class="tile">
+                <strong>Families are signed up</strong>
+                <span>
+                  {signedUp.map((s) => `${s.term}${s.label ? ` (${s.label})` : ''}: ${signups.get(s.id)}`).join(' · ')}. These sessions can be closed but not removed, and price changes only apply to new enrollments.
+                </span>
+              </div>
+            )
+          }
+          {
+            usedBy.length > 0 && (
+              <div class="tile">
+                <strong>Used on</strong>
+                <span>{usedBy.join(', ')}</span>
+              </div>
+            )
+          }
+        </aside>
+      </div>
+
+      <div class="actions" data-actions>
+        <div class="actions__main">
+          <button class="btn btn--primary" type="submit" name="_action" value="publish">
+            Publish
+          </button>
+          <button class="btn btn--outline" type="submit" name="_action" value="save">
+            Save draft
+          </button>
+          <button class="btn btn--outline" type="submit" name="_action" value="preview">
+            Preview
+          </button>
+          <span class="actions__state">{status === 'changed' ? 'Draft saved, not published' : status === 'new' ? 'Not on the site yet' : 'Matches the site'}</span>
+        </div>
+      </div>
+    </form>
+  </div>
+  <PhotoPicker />
+</AdminShell>
+
+<script>
+  import '@/scripts/editor';
+</script>

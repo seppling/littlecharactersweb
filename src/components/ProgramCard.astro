@@ -4,11 +4,12 @@
  * Puts the deciding details on the card: age, next time, place, price,
  * availability, and whether it ends in a show.
  */
-import type { Program } from '@/data/types';
+import type { Program } from '@/content/types';
 import PhotoFrame from './PhotoFrame.astro';
-import { kindLabels } from '@/data/programs';
-import { locationById } from '@/data/locations';
+import { kindLabels } from '@/content/catalog';
 import { ageLabel, dayList, price, spotsLabel, timeRange } from '@/lib/format';
+
+const { locationById } = Astro.locals.content;
 
 interface Props {
   program: Program;
