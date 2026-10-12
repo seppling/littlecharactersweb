@@ -8,7 +8,9 @@ Done. All checks pass locally. The report is in `report.md`.
 ## Commits
 - f03073e: state file
 - fff6202: show pages, redirects, card links, event fields, sitemap, docs, tests, screenshots
-- (next) report and state
+- 40cc711: report and state
+
+CI passed on fff6202 (run 75) and 40cc711 (run 77).
 
 ## Decisions
 See report.md → Decisions.

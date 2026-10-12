@@ -85,7 +85,7 @@ By file:
   - `/events`: shows go to `/events/<slug>`; Free class → `/programs/free-community-class`, improv → `/programs/geode-adult-improv`, Parents' Night Out → `/programs/parents-night-out`;
   - the home page and `/geode`: the same.
 - **Screenshots** at 1280 px and 390 px: no horizontal scroll on any page.
-- **CI** on `fff6202`: see the end of this report.
+- **CI** (`.github/workflows/ci.yml`) passed on `fff6202` (run 75) and `40cc711` (run 77).
 
 ## Decisions
 
