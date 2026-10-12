@@ -14,12 +14,22 @@ const OLD_PAGES: Record<string, string> = {
   '/giving-page': '/give',
 };
 
-/** Where an old address now lives, or undefined when it isn't one. */
-export function oldSiteRedirect(pathname: string): string | undefined {
+/**
+ * Where an old address now lives, or undefined when it isn't one.
+ * `hasShowPage` says which /events/<slug> addresses are a current show's page
+ * (src/pages/events/[slug].astro); without it, none are.
+ */
+export function oldSiteRedirect(pathname: string, hasShowPage: (slug: string) => boolean = () => false): string | undefined {
   const path = pathname.toLowerCase().replace(/\/+$/, '') || '/';
   if (path in OLD_PAGES) return OLD_PAGES[path];
-  // The old site gave each event its own page; the new one lists them all on
-  // /events. Calendar files (/events/<slug>.ics) are real pages here.
-  if (path.startsWith('/events/') && !path.endsWith('.ics')) return '/events';
+  // The old site gave each event its own page. Here only shows have one; other
+  // old event addresses go to the list on /events. Calendar files
+  // (/events/<slug>.ics) are real pages here.
+  if (path.startsWith('/events/') && !path.endsWith('.ics')) {
+    const slug = path.slice('/events/'.length);
+    if (!hasShowPage(slug)) return '/events';
+    // A show's page, written another way ("/events/Show/") → its one address.
+    return pathname === `/events/${slug}` ? undefined : `/events/${slug}`;
+  }
   return undefined;
 }

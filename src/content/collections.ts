@@ -7,6 +7,7 @@
 import type { Field, FieldErrors, Option } from './fields';
 import { brandLabels, characterLabels, eventKindLabels, faqGroups, focusLabels, gelLabels, kindLabels, options, statusLabels, weekdays } from './catalog';
 import { seo } from './pages';
+import { eventPath } from '@/lib/events';
 import type { EventItem, Faq, Location, Program, TeamMember, Testimonial } from './types';
 
 export type CollectionKey = 'programs' | 'events' | 'faqs' | 'team' | 'testimonials' | 'locations';
@@ -228,10 +229,19 @@ export const events: CollectionDef<EventItem> = {
     { key: 'venue', label: 'Or another venue', type: 'text', half: true, placeholder: 'State Botanical Garden' },
     { key: 'price', label: 'Price', type: 'text', placeholder: 'Free · $10 at the door' },
     { key: 'cta', label: 'Button', type: 'group', fields: linkFields, help: 'Optional: tickets, registration or more info.' },
+    {
+      key: 'programSlug',
+      label: 'Class page',
+      type: 'ref',
+      collection: 'programs',
+      help: 'Optional. For nights that repeat, like Parents’ Night Out: the event’s name links to this class page. Shows get their own page instead.',
+    },
+    { key: 'image', label: 'Photo', type: 'image', help: 'Optional. Shown on a show’s own page and when its link is shared.' },
+    seo,
   ],
   title: (e) => e.title,
   subtitle: (e) => (e.times[0] ? e.times[0].start.replace('T', ' ') : e.tba ? `Date coming soon (${e.tba})` : 'No date yet'),
-  url: (e) => `/events#${e.slug}`,
+  url: (e) => eventPath(e),
   check(e) {
     const errors: FieldErrors = {};
     e.times.forEach((t, i) => {
