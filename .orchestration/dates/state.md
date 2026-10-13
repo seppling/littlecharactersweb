@@ -1,17 +1,21 @@
-# Unit: dates — state
+# Unit: dates (state)
 
-Branch: `claude/review-dates` (from `claude/blissful-archimedes-enun5m` @ 7f607ac).
+Branch: `claude/review-dates` (from `claude/blissful-archimedes-enun5m` @ 7f607ac). No compaction.
 
 ## Commits
-- (none yet)
+- Class dates retire on their own: rule, wiring, editor badges, tests (checkpoint)
+- Wording fixes, docs, screenshots, report (final)
 
 ## Decisions
-- Rule lives in `src/lib/session-dates.ts`; Athens local time compared as "YYYY-MM-DDTHH:MM" strings.
-- Camp-week rule = multi-day session of a program whose kind is `camp`; every other multi-day session uses the late-joining cut-off.
-- Public pages list only sessions families can act on (sign-ups open by date and status not `closed`); sessions whose sign-ups closed by date are not listed (the editor shows them).
+See `report.md` → Decisions. In short:
+- The rule is in `src/lib/session-dates.ts`; Athens local time is compared as "YYYY-MM-DDTHH:MM".
+- Camp week = a multi-day session of a `camp` program; other multi-day sessions use the cut-off (`site.signups.lateJoinWeeks`, default 4).
+- Public pages list only dates that are open by date; the editor marks the rest "Sign-ups closed" or "Ended".
+- Checkout is refused before payment; a payment already made is honoured.
 
-## Open questions
-- none yet
+## Open questions (for the coordinator / Hannah)
+- Confirm the 4-week cut-off.
+- Per-session-priced classes (Stories & Songs, Homeschool): keep the late-joining cut-off, or close at start?
 
 ## Next action
-- Write the rule + unit tests, then wire class page, cards, finder, camps grid, enrollment, account, editor.
+- None: done. Report in `report.md`.

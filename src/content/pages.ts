@@ -139,7 +139,7 @@ export const site: PageDef = {
           min: 0,
           max: 52,
           required: true,
-          help: 'For example 4: a season ending December 18 takes new students until November 19. 0 keeps sign-ups open until the last day.',
+          help: 'For example 4: a season ending December 18 takes new students until November 19. 0 closes sign-ups on the morning of the last class.',
         },
       ],
     },

@@ -29,7 +29,7 @@ Deleted something by mistake? At the bottom of each list is **Recently deleted**
 
 | In the editor | What it changes |
 |---|---|
-| **Announcement & site settings** | The announcement bar across the top of every page, the email and phone number, social links, the donation and wish list links, and the parking directions with their two maps (walk-in and drop-off, shown on the contact page; tap a map there to see it full size). Also the "Design preview" note, which should be turned off at launch. |
+| **Announcement & site settings** | The announcement bar across the top of every page, the email and phone number, social links, the donation and wish list links, and the parking directions with their two maps (walk-in and drop-off, shown on the contact page; tap a map there to see it full size). **Class sign-ups** holds the late-joining cut-off for weekly classes (4 weeks by default). Also the "Design preview" note, which should be turned off at launch. |
 | **Classes & camps** | Every class, camp, workshop, lesson and party: descriptions, ages, prices, photos, and the sessions families enroll in. |
 | **Shows & events** | Performances, Parents' Night Out, free classes and improv nights. Past events drop off the site on their own. |
 | **FAQs, Team, Testimonials, Locations** | The lists those pages are built from. |
@@ -40,7 +40,15 @@ What stays with Stephen: the layout and design, new kinds of pages, prices and d
 
 ## Common jobs
 
-**Starting a new term.** Open each class, and under **Sessions** press **Copy** on last term's session. Change the term name and the first and last days, then publish. Set the old session's registration to **Closed** once it's over.
+**Starting a new term.** Open each class, and under **Sessions** press **Copy** on last term's session. Change the term name and the first and last days, then publish. The old session leaves the site on its own (see below); keep it, since enrollments and payments point to it.
+
+**When dates leave the site.** The dates decide; a session's registration status only adds limits on top (**Closed**, **Full: waitlist only**, **Coming soon**). "Open" never keeps a past date bookable.
+
+- A one-night date (Parents' Night Out, a workshop, the free class) closes when it starts, and leaves the site after that day.
+- A camp week closes when the week starts.
+- A weekly class takes late joiners (their first month is prorated) until the late-joining cut-off: **Announcement & site settings → Class sign-ups**, 4 weeks before the last class by default.
+- In the editor, those sessions are marked **Sign-ups closed** (still running) or **Ended** (after the last day), so you can see why a date isn't on the site. Families who signed up still see them in their account.
+- The rule is in `src/lib/session-dates.ts`.
 
 **A class is full.** Open its session and set **Registration** to **Full: waitlist only**. New families can join the waitlist instead.
 
