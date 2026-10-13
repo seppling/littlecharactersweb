@@ -23,6 +23,7 @@ Stephen and Hannah reviewed the site together on October 13. This is the record 
 | 5 | Teacher logins: rosters only (**on hold**, part of the back-office plan) | — | — | — |
 | 6 | About pages, the About dropdown, Contact in the main menu, footer layout | 2 | — | `claude/review-about-nav` |
 | 7 | Playful class-page copy, as drafts | 3 | 1, 2 | `claude/review-copy` |
+| 8 | Class dates retire on their own: a past or closing date can't be booked or shown, whatever its status | 3 | 4 | `claude/review-dates` |
 
 ## Log
 
@@ -77,3 +78,14 @@ Units 1, 2 and 3 are merged. On the merged branch: type check clean, 295 unit te
 - **Follow-ups noted:**
   - Parents' Night Out still lists Sep 25 as open, which is in the past. Hannah can close it in the editor, or the page could hide past one-night dates on its own.
   - The footer's "Theater Troupe" could grow to match the header logo.
+
+### Class dates retire on their own (decided October 13)
+
+Shows and events already leave the site once they're over. Their show pages stay up, with a note that the show has ended. Class dates still need Hannah to mark them "closed": a past date left "open" can still be booked (Parents' Night Out still offers Sep 25). Decided:
+
+- **The dates decide, and Hannah's status only adds limits.** "Open" never keeps a past date bookable. Full, waitlist and closed still apply.
+- **One-night dates** (Parents' Night Out, workshops, the free class): sign-ups close when it starts.
+- **Weekly classes:** families can join late (the first month is prorated) until a cut-off before the season ends. It's a setting in the editor, **4 weeks by default; Hannah to confirm.**
+- **Camp weeks:** sign-ups close when the week starts.
+- **Nothing is deleted.** Past dates stay in the editor marked "Ended", because enrollments and payments point to them.
+- **When:** unit 8, after unit 4 is merged, since both change the enrollment page.
