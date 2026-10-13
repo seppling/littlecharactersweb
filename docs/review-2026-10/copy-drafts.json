@@ -1,0 +1,249 @@
+{
+  "groups": [
+    {
+      "title": "Class page",
+      "items": [
+        {
+          "id": "C1",
+          "where": "Sign-up card, the “First class free” box at the top",
+          "file": "src/pages/programs/[slug].astro:133",
+          "now": "New students try it free. Nothing is due until you decide to stay.",
+          "proposed": "New students try their first class on us. Nothing is due unless your child wants to stay.",
+          "alt": "Come see if it clicks! New students try their first class on us, and nothing is due until you decide to stay.",
+          "why": "Warmer, and uses the home page’s own idea that you only pay if your child wants to stay."
+        },
+        {
+          "id": "C2",
+          "where": "Sign-up card, heading",
+          "file": "src/pages/programs/[slug].astro:139",
+          "now": "Choose a time",
+          "proposed": "Pick a time that works",
+          "alt": "Places, everyone: pick a time",
+          "why": "Friendlier heading; the phone bar’s “Choose a time” button stays as it is."
+        },
+        {
+          "id": "C3",
+          "where": "Sign-up card, main button (both places that set it)",
+          "file": "src/pages/programs/[slug].astro:174 and :304",
+          "now": "Continue to enrollment",
+          "proposed": "Sign up for this time",
+          "alt": "Let’s get you signed up",
+          "why": "Plain, friendly words that still say exactly what the button does. “Join waitlist” and “Get notified” are unchanged."
+        },
+        {
+          "id": "C4",
+          "where": "Sign-up card, the line under the button",
+          "file": "src/pages/programs/[slug].astro:185",
+          "now": "Next you’ll pick your student and pay in our family portal.",
+          "proposed": "Next, you’ll choose who’s coming and pay in your family account.",
+          "why": "Matches the next step’s heading (“Who’s coming”) and the name families see everywhere else (“family account”). The free-class and prorated sentences after it stay word for word."
+        },
+        {
+          "id": "C5",
+          "where": "Sign-up card when no dates are set yet (camps)",
+          "file": "src/pages/programs/[slug].astro:191",
+          "now": "We announce summer camp a few weeks ahead. Leave your email and we’ll tell you as soon as registration opens.",
+          "proposed": "We announce summer camp a few weeks ahead. Leave your email and you’ll be first to hear when registration opens.",
+          "why": "Echoes the home page’s “Be first to hear about camps.”"
+        },
+        {
+          "id": "C6",
+          "where": "Sign-up card for lessons and parties, heading",
+          "file": "src/pages/programs/[slug].astro:195",
+          "now": "Book it",
+          "proposed": "Let’s plan it",
+          "why": "Sounds like the start of a conversation, which is what the request form is."
+        },
+        {
+          "id": "C7",
+          "where": "Sign-up card for lessons and parties, text",
+          "file": "src/pages/programs/[slug].astro:196",
+          "now": "Scheduled around your family. Tell us what you have in mind and we’ll get back to you.",
+          "proposed": "We’ll fit it around your family’s calendar. Tell us what you have in mind, and we’ll get back to you.",
+          "why": "A full, warmer sentence with the same promise. The Ovation text is unchanged."
+        },
+        {
+          "id": "C8",
+          "where": "Under the sign-up card",
+          "file": "src/pages/programs/[slug].astro:223",
+          "now": "Questions? Ask us before you sign up.",
+          "proposed": "Not sure it’s the right fit? Ask us, and we’ll help you pick.",
+          "why": "The home page’s own words; it answers the question parents actually have at this point."
+        },
+        {
+          "id": "C9",
+          "where": "Bottom of the page, heading above other classes",
+          "file": "src/pages/programs/[slug].astro:271",
+          "now": "You might also like",
+          "proposed": "Your Little Character might also love",
+          "alt": "More ways to play",
+          "why": "Uses the brand’s own name for students instead of a stock phrase."
+        }
+      ]
+    },
+    {
+      "title": "Step 1: Sign in and who’s coming",
+      "items": [
+        {
+          "id": "C10",
+          "where": "Progress steps at the top of every step, the last one",
+          "file": "src/components/portal/EnrollShell.astro:18",
+          "now": "Done",
+          "proposed": "All set",
+          "why": "Friendlier finish line; it still reads as the last step."
+        },
+        {
+          "id": "C11",
+          "where": "Sign-in box, text under “First, who’s signing up?”",
+          "file": "src/pages/enroll/[sessionId].astro:122",
+          "now": "Enter your email and we’ll send a 6-digit code. New here? That’s all it takes to create your family account. This device stays signed in for 90 days.",
+          "proposed": "Enter your email and we’ll send a 6-digit code. New here? That’s all it takes to make your family account, no password needed. This device stays signed in for 90 days.",
+          "why": "Adds “no password needed”, which is true and already said on the other sign-in screen, and takes away a common worry."
+        },
+        {
+          "id": "C12",
+          "where": "Sign-in box, after the code is sent",
+          "file": "src/components/portal/SignInPanel.astro:41",
+          "now": "We sent a code to {email}. It expires in 10 minutes.",
+          "proposed": "Check your inbox! We sent a code to {email}. It expires in 10 minutes.",
+          "why": "Tells the parent what to do next, in a friendly way; the 10 minutes stay."
+        },
+        {
+          "id": "C13",
+          "where": "A date that isn’t open yet",
+          "file": "src/pages/enroll/[sessionId].astro:116",
+          "now": "We haven’t opened registration for this date yet.",
+          "proposed": "We haven’t opened registration for this date yet. Choose “Get notified” and we’ll email you when it opens.",
+          "why": "Points to the button below instead of leaving the parent at a dead end."
+        },
+        {
+          "id": "C14",
+          "where": "Notice when the class is full",
+          "file": "src/pages/enroll/[sessionId].astro:146",
+          "now": "This class is full. Choose your students to join the waitlist, and we’ll email you if a spot opens.",
+          "proposed": "This class is full right now. Choose your students to join the waitlist, and we’ll email you if a spot opens.",
+          "why": "“Right now” softens the news and is true: spots do open."
+        },
+        {
+          "id": "C15",
+          "where": "Label beside a child who took the free class",
+          "file": "src/pages/enroll/[sessionId].astro:174",
+          "now": "Trial class taken · continue",
+          "proposed": "Free class done · ready to continue",
+          "why": "Says “free class”, the words families saw when they booked it."
+        },
+        {
+          "id": "C16",
+          "where": "Age note beside a child outside the class’s ages (the first part comes from the class’s age label and stays exact)",
+          "file": "src/pages/enroll/[sessionId].astro:181",
+          "now": "Ages 7–10. Leo is 5. Ask us if you think it’s still a fit.",
+          "proposed": "Ages 7–10. Leo is 5. Think it’s still a good fit? Ask us.",
+          "why": "Puts the question first so “Ask us” reads as an invitation, not a rule. Ages and age are unchanged."
+        },
+        {
+          "id": "C17",
+          "where": "First visit, no students saved yet",
+          "file": "src/pages/enroll/[sessionId].astro:189",
+          "now": "Add your first student below.",
+          "proposed": "Add your first student below. We can’t wait to meet them!",
+          "why": "A warm welcome at the very first step of a new family’s sign-up."
+        },
+        {
+          "id": "C18",
+          "where": "Error when no student is ticked",
+          "file": "src/pages/enroll/[sessionId].astro:72",
+          "now": "Pick at least one student.",
+          "proposed": "Pick at least one student to continue.",
+          "why": "Calm and says why; no joke in an error message."
+        }
+      ]
+    },
+    {
+      "title": "Step 2: Details",
+      "items": [
+        {
+          "id": "C19",
+          "where": "Heading",
+          "file": "src/pages/enroll/details.astro:48",
+          "now": "A few details",
+          "proposed": "A few details for the teachers",
+          "alt": "A few things our teachers should know",
+          "why": "Says who the answers are for, which makes the medical and pickup questions feel less like paperwork."
+        }
+      ]
+    },
+    {
+      "title": "Step 3: Review & pay",
+      "items": [
+        {
+          "id": "C20",
+          "where": "Line under the heading",
+          "file": "src/pages/enroll/review.astro:49",
+          "now": "Enrolling Leo and Mia in Intro to Theater.",
+          "proposed": "Almost there! Enrolling Leo and Mia in Intro to Theater.",
+          "why": "A little encouragement just before the payment step. The heading “Review & pay” stays."
+        },
+        {
+          "id": "C21",
+          "where": "Payment choice “Try the first class free”, its line",
+          "file": "src/pages/enroll/review.astro:35",
+          "now": "Nothing due today. Decide after the class.",
+          "proposed": "Nothing due today. See if it clicks, then decide.",
+          "why": "The home page’s own phrase; “Nothing due today” stays exact."
+        }
+      ]
+    },
+    {
+      "title": "Step 4: Confirmation page",
+      "items": [
+        {
+          "id": "C22",
+          "where": "Line under “You’re in!”",
+          "file": "src/pages/enroll/confirmation.astro:52",
+          "now": "Leo is enrolled in Intro to Theater. We sent a confirmation to {email}.",
+          "proposed": "Leo is enrolled in Intro to Theater. We can’t wait to meet them! We sent a confirmation to {email}.",
+          "alt": "Leo has joined the cast of Intro to Theater! We sent a confirmation to {email}.",
+          "why": "Celebrates the moment; “enrolled” stays in the first option so nobody wonders whether it worked."
+        },
+        {
+          "id": "C23",
+          "where": "Heading of the checklist",
+          "file": "src/pages/enroll/confirmation.astro:77",
+          "now": "Before the first class",
+          "proposed": "Getting ready for the first class",
+          "alt": "Before your child’s first rehearsal",
+          "why": "Reads as a friendly checklist. The items under it (clothes, parking, late arrivals, autopay) stay word for word."
+        }
+      ]
+    },
+    {
+      "title": "Confirmation email",
+      "items": [
+        {
+          "id": "C24",
+          "where": "First line (enrolled, not waitlist)",
+          "file": "src/server/family.ts:359",
+          "now": "Leo is enrolled in Intro to Theater.",
+          "proposed": "Leo is enrolled in Intro to Theater. We can’t wait to meet them!",
+          "why": "Matches the confirmation page (C22). The waitlist line is unchanged."
+        },
+        {
+          "id": "C25",
+          "where": "Free first class line",
+          "file": "src/server/family.ts:361",
+          "now": "Your first class is free. After it, you can continue with monthly tuition or pay for the season from your family account.",
+          "proposed": "Your first class is free. If it clicks, you can continue with monthly tuition or pay for the season from your family account.",
+          "why": "Same choices and money words, with the site’s “see if it clicks” idea."
+        },
+        {
+          "id": "C26",
+          "where": "New last line, after the family account link",
+          "file": "src/server/family.ts:364",
+          "now": "(no sign-off)",
+          "proposed": "See you soon! The Little Characters team",
+          "why": "The email ends on a link today; a short sign-off makes it sound like it came from people."
+        }
+      ]
+    }
+  ]
+}
