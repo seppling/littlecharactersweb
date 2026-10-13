@@ -5,7 +5,7 @@ Done 2026-10-13. Report: `.orchestration/account/report.md`.
 
 ## Commits
 - a004337 Family account, Give link setting, old-site redirects (code + unit tests)
-- (next) Browser tests, mobile fix, docs, screenshots, report
+- 13957ef Browser tests, mobile fix, docs, screenshots, report
 
 ## Decisions
 See report → Decisions.
