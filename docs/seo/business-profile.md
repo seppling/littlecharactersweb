@@ -126,7 +126,7 @@ Add these areas (from the answers: the Greater Athens area, including Watkinsvil
 
 All are well within Google's limit of about two hours' driving. Don't add towns families don't come from.
 
-**One catch.** Google expects a profile with a storefront address to be staffed during its listed hours. Hours are open question 1 in Part 11. Class times don't need to be office hours.
+**One catch.** Google expects a profile with a storefront address to be staffed during its listed hours. That's why the hours below are the class hours, when a teacher is at the space. They don't need to be office hours.
 
 ### Hours
 
