@@ -542,6 +542,49 @@ export const pages: Pages = {
     },
   },
 
+  // A draft for Hannah to read before launch: see the help text in the editor.
+  policies: {
+    hero: {
+      eyebrow: 'The fine print, in plain words',
+      headline: 'Our policies',
+      intro:
+        'What you agree to when you enroll, how we look after your family’s information, and what the photo choice means. Questions? Email [{email}](mailto:{email}) or call [{phone}]({phoneHref}).',
+    },
+    payments: {
+      heading: 'Enrollment and payments',
+      paragraphs: [
+        '**Monthly tuition.** When you enroll in a weekly class, you pay the first month (prorated if you join after the first week) and the class’s one-time performance or materials fee. After that, tuition is charged automatically to your saved card on the 1st of each month, and we email you a receipt.',
+        '**Paying up front.** Pay for the whole season when you enroll and save {payInFullDiscount} on tuition. Families with more than one student or class get {multiDiscount} off. The two discounts don’t combine; you get the bigger one. Classes, camps and events with a single price are paid in full when you enroll.',
+        '**The free first class.** In most weekly classes, new students can try the first class free. Nothing is due until you decide to stay.',
+        '**If a payment doesn’t go through.** We email you a link to pay, and try your card again a few days later. A month still unpaid after the 10th has a one-time $15 late fee.',
+        '**Withdrawing.** Tell us at least 5 days before the 1st, and we’ll stop the monthly charges that follow. To switch cards, email us before the 1st.',
+        '**Refunds and missed classes.** We can’t refund tuition for missed classes, or for a student who drops mid-season after paying.',
+        '**If a class doesn’t fill.** Classes need 5 students to run. If we cancel a class, students can move to a different one, and students who choose not to move are only charged for the first month.',
+        '**Arriving.** Doors lock 5 minutes after class starts. If you’re running late, walk your student to the front door and knock.',
+        '**Other ways to pay.** Ask us about other ways to pay, and about pay-what-you-can rates.',
+      ],
+    },
+    privacy: {
+      heading: 'Privacy',
+      paragraphs: [
+        '**What we collect, and why.** Your name, email and phone number, so you can sign in, get receipts and be reached during class. Your children’s names and birthdays, for class lists and to check a class fits their age. Allergies, medical notes and pickup notes, if you add them, to keep everyone safe in class. Your photo choice for each child. What you sign up for and pay. And any message you send us through the site.',
+        '**What we don’t.** We don’t ask for your home address, your child’s school or anything else we don’t use. There are no passwords: you sign in with a code we email you. Children don’t have accounts; parents fill in everything.',
+        '**Who sees it.** Only your family and our staff. Allergies and medical notes are encrypted, and every time staff open a class list, it’s logged.',
+        '**Cards.** Card numbers go straight from your browser to Stripe, our payment processor, and never touch our site. We keep only Stripe’s reference to your card, so autopay can charge it.',
+        '**The services we use.** The companies that host our site and database store your information for us, and our email service sends sign-in codes, confirmations and receipts. No one else gets it.',
+        '**Email.** We use your email for your classes: sign-in codes, confirmations, receipts and news about your child’s class. Our newsletter only comes if you sign up for it.',
+        '**Removing your information.** Email [{email}](mailto:{email}) and we’ll delete your family’s account, your children’s details and their enrollments. Stripe keeps its own records of past payments.',
+      ],
+    },
+    photos: {
+      heading: 'Photos',
+      paragraphs: [
+        'When you enroll, you choose for each child: “OK to share photos online” or “Please don’t share photos”. Staff see your choice on the class list.',
+        'We only share photos of children whose families said yes. You can change your answer any time in your [family account](/account), or by emailing us.',
+      ],
+    },
+  },
+
   classes: {
     hero: {
       eyebrow: 'Classes, camps & more',

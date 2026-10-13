@@ -297,6 +297,15 @@ export interface EventsPage extends SimplePage {
   perform: { heading: string; body: string; button: string };
 }
 
+/** /policies: enrollment and payments, privacy, photos. */
+export interface PoliciesPage {
+  seo?: Seo;
+  hero: { eyebrow?: string; headline: string; intro: string };
+  payments: { heading: string; paragraphs: string[] };
+  privacy: { heading: string; paragraphs: string[] };
+  photos: { heading: string; paragraphs: string[] };
+}
+
 export interface Pages {
   site: SiteSettings;
   home: HomePage;
@@ -308,6 +317,7 @@ export interface Pages {
   give: GivePage;
   contact: ContactPage;
   faq: SimplePage;
+  policies: PoliciesPage;
   classes: SimplePage;
   events: EventsPage;
 }

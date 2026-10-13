@@ -49,7 +49,7 @@ export const faqs: Faq[] = [
   {
     group: 'Classes',
     q: 'What if I need to unenroll?',
-    a: 'Let us know at least 5 days before the 1st, and we’ll stop the next monthly charge. We can’t refund tuition for missed classes or for a student who drops mid-season after paying.',
+    a: 'Let us know at least 5 days before the 1st, and we’ll stop the next monthly charge. We can’t refund tuition for missed classes or for a student who drops mid-season after paying. See [our policies](/policies).',
   },
   {
     group: 'Classes',

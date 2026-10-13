@@ -33,7 +33,7 @@ Deleted something by mistake? At the bottom of each list is **Recently deleted**
 | **Classes & camps** | Every class, camp, workshop, lesson and party: descriptions, ages, prices, photos, and the sessions families enroll in. |
 | **Shows & events** | Performances, Parents' Night Out, free classes and improv nights. Past events drop off the site on their own. |
 | **FAQs, Team, Testimonials, Locations** | The lists those pages are built from. |
-| **Pages** | The words and photos on the home, About, Team, Schools & partners, Camps, Geode, Give, Contact, FAQ, class finder and events pages, section by section, plus what Google shows for each one. The Team page's heading, intro, quote and "working with us" line are under **Pages → Team page**; the people themselves are under **Team**. |
+| **Pages** | The words and photos on the home, About, Team, Schools & partners, Camps, Geode, Give, Contact, FAQ, Policies, class finder and events pages, section by section, plus what Google shows for each one. The Team page's heading, intro, quote and "working with us" line are under **Pages → Team page**; the people themselves are under **Team**. |
 | **Photos** | Upload photos and describe them. Any photo field can then use them. |
 
 What stays with Stephen: the layout and design, new kinds of pages, prices and discounts built into the billing rules (the 10% and 15% discounts, the late fee), and the enrollment steps.

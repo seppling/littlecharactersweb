@@ -1,0 +1,73 @@
+---
+/**
+ * Policies: enrollment and payments, privacy, and photos. Sign-in, enrollment,
+ * the footer and the FAQ link here. Edited at /admin/content/pages/policies.
+ */
+import Base from '@/layouts/Base.astro';
+import Character from '@/components/Character.astro';
+import { rich } from '@/content/rich';
+
+const { vars, pages } = Astro.locals.content;
+const page = pages.policies;
+// Fixed anchors, so links like /policies#privacy keep working whatever the headings say.
+const sections = [
+  { id: 'payments', ...page.payments },
+  { id: 'privacy', ...page.privacy },
+  { id: 'photos', ...page.photos },
+];
+---
+
+<Base
+  title="Policies"
+  description="Little Characters’ enrollment and payment policies, how we handle your family’s information, and what the photo choice means."
+  seo={page.seo}
+  edit="/admin/content/pages/policies"
+>
+  <section class="policies-head">
+    <div class="wrap policies-head__inner">
+      <div class="stack">
+        {page.hero.eyebrow && <p class="eyebrow">{page.hero.eyebrow}</p>}
+        <h1>{page.hero.headline}</h1>
+        <p class="lede" set:html={rich(page.hero.intro, vars)} />
+      </div>
+      <Character name="stagehand" size={110} />
+    </div>
+  </section>
+
+  <div class="wrap policies-body">
+    <nav class="policies-toc" aria-label="Policy sections">
+      <ul>
+        {sections.map((s) => <li><a href={`#${s.id}`}>{s.heading}</a></li>)}
+      </ul>
+    </nav>
+    <div class="policies-sections">
+      {
+        sections.map((s) => (
+          <section id={s.id} aria-labelledby={`${s.id}-title`} class="prose">
+            <h2 id={`${s.id}-title`}>{s.heading}</h2>
+            {s.paragraphs.map((para) => <p set:html={rich(para, vars)} />)}
+          </section>
+        ))
+      }
+    </div>
+  </div>
+</Base>
+
+<style>
+  .policies-head { padding-block: var(--space-2xl); background: var(--hall); }
+  .policies-head__inner { display: flex; justify-content: space-between; align-items: end; gap: var(--space-xl); }
+  .policies-body { display: grid; grid-template-columns: 14rem minmax(0, 1fr); gap: var(--space-2xl); padding-block: var(--space-2xl) var(--space-3xl); }
+  .policies-toc ul { position: sticky; top: 100px; list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+  .policies-toc a { display: block; padding: 0.45rem 0.8rem; border-radius: 999px; color: var(--ink); text-decoration: none; font-weight: 600; }
+  .policies-toc a:hover { background: var(--orange-tint); }
+  .policies-sections { display: grid; gap: var(--space-2xl); max-width: 50rem; }
+  .policies-sections section { scroll-margin-top: 100px; }
+  .policies-sections h2 { font-size: var(--step-3); margin-top: 0; margin-bottom: var(--space-m); }
+  .policies-sections :global(strong) { color: var(--ink); }
+  @media (max-width: 820px) {
+    .policies-body { grid-template-columns: 1fr; }
+    .policies-toc ul { position: static; display: flex; flex-wrap: wrap; }
+    .policies-toc a { border: 1.5px solid var(--line-strong); }
+    .policies-head :global(.character) { display: none; }
+  }
+</style>
