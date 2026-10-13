@@ -2,7 +2,8 @@
 /**
  * End-to-end: a new family finds a class, signs in with an emailed code, adds a
  * child, fills in details, pays (test mode), and sees it all in their account.
- * Then Hannah signs in and sees the roster.
+ * Then Hannah signs in, sees the roster, and gives the family a discount,
+ * which the family then sees on their next payment.
  *
  * Then a family imported from Studio Director claims their account.
  *
@@ -21,6 +22,14 @@ const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } })
 const page = await ctx.newPage();
 const shot = async (name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
 const step = (msg) => console.log(`✓ ${msg}`);
+/** Also at phone width (390 px): the page must not scroll sideways. */
+async function phoneCheck(name) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const wide = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}-390.png`, fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  if (wide > 0) throw new Error(`${name}: scrolls sideways by ${wide}px at 390 px`);
+}
 
 async function latestCode(email) {
   const mail = await ctx.newPage();
@@ -160,6 +169,25 @@ await page.waitForSelector('text=/Next: .*1 charge, \\$95/');
 await shot('7b-billing');
 step('Hannah’s billing page shows the next autopay date and total');
 
+// 10b. Hannah gives the family a discount: she checks the new amount, then saves
+await page.click(`[data-families] a[href="/admin/billing/${orderId}"]`);
+await page.waitForSelector('[data-add-adjustment]');
+await page.fill('#adj-value', '40');
+await page.fill('#adj-reason', 'Scholarship');
+await page.check('input[name="showToFamily"]');
+await page.click('button[value="preview"]');
+await page.waitForSelector('[data-preview] >> text=$55');
+await shot('7c-discount-check');
+await phoneCheck('7c-discount-check');
+if (await page.locator('[data-adjustments]').count()) throw new Error('Nothing should be saved before Hannah confirms');
+await page.click('button[value="add"]');
+await page.waitForSelector('text=Discount saved');
+await page.waitForSelector('[data-payments] >> text=Scholarship: −$40');
+await page.waitForSelector('[data-adjustments] >> text=Added by Hannah Eppling');
+await shot('7d-discount-saved');
+await phoneCheck('7d-discount-saved');
+step('Hannah takes $40 off the family’s next payment ($95 → $55), after checking the new amount');
+
 // 11. A different signed-in family (even staff) can't open the Riveras' order
 await page.goto(`${BASE}/enroll/confirmation?order=${orderId}`);
 if (!page.url().endsWith('/account')) throw new Error(`Another household opened order ${orderId}`);
@@ -174,6 +202,24 @@ await page.waitForSelector('text=Theo Okafor');
 if (await page.locator('#p-name').count()) throw new Error('Imported parent should not be asked for their name again');
 await shot('8-imported-family');
 step('Imported Studio Director family signs in and finds their students waiting');
+
+// 13. A family can't give themselves a discount, even by posting the staff form
+const sneaky = await page.request.post(`${BASE}/admin/billing/${orderId}`, {
+  headers: { origin: BASE },
+  form: { action: 'add', kind: 'percent', value: '100', repeat: 'monthly', reason: 'free' },
+});
+if (sneaky.status() !== 404) throw new Error(`A family's discount request should get 404, got ${sneaky.status()}`);
+step('A family posting the staff discount form gets “not found”');
+
+// 14. The Riveras see the discount on their next payment
+await page.context().clearCookies();
+await page.goto(`${BASE}/account`);
+await signIn(email);
+await page.waitForSelector('[data-autopay] >> text=Scholarship: −$40');
+await page.waitForSelector('[data-autopay] >> text=$55');
+await shot('9-family-discount');
+await phoneCheck('9-family-discount');
+step('The family sees “Scholarship: −$40” and $55 on their next payment');
 
 await browser.close();
 console.log('\nAll journey checks passed.');

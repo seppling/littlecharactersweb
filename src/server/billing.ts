@@ -28,7 +28,9 @@ import { getDb, schema } from './db';
 import { emailHtml, sendEmail } from './email';
 import { config } from './env';
 import { audit, householdGuardians } from './records';
+import { reapplyPendingAdjustments } from './adjustments';
 import { formatCents, todayInAthens } from '@/lib/pricing';
+import { adjustmentLine } from '@/lib/adjustments';
 
 const { installment, household } = schema;
 
@@ -45,8 +47,15 @@ export const BILLING = {
 
 type Installment = typeof installment.$inferSelect;
 
-/** What the family owes for this month right now: tuition plus any late fee. */
+/** What the family owes for this month right now: tuition (after any staff adjustment) plus any late fee. */
 export const totalDue = (i: Pick<Installment, 'amountCents' | 'lateFeeCents'>) => i.amountCents + i.lateFeeCents;
+
+/** "Scholarship: −$40", for receipts and the charge's description in Stripe. */
+export const adjustmentNote = (i: Pick<Installment, 'adjustments'>) => i.adjustments.map(adjustmentLine).join(', ');
+
+/** What the card statement's charge says: the month, any adjustment, any late fee. */
+export const chargeDescription = (i: Pick<Installment, 'label' | 'adjustments' | 'lateFeeCents'>) =>
+  `${i.label}${i.adjustments.length ? ` (${adjustmentNote(i)})` : ''}${i.lateFeeCents ? ' + late fee' : ''}`;
 
 export type ChargeRequest = {
   installmentId: string;
@@ -96,6 +105,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
  */
 export async function runBilling({ charge, today = todayInAthens(), limit = Infinity }: { charge: Charger; today?: string; limit?: number }): Promise<BillingReport> {
   const db = await getDb();
+  await reapplyPendingAdjustments();
   const lateFees = await applyLateFees(today);
   const staleBefore = new Date(Date.now() - BILLING.staleAfterMinutes * 60_000);
   const due = await db
@@ -168,6 +178,12 @@ async function chargeOne(
     .returning();
   if (!claimed) return null;
 
+  // A staff adjustment covered the whole month: nothing to send to Stripe.
+  if (totalDue(claimed) === 0) {
+    await markInstallmentPaid(i.id, { paymentIntentId: null, amountCents: 0 });
+    return 'charged';
+  }
+
   const result: ChargeResult =
     !customerId || !paymentMethodId
       ? { status: 'failed', code: 'no_card', retry: false }
@@ -177,7 +193,7 @@ async function chargeOne(
           customerId,
           paymentMethodId,
           amountCents: totalDue(claimed),
-          description: claimed.lateFeeCents ? `${claimed.label} + late fee` : claimed.label,
+          description: chargeDescription(claimed),
           paymentIntentId: resuming ? i.stripePaymentIntentId : null,
           remember: async (paymentIntentId) => {
             await db.update(installment).set({ stripePaymentIntentId: paymentIntentId }).where(eq(installment.id, i.id));
@@ -247,14 +263,18 @@ async function notify(i: Installment, kind: 'paid' | 'failed' | 'late_fee', toda
   const guardians = await householdGuardians(i.householdId);
   const payUrl = new URL(`/account/pay/${i.id}`, config.siteUrl).toString();
   const lastDayNoFee = addDays(i.dueDate, BILLING.lateFeeAfterDays - 1);
-  const heading = { paid: `Payment received: ${formatCents(totalDue(i))}`, failed: 'We couldn’t charge your card', late_fee: `Late fee added: ${i.label}` }[kind];
+  const note = i.adjustments.length ? ` (${adjustmentNote(i)})` : '';
+  const covered = kind === 'paid' && totalDue(i) === 0;
+  const heading = { paid: covered ? `Nothing to pay: ${i.label}` : `Payment received: ${formatCents(totalDue(i))}`, failed: 'We couldn’t charge your card', late_fee: `Late fee added: ${i.label}` }[kind];
   const lines = {
     paid: [
-      `Thank you! We received ${formatCents(totalDue(i))} for ${i.label}${i.lateFeeCents ? ' (including the late fee)' : ''}.`,
+      covered
+        ? `Your discount${note} covers ${i.label}, so nothing was charged.`
+        : `Thank you! We received ${formatCents(totalDue(i))} for ${i.label}${note}${i.lateFeeCents ? ' (including the late fee)' : ''}.`,
       `Your receipts are in your family account: ${new URL('/account', config.siteUrl)}`,
     ],
     failed: [
-      `We tried to charge ${formatCents(totalDue(i))} for ${i.label}, but ${failureReason(i.lastError ?? '')}.`,
+      `We tried to charge ${formatCents(totalDue(i))} for ${i.label}${note}, but ${failureReason(i.lastError ?? '')}.`,
       i.retryOn ? `We’ll try again on ${fmtDate(i.retryOn)}. To pay now or use a different card, go to ${payUrl}` : `Please pay or update your card here: ${payUrl}`,
       !i.lateFeeCents && lastDayNoFee >= today ? `To avoid the ${formatCents(BILLING.lateFeeCents)} late fee, please make sure it’s paid by ${fmtDate(lastDayNoFee)}.` : '',
       'Questions, or need to make other arrangements? Just reply to this email.',
@@ -295,7 +315,7 @@ export async function holdForManualPayment(householdId: string, installmentId: s
   const db = await getDb();
   const [held] = await db
     .update(installment)
-    .set({ retryOn: null })
+    .set({ retryOn: null, payNowOpenedAt: new Date() })
     .where(and(eq(installment.id, installmentId), eq(installment.householdId, householdId), eq(installment.status, 'failed')))
     .returning({ id: installment.id });
   return !!held;
@@ -371,6 +391,7 @@ export async function markPaidOutsideStripe(installmentId: string, staffUserId: 
 /** Development only: pretends every charge succeeds. */
 export const devCharger: Charger = async (req) => {
   const id = `test_pi_${req.installmentId.slice(0, 8)}_${req.attempt}`;
+  console.log(`[test charge] ${formatCents(req.amountCents)} · ${req.description}`);
   await req.remember(id);
   return { status: 'succeeded', paymentIntentId: id };
 };

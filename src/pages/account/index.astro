@@ -10,6 +10,7 @@ import { ageOn, createStudent, detailsFresh, ensureHousehold, listEnrollments, l
 import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
 import { failureReason, listInstallments, totalDue } from '@/server/billing';
+import { adjustmentLine, type AppliedAdjustment } from '@/lib/adjustments';
 
 export const prerender = false;
 const { locationById } = Astro.locals.content;
@@ -53,13 +54,15 @@ const installments = household ? await listInstallments(household.id) : [];
 const needsAttention = installments.filter((i) => i.status === 'failed');
 const autopay = installments.filter((i) => i.status === 'scheduled' || i.status === 'processing');
 const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-const receipts = [
+const receipts: { date: Date; label: string; amountCents: number; adjustments?: AppliedAdjustment[] }[] = [
   ...orders.map((o) => ({
     date: o.paidAt!,
     label: `${Astro.locals.content.findSession(o.sessionId)?.program.title ?? o.sessionId}${o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (full season)' : o.plan === 'monthly' ? ' (first month + fees)' : ''}`,
     amountCents: o.totalCents,
   })),
-  ...installments.filter((i) => i.status === 'paid').map((i) => ({ date: i.paidAt!, label: `${i.label}${i.lateFeeCents ? ' + late fee' : ''}`, amountCents: totalDue(i) })),
+  ...installments
+    .filter((i) => i.status === 'paid')
+    .map((i) => ({ date: i.paidAt!, label: `${i.label}${i.lateFeeCents ? ' + late fee' : ''}`, amountCents: totalDue(i), adjustments: i.adjustments })),
 ].sort((a, b) => b.date.getTime() - a.date.getTime());
 const today = todayInAthens();
 
@@ -191,7 +194,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
               {needsAttention.map((i) => (
                 <div class="alert" role="alert">
                   <p>
-                    <strong>{i.label}: {formatCents(totalDue(i))}</strong>{i.lateFeeCents > 0 && ` (includes a ${formatCents(i.lateFeeCents)} late fee)`} didn’t go through because {failureReason(i.lastError ?? '')}.
+                    <strong>{i.label}: {formatCents(totalDue(i))}</strong>{i.adjustments.length > 0 && ` (after ${i.adjustments.map(adjustmentLine).join(', ')})`}{i.lateFeeCents > 0 && ` (includes a ${formatCents(i.lateFeeCents)} late fee)`} didn’t go through because {failureReason(i.lastError ?? '')}.
                     {i.retryOn ? ` We’ll try again on ${fmtDate(i.retryOn)}, or you can pay now.` : ''}
                   </p>
                   <a class="btn btn--primary btn--sm" href={`/account/pay/${i.id}`}>Pay now</a>
@@ -206,8 +209,8 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                       {autopay.map((i) => (
                         <tr>
                           <td>{fmtDate(i.dueDate)}</td>
-                          <td>{i.label}</td>
-                          <td>{formatCents(i.amountCents)}</td>
+                          <td>{i.label}{i.adjustments.map((l) => <span class="adj" data-adjustment>{adjustmentLine(l)}</span>)}</td>
+                          <td>{i.adjustments.length > 0 && <s class="was">{formatCents(i.baseAmountCents)}</s>}{formatCents(i.amountCents)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -223,7 +226,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                     {receipts.map((r) => (
                       <tr>
                         <td>{shortDate(r.date)}</td>
-                        <td>{r.label}</td>
+                        <td>{r.label}{r.adjustments?.map((l) => <span class="adj" data-adjustment>{adjustmentLine(l)}</span>)}</td>
                         <td>{formatCents(r.amountCents)}</td>
                       </tr>
                     ))}
@@ -292,6 +295,8 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
     .receipts td:nth-child(2) { grid-column: 1 / -1; grid-row: 2; color: var(--ink-soft); }
     .receipts td:last-child { grid-column: 2; grid-row: 1; }
   }
+  .adj { display: block; font-size: var(--step--1); font-weight: 600; color: var(--ok); }
+  .was { display: block; font-size: var(--step--1); color: var(--ink-mute); }
   .empty, .fine { color: var(--ink-soft); }
   .fine { font-size: var(--step--1); }
   .error { color: var(--red-ink); font-size: var(--step--1); font-weight: 600; }

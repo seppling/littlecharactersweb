@@ -287,7 +287,7 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
     if (o.plan === 'monthly' && o.schedule.length) {
       await tx
         .insert(installment)
-        .values(o.schedule.map((c) => ({ householdId: o.householdId, orderId: o.id, sessionId: o.sessionId, dueDate: c.dueDate, amountCents: c.amountCents, label: c.label })))
+        .values(o.schedule.map((c) => ({ householdId: o.householdId, orderId: o.id, sessionId: o.sessionId, dueDate: c.dueDate, amountCents: c.amountCents, baseAmountCents: c.amountCents, label: c.label })))
         .onConflictDoNothing();
     }
     return true;
