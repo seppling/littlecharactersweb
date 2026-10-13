@@ -27,3 +27,25 @@ Stephen and Hannah reviewed the site together on October 13. This is the record 
 ## Log
 
 Each merged unit gets an entry here.
+
+### Back-office plan (October 13)
+
+Stephen asked for a wider plan for the staff back office, designed around how Hannah uses Studio Director. Decided:
+
+- **Two phases.**
+  - **By launch (mid-November):**
+    - a staff home page (today's classes, problem payments, new sign-ups, waitlist openings);
+    - a class page in the admin area with an enrollment tab like Studio Director's: add or drop a student, the waitlist, slots filled and average age, print, email the class;
+    - family and student lookup, with edits;
+    - payments: autopay, discount adjustments, each family's history;
+    - spreadsheet downloads.
+  - **By spring:**
+    - attendance, make-ups and drop-ins;
+    - instructors and teacher logins;
+    - a class calendar, search and reports;
+    - group email;
+    - one-off charges, refunds and statements;
+    - staff settings.
+- **Switching over:** fall classes finish in Studio Director (no new data typed into it after launch). New sign-ups and spring are on the new site. Studio Director is cancelled in February, after a clean month of spring billing and a full export.
+- **Hannah's input:** a short online form asks how often she uses each Studio Director screen, plus 8 questions. The back-office pieces are designed from her answers.
+- **Staff discounts:** continue now. Their admin screen moves into the new payments area later.
