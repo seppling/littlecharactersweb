@@ -8,13 +8,15 @@ import { accountHref, isExternal } from '@/lib/enroll';
 
 interface Props {
   block?: boolean;
+  /** The phone header's small link beside "Menu": "Sign in" instead of "Family login". */
+  compact?: boolean;
 }
-const { block = false } = Astro.props;
+const { block = false, compact = false } = Astro.props;
 const href = accountHref();
 ---
 
 <a
-  class:list={['account-link', { 'account-link--block': block }]}
+  class:list={['account-link', { 'account-link--block': block, 'account-link--compact': compact }]}
   href={href}
   data-account-slot
   {...isExternal(href) ? { rel: 'noopener' } : {}}
@@ -23,7 +25,7 @@ const href = accountHref();
     <circle cx="12" cy="8.5" r="4" fill="none" stroke="currentColor" stroke-width="2"></circle>
     <path d="M4.5 20c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
   </svg>
-  <span data-account-label>Family login</span>
+  <span class="account-link__label" data-account-label>{compact ? 'Sign in' : 'Family login'}</span>
 </a>
 
 <script>
@@ -57,5 +59,18 @@ const href = accountHref();
     justify-content: center;
     min-height: 48px;
     border: 2px solid var(--ink);
+  }
+  .account-link--compact {
+    max-width: 100%;
+    min-height: 44px;
+    padding-inline: 0.5rem;
+    font-size: 0.95rem;
+  }
+  .account-link--compact svg { flex: none; }
+  .account-link__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .account-link--compact .account-link__label { max-width: 7.5em; }
+  @media (max-width: 400px) {
+    /* Room for the logo and "Menu" on the narrowest phones: the words stay, the icon goes. */
+    .account-link--compact svg { display: none; }
   }
 </style>

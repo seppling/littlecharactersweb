@@ -41,6 +41,7 @@ npm run build && tests/e2e/serve.sh     # fresh local database with a sample imp
 node tests/e2e/enroll-journey.mjs       # in a second terminal
 node tests/e2e/trial-journey.mjs        # then the free first class and the age rule
 node tests/e2e/content-editor.mjs       # after the journeys, on the same database
+node tests/e2e/navigation.mjs           # menus by keyboard, the class finder's order, headings (any order)
 ```
 
 ## Where things live
