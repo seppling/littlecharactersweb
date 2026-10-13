@@ -8,6 +8,7 @@
  * production.
  */
 import { eq } from 'drizzle-orm';
+import type Stripe from 'stripe';
 import { config, isProd, paymentsMode } from './env';
 import { getDb, schema } from './db';
 import type { OrderLine } from './db/schema';
@@ -144,7 +145,8 @@ export async function createInstallmentCheckout(opts: {
  */
 export async function completeCheckout(checkoutSessionId: string, userId: string | null) {
   const s = getStripe();
-  const session = await s.checkout.sessions.retrieve(checkoutSessionId, { expand: ['payment_intent'] });
+  // The card itself comes in the same call, for the brand, last four and expiry shown in the account.
+  const session = await s.checkout.sessions.retrieve(checkoutSessionId, { expand: ['payment_intent.payment_method'] });
   const meta = session.metadata ?? {};
   const result = { paid: session.payment_status === 'paid', orderId: meta.orderId, installmentId: meta.installmentId };
   if (!result.paid) return result;
@@ -152,18 +154,32 @@ export async function completeCheckout(checkoutSessionId: string, userId: string
   const pi = typeof session.payment_intent === 'object' ? session.payment_intent : null;
   const paymentMethodId = typeof pi?.payment_method === 'string' ? pi.payment_method : (pi?.payment_method?.id ?? null);
   if (pi?.setup_future_usage === 'off_session' && paymentMethodId && meta.householdId) {
-    await rememberCard(meta.householdId, paymentMethodId);
+    await rememberCard(meta.householdId, paymentMethodId, typeof pi.payment_method === 'object' ? cardOnFile(pi.payment_method) : NO_CARD_DETAILS);
   }
   if (meta.orderId) await fulfillOrder(meta.orderId, userId, { checkoutSessionId: session.id, amountCents: session.amount_total });
   if (meta.installmentId) await markInstallmentPaid(meta.installmentId, { paymentIntentId: pi?.id ?? null, amountCents: session.amount_total }, userId);
   return result;
 }
 
-async function rememberCard(householdId: string, paymentMethodId: string) {
+export type CardOnFile = { cardBrand: string | null; cardLast4: string | null; cardExpMonth: number | null; cardExpYear: number | null };
+const NO_CARD_DETAILS: CardOnFile = { cardBrand: null, cardLast4: null, cardExpMonth: null, cardExpYear: null };
+
+/**
+ * What the family account shows of a saved card: brand, last four and expiry.
+ * Nothing else is kept (docs/security.md). Apple Pay and Google Pay report the
+ * card behind them.
+ */
+export function cardOnFile(pm: Pick<Stripe.PaymentMethod, 'card'> | null | undefined): CardOnFile {
+  const card = pm?.card;
+  if (!card) return NO_CARD_DETAILS;
+  return { cardBrand: card.brand ?? null, cardLast4: card.last4 ?? null, cardExpMonth: card.exp_month ?? null, cardExpYear: card.exp_year ?? null };
+}
+
+async function rememberCard(householdId: string, paymentMethodId: string, card: CardOnFile) {
   const db = await getDb();
   const [h] = await db
     .update(schema.household)
-    .set({ stripePaymentMethodId: paymentMethodId })
+    .set({ stripePaymentMethodId: paymentMethodId, ...card })
     .where(eq(schema.household.id, householdId))
     .returning({ customer: schema.household.stripeCustomerId });
   if (h?.customer?.startsWith('cus_')) await getStripe().customers.update(h.customer, { invoice_settings: { default_payment_method: paymentMethodId } });

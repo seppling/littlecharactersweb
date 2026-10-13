@@ -13,8 +13,8 @@ export const pages: Pages = {
       instagram: 'https://www.instagram.com/littlecharactersathens/',
       facebook: 'https://www.facebook.com/littlecharactersathens/',
     },
-    // TODO: the current giving page has no payment form yet; point this at a real donation link.
-    links: { giving: 'https://www.littlecharacters.org/giving-page', wishList: 'https://a.co/510Gges' },
+    // No donation link yet: "Give now" reads "Email us to give" until Hannah adds one (Site settings → Giving).
+    links: { wishList: 'https://a.co/510Gges' },
     // Hannah to confirm the number (October 2026 review).
     signups: { lateJoinWeeks: 4 },
     /** How to get to HQ, from the "Parking Instructions" guide on the old site. */

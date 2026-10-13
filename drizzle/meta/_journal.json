@@ -57,6 +57,13 @@
       "when": 1791859298784,
       "tag": "0007_family_discount",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791888432423,
+      "tag": "0008_card_on_file",
+      "breakpoints": true
     }
   ]
 }
