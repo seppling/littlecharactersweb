@@ -24,6 +24,7 @@ Stephen and Hannah reviewed the site together on October 13. This is the record 
 | 6 | About pages, the About dropdown, Contact in the main menu, footer layout | 2 | — | `claude/review-about-nav` |
 | 7 | Playful class-page copy, as drafts | 3 | 1, 2 | `claude/review-copy` |
 | 8 | Class dates retire on their own: a past or closing date can't be booked or shown, whatever its status | 3 | 4 | `claude/review-dates` |
+| 9 | The 15% family discount covers the whole family: a second weekly-class enrollment lowers every child's remaining monthly payments | 3 | 3, 4 | `claude/review-family-discount` |
 
 ## Log
 
@@ -120,3 +121,13 @@ Units 4 and 6 are merged. On the merged branch: type check clean, 305 unit tests
   - **CI:** CI doesn't run the browser tests yet.
   - **Phone menu:** it could close on Escape, like the desktop dropdown.
   - **Draft wording:** one draft's reason still says "the schools list above".
+
+### The 15% family discount covers the whole family (decided October 13)
+
+Siblings in separate weekly classes already count toward the 15% (a unit test now proves it). Until now, though, only the child who enrolled second got the discount, so a family signing up at different times paid more than one signing up together. Decided:
+
+- **Who gets it:** once a family has two or more active weekly-class enrollments, all of their remaining monthly payments are 15% off, whatever order the children signed up in.
+- **What doesn't change:** paid months and seasons paid in full. There are no refunds, and the 10% still doesn't combine with the 15%.
+- **Hannah's own discounts** apply on top of the family discount.
+- **If the family drops back to one class,** the remaining payments return to the regular price. Staff see that before they confirm the drop.
+- **When:** unit 9, started now.
