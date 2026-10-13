@@ -7,6 +7,7 @@ import { kindLabels, ageBands, focusLabels } from '@/content/catalog';
 import { rich } from '@/content/rich';
 import type { Focus } from '@/content/types';
 import { courseListLd, isCourse } from '@/lib/seo';
+import { finderLimit, sortByFit } from '@/lib/finder';
 
 const { programs, locations, vars, pages, site } = Astro.locals.content;
 const page = pages.classes;
@@ -22,6 +23,15 @@ const sorted = [...programs].sort(
   (a, b) => order.indexOf(a.kind) - order.indexOf(b.kind) || a.ages.min - b.ages.min,
 );
 
+// A family arriving with an age chosen (the home page's age chips) sees the best fits first,
+// already in order, and on a phone the other filters wait behind a "Filters" button.
+const ageParam = Astro.url.searchParams.get('age') ?? '';
+const chosenBand = ageBands.find((b) => b.id === ageParam);
+const shown = sortByFit(
+  sorted.map((program, order) => ({ program, order, ageMin: program.ages.min, ageMax: program.ages.max ?? 120, limit: finderLimit(program) })),
+  chosenBand && [chosenBand.min, chosenBand.max],
+);
+
 // Google's course list: every class on this page, each pointing to its own page (which has the class's Course markup).
 const courseUrls = sorted.filter(isCourse).map((p) => new URL(`/programs/${p.slug}`, site.url).href);
 const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
@@ -34,7 +44,7 @@ const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
   structuredData={structuredData}
   edit="/admin/content/programs"
 >
-  <section class="finder-head">
+  <section class="finder-head" data-tuck={chosenBand ? '' : undefined}>
     <div class="wrap">
       <div class="finder-head__inner">
         <div class="stack">
@@ -51,22 +61,30 @@ const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
     </div>
   </section>
 
-  <form class="filters" id="filters" aria-label="Filter programs">
+  <form class="filters" id="filters" aria-label="Filter programs" data-tuck={chosenBand ? '' : undefined}>
     <div class="wrap filters__inner">
       <fieldset class="filters__group">
         <legend>Age</legend>
         <div class="filters__chips">
-          <label class="chip"><input type="radio" name="age" value="" checked /> Any age</label>
+          <label class="chip"><input type="radio" name="age" value="" checked={!chosenBand} /> Any age</label>
           {
             ageBands.map((b) => (
               <label class="chip">
-                <input type="radio" name="age" value={b.id} /> {b.label}
+                <input type="radio" name="age" value={b.id} checked={b === chosenBand} /> {b.label}
               </label>
             ))
           }
         </div>
       </fieldset>
 
+      <button class="filters__toggle" type="button" aria-expanded="false" aria-controls="filters-extra">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+        </svg>
+        Filters <span class="filters__active" data-active-count></span>
+      </button>
+
+      <div class="filters__extra" id="filters-extra">
       <fieldset class="filters__group">
         <legend>Type</legend>
         <div class="filters__chips">
@@ -127,6 +145,7 @@ const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
           </div>
         </div>
       </details>
+      </div>
 
       <div class="filters__status">
         <p id="result-count" aria-live="polite"><strong>{programs.length}</strong> programs</p>
@@ -135,10 +154,11 @@ const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
     </div>
   </form>
 
-  <section class="section section--tight results-wrap">
+  <section class="section section--tight results-wrap" aria-labelledby="results-title">
     <div class="wrap">
+      <h2 class="sr-only" id="results-title">Programs</h2>
       <div class="results" id="results">
-        {sorted.map((p) => <ProgramRow program={p} />)}
+        {shown.map(({ program, order }) => <ProgramRow program={program} order={order} />)}
       </div>
       <div class="empty" id="empty" hidden>
         <Character name="professor" size={90} />
@@ -160,8 +180,13 @@ const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
 </Base>
 
 <script>
+  import { sortByFit, type FinderLimit } from '@/lib/finder';
+
   const form = document.getElementById('filters') as HTMLFormElement;
-  const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-program]'));
+  const results = document.getElementById('results')!;
+  const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-program]'))
+    .map((el) => ({ el, order: Number(el.dataset.order), ageMin: Number(el.dataset.ageMin), ageMax: Number(el.dataset.ageMax), limit: el.dataset.limit as FinderLimit | undefined }))
+    .sort((a, b) => a.order - b.order);
   const count = document.getElementById('result-count')!;
   const empty = document.getElementById('empty')!;
 
@@ -189,10 +214,11 @@ const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
   function apply() {
     const s = readState();
     let shown = 0;
-    for (const row of rows) {
-      const min = Number(row.dataset.ageMin);
-      const max = Number(row.dataset.ageMax);
-      const band = bands[s.age];
+    const band = bands[s.age];
+    // Best fit first once an age is chosen (src/lib/finder.ts); otherwise the usual order.
+    const ordered = sortByFit(rows, band);
+    if (ordered.some((r, i) => results.children[i] !== r.el)) results.append(...ordered.map((r) => r.el));
+    for (const { el: row, ageMin: min, ageMax: max } of ordered) {
       const ok =
         (!band || (min <= band[1] && max >= band[0])) &&
         (!s.kinds.length || s.kinds.includes(row.dataset.kind!)) &&
@@ -206,6 +232,8 @@ const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
     }
     count.innerHTML = `<strong>${shown}</strong> ${shown === 1 ? 'program' : 'programs'}`;
     empty.hidden = shown > 0;
+    const extra = s.kinds.length + s.focus.length + s.days.length + (s.loc ? 1 : 0) + (s.open ? 1 : 0) + (s.trial ? 1 : 0);
+    activeCount.textContent = extra ? `(${extra})` : '';
 
     const params = new URLSearchParams();
     if (s.age) params.set('age', s.age);
@@ -240,6 +268,14 @@ const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
     (form.querySelector('.filters__more') as HTMLDetailsElement).open = true;
   }
 
+  // On a phone with an age already chosen, Type, Focus and the rest wait behind "Filters".
+  const toggle = form.querySelector<HTMLButtonElement>('.filters__toggle')!;
+  const activeCount = form.querySelector<HTMLElement>('[data-active-count]')!;
+  toggle.addEventListener('click', () => {
+    const open = toggle.getAttribute('aria-expanded') !== 'true';
+    toggle.setAttribute('aria-expanded', String(open));
+  });
+
   form.addEventListener('change', apply);
   form.addEventListener('reset', () => setTimeout(apply));
   form.addEventListener('submit', (e) => e.preventDefault());
@@ -271,6 +307,9 @@ const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
   .filters__chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
   .filters .chip { position: relative; min-height: 40px; font-size: 0.95rem; padding: 0.35em 0.95em; }
   .chip--day { min-width: 3.4rem; justify-content: center; }
+  .filters__extra { display: grid; gap: 0.75rem; }
+  .filters__toggle { display: none; }
+  .filters__active { font-weight: 600; }
   .filters__more summary {
     cursor: pointer;
     font-family: var(--font-display);
@@ -308,5 +347,29 @@ const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
   @media (max-width: 640px) {
     .finder-head__cast { display: none; }
     .filters__group { grid-template-columns: 1fr; gap: 0.4rem; }
+    /* Arriving with an age chosen: the results start on the first screen. */
+    .filters[data-tuck] .filters__toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      justify-self: start;
+      min-height: 44px;
+      padding: 0.35rem 1rem;
+      border: 2px solid var(--line-strong);
+      border-radius: 999px;
+      background: var(--paper);
+      color: var(--ink);
+      font: inherit;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .filters[data-tuck] .filters__toggle[aria-expanded='true'] { border-color: var(--ink); }
+    .filters[data-tuck] .filters__toggle[aria-expanded='false'] + .filters__extra { display: none; }
+    /* The intro says "start with your child's age"; they already have. */
+    .finder-head[data-tuck] { padding-top: var(--space-l); }
+    .finder-head[data-tuck] .lede { display: none; }
+    .filters[data-tuck] + .results-wrap { padding-top: var(--space-m); }
   }
 </style>

@@ -125,7 +125,7 @@ const comingSoon = session.status === 'coming-soon';
           <a class="btn btn--outline" href={`/programs/${program.slug}#notify`}>Get notified</a>
         </div>
       ) : !user ? (
-        <SignInPanel
+        <SignInPanel level="h1"
           heading="First, who’s signing up?"
           intro="Enter your email and we’ll send a 6-digit code. New here? That’s all it takes to create your family account. This device stays signed in for 90 days."
         />

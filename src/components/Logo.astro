@@ -15,7 +15,8 @@ const lockup = resolveImage({ src: 'builtin:brand/logo-horizontal' }, new Map(),
 const mark = resolveImage({ src: 'builtin:brand/logo-mark' }, new Map(), 96)!;
 ---
 
-<a href="/" class:list={['logo', `logo--${tone}`]} aria-label="Little Characters Theater Troupe, home">
+{/* The lockup is an image, so it needs a label; the footer logo's name is its own visible words, plus "home". */}
+<a href="/" class:list={['logo', `logo--${tone}`]} aria-label={tone === 'ink' ? 'Little Characters Theater Troupe, home' : undefined}>
   {
     tone === 'ink' ? (
       <img src={lockup.src} srcset={lockup.srcset} sizes="190px" width={lockup.width} height={lockup.height} alt="" class="logo__lockup" />
@@ -23,8 +24,9 @@ const mark = resolveImage({ src: 'builtin:brand/logo-mark' }, new Map(), 96)!;
       <>
         <img src={mark.src} srcset={mark.srcset} sizes="48px" width={mark.width} height={mark.height} alt="" class="logo__mark" loading="lazy" />
         <span class="logo__text">
-          <span class="logo__name">Little Characters</span>
+          <span class="logo__name">Little Characters</span>{' '}
           <span class="logo__sub">Theater Troupe</span>
+          <span class="sr-only">, home</span>
         </span>
       </>
     )

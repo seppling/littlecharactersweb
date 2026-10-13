@@ -188,5 +188,5 @@ src/pages/enroll/   the journey;  src/pages/account/  dashboard;  src/pages/admi
 src/pages/api/      auth, /api/me, Stripe webhook, /api/billing/run (daily autopay)
 drizzle/            SQL migrations (npm run db:generate after schema changes)
 tests/unit/         pricing, autopay, import, access control, content editing (npm test)
-tests/e2e/          the full journey, the free first class (trial-journey.mjs), and staff editing the site, in a real browser
+tests/e2e/          the full journey, the free first class (trial-journey.mjs), staff editing the site, and the menus and class finder (navigation.mjs), in a real browser
 ```
