@@ -166,8 +166,14 @@ for (const key of ['team', 'schools']) {
   await page.waitForSelector('[data-staff-bar]:not([hidden])');
   check((await page.getAttribute('[data-staff-bar] a', 'href')) === `/admin/content/pages/${key}`, `Edit this page link on /about/${key}`);
 }
+await page.goto(`${BASE}/policies`);
+await page.waitForSelector('[data-staff-bar]:not([hidden])');
+check((await page.getAttribute('[data-staff-bar] a', 'href')) === '/admin/content/pages/policies', 'Edit this page link on /policies');
 await page.goto(`${BASE}/admin/content`);
 check((await page.locator('a[href="/admin/content/pages/team"]').count()) && (await page.locator('a[href="/admin/content/pages/schools"]').count()), 'Team and Schools & partners pages in the editor list');
+check(await page.locator('a[href="/admin/content/pages/policies"]').count(), 'Policies page in the editor list');
+await page.goto(`${BASE}/admin/content/pages/policies`);
+check((await page.content()).includes('DRAFT for Hannah'), 'Policies page is marked as a draft for Hannah in the editor');
 step('“Edit this page” shows for staff');
 
 const family = await browser.newContext();

@@ -156,6 +156,9 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                           <span>Sign-ups for this season have closed. <a href={`/contact?topic=class&class=${encodeURIComponent(u.program.title)}`}>Ask us</a></span>
                         )}
                         {u.enrollment.status !== 'waitlist' && <a href={`/calendar/${u.session.id}.ics`} download>Add to calendar</a>}
+                        {u.enrollment.status !== 'waitlist' && u.next && (
+                          <a href={`/contact?${new URLSearchParams({ topic: 'absence', child: u.student.firstName, class: u.program.title, date: u.next })}`} data-absence-link>Missing a class?</a>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -230,7 +233,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                       ))}
                     </tbody>
                   </table>
-                  <p class="fine">Charged automatically to your saved card on the 1st, with an emailed receipt. To use a different card or withdraw, email us before the 1st.</p>
+                  <p class="fine">Charged automatically to your saved card on the 1st, with an emailed receipt. To switch cards, email us before the 1st. To withdraw, tell us at least 5 days before the 1st.</p>
                   {familyNote && <p class="fine" data-family-note>{familyNote}</p>}
                 </div>
               )}

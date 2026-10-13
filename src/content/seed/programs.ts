@@ -367,7 +367,7 @@ export const programs: Program[] = [
     ],
     highlights: ['Theater games', 'Crafts and snacks', 'New friends', 'Downtown is a mile away'],
     duration: '5:00 – 8:00 pm, once a month',
-    priceFrom: { amount: 30, unit: 'child', note: '$10 for each additional child' },
+    priceFrom: { amount: 30, unit: 'child', additional: 10 },
     image: { src: filmSuperhero, alt: 'A child in a superhero mask and costume', position: '50% 30%' },
     sessions: [
       oneNight('pno-2026-09-25', 'Fri, Sep 25', 'Fri', '2026-09-25', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 } }),

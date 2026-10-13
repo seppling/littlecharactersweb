@@ -3,17 +3,11 @@ import LeadFormFields from '@/components/LeadFormFields.astro';
 import Base from '@/layouts/Base.astro';
 import { rich } from '@/content/rich';
 import { resolveImage } from '@/lib/media';
+import { CONTACT_TOPICS as topics } from '@/lib/contact-topics';
 
-const topics = [
-  { value: 'general', label: 'A general question' },
-  { value: 'class', label: 'Help picking a class' },
-  { value: 'camps', label: 'Camps & workshops' },
-  { value: 'private-lessons', label: 'Private lessons' },
-  { value: 'party', label: 'A party' },
-  { value: 'scholarship', label: 'Scholarships & pay-what-you-can' },
-  { value: 'needs', label: 'My child’s specific needs' },
-];
-const { site, vars, locations, locationById, pages, uploads } = Astro.locals.content;
+const { site, vars, locations, locationById, pages, uploads, programs } = Astro.locals.content;
+// "My child will miss a class": the weekly classes to pick from.
+const classNames = [...new Set(programs.filter((p) => p.kind === 'class').map((p) => p.title))];
 const page = pages.contact;
 const parking = site.parking;
 const hq = locationById('hq') ?? locations[0];
@@ -61,7 +55,7 @@ const routes = [
         id="contact-form"
         data-lead-form
         data-success-title="Thanks! Your message is on its way."
-        data-success-body={`Hannah will reply by email. If it’s urgent, call us at ${site.contact.phone.replaceAll('-', '\u2011').replaceAll(' ', '\u00a0')}.`}
+        data-success-body={`Hannah will reply by email.${site.contact.replyTime ? ` ${site.contact.replyTime}` : ''} If it’s urgent, call us at ${site.contact.phone.replaceAll('-', '\u2011').replaceAll(' ', '\u00a0')}.`}
       >
         <LeadFormFields kind="contact" />
         <div class="field">
@@ -78,15 +72,39 @@ const routes = [
             {topics.map((t) => <option value={t.value}>{t.label}</option>)}
           </select>
         </div>
-        <div class="field">
+        <fieldset class="absence" data-absence hidden disabled>
+          <legend>Who’s missing class?</legend>
+          <div class="field">
+            <label for="c-child">Your child’s name</label>
+            <input id="c-child" name="child" autocomplete="off" maxlength="100" required />
+          </div>
+          <div class="absence__row">
+            <div class="field">
+              <label for="c-class">Class</label>
+              <select id="c-class" name="className" required>
+                <option value="">Choose a class</option>
+                {classNames.map((name) => <option>{name}</option>)}
+                <option>Another class</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="c-date">Date they’ll miss</label>
+              <input id="c-date" name="date" type="date" required />
+            </div>
+          </div>
+        </fieldset>
+        <div class="field" data-ages>
           <label for="c-kids">Your child’s age(s) <span class="opt">optional</span></label>
           <input id="c-kids" name="ages" placeholder="e.g. 5 and 8" />
         </div>
         <div class="field">
-          <label for="c-msg">Message</label>
+          <label for="c-msg">Message <span class="opt" data-msg-optional hidden>optional</span></label>
           <textarea id="c-msg" name="message" required></textarea>
         </div>
         <button class="btn btn--primary" type="submit">Send message</button>
+        <p class="contact__fine">
+          We’ll email you to say it arrived.{site.contact.replyTime && ` ${site.contact.replyTime}`}
+        </p>
       </form>
     </div>
   </section>
@@ -120,7 +138,6 @@ const routes = [
         <dl class="parking__card" data-gel="red"><dt>Please don’t</dt><dd>{parking.staffOnly}</dd></dl>
         <dl class="parking__card" data-gel="purple"><dt>Running late?</dt><dd>{parking.late}</dd></dl>
       </div>
-      {parking.guideUrl && <p class="parking__more"><a href={parking.guideUrl} rel="noopener">Download the full parking guide (PDF)</a></p>}
     </div>
   </section>
 </Base>
@@ -134,7 +151,46 @@ const routes = [
   // "Ask us" on enrollment links here with the class's name (/contact?topic=class&class=Intro%20to%20Theater).
   const className = params.get('class')?.trim().slice(0, 80);
   const message = document.getElementById('c-msg') as HTMLTextAreaElement | null;
-  if (className && message && !message.value) message.value = `About ${className}: `;
+  if (className && message && !message.value && topic !== 'absence') message.value = `About ${className}: `;
+
+  // "My child will miss a class" asks who, which class and when; the message is then optional.
+  const absence = document.querySelector<HTMLFieldSetElement>('[data-absence]');
+  const ages = document.querySelector<HTMLElement>('[data-ages]');
+  const msgOptional = document.querySelector<HTMLElement>('[data-msg-optional]');
+  const showTopic = () => {
+    const away = select?.value === 'absence';
+    if (absence) absence.hidden = absence.disabled = !away;
+    if (ages) ages.hidden = away;
+    if (msgOptional) msgOptional.hidden = !away;
+    if (message) message.required = !away;
+  };
+  select?.addEventListener('change', showTopic);
+  showTopic();
+  // "Missing a class?" in the family account links here with the child, class and next date.
+  if (topic === 'absence') {
+    const set = (id: string, value: string | null | undefined) => {
+      const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
+      if (el && value && !el.value) el.value = value.trim().slice(0, 100);
+    };
+    set('c-child', params.get('child'));
+    const classSelect = document.getElementById('c-class') as HTMLSelectElement | null;
+    if (className && classSelect && [...classSelect.options].some((o) => o.value === className)) classSelect.value = className;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(params.get('date') ?? '')) set('c-date', params.get('date'));
+  }
+
+  // A signed-in parent doesn't have to type their name and email.
+  if (document.cookie.includes('lc_signed_in=1')) {
+    fetch('/api/me?for=contact', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((me: { signedIn: boolean; name?: string; email?: string } | null) => {
+        if (!me?.signedIn) return;
+        const name = document.getElementById('c-name') as HTMLInputElement | null;
+        const email = document.getElementById('c-email') as HTMLInputElement | null;
+        if (name && !name.value && me.name && !me.name.includes('@')) name.value = me.name;
+        if (email && !email.value && me.email) email.value = me.email;
+      })
+      .catch(() => {});
+  }
 </script>
 
 <style>
@@ -147,6 +203,12 @@ const routes = [
   .contact__form { display: grid; gap: var(--space-m); padding: var(--space-xl); background: var(--hall); border-radius: var(--r-lg); }
   .contact__form .btn { justify-self: start; }
   .opt { font-weight: 400; color: var(--ink-mute); }
+  .absence { display: grid; gap: var(--space-m); margin: 0; padding: var(--space-m); border: 1.5px solid var(--line-strong); border-radius: var(--r-md); background: var(--paper); min-width: 0; }
+  .absence[hidden] { display: none; }
+  .absence legend { padding: 0 0.4rem; font-family: var(--font-display); font-weight: 700; }
+  .absence__row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: var(--space-m); }
+  .contact__fine { margin: 0; font-size: var(--step--1); color: var(--ink-mute); }
+  [data-ages][hidden] { display: none; }
   .parking { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-m); }
   .parking__card { margin: 0; padding: 1.1rem 1.3rem; background: var(--paper); border-radius: var(--r-md); border-left: 6px solid var(--gel); }
   .parking__route.has-map { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: var(--space-m); align-items: start; }
@@ -156,8 +218,7 @@ const routes = [
   .parking__map figcaption { font-size: var(--step--1); color: var(--ink-mute); }
   .parking dt { font-family: var(--font-display); font-weight: 750; font-size: 1.1rem; font-stretch: 92%; }
   .parking__card dd { margin: 0.2rem 0 0; color: var(--ink-soft); }
-  .parking__more { margin-top: var(--space-l); }
   @media (max-width: 860px) {
-    .contact__grid, .parking, .parking__route.has-map { grid-template-columns: 1fr; }
+    .contact__grid, .parking, .parking__route.has-map, .absence__row { grid-template-columns: 1fr; }
   }
 </style>

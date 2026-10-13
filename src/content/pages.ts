@@ -104,6 +104,14 @@ export const site: PageDef = {
       fields: [
         { key: 'email', label: 'Email', type: 'text', format: 'email', required: true, half: true },
         { key: 'phone', label: 'Phone', type: 'text', required: true, half: true, placeholder: '(706) 555-0123' },
+        {
+          key: 'replyTime',
+          label: 'When families can expect a reply',
+          type: 'text',
+          max: 160,
+          placeholder: 'We reply within 2 school days.',
+          help: 'Optional. Shown under the contact form and in the “on its way” email the sender gets. Leave it empty and the site doesn’t promise a reply time.',
+        },
       ],
     },
     {
@@ -154,7 +162,6 @@ export const site: PageDef = {
         { key: 'dropOff', label: 'Drop off (after 5 pm)', type: 'textarea', rows: 3, required: true },
         { key: 'staffOnly', label: 'Please don’t', type: 'textarea', rows: 2, required: true },
         { key: 'late', label: 'Running late?', type: 'textarea', rows: 2, required: true },
-        { key: 'guideUrl', label: 'Parking guide (PDF)', type: 'url' },
         { key: 'walkInMap', label: 'Walk-in map', type: 'image', help: 'Shown beside “Walk in” on the contact page. Describe the route in words, for people who can’t see the map.' },
         { key: 'dropOffMap', label: 'Drop-off map', type: 'image', help: 'Shown beside “Drop off” on the contact page. Describe the route in words, for people who can’t see the map.' },
       ],
@@ -262,7 +269,15 @@ export const home: PageDef = {
           titleKeys: ['age', 'title'],
           keepEmpty: true,
           fields: [
-            { key: 'age', label: 'Ages', type: 'text', required: true, half: true, placeholder: '4–6' },
+            {
+              key: 'age',
+              label: 'Ages',
+              type: 'text',
+              required: true,
+              half: true,
+              placeholder: '4–6',
+              help: 'Only shown when the step has no classes. Otherwise the ages come from the classes below, and each class shows its own.',
+            },
             { key: 'title', label: 'Title', type: 'text', required: true, half: true },
             { ...character, half: true },
             { ...gel, half: true },
@@ -459,10 +474,18 @@ export const about: PageDef = {
           titleKeys: ['label'],
           keepEmpty: true,
           fields: [
-            { key: 'label', label: 'Label', type: 'text', required: true, half: true, placeholder: 'Ages 4–6' },
+            {
+              key: 'label',
+              label: 'Label',
+              type: 'text',
+              required: true,
+              half: true,
+              placeholder: 'Ages 4–6',
+              help: 'A label starting with “Ages” is filled in from the classes linked below, so it always matches them.',
+            },
             { ...gel, half: true },
             { key: 'body', label: 'Text', type: 'textarea', rows: 2, required: true },
-            { key: 'programs', label: 'Links to classes', type: 'ref', collection: 'programs', multiple: true },
+            { key: 'programs', label: 'Links to classes', type: 'ref', collection: 'programs', multiple: true, help: 'Each class is shown with its ages.' },
             {
               key: 'links',
               label: 'Other links',
@@ -851,6 +874,33 @@ export const faq: PageDef = {
   fields: [hero(), seo],
 };
 
+const policySection = (key: string, label: string, help: string): Field => ({
+  key,
+  label,
+  type: 'group',
+  required: true,
+  help,
+  fields: [heading, { key: 'paragraphs', label: 'Text', type: 'paragraphs', rows: 12, required: true, help: `Leave a blank line between paragraphs. Start one with **a few bold words** to name it. ${RICH}` }],
+});
+
+/** Shown on the Policies page in the editor until Hannah has read it (remove then). */
+const POLICIES_DRAFT =
+  'DRAFT for Hannah to read before launch (October 2026). Written from the policy summary at enrollment, the FAQ, docs/security.md and what checkout and autopay actually do. Please check every line, and fill in what’s missing: how long we keep a family’s information after they leave, and whether “OK to share photos online” covers Instagram and Facebook. Sign-in, enrollment, the footer and the FAQ link here. The late fee, the discounts and the autopay date are set in the billing rules (ask Stephen to change them), so change the words here only to match.';
+
+export const policies: PageDef = {
+  key: 'policies',
+  label: 'Policies page',
+  intro: POLICIES_DRAFT,
+  url: '/policies',
+  fields: [
+    { ...hero(), help: POLICIES_DRAFT },
+    policySection('payments', 'Enrollment and payments', 'Families agree to this when they enroll. Keep it in step with the short version on the enrollment page.'),
+    policySection('privacy', 'Privacy', 'What the site collects, who sees it, and how to have it removed. Only say what the site really does (docs/security.md).'),
+    policySection('photos', 'Photos', 'What the photo choice at enrollment means.'),
+    seo,
+  ],
+};
+
 export const classes: PageDef = {
   key: 'classes',
   label: 'Class finder',
@@ -877,6 +927,6 @@ export const eventsPage: PageDef = {
   ],
 };
 
-export const pages: Record<PageKey, PageDef> = { site, home, about, team, schools, camps, geode, give, contact, faq, classes, events: eventsPage };
+export const pages: Record<PageKey, PageDef> = { site, home, about, team, schools, camps, geode, give, contact, faq, policies, classes, events: eventsPage };
 export const pageKeys = Object.keys(pages) as PageKey[];
 export const isPageKey = (k: string): k is PageKey => k in pages;

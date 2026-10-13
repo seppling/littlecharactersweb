@@ -288,8 +288,8 @@ export async function familyDiscountEffect(householdId: string, priced: Pick<Awa
   return effects.filter((e) => e.orderId !== orderId);
 }
 
-/** Bump when the policy summary on /enroll/details changes, so we know what each family agreed to. */
-export const POLICY_VERSION = '2026-fall-autopay';
+/** Bump when the policy summary on /enroll/details or the /policies page changes, so we know what each family agreed to. */
+export const POLICY_VERSION = '2026-fall-policies-page';
 
 /** Lock in the plan and price, then hand off to payment (or finish right away when nothing is due). */
 export async function confirmOrder(householdId: string, orderId: string, plan: Plan, userId: string) {

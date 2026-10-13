@@ -200,12 +200,12 @@ export interface Seo {
 
 export interface SiteSettings {
   announcement?: { show?: boolean; text?: string; link?: Link; gel?: Gel };
-  contact: { email: string; phone: string };
+  contact: { email: string; phone: string; replyTime?: string };
   social: { instagram?: string; facebook?: string };
   links: { giving?: string; wishList?: string };
   /** When class sign-ups close; see src/lib/session-dates.ts. */
   signups: { lateJoinWeeks: number };
-  parking: { walkIn: string; dropOff: string; staffOnly: string; late: string; guideUrl?: string; walkInMap?: ImageRef; dropOffMap?: ImageRef };
+  parking: { walkIn: string; dropOff: string; staffOnly: string; late: string; walkInMap?: ImageRef; dropOffMap?: ImageRef };
   description: string;
   previewBanner?: boolean;
 }
@@ -302,6 +302,15 @@ export interface EventsPage extends SimplePage {
   perform: { heading: string; body: string; button: string };
 }
 
+/** /policies: enrollment and payments, privacy, photos. */
+export interface PoliciesPage {
+  seo?: Seo;
+  hero: { eyebrow?: string; headline: string; intro: string };
+  payments: { heading: string; paragraphs: string[] };
+  privacy: { heading: string; paragraphs: string[] };
+  photos: { heading: string; paragraphs: string[] };
+}
+
 export interface Pages {
   site: SiteSettings;
   home: HomePage;
@@ -313,6 +322,7 @@ export interface Pages {
   give: GivePage;
   contact: ContactPage;
   faq: SimplePage;
+  policies: PoliciesPage;
   classes: SimplePage;
   events: EventsPage;
 }

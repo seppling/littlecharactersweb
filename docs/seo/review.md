@@ -34,18 +34,6 @@ After:
 
 _Why:_ Brings over the two details from the parking guide that the site didn’t have yet (the 10-step walk and the 5 quick-stop spaces), so the guide can be retired.
 
-### Parking & drop-off at HQ › Parking guide (PDF)
-
-Before:
-
-> https://www.littlecharacters.org/s/Little-Characters-Parking-Instructions.pdf
-
-After:
-
-> _(empty)_
-
-_Why:_ The contact page now shows the guide’s two maps beside the directions, so the PDF link goes; the PDF’s old address forwards to the contact page’s parking section.
-
 ## Home page
 
 Edit: `/admin/content/pages/home`
@@ -258,11 +246,11 @@ _Why:_ Spells out the school district’s name, which parents and school staff s
 
 Before:
 
-> We’ve run programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=general).
+> We’ve run programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=schools).
 
 After:
 
-> We’ve run programs at Athens Academy, Athens Montessori School, David C. Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Road Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=general).
+> We’ve run programs at Athens Academy, Athens Montessori School, David C. Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Road Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=schools).
 
 _Why:_ Adds Barrow and Timothy Elementary, where programs run now, so families searching for their school’s after-school options find us.
 
@@ -1394,7 +1382,7 @@ Before:
 
 After:
 
-> Kids 4–12 play theater games, craft and snack, 5–8 pm once a month, while you head to downtown Athens, GA, a mile away. $30, $10 each extra child.
+> Kids 4–12 play theater games, craft and snack, 5–8 pm once a month, while you head to downtown Athens, GA, a mile away. $30 first child, $10 each additional.
 
 _Why:_ Gives the ages, hours and price a parent planning a date night needs.
 
@@ -1979,22 +1967,6 @@ After:
 > We’re at 1635 W Broad St in Athens, between Rocksprings and Alps on the south side of Broad. Park on Minor St and walk your child to the front door, where a teacher checks them in. After 5 pm you can drop off from the car via the neighbor’s circle driveway at 1655 W Hancock Ave. The back lot is staff-only, and doors lock 5 minutes after class starts. [Maps and directions](/contact#parking).
 
 _Why:_ Names the city with the address and links to the parking maps on the contact page.
-
-## FAQs: How much do classes cost?
-
-Edit: `/admin/content/faqs/how-much-do-classes-cost`
-
-### Answer
-
-Before:
-
-> Our typical breakdown is $85/month for 45-minute classes, $95/month for 1-hour classes, $115/month for 1¼-hour classes and $125/month for 1½-hour classes. Some classes run as 8-week sessions with a single price. Each class also has a one-time performance or materials fee that pays teachers for extra writing and rehearsal time, costumes, props and facility rentals.
-
-After:
-
-> Our typical breakdown is $85/month for 45-minute classes, $95/month for 1-hour classes, $115/month for 1¼-hour classes and $125/month for 1½-hour classes. Some classes run as 8-week sessions with a single price. Each class also has a one-time performance or materials fee that pays teachers for extra writing and rehearsal time, costumes, props and facility rentals. Every class page shows its price: [find a class](/programs).
-
-_Why:_ Links to the class pages, where each price is listed.
 
 ## FAQs: Do you offer scholarships?
 

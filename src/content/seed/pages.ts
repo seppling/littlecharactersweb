@@ -25,7 +25,6 @@ export const pages: Pages = {
         'After 5 pm, you can stay in the car: at the crosswalk where W Hancock meets W Broad, turn into the neighbor’s circle driveway at the green building (GPS: 1655 W Hancock Ave) and pull up to our front door.',
       staffOnly: 'The lot behind the building is staff-only, so please don’t use the 1635 driveway.',
       late: 'Doors lock 5 minutes after class starts. If you’re running late, walk your student to the front door and knock.',
-      guideUrl: 'https://www.littlecharacters.org/s/Little-Characters-Parking-Instructions.pdf',
       // The two maps from that guide, cropped from its pages.
       walkInMap: {
         src: 'builtin:photos/parking-walk-in-map',
@@ -108,9 +107,9 @@ export const pages: Pages = {
       // The pathway is a real progression: where most students start, and where they go next.
       steps: [
         { age: '4–6', title: 'First steps', character: 'professor', gel: 'yellow', programs: ['stories-and-songs'] },
-        { age: '7–10', title: 'Find your voice', character: 'magician', gel: 'teal', programs: ['intro-to-theater', 'yes-and-improv'] },
+        { age: '7+', title: 'Find your voice', character: 'magician', gel: 'teal', programs: ['intro-to-theater', 'yes-and-improv'] },
         { age: '7+', title: 'Make your own', character: 'artist', gel: 'orange', programs: ['produce-a-show', 'film-creation'] },
-        { age: '9–17', title: 'Take the stage', character: 'dancer', gel: 'purple', programs: ['performance-troupe', 'geode-acting-studio'] },
+        { age: '9+', title: 'Take the stage', character: 'dancer', gel: 'purple', programs: ['performance-troupe', 'geode-acting-studio'] },
       ],
     },
     approach: {
@@ -142,7 +141,7 @@ export const pages: Pages = {
       eyebrow: 'Why families choose Little Characters',
       heading: 'Small groups. Big confidence.',
       facts: [
-        { big: '8–12', text: 'Kids in a typical class, with about 7 students per teacher. We add teachers when friends need extra attention.', gel: 'teal' },
+        { big: '8–12', text: 'Kids in a typical class, with about 7–8 students per teacher. We add teachers when friends need extra attention.', gel: 'teal' },
         { big: 'Free', text: 'New students can try most weekly classes free, so your child can see if it clicks before you commit.', gel: 'orange' },
         { big: '15% off', text: 'For multiple students or multiple classes. Pay for the season up front and save 10%.', gel: 'red' },
         { big: '1 : 1', text: 'Class buddies for students with higher needs, through the UGA Speech and Hearing Clinic, at no cost to parents.', gel: 'purple' },
@@ -152,12 +151,12 @@ export const pages: Pages = {
     extras: {
       heading: 'More ways to play',
       items: [
-        { title: 'Parents’ Night Out', body: 'Once a month, 5–8 pm. Games, crafts and snacks while you head downtown. $30 for the first child.', href: '/programs/parents-night-out', character: 'royal' },
+        { title: 'Parents’ Night Out', body: 'Once a month, 5–8 pm. Games, crafts and snacks while you head downtown. $30 first child, $10 each additional.', href: '/programs/parents-night-out', character: 'royal' },
         { title: 'Parties', body: 'Two hours on our stage for any occasion, with your own teacher/party coordinator.', href: '/programs/parties', character: 'artist' },
         { title: 'Private lessons', body: 'Audition help, playwriting, one-on-one acting and singing, by the hour.', href: '/programs/private-lessons', character: 'professor' },
         { title: 'Free community class', body: 'A free theater class once a month, open to all ages.', href: '/programs/free-community-class', character: 'magician' },
         { title: 'At your school', body: 'We’re a verified CCSD school vendor, running after-school programs around the county.', href: '/about/schools', character: 'stagehand' },
-        { title: 'Geode: tweens, teens & adults', body: 'Acting Studio, Performance Troupe and Third Thursday Improv Nights for 11 and up.', href: '/geode', character: 'dancer', geode: true },
+        { title: 'Geode: tweens, teens & adults', body: 'Acting Studio for ages 11–17, Third Thursday Improv Nights for adults, and the Performance Troupe, shared with Little Characters, for ages 9 and up.', href: '/geode', character: 'dancer', geode: true },
       ],
     },
     shows: { eyebrow: 'House lights down', heading: 'Shows & events' },
@@ -273,13 +272,13 @@ export const pages: Pages = {
       items: [
         { label: 'Ages 4–6', gel: 'yellow', body: 'Pre-K and kindergarten: songs, stories and a first taste of the stage.', programs: ['stories-and-songs'] },
         {
-          label: 'Ages 7 and up',
+          label: 'Ages 7+',
           gel: 'orange',
           body: 'Learn the basics, write and stage an original play, or build confidence through improv.',
           programs: ['intro-to-theater', 'produce-a-show', 'yes-and-improv'],
         },
         {
-          label: 'Ages 9 and up',
+          label: 'Ages 9+',
           gel: 'red',
           body: 'Students ready for bigger roles, and young filmmakers who want to act and shoot on a green screen.',
           programs: ['performance-troupe', 'film-creation'],
@@ -289,7 +288,7 @@ export const pages: Pages = {
         {
           label: 'Tweens, teens & adults',
           gel: 'teal',
-          body: 'Geode, our sister company: acting classes for ages 11–17 and monthly improv nights for adults.',
+          body: 'Geode, our sister company: the Acting Studio for ages 11–17 and monthly improv nights for adults. The Performance Troupe, for ages 9 and up, is shared by Little Characters and Geode.',
           links: [{ label: 'Geode', href: '/geode' }],
         },
       ],
@@ -341,7 +340,7 @@ export const pages: Pages = {
           text: 'Weekly classes, camps, workshops, shows, Parents’ Night Out, parties, private lessons, school programs and Ovation (adaptive theater)',
         },
         { label: 'Class size', text: 'About 8–12 students, with about 7–8 per teacher' },
-        { label: 'Tuition', text: '{tuitionRange} for weekly classes, by class length; camps about {campDay} a day' },
+        { label: 'Tuition', text: '{tuitionRange} for most weekly classes, by class length; a few run as 8-week sessions with one price ([every class’s price](/programs?kind=class)); camps about {campDay} a day' },
         {
           label: 'Payment',
           text: 'Monthly, charged on the 1st, or the whole term for {payInFullDiscount} off. {multiDiscount} off for multiple students or classes. Pay-what-you-can rates on request.',
@@ -382,7 +381,7 @@ export const pages: Pages = {
       eyebrow: 'Schools & community',
       heading: 'Theater at your school',
       lede: 'Little Characters is a verified CCSD school vendor. We offer after-school programs and weekend events throughout the county.',
-      body: 'We’ve run programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=general).',
+      body: 'We’ve run programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=schools).',
       quote: 'gracie',
     },
   },
@@ -467,10 +466,10 @@ export const pages: Pages = {
       improvButton: 'Adult improv nights',
     },
     growing: {
-      heading: 'Geode used to be just for adults. Now it’s 11 and up.',
+      heading: 'Geode used to be just for adults. Now it’s for tweens and teens too.',
       paragraphs: [
         'Since 2022, Little Characters has worked with students of all ages and abilities. As we’ve grown, our little kids have turned into kids, and our kids have turned into big kids, and big kids don’t always like being called little.',
-        'Starting in summer 2026, Geode includes kids 11 and up. We still have adult-only programs and 11–17 programs, all under the name Geode. And how cool will it be when we can mix these groups to put on family-friendly shows with actors the ages of their characters?',
+        'Starting in summer 2026, Geode includes kids 11 and up. We still have adult-only programs and 11–17 programs, all under the name Geode, and the Performance Troupe, for ages 9 and up, is shared by Little Characters and Geode. And how cool will it be when we can mix these groups to put on family-friendly shows with actors the ages of their characters?',
       ],
     },
     classes: {
@@ -550,6 +549,49 @@ export const pages: Pages = {
       eyebrow: 'Parent handbook',
       headline: 'Questions parents ask',
       intro: 'Can’t find it here? Email [{email}](mailto:{email}) or call [{phone}]({phoneHref}).',
+    },
+  },
+
+  // A draft for Hannah to read before launch: see the help text in the editor.
+  policies: {
+    hero: {
+      eyebrow: 'The fine print, in plain words',
+      headline: 'Our policies',
+      intro:
+        'What you agree to when you enroll, how we look after your family’s information, and what the photo choice means. Questions? Email [{email}](mailto:{email}) or call [{phone}]({phoneHref}).',
+    },
+    payments: {
+      heading: 'Enrollment and payments',
+      paragraphs: [
+        '**Monthly tuition.** When you enroll in a weekly class, you pay the first month (prorated if you join after the first week) and the class’s one-time performance or materials fee. After that, tuition is charged automatically to your saved card on the 1st of each month, and we email you a receipt.',
+        '**Paying up front.** Pay for the whole season when you enroll and save {payInFullDiscount} on tuition. Families with more than one student or class get {multiDiscount} off. The two discounts don’t combine; you get the bigger one. Classes, camps and events with a single price are paid in full when you enroll.',
+        '**The free first class.** In most weekly classes, new students can try the first class free. Nothing is due until you decide to stay.',
+        '**If a payment doesn’t go through.** We email you a link to pay, and try your card again a few days later. A month still unpaid after the 10th has a one-time $15 late fee.',
+        '**Withdrawing.** Tell us at least 5 days before the 1st, and we’ll stop the monthly charges that follow. To switch cards, email us before the 1st.',
+        '**Refunds and missed classes.** We can’t refund tuition for missed classes, or for a student who drops mid-season after paying.',
+        '**If a class doesn’t fill.** Classes need 5 students to run. If we cancel a class, students can move to a different one, and students who choose not to move are only charged for the first month.',
+        '**Arriving.** Doors lock 5 minutes after class starts. If you’re running late, walk your student to the front door and knock.',
+        '**Other ways to pay.** Ask us about other ways to pay, and about pay-what-you-can rates.',
+      ],
+    },
+    privacy: {
+      heading: 'Privacy',
+      paragraphs: [
+        '**What we collect, and why.** Your name, email and phone number, so you can sign in, get receipts and be reached during class. Your children’s names and birthdays, for class lists and to check a class fits their age. Allergies, medical notes and pickup notes, if you add them, to keep everyone safe in class. Your photo choice for each child. What you sign up for and pay. And any message you send us through the site.',
+        '**What we don’t.** We don’t ask for your home address, your child’s school or anything else we don’t use. There are no passwords: you sign in with a code we email you. Children don’t have accounts; parents fill in everything.',
+        '**Who sees it.** Only your family and our staff. Allergies and medical notes are encrypted, and every time staff open a class list, it’s logged.',
+        '**Cards.** Card numbers go straight from your browser to Stripe, our payment processor, and never touch our site. We keep only Stripe’s reference to your card, so autopay can charge it.',
+        '**The services we use.** The companies that host our site and database store your information for us, and our email service sends sign-in codes, confirmations and receipts. No one else gets it.',
+        '**Email.** We use your email for your classes: sign-in codes, confirmations, receipts and news about your child’s class. Our newsletter only comes if you sign up for it.',
+        '**Removing your information.** Email [{email}](mailto:{email}) and we’ll delete your family’s account, your children’s details and their enrollments. Stripe keeps its own records of past payments.',
+      ],
+    },
+    photos: {
+      heading: 'Photos',
+      paragraphs: [
+        'When you enroll, you choose for each child: “OK to share photos online” or “Please don’t share photos”. Staff see your choice on the class list.',
+        'We only share photos of children whose families said yes. You can change your answer any time in your [family account](/account), or by emailing us.',
+      ],
     },
   },
 
