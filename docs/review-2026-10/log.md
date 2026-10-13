@@ -165,3 +165,18 @@ Eleven personas, 38 tasks, 33 pages, plus a baseline on the live site. Summary a
 2. "First class free" isn't true for ages 4–6.
 3. The show has no date, place or tickets.
 4. Two booking systems for Parents' Night Out and the improv nights.
+
+### Fix wave from the audit (decided October 13)
+
+Stephen approved fixing every site-side note from the audit. Decisions:
+
+- **Stories and Songs gets a free first class,** like the monthly classes. A family that continues pays for the remaining weeks, prorated from the 8-week price. This keeps the home page promise true for ages 4–6.
+- **A class that starts mid-month** charges only for the classes in that first month, the same way late joiners are charged. Before, it charged a full month.
+
+| # | Unit | Notes | Branch | When |
+|---|---|---|---|---|
+| 10 | Bookings and dated content: one booking path, call sheet, show page rows, program template by kind, one-off confirmations, Geode tag contrast | 3, 4, 8 | `claude/review-bookings` | now |
+| 11 | Navigation: menu items, phone sign-in, finder sort and filters, keyboard and heading fixes | 11 | `claude/review-navigation` | now |
+| 12 | Facts and policies: ages from data, FAQ payment answers, Policies page, contact form topics | 6 (FAQ), 9, 10 | `claude/review-facts` | now |
+| 13 | Prices and checkout: price labels, joining-now total, discount label, mid-month proration, Stories and Songs free class, another child, family totals | 2, 6, 7 | `claude/review-pricing` | after unit 9 |
+| 14 | Account basics and old links: imported-family welcome, card on file, receipts, saved message, Give link setting, old PDF redirects | 1 (site part), 5, 12, 13 | `claude/review-account` | after unit 9 |
