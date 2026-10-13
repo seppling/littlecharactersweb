@@ -1,36 +1,55 @@
 ---
 import LeadFormFields from '@/components/LeadFormFields.astro';
 import Base from '@/layouts/Base.astro';
-import PhotoFrame from '@/components/PhotoFrame.astro';
 import ProgramCard from '@/components/ProgramCard.astro';
 import FaqList from '@/components/FaqList.astro';
 import { kindLabels } from '@/content/catalog';
 import { rich } from '@/content/rich';
-import { ageLabel, dateRange, dayList, feeLabel, price, spotsLabel, timeRange } from '@/lib/format';
+import { ageLabel, feeLabel, priceLabel, spotsLabel } from '@/lib/format';
+import { cardParts, performanceLabel, sessionLines, sessionPrice, whenSummary } from '@/lib/class-summary';
 import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
-import { hasFreeFirstClass } from '@/lib/pricing';
+import { hasFreeFirstClass, joiningNow, sessionPriceParts, todayInAthens } from '@/lib/pricing';
+import { bookingClock, offeredSessions, sessionState } from '@/lib/session-dates';
 import { breadcrumbLd, courseLd, isCourse } from '@/lib/seo';
+import { faqsFor, highlightsHeading, isAdult, kindTag, moneyLines, perChild } from '@/lib/program-fit';
 
 const { programs, faqs, locationById, programBySlug, vars, site } = Astro.locals.content;
 const found = programBySlug(Astro.params.slug ?? '');
 if (!found) return Astro.rewrite('/404');
 const program = found;
 
-const bookable = program.sessions.filter((s) => s.status !== 'closed');
+// Only dates families can still sign up for (or hear about): past dates, and
+// weekly classes past their late-joining cut-off, leave on their own.
+const clock = bookingClock(site.lateJoinWeeks);
+const bookable = offeredSessions(program, clock);
 const firstOpen = bookable.find((s) => s.status === 'open' || s.status === 'few-left') ?? bookable[0];
 const fromPrice = program.priceFrom ?? bookable.find((s) => s.price)?.price;
-const locIds = [...new Set(program.sessions.map((s) => s.locationId))];
-const where = locIds.map((id) => locationById(id)?.name).filter(Boolean).join(' or ');
+// The summary at the top says when and where from the sessions families can pick;
+// the card below it only repeats what differs between those sessions.
+const shown = bookable.length > 0 ? bookable : program.sessions;
+const places = [...new Set(shown.map((s) => s.locationId))].map((id) => locationById(id)).filter((l) => l != null);
+const when = whenSummary(bookable);
+const parts = cardParts(bookable);
 const isCamp = program.kind === 'camp';
 const comingSoon = bookable.length > 0 && bookable.every((s) => s.status === 'coming-soon');
 const partnerOnly = bookable.length > 0 && bookable.every((s) => s.externalUrl && !s.externalUrl.includes('docs.google.com'));
-const formOnly = bookable.length > 0 && bookable.every((s) => s.externalUrl?.includes('docs.google.com'));
-const datesSoon = bookable.length === 0 && program.notify;
+// Nothing left to pick: say what's next, with the "tell me when" signup.
+const hadDates = program.sessions.length > 0 && !program.requestCta;
+const datesSoon = bookable.length === 0 && (program.notify || hadDates);
+const running = program.sessions.find((s) => s.status !== 'closed' && sessionState(program, s, clock) === 'signups-closed' && s.startDate !== s.endDate);
 const monthly = program.priceFrom?.unit === 'month';
-const freeTrial = hasFreeFirstClass(program) && !partnerOnly && !formOnly;
+// A class priced per session says what the session covers: "$160 for 9 weeks ($17.78 a class)".
+const priceSession = firstOpen ?? program.sessions.at(-1);
+const sessionParts = sessionPriceParts(fromPrice, priceSession);
+// What a new student pays today and after, for each date on the card (src/lib/pricing.ts joiningNow).
+const today = todayInAthens();
+const joining = new Map(bookable.filter((s) => s.status !== 'coming-soon' && !partnerOnly).map((s) => [s.id, joiningNow(program, s, today)] as const));
+const freeTrial = hasFreeFirstClass(program) && !partnerOnly;
 
-const faqGroups = isCamp || program.kind === 'party' ? ['Camps & parties', 'Payments & discounts'] : ['Classes', 'Payments & discounts', 'Performances'];
-const relevantFaqs = faqs.filter((f) => faqGroups.includes(f.group)).slice(0, 5);
+// What fits this kind of program: its pricing lines, FAQs and the heading over its highlights.
+const money = moneyLines(program);
+const children = perChild(program);
+const relevantFaqs = faqsFor(program, faqs);
 
 const related = programs
   .filter((p) => p.slug !== program.slug && p.brand === program.brand && p.kind === program.kind)
@@ -60,94 +79,66 @@ const structuredData = [
   structuredData={structuredData}
   edit={`/admin/content/programs/${program.slug}`}
 >
-  <article data-gel={program.gel}>
-    <header class="phero">
-      <div class="wrap phero__grid">
-        <div class="phero__text stack" style="--stack: var(--space-l)">
-          <nav class="crumbs" aria-label="Breadcrumb">
-            <a href="/programs">Find a class</a>
-            <span aria-hidden="true">/</span>
-            <a href={backHref}>{backLabel}</a>
-          </nav>
-          <div class="phero__tags">
-            <span class="tape">{kindLabels[program.kind].singular}</span>
-            <span class="tape tape--quiet" data-tilt="right">{ageLabel(program.ages, program.agesLabel)}</span>
-            {program.brand === 'geode' && <span class="tape tape--ink" data-tilt="flat">Geode</span>}
-          </div>
-          <h1>{program.title}</h1>
-          <p class="lede">{program.tagline}</p>
-          <dl class="phero__facts">
-            {program.duration && (
-              <div><dt>When</dt><dd>{program.duration}</dd></div>
-            )}
-            {where && (
-              <div><dt>Where</dt><dd>{where}</dd></div>
-            )}
-            <div>
-              <dt>Cost</dt>
-              <dd>
-                {fromPrice ? price(fromPrice) : partnerOnly ? 'Set by the school' : program.requestCta ? 'Ask us for rates' : 'Pricing TBA'}
-                {program.fee && <span class="fee"> {feeLabel(program.fee)}</span>}
-                {fromPrice?.note && fromPrice.amount > 0 && <span class="fee"> · {fromPrice.note}</span>}
-              </dd>
-            </div>
-            {program.teachers && (
-              <div><dt>{program.teachers.length > 1 ? 'Teachers' : 'Teacher'}</dt><dd>{program.teachers.join(' & ')}</dd></div>
-            )}
-            {program.runs && (
-              <div><dt>Runs</dt><dd>{program.runs}</dd></div>
-            )}
-            {program.showcase && (
-              <div><dt>The finale</dt><dd>{program.showcase}</dd></div>
-            )}
-            {program.prerequisite && (
-              <div><dt>Good to know</dt><dd>{program.prerequisite}</dd></div>
-            )}
-          </dl>
+  <article class="ppage" data-gel={program.gel}>
+    <div class="wrap ppage__grid">
+      <header class="phero stack" style="--stack: var(--space-l)">
+        <nav class="crumbs" aria-label="Breadcrumb">
+          <a href="/programs">Find a class</a>
+          <span aria-hidden="true">/</span>
+          <a href={backHref}>{backLabel}</a>
+        </nav>
+        <div class="phero__tags">
+          <span class="tape">{kindTag(program)}</span>
+          <span class="tape tape--quiet" data-tilt="right">{ageLabel(program.ages, program.agesLabel)}</span>
+          {program.brand === 'geode' && <span class="tape tape--ink" data-tilt="flat">Geode</span>}
         </div>
-        <PhotoFrame image={program.image} gel={program.gel} shape="arch" ratio="5 / 6" class="phero__photo" eager />
-      </div>
-    </header>
-
-    <div class="wrap pbody">
-      <div class="pbody__main">
-        <section class="stack" aria-labelledby="about-title">
-          <h2 id="about-title">About this {program.kind === 'camp' ? 'camp' : program.kind === 'class' ? 'class' : 'program'}</h2>
-          <div class="prose">{program.description.map((para) => <p set:html={rich(para, vars)} />)}</div>
-        </section>
-
-        <section class="stack" aria-labelledby="skills-title">
-          <h2 id="skills-title">What they’ll practice</h2>
-          <ul class="skills">
-            {program.highlights.map((h, i) => <li class="tape tape--lg" data-tilt={i % 2 ? 'right' : undefined}>{h}</li>)}
-          </ul>
-        </section>
-
-        <section class="money" aria-labelledby="money-title">
-          <h2 id="money-title">Pricing & discounts</h2>
-          <ul>
-            {freeTrial && (
-              <li><strong>First class free.</strong> New students can try it before paying: choose “Try the first class free” when you enroll. Nothing is due until you decide to stay.</li>
-            )}
-            {monthly && (
-              <li><strong>Monthly or up front.</strong> Pay monthly, or pay the semester in full and save 10%.</li>
-            )}
-            {program.fee && (
-              <li><strong>One-time {program.fee.label}: ${program.fee.amount}.</strong> It covers extra rehearsal time, costumes, props and space for the show.</li>
-            )}
-            <li><strong>15% off</strong> for multiple students or multiple classes.</li>
-            <li><strong>Pay-what-you-can is available.</strong> <a href="/contact?topic=scholarship">Ask us privately</a>; we never want cost to keep a student from joining.</li>
-          </ul>
-        </section>
-
-        {relevantFaqs.length > 0 && (
-          <section class="stack" aria-labelledby="faq-title">
-            <h2 id="faq-title">Questions parents ask</h2>
-            <FaqList items={relevantFaqs} />
-            <p><a href="/faq">All FAQs</a></p>
-          </section>
-        )}
-      </div>
+        <h1>{program.title}</h1>
+        <p class="lede">{program.tagline}</p>
+        <dl class="phero__facts">
+          {when ? (
+            <div class="phero__wide">
+              <dt>When</dt>
+              {when.lines.map((line) => <dd>{line}</dd>)}
+              {when.seeAll && <dd><a href="#enroll">{when.seeAllLabel}</a></dd>}
+            </div>
+          ) : program.duration && (
+            <div class="phero__wide"><dt>When</dt><dd>{program.duration}</dd></div>
+          )}
+          {places.length > 0 && (
+            <div class="phero__wide">
+              <dt>Where</dt>
+              {places.map((l) => (
+                <dd class="place">
+                  {l.name}
+                  <span class="place__addr">
+                    {l.address.join(', ')} · <a href={l.mapUrl} rel="noopener">Map<span class="sr-only"> to {l.name}</span></a>
+                  </span>
+                </dd>
+              ))}
+            </div>
+          )}
+          <div>
+            <dt>Cost</dt>
+            <dd>
+              {fromPrice ? priceLabel(fromPrice, priceSession) : partnerOnly ? 'Set by the school' : program.requestCta ? 'Ask us for rates' : 'Pricing TBA'}
+              {program.fee && <span class="fee"> {feeLabel(program.fee)}</span>}
+              {fromPrice?.note && fromPrice.amount > 0 && !sessionParts && <span class="fee"> · {fromPrice.note}</span>}
+            </dd>
+          </div>
+          {program.teachers && (
+            <div><dt>{program.teachers.length > 1 ? 'Teachers' : 'Teacher'}</dt><dd>{program.teachers.join(' & ')}</dd></div>
+          )}
+          {program.runs && (
+            <div><dt>Runs</dt><dd>{program.runs}</dd></div>
+          )}
+          {program.showcase && (
+            <div class="phero__wide"><dt>{performanceLabel(program.showcase)}</dt><dd>{program.showcase}</dd></div>
+          )}
+          {program.prerequisite && (
+            <div class="phero__wide"><dt>Good to know</dt><dd>{program.prerequisite}</dd></div>
+          )}
+        </dl>
+      </header>
 
       <aside class="enroll" id="enroll" aria-labelledby="enroll-title">
         <div class="enroll__card">
@@ -164,8 +155,8 @@ const structuredData = [
                 <fieldset>
                   <legend class="sr-only">Sessions for {program.title}</legend>
                   {bookable.map((s) => {
-                    const loc = locationById(s.locationId);
                     const href = s.status === 'coming-soon' ? '#notify' : enrollHref(program, s);
+                    const { title, meta } = sessionLines(s, parts, locationById(s.locationId)?.shortName);
                     return (
                       <label class="opt">
                         <input
@@ -178,14 +169,10 @@ const structuredData = [
                           checked={s.id === firstOpen?.id}
                         />
                         <span class="opt__body">
-                          <span class="opt__when script">
-                            {s.label ?? dayList(s.days)} · {timeRange(s.start, s.end)}
-                          </span>
-                          <span class="opt__meta">
-                            {s.startDate === s.endDate ? s.term : `${dateRange(s.startDate, s.endDate)}`} · {loc?.shortName}
-                          </span>
+                          <span class="opt__when script">{title}</span>
+                          {meta && <span class="opt__meta">{meta}</span>}
                           <span class="opt__foot">
-                            <strong>{s.price ? price(s.price) : s.externalUrl ? 'Via school' : 'Pricing TBA'}</strong>
+                            {parts.price && <strong>{sessionPrice(s)}</strong>}
                             <span class="status" data-status={s.status}>{spotsLabel(s)}</span>
                           </span>
                         </span>
@@ -193,6 +180,12 @@ const structuredData = [
                     );
                   })}
                 </fieldset>
+                {[...joining].map(([id, lines]) => lines && (
+                  <div class="joining" data-joining-for={id} hidden={id !== firstOpen?.id}>
+                    <p class="joining__title">Joining now, per student</p>
+                    <ul>{lines.map((l) => <li>{l}</li>)}</ul>
+                  </div>
+                ))}
                 {firstOpen && (
                   <a
                     class="btn btn--primary btn--block"
@@ -206,17 +199,24 @@ const structuredData = [
                 <p class="enroll__note">
                   {partnerOnly
                     ? 'Registration for this program is handled by the school.'
-                    : formOnly
-                      ? 'Registration is a short online form.'
-                      : comingSoon
+                    : comingSoon
                         ? 'Registration opens soon.'
                         : `Next you’ll pick your student and pay in our family portal.${freeTrial ? ' New students’ first class is free.' : ''}${monthly ? ' Joining more than a week into the term? The first month is prorated to the classes left.' : ''}`}
                 </p>
               </form>
             ) : datesSoon ? (
               <div class="enroll__form">
-                <h2 id="enroll-title">Dates coming soon</h2>
-                <p>We announce {program.title.toLowerCase()} a few weeks ahead. Leave your email and we’ll tell you as soon as registration opens.</p>
+                {running ? (
+                  <>
+                    <h2 id="enroll-title">Sign-ups have closed</h2>
+                    <p>{running.term} is in its last weeks, so it’s closed to new students. Leave your email and we’ll tell you as soon as the next dates open.</p>
+                  </>
+                ) : (
+                  <>
+                    <h2 id="enroll-title">Dates coming soon</h2>
+                    <p>We announce {program.title.toLowerCase()} a few weeks ahead. Leave your email and we’ll tell you as soon as registration opens.</p>
+                  </>
+                )}
               </div>
             ) : (
               <div class="enroll__form">
@@ -248,9 +248,53 @@ const structuredData = [
               </div>
             </form>
           )}
-          <p class="enroll__help">Questions? <a href="/contact">Ask Hannah</a> before you sign up.</p>
+          <p class="enroll__help">Questions? <a href="/contact">Ask us</a> before you sign up.</p>
         </div>
       </aside>
+
+      <div class="pbody__main">
+        <section class="stack" aria-labelledby="about-title">
+          <h2 id="about-title">About this {program.kind === 'camp' ? 'camp' : program.kind === 'class' ? 'class' : 'program'}</h2>
+          <div class="prose">{program.description.map((para) => <p set:html={rich(para, vars)} />)}</div>
+        </section>
+
+        <section class="stack" aria-labelledby="skills-title">
+          <h2 id="skills-title">{highlightsHeading(program)}</h2>
+          <ul class="skills">
+            {program.highlights.map((h, i) => <li class="tape tape--lg" data-tilt={i % 2 ? 'right' : undefined}>{h}</li>)}
+          </ul>
+        </section>
+
+        {money.length > 0 && (
+          <section class="money" aria-labelledby="money-title">
+            <h2 id="money-title">{money.some((l) => l === 'multi' || l === 'monthly' || l === 'pay-what-you-can') ? 'Pricing & discounts' : 'Pricing'}</h2>
+            <ul>
+              {money.map((line) => (
+                <li>
+                  {line === 'school' && <><strong>Set by the school.</strong> The school handles registration and payment for this class.</>}
+                  {line === 'free' && <><strong>Free.</strong> There’s nothing to pay; just sign up for the date you’d like.</>}
+                  {line === 'trial' && <><strong>First class free.</strong> New students can try it before paying: choose “Try the first class free” when you enroll. Nothing is due until you decide to stay.</>}
+                  {line === 'monthly' && <><strong>Monthly or up front.</strong> Pay monthly, or pay for the season in full and save 10%.</>}
+                  {line === 'fee' && program.fee && <><strong>One-time {program.fee.label}: ${program.fee.amount}.</strong> It covers extra rehearsal time, costumes, props and space for the show.</>}
+                  {line === 'per-child' && children && <><strong>${children.first} for the first child, ${children.additional} for each additional child</strong> on the same night.</>}
+                  {line === 'per-night' && fromPrice && <><strong>${fromPrice.amount} a night.</strong> Sign up for just the nights you want.</>}
+                  {line === 'multi' && <><strong>15% off</strong> for multiple students or multiple classes.</>}
+                  {line === 'pay-what-you-can' && <><strong>Pay-what-you-can is available.</strong> <a href="/contact?topic=scholarship">Ask us privately</a>; we never want cost to keep a student from joining.</>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {relevantFaqs.length > 0 && (
+          <section class="stack" aria-labelledby="faq-title">
+            <h2 id="faq-title">{isAdult(program) ? 'Questions people ask' : 'Questions parents ask'}</h2>
+            <FaqList items={relevantFaqs} />
+            <p><a href="/faq">All FAQs</a></p>
+          </section>
+        )}
+      </div>
+
     </div>
 
     {related.length > 0 && (
@@ -269,8 +313,8 @@ const structuredData = [
     firstOpen && (
       <div class="mobile-enroll">
         <span>
-          <strong>{fromPrice ? price(fromPrice) : 'Pick a time'}</strong>
-          <span class="script">{ageLabel(program.ages, program.agesLabel)}</span>
+          <strong>{sessionParts ? sessionParts.total : fromPrice ? priceLabel(fromPrice, priceSession) : 'Pick a time'}</strong>
+          <span class="script">{sessionParts ? `${sessionParts.perClass} · ` : ''}{ageLabel(program.ages, program.agesLabel)}</span>
         </span>
         <a class="btn btn--primary btn--sm" href="#enroll">{comingSoon ? 'See dates' : 'Choose a time'}</a>
       </div>
@@ -287,6 +331,7 @@ const structuredData = [
     form.addEventListener('change', () => {
       const picked = form.querySelector<HTMLInputElement>('input[name="session"]:checked');
       if (!picked) return;
+      form.querySelectorAll<HTMLElement>('[data-joining-for]').forEach((el) => (el.hidden = el.dataset.joiningFor !== picked.value));
       cta.href = picked.dataset.href ?? '#';
       const text = picked.dataset.label ?? 'Enroll';
       label.textContent = text === 'Enroll' ? 'Continue to enrollment' : text;
@@ -297,10 +342,19 @@ const structuredData = [
 </script>
 
 <style>
-  .phero { padding-block: var(--space-xl) var(--space-2xl); background: linear-gradient(180deg, var(--gel-tint), var(--paper) 85%); }
-  .phero__grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr); gap: var(--space-2xl); align-items: center; }
+  /* The summary on the left, the card beside it (and beside the rest of the page) on desktop. */
+  .ppage { background: linear-gradient(180deg, var(--gel-tint), var(--paper) 560px); }
+  .ppage__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    grid-template-areas: 'head card' 'body card';
+    column-gap: var(--space-2xl);
+    row-gap: var(--space-2xl);
+    align-items: start;
+    padding-block: var(--space-xl) var(--space-3xl);
+  }
+  .phero { grid-area: head; }
   .phero h1 { font-size: var(--step-5); }
-  .phero :global(.phero__photo) { width: 100%; max-width: 400px; justify-self: end; }
   .crumbs { display: flex; gap: 0.5rem; font-size: var(--step--1); color: var(--ink-mute); }
   .crumbs a { color: var(--ink-soft); }
   .phero__tags { display: flex; flex-wrap: wrap; gap: 0.6rem; }
@@ -316,19 +370,14 @@ const structuredData = [
   }
   .phero__facts dt { font-family: var(--font-script); font-weight: 700; font-size: var(--step--1); text-transform: uppercase; letter-spacing: 0.04em; color: var(--gel-ink); }
   .phero__facts dd { margin: 0.2rem 0 0; font-weight: 600; }
+  .phero__facts .phero__wide { grid-column: span 2; }
+  .place__addr { display: block; font-weight: 400; color: var(--ink-soft); }
   .phero__facts .fee { font-weight: 400; color: var(--ink-soft); }
 
-  .pbody {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 380px;
-    gap: var(--space-2xl);
-    align-items: start;
-    padding-block: var(--space-2xl) var(--space-3xl);
-  }
-  .pbody__main { display: grid; gap: var(--space-2xl); align-content: start; }
-  .pbody h2 { font-size: var(--step-3); }
+  .pbody__main { grid-area: body; display: grid; gap: var(--space-2xl); align-content: start; }
+  .pbody__main h2 { font-size: var(--step-3); }
   .skills { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.8rem 1rem; }
-  .skills .tape { --tape: var(--gel-tint); white-space: normal; }
+  .skills .tape { --tape: var(--gel-tint); --tape-on: var(--ink); white-space: normal; }
   .money { padding: var(--space-xl); background: var(--hall); border-radius: var(--r-lg); display: grid; gap: var(--space-m); }
   .money h2 { font-size: var(--step-2); }
   .money ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.7rem; }
@@ -336,7 +385,7 @@ const structuredData = [
   .money li::before { content: '★'; position: absolute; left: 0; color: var(--gel-ink); }
   .money strong { color: var(--ink); }
 
-  .enroll { position: sticky; top: 96px; }
+  .enroll { grid-area: card; position: sticky; top: 96px; }
   .enroll__card {
     display: grid;
     gap: var(--space-m);
@@ -379,6 +428,10 @@ const structuredData = [
   .opt__meta { font-size: var(--step--1); color: var(--ink-soft); }
   .opt__foot { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-top: 0.2rem; }
   .opt__foot strong { font-family: var(--font-display); font-size: 1.1rem; }
+  .joining { display: grid; gap: 0.3rem; padding: 0.75rem 0.9rem; background: var(--hall); border-radius: var(--r-md); font-size: var(--step--1); }
+  .joining[hidden] { display: none; }
+  .joining__title { font-weight: 700; color: var(--ink); }
+  .joining ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; color: var(--ink-soft); }
   .enroll__note, .enroll__help { font-size: var(--step--1); color: var(--ink-soft); }
   .enroll__help { padding-top: var(--space-s); border-top: 1.5px dashed var(--line-strong); }
   .notify { display: grid; gap: 0.5rem; padding-top: var(--space-s); border-top: 1.5px dashed var(--line-strong); }
@@ -391,9 +444,9 @@ const structuredData = [
   .mobile-enroll { display: none; }
 
   @media (max-width: 960px) {
-    .phero__grid, .pbody { grid-template-columns: minmax(0, 1fr); }
-    .phero :global(.phero__photo) { justify-self: start; max-width: 320px; order: -1; }
-    .enroll { position: static; order: -1; }
+    .ppage__grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'head' 'card' 'body'; row-gap: var(--space-xl); }
+    .phero__facts .phero__wide { grid-column: 1 / -1; }
+    .enroll { position: static; }
     .mobile-enroll {
       position: fixed;
       left: 0;

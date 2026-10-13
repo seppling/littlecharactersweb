@@ -4,7 +4,7 @@
  * booked on the side, so families always know where they are and what they're buying.
  */
 import type { Program, Session } from '@/content/types';
-import { ageLabel, dateRange, dayList, feeLabel, price, timeRange } from '@/lib/format';
+import { ageLabel, dateRange, dayList, feeLabel, priceLabel, timeRange } from '@/lib/format';
 
 const { locationById } = Astro.locals.content;
 
@@ -44,9 +44,9 @@ const steps = ['Who’s coming', 'Details', 'Review & pay', 'Done'];
         <h2>{program.title}</h2>
         <dl>
           <div><dt>When</dt><dd class="script">{session.label ?? dayList(session.days)} · {timeRange(session.start, session.end)}</dd></div>
-          <div><dt>Dates</dt><dd>{session.startDate === session.endDate ? session.term : dateRange(session.startDate, session.endDate)}</dd></div>
+          {session.startDate !== session.endDate && <div><dt>Dates</dt><dd>{dateRange(session.startDate, session.endDate)}</dd></div>}
           {loc && <div><dt>Where</dt><dd>{loc.name}</dd></div>}
-          <div><dt>Tuition</dt><dd>{price(session.price ?? program.priceFrom)} {program.fee && <span class="muted">{feeLabel(program.fee)}</span>}</dd></div>
+          <div><dt>{session.startDate === session.endDate ? 'Price' : 'Tuition'}</dt><dd>{priceLabel(session.price ?? program.priceFrom, session)} {program.fee && <span class="muted">{feeLabel(program.fee)}</span>}</dd></div>
           {session.teacher && <div><dt>Teacher</dt><dd>{session.teacher}</dd></div>}
         </dl>
         {step < 4 && <a class="selection__change" href={`/programs/${program.slug}`}>Change class</a>}

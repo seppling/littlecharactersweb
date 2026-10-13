@@ -6,6 +6,8 @@ import { accountHref } from '@/lib/enroll';
 const { site, locations, locationById } = Astro.locals.content;
 const hq = locationById('hq') ?? locations[0];
 const year = new Date().getFullYear();
+// The email breaks before the @ when it must, never in the middle of a word.
+const [emailUser, emailDomain] = site.contact.email.split('@');
 ---
 
 <footer class="site-footer">
@@ -22,17 +24,28 @@ const year = new Date().getFullYear();
       <div class="site-footer__brand stack">
         <Logo tone="light" />
         <p>Encouraging creative hearts through theater. Classes, camps and shows for ages 4 to 100, since {site.founded}.</p>
+        <address class="site-footer__contact">
+          <span class="site-footer__place">
+            <strong>{hq.name}</strong>
+            {hq.address.map((line) => <span>{line}</span>)}
+          </span>
+          <a href={site.contact.phoneHref}>{site.contact.phone}</a>
+          <a class="site-footer__email" href={`mailto:${site.contact.email}`}>
+            {emailUser}<wbr />@{emailDomain}
+          </a>
+        </address>
         <div class="socials">
           {site.social.instagram && <a href={site.social.instagram} rel="noopener">Instagram</a>}
           {site.social.facebook && <a href={site.social.facebook} rel="noopener">Facebook</a>}
         </div>
       </div>
 
-      <nav class="site-footer__col" aria-label="Programs">
-        <h2>Programs</h2>
+      <nav class="site-footer__col" aria-labelledby="footer-programs">
+        <h2 id="footer-programs">Programs</h2>
         <ul>
           <li><a href="/programs?kind=class">Weekly classes</a></li>
           <li><a href="/camps">Camps & workshops</a></li>
+          <li><a href="/events">Shows & events</a></li>
           <li><a href="/programs/free-community-class">Free community class</a></li>
           <li><a href="/programs/parents-night-out">Parents’ Night Out</a></li>
           <li><a href="/programs/parties">Parties</a></li>
@@ -40,30 +53,26 @@ const year = new Date().getFullYear();
         </ul>
       </nav>
 
-      <nav class="site-footer__col" aria-label="About">
-        <h2>Little Characters</h2>
+      <nav class="site-footer__col" aria-labelledby="footer-about">
+        <h2 id="footer-about">About</h2>
         <ul>
-          <li><a href="/about">Our story & team</a></li>
-          <li><a href="/events">Shows & events</a></li>
+          <li><a href="/about">Our story</a></li>
+          <li><a href="/about/team">Team</a></li>
+          <li><a href="/about/schools">Schools & partners</a></li>
           <li><a href="/faq">Parent FAQ</a></li>
-          <li><a href="/give">Give to the scholarship fund</a></li>
           <li><a href="/contact">Contact</a></li>
-          <li><a href={accountHref()}>Family login</a></li>
         </ul>
       </nav>
 
-      <div class="site-footer__col">
-        <h2>Visit</h2>
-        <address>
-          <strong>{hq.name}</strong><br />
-          {hq.address.join(', ')}
-        </address>
-        <p><a href="/contact#parking">Parking & drop-off</a></p>
-        <p class="script">
-          <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a><br />
-          <a href={site.contact.phoneHref}>{site.contact.phone}</a>
-        </p>
-      </div>
+      <nav class="site-footer__col" aria-labelledby="footer-families">
+        <h2 id="footer-families">Families</h2>
+        <ul>
+          <li><a href={accountHref()}>Family login</a></li>
+          <li><a href="/contact#parking">Parking & drop-off</a></li>
+          <li><a href="/give">Give to the scholarship fund</a></li>
+          <li><a href="/policies">Policies & privacy</a></li>
+        </ul>
+      </nav>
     </div>
 
     <div class="site-footer__bottom">
@@ -92,10 +101,23 @@ const year = new Date().getFullYear();
   .curtain-call :global(.character) { margin-bottom: -3px; }
   .site-footer__top {
     display: grid;
-    grid-template-columns: 1.4fr 1fr 1fr 1.1fr;
+    grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr));
     gap: var(--space-xl);
   }
   .site-footer__brand p { max-width: 34ch; }
+  .site-footer__contact {
+    display: grid;
+    gap: 0.4rem;
+    justify-items: start;
+    font-style: normal;
+    font-size: 1.05rem;
+    line-height: 1.45;
+    color: var(--on-stage);
+  }
+  .site-footer__place { display: grid; margin-bottom: 0.3rem; }
+  .site-footer__place strong { font-weight: 650; }
+  .site-footer__place span { color: var(--on-stage-mute); }
+  .site-footer .site-footer__email { overflow-wrap: normal; word-break: normal; }
   .site-footer h2 {
     font-size: 1rem;
     font-stretch: 90%;
@@ -106,8 +128,6 @@ const year = new Date().getFullYear();
   .site-footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.55rem; }
   .site-footer a { color: var(--on-stage); text-decoration-color: var(--stage-line); }
   .site-footer a:hover { color: var(--orange); }
-  address { font-style: normal; margin-bottom: var(--space-m); line-height: 1.5; }
-  address strong { color: var(--on-stage); font-weight: 650; }
   .socials { display: flex; gap: var(--space-m); }
   .site-footer__bottom {
     display: flex;
@@ -119,11 +139,28 @@ const year = new Date().getFullYear();
     border-top: 1px solid var(--stage-line);
     font-size: var(--step--1);
   }
-  @media (max-width: 900px) {
+  @media (max-width: 1100px) {
+    .site-footer__top { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    /* The brand and contact block spans the row: logo, line and socials on the left, the address on the right. */
+    .site-footer__brand {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      grid-template-areas: 'logo contact' 'text contact' 'social contact';
+      gap: var(--space-m) var(--space-xl);
+      align-items: start;
+    }
+    .site-footer__brand > :global(*) { margin: 0; }
+    .site-footer__brand > :global(:nth-child(1)) { grid-area: logo; }
+    .site-footer__brand > :global(:nth-child(2)) { grid-area: text; }
+    .site-footer__brand > :global(:nth-child(3)) { grid-area: contact; }
+    .site-footer__brand > :global(:nth-child(4)) { grid-area: social; }
+  }
+  @media (max-width: 700px) {
     .site-footer__top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    .site-footer__brand { grid-column: 1 / -1; }
   }
   @media (max-width: 520px) {
     .site-footer__top { grid-template-columns: minmax(0, 1fr); }
+    .site-footer__brand { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'logo' 'text' 'contact' 'social'; }
   }
 </style>

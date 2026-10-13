@@ -140,8 +140,13 @@ export interface EventItem {
   price?: string;
   cta?: { label: string; href: string };
   ages?: string;
-  /** The class page that tells more, for recurring nights like Parents’ Night Out (a program's slug). */
+  /**
+   * The class page that tells more, for recurring nights like Parents’ Night Out (a program's slug).
+   * A one-date event is booked through that class's session on the same date.
+   */
   programSlug?: string;
+  /** For a show: the classes performing in it (programs' slugs), linked from its page. */
+  performers?: string[];
   /** Shown on a show's own page and in its link previews. */
   image?: ImageRef;
   /** What Google shows for a show's own page. Empty = its name and description. */
@@ -195,10 +200,14 @@ export interface Seo {
 
 export interface SiteSettings {
   announcement?: { show?: boolean; text?: string; link?: Link; gel?: Gel };
-  contact: { email: string; phone: string };
+  contact: { email: string; phone: string; replyTime?: string };
   social: { instagram?: string; facebook?: string };
-  links: { giving?: string; wishList?: string };
-  parking: { walkIn: string; dropOff: string; staffOnly: string; late: string; guideUrl?: string; walkInMap?: ImageRef; dropOffMap?: ImageRef };
+  links: { giving?: string; taxNote?: string; wishList?: string };
+  /** Families imported from Studio Director; see the welcome note on /account. */
+  studioDirector?: { billingEnds?: string };
+  /** When class sign-ups close; see src/lib/session-dates.ts. */
+  signups: { lateJoinWeeks: number };
+  parking: { walkIn: string; dropOff: string; staffOnly: string; late: string; walkInMap?: ImageRef; dropOffMap?: ImageRef };
   description: string;
   previewBanner?: boolean;
 }
@@ -206,7 +215,7 @@ export interface SiteSettings {
 export interface HomePage {
   seo?: Seo;
   hero: { eyebrow?: string; headline: string; intro: string; promises: string[]; photo?: ImageRef };
-  callSheet: { heading: string; items: { when: string; title: string; text?: string; href?: string; gel: Gel }[] };
+  callSheet: { heading: string; items: { when: string; title: string; text?: string; href?: string; until?: string; gel: Gel }[] };
   trial: { eyebrow?: string; heading: string; body: string; button: string; steps: { title: string; text: string }[] };
   pathway: SectionHead & { steps: { age: string; title: string; character: CharacterName; gel: Gel; programs: string[] }[] };
   approach: SectionHead & { steps: { title: string; body: string; gel: Gel; photo?: ImageRef }[] };
@@ -227,11 +236,21 @@ export interface AboutPage {
   differences: SectionHead & { photo?: ImageRef; items: { title: string; body: string }[] };
   audiences: SectionHead & { items: { label: string; body: string; gel: Gel; programs?: string[]; links?: Link[] }[] };
   beliefs: SectionHead & { valuesHeading: string; values: { title: string; body: string; gel: Gel }[] };
-  team: SectionHead & { social?: string; quote?: string; hiring?: string };
-  schools: SectionHead & { body: string; quote?: string };
   how: SectionHead & { notes: { title: string; body: string }[] };
   facts: SectionHead & { items: { label: string; text: string }[] };
   faq: { heading: string; questions: string[] };
+}
+
+/** /about/team: the page's own words. The people are in the Team list. */
+export interface TeamPage {
+  seo?: Seo;
+  team: SectionHead & { social?: string; quote?: string; hiring?: string };
+}
+
+/** /about/schools */
+export interface SchoolsPage {
+  seo?: Seo;
+  schools: SectionHead & { body: string; quote?: string };
 }
 
 export interface CampsPage {
@@ -285,15 +304,27 @@ export interface EventsPage extends SimplePage {
   perform: { heading: string; body: string; button: string };
 }
 
+/** /policies: enrollment and payments, privacy, photos. */
+export interface PoliciesPage {
+  seo?: Seo;
+  hero: { eyebrow?: string; headline: string; intro: string };
+  payments: { heading: string; paragraphs: string[] };
+  privacy: { heading: string; paragraphs: string[] };
+  photos: { heading: string; paragraphs: string[] };
+}
+
 export interface Pages {
   site: SiteSettings;
   home: HomePage;
   about: AboutPage;
+  team: TeamPage;
+  schools: SchoolsPage;
   camps: CampsPage;
   geode: GeodePage;
   give: GivePage;
   contact: ContactPage;
   faq: SimplePage;
+  policies: PoliciesPage;
   classes: SimplePage;
   events: EventsPage;
 }

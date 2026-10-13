@@ -8,14 +8,23 @@ import ProgramCard from '@/components/ProgramCard.astro';
 import EventTicket from '@/components/EventTicket.astro';
 import { isUpcoming, sortKey } from '@/content/catalog';
 import { todayInAthens } from '@/lib/pricing';
+import { ageLabel, agesShort, agesSpan } from '@/lib/format';
 import { href, rich } from '@/content/rich';
+import { liveCallSheet } from '@/lib/call-sheet';
+import { bookingClock } from '@/lib/session-dates';
 
 const { programs, events, programBySlug, locationById, locations, testimonial, testimonials, site, vars, pages } = Astro.locals.content;
 const page = pages.home;
 
+const today = todayInAthens();
+// Only cards for what hasn't happened yet, each linking somewhere that exists.
+const callSheet = liveCallSheet(
+  page.callSheet.items.map((item) => ({ ...item, href: item.href ? href(item.href, vars) : undefined })),
+  { today, events, programBySlug, clock: bookingClock(site.lateJoinWeeks) },
+);
 const featured = programs.filter((p) => p.featured);
 const upcoming = [...events]
-  .filter((e) => e.brand === 'lc' && e.times.length && isUpcoming(e, todayInAthens()))
+  .filter((e) => e.brand === 'lc' && e.times.length && isUpcoming(e, today))
   .sort((a, b) => sortKey(a).localeCompare(sortKey(b)))
   .slice(0, 3);
 const hq = locationById('hq') ?? locations[0];
@@ -63,7 +72,7 @@ const tapes = [{ gel: 'yellow' }, { gel: 'teal', tilt: 'right' }, { gel: 'orange
 
   <!-- ───────────── Now (call sheet) ───────────── -->
   {
-    page.callSheet.items.length > 0 && (
+    callSheet.length > 0 && (
       <section class="now" aria-labelledby="now-title">
         <div class="wrap">
           <div class="now__sheet">
@@ -71,9 +80,9 @@ const tapes = [{ gel: 'yellow' }, { gel: 'teal', tilt: 'right' }, { gel: 'orange
               {page.callSheet.heading}
             </h2>
             <ul class="now__list">
-              {page.callSheet.items.map((item) => (
+              {callSheet.map((item) => (
                 <li data-gel={item.gel}>
-                  <a href={item.href ? href(item.href, vars) : undefined}>
+                  <a href={item.href}>
                     <span class="now__when script">{item.when}</span>
                     <strong>{item.title}</strong>
                     {item.text && <span>{item.text}</span>}
@@ -121,27 +130,28 @@ const tapes = [{ gel: 'yellow' }, { gel: 'teal', tilt: 'right' }, { gel: 'orange
 
       <ol class="risers">
         {
-          page.pathway.steps.map((step, i) => (
-            <li class="riser" data-gel={step.gel} style={`--rise: ${i}`}>
-              <div class="riser__cast" aria-hidden="true">
-                <Character name={step.character} size={72} />
-              </div>
-              <div class="riser__block">
-                <span class="riser__age">Ages {step.age}</span>
-                <h3>{step.title}</h3>
-                <ul>
-                  {step.programs
-                    .map((slug) => programBySlug(slug))
-                    .filter((p) => p !== undefined)
-                    .map((p) => (
+          page.pathway.steps.map((step, i) => {
+            // Ages come from the classes themselves, so they can't drift from the class pages.
+            const stepPrograms = step.programs.map((slug) => programBySlug(slug)).filter((p) => p !== undefined);
+            return (
+              <li class="riser" data-gel={step.gel} style={`--rise: ${i}`}>
+                <div class="riser__cast" aria-hidden="true">
+                  <Character name={step.character} size={72} />
+                </div>
+                <div class="riser__block">
+                  <span class="riser__age">{agesSpan(stepPrograms) ?? `Ages ${step.age}`}</span>
+                  <h3>{step.title}</h3>
+                  <ul>
+                    {stepPrograms.map((p) => (
                       <li>
-                        <a href={`/programs/${p.slug}`}>{p.title}</a>
+                        <a href={`/programs/${p.slug}`}>{p.title}</a> <span class="riser__ages">{agesShort(ageLabel(p.ages, p.agesLabel))}</span>
                       </li>
                     ))}
-                </ul>
-              </div>
-            </li>
-          ))
+                  </ul>
+                </div>
+              </li>
+            );
+          })
         }
       </ol>
     </div>
@@ -278,7 +288,7 @@ const tapes = [{ gel: 'yellow' }, { gel: 'teal', tilt: 'right' }, { gel: 'orange
           {page.story.paragraphs.map((para) => <p set:html={rich(para, vars)} />)}
         </div>
         <div class="founder__links">
-          <a class="btn btn--outline" href="/about">Meet the whole team <span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn--outline" href="/about/team">Meet the whole team <span class="arrow" aria-hidden="true">→</span></a>
         </div>
       </div>
     </div>
@@ -450,7 +460,9 @@ const tapes = [{ gel: 'yellow' }, { gel: 'teal', tilt: 'right' }, { gel: 'orange
     margin: 0;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    /* Up to four cards in a row; fewer share the width. */
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     gap: var(--space-m);
   }
   .now__list a {
@@ -511,6 +523,7 @@ const tapes = [{ gel: 'yellow' }, { gel: 'teal', tilt: 'right' }, { gel: 'orange
   .riser h3 { font-size: var(--step-2); }
   .riser ul { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gap: 0.3rem; }
   .riser ul a { color: var(--ink); font-weight: 600; text-decoration-color: var(--gel); }
+  .riser__ages { color: var(--ink-mute); font-size: var(--step--1); white-space: nowrap; }
 
   /* ── Approach ── */
   .approach {
@@ -671,7 +684,7 @@ const tapes = [{ gel: 'yellow' }, { gel: 'teal', tilt: 'right' }, { gel: 'orange
     .hero__grid { grid-template-columns: 1fr; gap: var(--space-l); }
     .hero__copy { padding-bottom: 0; }
     .hero__stage :global(.hero__photo) { width: min(80%, 380px); }
-    .now__list { grid-template-columns: 1fr; }
+    .now__list { grid-auto-flow: row; grid-template-columns: 1fr; }
     .trial__inner { grid-template-columns: 1fr; }
     .risers { grid-template-columns: 1fr 1fr; row-gap: var(--space-l); }
     .riser__block { min-height: 0; border-radius: var(--r-md) !important; }

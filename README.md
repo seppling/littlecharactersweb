@@ -39,7 +39,9 @@ End-to-end journeys in a real browser (sign in → enroll → pay → dashboard 
 ```bash
 npm run build && tests/e2e/serve.sh     # fresh local database with a sample import
 node tests/e2e/enroll-journey.mjs       # in a second terminal
-node tests/e2e/content-editor.mjs       # after the journey, on the same database
+node tests/e2e/trial-journey.mjs        # then the free first class and the age rule
+node tests/e2e/content-editor.mjs       # after the journeys, on the same database
+node tests/e2e/navigation.mjs           # menus by keyboard, the class finder's order, headings (any order)
 ```
 
 ## Where things live
@@ -55,7 +57,7 @@ src/
   assets/               logo, photos and headshots (resized at build time; see lib/media.ts)
   styles/global.css     base styles + shared pieces (tape labels, buttons, chips)
   components/           Character (illustrations), PhotoFrame, ProgramCard/Row, SessionLine, EventTicket…
-  pages/                /, /programs, /programs/[slug], /camps, /events, /about, /faq, /give, /contact, /geode
+  pages/                /, /programs, /programs/[slug], /camps, /events, /about, /about/team, /about/schools, /faq, /give, /contact, /geode
   pages/enroll, account, api   the family portal
   pages/admin           staff: the content editor (/admin/content), rosters, autopay, messages
   server/               database, content store, auth, payments, email, encryption (see docs/portal.md)

@@ -15,7 +15,7 @@ const geodeEvents = events
   .filter((e) => e.brand === 'geode' && isUpcoming(e, today))
   .sort((a, b) => sortKey(a).localeCompare(sortKey(b)))
   .slice(0, 3);
-// The Performance Troupe is a Little Characters class for ages 9–17, listed here for teens too.
+// The Performance Troupe is shared by Little Characters and Geode (ages from its class data), so it is listed here too.
 const troupe = programBySlug('performance-troupe');
 const rows = [geodePrograms[0], troupe, ...geodePrograms.slice(1)].filter((p) => p !== undefined);
 ---

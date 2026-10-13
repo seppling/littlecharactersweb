@@ -33,6 +33,9 @@
 .badge::before { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: currentColor; }
 .badge--changed { background: var(--yellow-tint); color: var(--yellow-ink); }
 .badge--new { background: var(--purple-tint); color: var(--purple); }
+/* A class date that's off the site because of its dates (src/lib/session-dates.ts). */
+.badge--ended { background: var(--line); color: var(--ink-soft); }
+.badge--signups-closed { background: var(--orange-tint); color: var(--orange-ink); }
 
 /* Flash messages */
 .notice {

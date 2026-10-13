@@ -185,6 +185,14 @@ export function isSafeUrl(url: string) {
   return /^(https?:\/\/[^\s<>"]+|\/[^\s<>"]*|#[\w-]*|mailto:[^\s<>"]+|tel:\+?[\d\s().-]+|\{\w+\})$/i.test(url);
 }
 
+/**
+ * A full address on this site's own domain (https://www.littlecharacters.org/…).
+ * Until the domain moves it reaches the old site, and after it some old addresses
+ * redirect back to where the link was (the old /giving-page goes to /give), so
+ * links to this site are written as /give. Email addresses don't count.
+ */
+export const SELF_LINK = /https?:\/\/(www\.)?littlecharacters\.org(?![\w.-])/i;
+
 const required = 'Required';
 
 function textSchema(max: number, isRequired?: boolean) {
@@ -247,7 +255,8 @@ function schemaFor(f: Field): z.ZodType {
         z
           .string({ error: required })
           .max(2000)
-          .refine(isSafeUrl, 'Use a full web address (https://…), a page on this site (/about), mailto: or tel:'),
+          .refine(isSafeUrl, 'Use a full web address (https://…), a page on this site (/about), mailto: or tel:')
+          .refine((url) => !SELF_LINK.test(url), 'For a page on this site, use just its path, like /give'),
       );
     case 'image':
       return opt(

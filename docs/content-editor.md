@@ -29,18 +29,26 @@ Deleted something by mistake? At the bottom of each list is **Recently deleted**
 
 | In the editor | What it changes |
 |---|---|
-| **Announcement & site settings** | The announcement bar across the top of every page, the email and phone number, social links, the donation and wish list links, and the parking directions with their two maps (walk-in and drop-off, shown on the contact page; tap a map there to see it full size). Also the "Design preview" note, which should be turned off at launch. |
+| **Announcement & site settings** | The announcement bar across the top of every page, the email and phone number, social links, the Giving settings (the donation link behind "Give now", which reads "Email us to give" while it's empty, an optional tax note shown under it, and the wish list link), the last day of Studio Director billing for imported families' welcome note, and the parking directions with their two maps (walk-in and drop-off, shown on the contact page; tap a map there to see it full size). **Class sign-ups** holds the late-joining cut-off for weekly classes (4 weeks by default). Also the "Design preview" note, which should be turned off at launch. |
 | **Classes & camps** | Every class, camp, workshop, lesson and party: descriptions, ages, prices, photos, and the sessions families enroll in. |
 | **Shows & events** | Performances, Parents' Night Out, free classes and improv nights. Past events drop off the site on their own. |
 | **FAQs, Team, Testimonials, Locations** | The lists those pages are built from. |
-| **Pages** | The words and photos on the home, About, Camps, Geode, Give, Contact, FAQ, class finder and events pages, section by section, plus what Google shows for each one. |
+| **Pages** | The words and photos on the home, About, Team, Schools & partners, Camps, Geode, Give, Contact, FAQ, Policies, class finder and events pages, section by section, plus what Google shows for each one. The Team page's heading, intro, quote and "working with us" line are under **Pages → Team page**; the people themselves are under **Team**. |
 | **Photos** | Upload photos and describe them. Any photo field can then use them. |
 
 What stays with Stephen: the layout and design, new kinds of pages, prices and discounts built into the billing rules (the 10% and 15% discounts, the late fee), and the enrollment steps.
 
 ## Common jobs
 
-**Starting a new term.** Open each class, and under **Sessions** press **Copy** on last term's session. Change the term name and the first and last days, then publish. Set the old session's registration to **Closed** once it's over.
+**Starting a new term.** Open each class, and under **Sessions** press **Copy** on last term's session. Change the term name and the first and last days, then publish. The old session leaves the site on its own (see below); keep it, since enrollments and payments point to it.
+
+**When dates leave the site.** The dates decide; a session's registration status only adds limits on top (**Closed**, **Full: waitlist only**, **Coming soon**). "Open" never keeps a past date bookable.
+
+- A one-night date (Parents' Night Out, a workshop, the free class) closes when it starts, and leaves the site after that day.
+- A camp week closes when the week starts.
+- A weekly class takes late joiners (their first month is prorated) until the late-joining cut-off: **Announcement & site settings → Class sign-ups**, 4 weeks before the last class by default.
+- In the editor, those sessions are marked **Sign-ups closed** (still running) or **Ended** (after the last day), so you can see why a date isn't on the site. Families who signed up still see them in their account.
+- The rule is in `src/lib/session-dates.ts`.
 
 **A class is full.** Open its session and set **Registration** to **Full: waitlist only**. New families can join the waitlist instead.
 
@@ -55,6 +63,8 @@ What stays with Stephen: the layout and design, new kinds of pages, prices and d
 **Nights that repeat.** Parents' Night Out, the free class and improv night don't get a page for each date. Their **Class page** field picks the class page that tells more, and the event's name links there. The **Button** (like the registration form) stays as it is.
 
 **What Google shows.** Every page, every class and every show has a **Search engines** box with a title and a description. Leave them empty to use the page's usual heading and intro (for a class, its name and summary). The title gets " · Little Characters" added at the end, unless it already says Little Characters. When someone shares a link to a page, the preview shows that page's main photo (a class's photo, or the photo at the top of the page), cropped around the spot you clicked; other pages show the home page photo. To pick a different picture for the preview (the Geode page, for example), set **Photo when the page is shared** in the same box: it wins over the page's usual photo, and it's cropped to the same wide shape around its focus point. Empty it to go back to the usual photo.
+
+**A discount for one family** (a scholarship, a sibling deal, a credit for a missed class) isn't in the editor: it's on the family's payments page. See [Giving a family a discount](staff-billing.md).
 
 ## Writing tips
 

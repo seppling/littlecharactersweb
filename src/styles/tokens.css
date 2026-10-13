@@ -37,7 +37,7 @@
   /* Ink versions: text, links and buttons on white (AA >= 4.5:1) */
   --red-ink: #c02e1e;
   --orange-ink: #a35a00;
-  --teal-ink: #0b7a6e;
+  --teal-ink: #0a7469; /* 4.85:1 on --teal-tint, 5.65:1 on white */
   --purple-ink: #662299;
   --yellow-ink: #8a6a00;
 

@@ -14,9 +14,13 @@ import { emailHtml, sendEmail } from './email';
 import { audit, householdGuardians } from './records';
 import { config } from './env';
 import { getCatalog } from './content';
-import { dayList, timeRange } from '@/lib/format';
+import { ageLabel, dayList, timeRange } from '@/lib/format';
 import type { Program, Session } from '@/content/types';
-import { PRICING, availablePlans, formatCents, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
+import { bookingClock, bookingProblem } from '@/lib/session-dates';
+import { PRICING, availablePlans, defaultPlan, formatCents, isWeeklyTuitionClass, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
+import { countingEnrollments, effects, logFamilyDiscount, previewEnrollmentEffect, refreshFamilyDiscount, type FamilyDiscountChange } from './family-discount';
+import { detailsOnFile } from '@/lib/student-details';
+import { isAdult, isOneOff, oneOffWhen } from '@/lib/program-fit';
 
 const { household, householdMember, student, order, enrollment, installment } = schema;
 
@@ -56,6 +60,23 @@ export async function ensureHousehold(user: SessionUser) {
   await db.insert(householdMember).values({ householdId: h.id, userId: user.id });
   await audit(user.id, 'household.create', 'household', h.id);
   return h;
+}
+
+/** What the account page shows about the household itself: where it came from and the saved card. */
+export async function householdAccount(householdId: string) {
+  const db = await getDb();
+  const [h] = await db
+    .select({
+      source: household.source,
+      stripePaymentMethodId: household.stripePaymentMethodId,
+      cardBrand: household.cardBrand,
+      cardLast4: household.cardLast4,
+      cardExpMonth: household.cardExpMonth,
+      cardExpYear: household.cardExpYear,
+    })
+    .from(household)
+    .where(eq(household.id, householdId));
+  return h ?? null;
 }
 
 // ───────────── Students ─────────────
@@ -114,13 +135,25 @@ export async function updateStudentDetails(householdId: string, studentId: strin
   return s ?? null;
 }
 
+/** "Looks right": the guardian checked the details and nothing changed. Records when, and nothing else. */
+export async function confirmStudentDetails(householdId: string, studentId: string, userId: string) {
+  const db = await getDb();
+  const [s] = await db
+    .update(student)
+    .set({ detailsConfirmedAt: new Date() })
+    .where(and(eq(student.id, studentId), eq(student.householdId, householdId)))
+    .returning({ id: student.id });
+  if (s) await audit(userId, 'student.confirm', 'student', s.id);
+  return !!s;
+}
+
 export function readStudentNotes(s: typeof student.$inferSelect) {
   return { allergies: decrypt(s.allergiesEnc), medicalNotes: decrypt(s.medicalNotesEnc) };
 }
 
 /** Details are "fresh" if a guardian confirmed them within the past year. */
 export function detailsFresh(s: typeof student.$inferSelect) {
-  return !!s.detailsConfirmedAt && Date.now() - s.detailsConfirmedAt.getTime() < 365 * 86_400_000;
+  return detailsOnFile(s);
 }
 
 export function ageOn(birthdate: string | null, on = todayInAthens()) {
@@ -135,6 +168,50 @@ export function fitsAges(program: Program, age: number | null) {
   return age >= program.ages.min - 1 && age <= (program.ages.max ?? 120) + 1;
 }
 
+/** "Ages 7–10. Maya is 5." Shown beside a student who is outside a class's ages. */
+export function outsideAgesNote(program: Program, firstName: string, age: number) {
+  return `${ageLabel(program.ages, program.agesLabel)}. ${firstName} is ${age}.`;
+}
+
+type EnrollmentStatus = typeof enrollment.$inferSelect.status;
+
+/**
+ * Why this student can't be signed up for this class, or null if they can.
+ * Enrolled and waitlisted students can't be picked again; a student after a free
+ * trial can continue. Everyone is held to the class's ages (fitsAges).
+ */
+export function pickProblem(program: Program, s: { firstName: string; birthdate: string | null }, status?: EnrollmentStatus) {
+  if (status === 'active') return `${s.firstName} is already enrolled in ${program.title}.`;
+  if (status === 'waitlist') return `${s.firstName} is already on the waitlist for ${program.title}.`;
+  const age = ageOn(s.birthdate);
+  if (!fitsAges(program, age)) return `${program.title} is for ${ageLabel(program.ages, program.agesLabel).toLowerCase()}, and ${s.firstName} is ${age}. Ask us if you think it’s still a good fit.`;
+  return null;
+}
+
+/** A student the family can't sign up for this class; the message is safe to show them. */
+export class PickError extends Error {}
+
+/** Throws a PickError if any of these students can't be signed up for the session. */
+async function checkPicks(householdId: string, program: Program, sessionId: string, students: { id: string; firstName: string; birthdate: string | null }[]) {
+  const here = new Map((await listEnrollments(householdId)).filter((r) => r.enrollment.sessionId === sessionId).map((r) => [r.student.id, r.enrollment.status]));
+  for (const s of students) {
+    const problem = pickProblem(program, s, here.get(s.id));
+    if (problem) throw new PickError(problem);
+  }
+}
+
+/**
+ * Throws a PickError when the session can't be booked right now: its date has
+ * passed or is past its sign-up cut-off, or staff closed it or haven't opened
+ * it yet (src/lib/session-dates.ts). Covers new sign-ups, the waitlist and
+ * continuing after a free class, which all start an order here.
+ */
+async function checkBookable(program: Program, session: Session) {
+  if (session.status === 'coming-soon') throw new PickError(`Registration for this ${program.title} date hasn’t opened yet.`);
+  const problem = bookingProblem(program, session, bookingClock((await getCatalog()).site.lateJoinWeeks));
+  if (problem) throw new PickError(problem);
+}
+
 // ───────────── Enrollments ─────────────
 
 export async function listEnrollments(householdId: string) {
@@ -147,6 +224,17 @@ export async function listEnrollments(householdId: string) {
     .orderBy(enrollment.createdAt);
 }
 
+/** One of this family's enrollments, with the student. */
+export async function getEnrollment(householdId: string, enrollmentId: string) {
+  const db = await getDb();
+  const [row] = await db
+    .select({ enrollment, student })
+    .from(enrollment)
+    .innerJoin(student, eq(student.id, enrollment.studentId))
+    .where(and(eq(enrollment.id, enrollmentId), eq(enrollment.householdId, householdId)));
+  return row ?? null;
+}
+
 export async function takenSpots(sessionId: string) {
   const db = await getDb();
   const [row] = await db
@@ -156,10 +244,21 @@ export async function takenSpots(sessionId: string) {
   return row?.n ?? 0;
 }
 
-async function otherClassEnrollments(householdId: string, sessionId: string) {
-  const rows = await listEnrollments(householdId);
-  const catalog = await getCatalog();
-  return rows.filter((r) => r.enrollment.status === 'active' && r.enrollment.sessionId !== sessionId && catalog.findSession(r.enrollment.sessionId)?.program.kind === 'class').length;
+/**
+ * The family's other active weekly-class enrollments, for the multi-class /
+ * multi-student discount: the same ones the family discount counts
+ * (src/server/family-discount.ts). A brother or sister already in this same
+ * class counts too (for example when siblings who took the free class together
+ * continue one at a time).
+ */
+async function otherClassEnrollments(householdId: string, sessionId: string, studentIds: string[]) {
+  const db = await getDb();
+  const rows = await countingEnrollments(db, householdId, {
+    catalog: await getCatalog(),
+    today: todayInAthens(),
+    skip: (e) => e.sessionId === sessionId && studentIds.includes(e.studentId),
+  });
+  return rows.length;
 }
 
 // ───────────── Orders ─────────────
@@ -177,9 +276,12 @@ export async function createDraftOrder(householdId: string, userId: string, sess
   const found = await findSession(sessionId);
   if (!found) throw new Error('Unknown session');
   // Only this family's students can be added.
-  const mine = new Set((await listStudents(householdId)).map((s) => s.id));
+  const mine = new Map((await listStudents(householdId)).map((s) => [s.id, s]));
   const ids = [...new Set(studentIds)].filter((id) => mine.has(id));
   if (!ids.length) throw new Error('Pick at least one student');
+  await checkBookable(found.program, found.session);
+  // The picker greys these out; this catches a stale page or a hand-made request.
+  await checkPicks(householdId, found.program, sessionId, ids.map((id) => mine.get(id)!));
   const db = await getDb();
   const [o] = await db.insert(order).values({ householdId, sessionId, studentIds: ids, createdByUserId: userId }).returning();
   return o;
@@ -203,27 +305,46 @@ export async function priceOrder(householdId: string, o: typeof order.$inferSele
   // Staff can mark a session "waitlist only" in the editor before it's technically at capacity.
   const full = session.status === 'waitlist' || (cap !== undefined && (await takenSpots(o.sessionId)) + students.filter((s) => !holding.has(s.id)).length > cap);
   const plans = availablePlans(program, session, { newStudents, full });
-  const plan = requestedPlan && plans.includes(requestedPlan) ? requestedPlan : plans.includes('monthly') ? 'monthly' : plans[0];
+  // New students start on the free first class where it's offered; everyone else on monthly.
+  const plan = requestedPlan && plans.includes(requestedPlan) ? requestedPlan : defaultPlan(plans);
 
   const q = quote({
     program,
     session,
     students: students.map((s) => ({ id: s.id, firstName: s.firstName })),
     plan,
-    otherClassEnrollments: await otherClassEnrollments(householdId, o.sessionId),
+    otherClassEnrollments: await otherClassEnrollments(householdId, o.sessionId, students.map((s) => s.id)),
     today: todayInAthens(),
+    // Staying on after the free class: a class priced per session charges the classes left.
+    trialStudentIds: students.filter((s) => holding.has(s.id)).map((s) => s.id),
   });
   return { program, session, students, plans, plan, quote: q, alreadyIn };
 }
 
-/** Bump when the policy summary on /enroll/details changes, so we know what each family agreed to. */
-export const POLICY_VERSION = '2026-fall-autopay';
+/**
+ * Review page: when this enrollment starts the family discount, the family's
+ * other monthly payments it lowers (nothing is saved). Only a paid weekly class
+ * counts (monthly or per session), not a free trial, the waitlist or a drop-in night.
+ */
+export async function familyDiscountEffect(householdId: string, priced: Pick<Awaited<ReturnType<typeof priceOrder>>, 'program' | 'session' | 'plan' | 'students'>, orderId: string) {
+  if (!isWeeklyTuitionClass(priced.program, priced.session) || priced.plan === 'trial' || priced.plan === 'waitlist') return [];
+  const effects = await previewEnrollmentEffect(householdId, priced.students.length);
+  return effects.filter((e) => e.orderId !== orderId);
+}
+
+/** Bump when the policy summary on /enroll/details or the /policies page changes, so we know what each family agreed to. */
+export const POLICY_VERSION = '2026-fall-policies-page';
 
 /** Lock in the plan and price, then hand off to payment (or finish right away when nothing is due). */
 export async function confirmOrder(householdId: string, orderId: string, plan: Plan, userId: string) {
   const o = await getOrder(householdId, orderId);
   if (!o || o.status === 'paid' || o.status === 'cancelled') throw new Error('This order can’t be changed');
   const priced = await priceOrder(householdId, o, plan);
+  // The date may have closed while the family filled in the details. An order
+  // already handed to payment is honoured (fulfillOrder doesn't check dates).
+  await checkBookable(priced.program, priced.session);
+  // Checked again here: a child may have been enrolled by another order since this one was started.
+  await checkPicks(householdId, priced.program, o.sessionId, priced.students);
   const db = await getDb();
   const [updated] = await db
     .update(order)
@@ -269,14 +390,16 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
   if (!found) throw new Error('Unknown session');
 
   const status = o.plan === 'waitlist' ? 'waitlist' : o.plan === 'trial' ? 'trial' : 'active';
-  const won = await db.transaction(async (tx) => {
+  // Read before the transaction: the embedded database has a single connection.
+  const catalog = await getCatalog();
+  const result = await db.transaction(async (tx) => {
     // Whoever flips the status first does the work; a concurrent call finds nothing to update.
     const [claimed] = await tx
       .update(order)
       .set({ status: 'paid', paidAt: new Date(), stripeCheckoutSessionId: payment?.checkoutSessionId ?? o.stripeCheckoutSessionId })
       .where(and(eq(order.id, o.id), ne(order.status, 'paid')))
       .returning({ id: order.id });
-    if (!claimed) return false;
+    if (!claimed) return null;
     for (const studentId of o.studentIds) {
       await tx
         .insert(enrollment)
@@ -287,22 +410,52 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
     if (o.plan === 'monthly' && o.schedule.length) {
       await tx
         .insert(installment)
-        .values(o.schedule.map((c) => ({ householdId: o.householdId, orderId: o.id, sessionId: o.sessionId, dueDate: c.dueDate, amountCents: c.amountCents, label: c.label })))
+        .values(
+          o.schedule.map((c) => ({
+            householdId: o.householdId,
+            orderId: o.id,
+            sessionId: o.sessionId,
+            dueDate: c.dueDate,
+            amountCents: c.amountCents,
+            baseAmountCents: c.amountCents,
+            // Orders confirmed before the regular price was recorded: take what was agreed.
+            regularAmountCents: c.regularAmountCents ?? c.amountCents,
+            label: c.label,
+          })),
+        )
         .onConflictDoNothing();
     }
-    return true;
+    // A new active class can start the family discount on the family's other payments.
+    return { family: status === 'active' ? await refreshFamilyDiscount(tx, o.householdId, { catalog }) : null };
   });
   const [done] = await db.select().from(order).where(eq(order.id, orderId));
-  if (!won) return done;
+  if (!result) return done;
   await audit(userId, o.totalCents > 0 ? 'order.paid' : 'order.confirmed', 'order', o.id);
-  await sendOrderConfirmation(done).catch((e) => console.error('Confirmation email failed', e));
+  if (result.family) await logFamilyDiscount(userId, o.householdId, result.family);
+  const lowered = result.family?.changes.filter((c) => c.orderId !== o.id && c.afterCents < c.beforeCents) ?? [];
+  await sendOrderConfirmation(done, lowered).catch((e) => console.error('Confirmation email failed', e));
   return done;
 }
 
-async function sendOrderConfirmation(o: typeof order.$inferSelect) {
+/**
+ * "Ava's remaining monthly payments drop to $80.75 with the 15% family
+ * discount." One line per child and class whose payments this sign-up lowered.
+ */
+export function loweredLines(list: { names: string[]; changes: Pick<FamilyDiscountChange, 'afterCents'>[] }[]) {
+  return list.map((e) => {
+    const after = [...new Set(e.changes.map((c) => c.afterCents))];
+    const who = `${e.names.join(' and ')}’s`;
+    return after.length === 1
+      ? `${who} remaining monthly payments also drop to ${formatCents(after[0])} with the 15% family discount.`
+      : `${who} remaining monthly payments also get the 15% family discount.`;
+  });
+}
+
+async function sendOrderConfirmation(o: typeof order.$inferSelect, lowered: FamilyDiscountChange[] = []) {
   const found = await findSession(o.sessionId);
   if (!found) return;
   const { program, session } = found;
+  const unit = (session.price ?? program.priceFrom)?.unit;
   const guardians = await householdGuardians(o.householdId);
   const kids = (await listStudents(o.householdId)).filter((s) => o.studentIds.includes(s.id)).map((s) => s.firstName);
   const first = meetings(session).find((m) => m >= todayInAthens()) ?? session.startDate;
@@ -311,10 +464,18 @@ async function sendOrderConfirmation(o: typeof order.$inferSelect) {
   const heading = o.plan === 'waitlist' ? 'You’re on the waitlist' : 'You’re in!';
   const lines = [
     `${kids.join(' and ')} ${o.plan === 'waitlist' ? (kids.length > 1 ? 'are' : 'is') + ' on the waitlist for' : (kids.length > 1 ? 'are' : 'is') + ' enrolled in'} ${program.title}.`,
-    `${dayList(session.days)}, ${timeRange(session.start, session.end)}${o.plan === 'waitlist' ? '' : `, starting ${firstDate}`}${loc ? ` at ${loc.name}, ${loc.address.join(', ')}` : ''}.`,
-    o.plan === 'trial' ? 'Your first class is free. After it, you can continue with monthly tuition or pay for the semester from your family account.' : o.totalCents > 0 ? `Paid today: ${formatCents(o.totalCents)}.` : '',
-    o.plan === 'monthly' && o.schedule.length ? autopayLine(o.schedule) : '',
-    'Wear comfy clothes and closed-toe shoes, and bring a water bottle. Park on Minor St and walk in, or use the drop-off circle after 5 pm.',
+    `${isOneOff(session) ? oneOffWhen(program, session) : `${dayList(session.days)}, ${timeRange(session.start, session.end)}${o.plan === 'waitlist' ? '' : `, starting ${firstDate}`}`}${loc ? ` at ${loc.name}, ${loc.address.join(', ')}` : ''}.`,
+    o.plan === 'trial'
+      ? unit === 'session'
+        ? 'Your first class is free. After it, you can stay on from your family account and pay for the classes left.'
+        : 'Your first class is free. After it, you can continue with monthly tuition or pay for the season from your family account.'
+      : o.totalCents > 0
+        ? `Paid today: ${formatCents(o.totalCents)}.`
+        : '',
+    [o.plan === 'monthly' && o.schedule.length ? autopayLine(o.schedule) : '', ...loweredLines(await effects(o.householdId, lowered))].filter(Boolean).join(' '),
+    isAdult(program)
+      ? 'Wear comfy clothes and bring a water bottle. Park on Minor St and walk in to our front door on W Broad St.'
+      : 'Wear comfy clothes and closed-toe shoes, and bring a water bottle. Park on Minor St and walk in, or use the drop-off circle after 5 pm.',
     `Your family account: ${config.siteUrl}/account`,
   ].filter(Boolean);
   for (const g of guardians) {
@@ -333,6 +494,33 @@ export function autopayLine(schedule: { dueDate: string; amountCents: number }[]
   const amounts = new Set(schedule.map((c) => c.amountCents));
   const amount = amounts.size === 1 ? formatCents(schedule[0].amountCents) : 'the monthly tuition';
   return `We’ll charge ${amount} to your saved card on ${dates.join(', ').replace(/, ([^,]*)$/, ' and $1')}, and email a receipt each time.`;
+}
+
+/**
+ * The confirmation page's family totals, read from the family's payments (no
+ * prices are worked out again): what was paid today across today's sign-ups,
+ * and what autopay charges on the next 1st across all their children.
+ */
+export async function familyTotals(householdId: string, today = todayInAthens()) {
+  const db = await getDb();
+  const paid = await db
+    .select({ id: order.id, totalCents: order.totalCents, paidAt: order.paidAt })
+    .from(order)
+    .where(and(eq(order.householdId, householdId), eq(order.status, 'paid')));
+  const todays = paid.filter((p) => p.paidAt && todayInAthens(p.paidAt) === today);
+  const [y, m] = today.split('-').map(Number);
+  const nextFirst = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
+  const next = await db
+    .select({ orderId: installment.orderId, amountCents: installment.amountCents })
+    .from(installment)
+    .where(and(eq(installment.householdId, householdId), eq(installment.dueDate, nextFirst), inArray(installment.status, ['scheduled', 'failed'])));
+  return {
+    signUpsToday: todays.length,
+    paidTodayCents: todays.reduce((a, p) => a + p.totalCents, 0),
+    nextFirst,
+    nextMonthCents: next.reduce((a, i) => a + i.amountCents, 0),
+    nextMonthOrders: new Set(next.map((i) => i.orderId)).size,
+  };
 }
 
 export async function listOrders(householdId: string) {

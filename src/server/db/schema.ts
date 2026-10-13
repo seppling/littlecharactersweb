@@ -6,6 +6,7 @@
  * sessions by their stable `sessionId`.
  */
 import { relations } from 'drizzle-orm';
+import type { AppliedAdjustment } from '../../lib/adjustments';
 import { bigint, boolean, customType, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 const id = () => text('id').primaryKey().$defaultFn(() => crypto.randomUUID());
@@ -89,6 +90,14 @@ export const household = pgTable('household', {
   stripeCustomerId: text('stripe_customer_id'),
   /** The card saved at checkout, charged automatically for monthly tuition. */
   stripePaymentMethodId: text('stripe_payment_method_id'),
+  /**
+   * What the family sees of that card ("Visa ending 4242, expires 4/2030"),
+   * copied from Stripe when the card is saved. Never the card number.
+   */
+  cardBrand: text('card_brand'),
+  cardLast4: text('card_last4'),
+  cardExpMonth: integer('card_exp_month'),
+  cardExpYear: integer('card_exp_year'),
   /** Where the family came from: signed up on the site, or imported from Studio Director. */
   source: text('source').notNull().default('portal'),
   createdAt: created(),
@@ -137,7 +146,13 @@ export const student = pgTable(
 // ───────────── Orders & enrollments ─────────────
 
 /** A future automatic charge, agreed to at checkout (see Installment in src/lib/pricing.ts). */
-export type ScheduledCharge = { dueDate: string; amountCents: number; label: string };
+export type ScheduledCharge = {
+  dueDate: string;
+  amountCents: number;
+  /** Before the 15% family discount. Missing on orders confirmed before it was recorded. */
+  regularAmountCents?: number;
+  label: string;
+};
 
 export type OrderLine = {
   kind: 'tuition' | 'fee' | 'discount';
@@ -215,7 +230,18 @@ export const installment = pgTable(
       .references(() => order.id, { onDelete: 'cascade' }),
     sessionId: text('session_id').notNull(),
     dueDate: date('due_date').notNull(),
+    /** What's charged for tuition: the starting amount less any staff adjustments (see src/server/adjustments.ts). */
     amountCents: integer('amount_cents').notNull(),
+    /**
+     * The starting amount, before staff adjustments: the regular price less the
+     * 15% family discount when the family has two or more weekly classes (see
+     * src/server/family-discount.ts).
+     */
+    baseAmountCents: integer('base_amount_cents').notNull(),
+    /** The month's regular price for this order's children, before any discount. Fixed at checkout, so later price edits never change it. */
+    regularAmountCents: integer('regular_amount_cents').notNull(),
+    /** Staff adjustments taken off this month, as the family sees them. Frozen once paid. */
+    adjustments: jsonb('adjustments').$type<AppliedAdjustment[]>().notNull().default([]),
     /** $15 when the month is still unpaid after the 10th (see BILLING.lateFeeCents). Owed on top of amountCents. */
     lateFeeCents: integer('late_fee_cents').notNull().default(0),
     label: text('label').notNull(),
@@ -226,6 +252,8 @@ export const installment = pgTable(
     retryOn: date('retry_on'),
     lastError: text('last_error'),
     stripePaymentIntentId: text('stripe_payment_intent_id'),
+    /** When the family last opened the pay-now form. Its amount is fixed while the form can still be paid. */
+    payNowOpenedAt: timestamp('pay_now_opened_at', { withTimezone: true }),
     paidAt: timestamp('paid_at', { withTimezone: true }),
     createdAt: created(),
     updatedAt: updated(),
@@ -235,6 +263,39 @@ export const installment = pgTable(
     index('installment_status_due_idx').on(t.status, t.dueDate),
     index('installment_household_idx').on(t.householdId),
   ],
+);
+
+/**
+ * A discount staff give one family's class (a scholarship, pay-what-you-can, a
+ * sibling deal, a credit for a missed class). It lowers that order's unpaid
+ * monthly payments: the next one only, or every one left. Never deleted;
+ * removing it restores the payments that are still unpaid.
+ */
+export const billingAdjustment = pgTable(
+  'billing_adjustment',
+  {
+    id: id(),
+    householdId: text('household_id')
+      .notNull()
+      .references(() => household.id, { onDelete: 'cascade' }),
+    orderId: text('order_id')
+      .notNull()
+      .references(() => order.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['percent', 'amount'] }).notNull(),
+    /** Whole percent (1–100) for 'percent'; cents for 'amount'. */
+    value: integer('value').notNull(),
+    repeat: text('repeat', { enum: ['once', 'monthly'] }).notNull(),
+    /** 'once' only: the payment it takes money off, chosen when it's added. */
+    installmentId: text('installment_id').references(() => installment.id, { onDelete: 'set null' }),
+    /** Written by staff. Private unless showToFamily. */
+    reason: text('reason').notNull(),
+    showToFamily: boolean('show_to_family').notNull().default(false),
+    createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+    createdAt: created(),
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+    removedBy: text('removed_by').references(() => user.id, { onDelete: 'set null' }),
+  },
+  (t) => [index('billing_adjustment_order_idx').on(t.orderId)],
 );
 
 /** Contact messages and email signups from the public site's forms (see /api/leads). */
@@ -377,6 +438,11 @@ export const orderRelations = relations(order, ({ one, many }) => ({
   household: one(household, { fields: [order.householdId], references: [household.id] }),
   enrollments: many(enrollment),
   installments: many(installment),
+  adjustments: many(billingAdjustment),
+}));
+
+export const billingAdjustmentRelations = relations(billingAdjustment, ({ one }) => ({
+  order: one(order, { fields: [billingAdjustment.orderId], references: [order.id] }),
 }));
 
 export const installmentRelations = relations(installment, ({ one }) => ({

@@ -7,12 +7,13 @@
  */
 import Base from '@/layouts/Base.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
+import LeadFormFields from '@/components/LeadFormFields.astro';
 import { dateRange, timeRange } from '@/lib/format';
 import { hasShowPage, isPastShow, showPageLd } from '@/lib/events';
 import { shareImage } from '@/lib/media';
 import { todayInAthens } from '@/lib/pricing';
 
-const { events, locationById, site, uploads } = Astro.locals.content;
+const { events, locationById, programBySlug, site, uploads } = Astro.locals.content;
 const found = events.find((e) => e.slug === Astro.params.slug && hasShowPage(e));
 if (!found) return Astro.rewrite('/404');
 const event = found;
@@ -22,7 +23,9 @@ const past = isPastShow(event, today);
 const dated = event.times.length > 0;
 const location = event.venue ? undefined : locationById(event.locationId);
 const expected = event.tba ? new Date(`${event.tba}-15T12:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : undefined;
-const extras = [event.ages && `Ages ${event.ages}`, event.price].filter(Boolean).join(' · ');
+// A venue typed in (not one of our locations) gets a map search for its name and address.
+const venueMap = event.venue ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.venue)}` : location?.mapUrl;
+const performers = (event.performers ?? []).map((slug) => programBySlug(slug)).filter((p) => p !== undefined);
 
 const pageUrl = new URL(`/events/${event.slug}`, site.url).href;
 const photo = shareImage(event.image, uploads);
@@ -68,23 +71,41 @@ const structuredData = showPageLd(event, {
               }
             </dd>
           </div>
-          {
-            (event.venue || location) && (
-              <div>
-                <dt>Where</dt>
-                <dd>
+          <div>
+            <dt>Where</dt>
+            <dd>
+              {event.venue || location ? (
+                <>
                   {event.venue ?? location!.name}
                   {location && <span class="show__address">{location.address.join(', ')}</span>}
-                  {location?.mapUrl && <a class="show__map" href={location.mapUrl} rel="noopener">Map</a>}
-                </dd>
-              </div>
-            )
-          }
+                  {venueMap && <a class="show__map" href={venueMap} rel="noopener">Map<span class="sr-only"> to {event.venue ?? location!.name}</span></a>}
+                </>
+              ) : (
+                <span>Venue to be announced</span>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Tickets</dt>
+            <dd>
+              {event.price ? (
+                <span>{event.price}</span>
+              ) : event.cta && !past ? (
+                <a class="show__map" href={event.cta.href}>{event.cta.label}<span class="sr-only"> for {event.title}</span></a>
+              ) : (
+                <span class="show__plain">Each enrolled student gets 2 free tickets; tickets for guests will be announced here.</span>
+              )}
+            </dd>
+          </div>
           {
-            extras && (
-              <div>
-                <dt>Cost</dt>
-                <dd>{extras}</dd>
+            performers.length > 0 && (
+              <div class="show__wide">
+                <dt>Performing</dt>
+                <dd>
+                  <ul class="show__performers">
+                    {performers.map((p) => <li><a href={`/programs/${p.slug}`}>{p.title}</a></li>)}
+                  </ul>
+                </dd>
               </div>
             )
           }
@@ -98,6 +119,25 @@ const structuredData = showPageLd(event, {
           )
         }
         <p class="show__summary">{event.summary}</p>
+        {
+          !dated && !past && (
+            <form
+              class="show__notify"
+              action="/api/leads"
+              method="post"
+              data-lead-form
+              data-success-title="Got it!"
+              data-success-body={`We’ll email you when the date and tickets for the ${event.title} are announced.`}
+            >
+              <LeadFormFields kind="notify" program={event.slug} />
+              <label for="show-notify-email">Tell me when the date and tickets are announced</label>
+              <div class="show__notify-row">
+                <input class="input" id="show-notify-email" type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
+                <button class="btn btn--sm" type="submit">Notify me</button>
+              </div>
+            </form>
+          )
+        }
         <p><a class="link-arrow" href="/events">All shows & events <span class="arrow" aria-hidden="true">→</span></a></p>
       </div>
       {event.image?.src && <PhotoFrame image={event.image} gel={event.gel} shape="arch" ratio="5 / 6" class="show__photo" eager />}
@@ -137,6 +177,22 @@ const structuredData = showPageLd(event, {
   .show__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1.2rem; }
   .show__cal { font-weight: 600; }
   .show__summary { font-size: var(--step-1); max-width: 60ch; }
+  .show__plain { font-weight: 400; color: var(--ink-soft); }
+  .show__facts .show__wide { grid-column: 1 / -1; }
+  .show__performers { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; }
+  .show__notify {
+    display: grid;
+    gap: 0.5rem;
+    max-width: 30rem;
+    padding: var(--space-m) var(--space-l);
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    border-radius: var(--r-lg);
+    box-shadow: 6px 6px 0 var(--gel);
+  }
+  .show__notify label { font-weight: 650; }
+  .show__notify-row { display: flex; gap: 0.5rem; }
+  .show__notify-row .input { min-width: 0; flex: 1; }
 
   @media (max-width: 960px) {
     .show__grid, .show__grid--photo { grid-template-columns: minmax(0, 1fr); }

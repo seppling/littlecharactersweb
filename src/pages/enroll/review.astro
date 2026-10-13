@@ -2,8 +2,11 @@
 /** Enrollment step 3: choose how to pay, see exactly what's due today and later. */
 import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
-import { confirmOrder, getOrder, householdForUser, priceOrder } from '@/server/family';
-import { formatCents, type Plan } from '@/lib/pricing';
+import { confirmOrder, familyDiscountEffect, getOrder, householdForUser, loweredLines, priceOrder } from '@/server/family';
+import { formatCents, planCopy, type Plan } from '@/lib/pricing';
+import AnotherChild from '@/components/portal/AnotherChild.astro';
+
+import { bookingClock, bookingProblem } from '@/lib/session-dates';
 
 export const prerender = false;
 
@@ -15,6 +18,11 @@ const o = household ? await getOrder(household.id, orderId) : null;
 if (!household || !o) return Astro.redirect('/account');
 if (o.status === 'paid') return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
 if (!o.policyAcceptedAt) return Astro.redirect(`/enroll/details?order=${o.id}`);
+const found = Astro.locals.content.findSession(o.sessionId);
+if (!found) return Astro.redirect('/account');
+// The date closed since this order was started: the first step explains, with a link back to the class.
+const closed = () => bookingProblem(found.program, found.session, bookingClock(Astro.locals.content.site.lateJoinWeeks));
+if (closed()) return Astro.redirect(`/enroll/${o.sessionId}`, 303);
 
 let error = '';
 if (Astro.request.method === 'POST') {
@@ -31,14 +39,12 @@ const requested = (Astro.url.searchParams.get('plan') ?? undefined) as Plan | un
 const priced = await priceOrder(household.id, o, requested);
 const options = await Promise.all(priced.plans.map(async (p) => ({ plan: p, q: (await priceOrder(household.id, o, p)).quote })));
 
-const planCopy: Record<Plan, { title: string; body: (total: string) => string }> = {
-  trial: { title: 'Try the first class free', body: () => 'Nothing due today. Decide after the class.' },
-  monthly: { title: 'Pay monthly', body: (t) => `${t} today, then charged automatically on the 1st of each month.` },
-  full: { title: 'Pay the semester in full', body: (t) => `${t} today, 10% off, and you’re done.` },
-  once: { title: 'Pay now', body: (t) => `${t} today.` },
-  waitlist: { title: 'Join the waitlist', body: () => 'Nothing due now. We’ll email you if a spot opens.' },
-};
+// The season-in-full line names the discount it really gets, and compares it with paying monthly.
+const monthlyQuote = options.find((x) => x.plan === 'monthly')?.q;
+const copy = (plan: Plan, pq: (typeof options)[number]['q']) => planCopy(plan, pq, monthlyQuote);
 const q = priced.quote;
+// This enrollment can start the 15% family discount on the family's other monthly payments.
+const familyEffects = loweredLines(await familyDiscountEffect(household.id, priced, o.id));
 const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents === 0 ? 'Confirm enrollment' : `Pay ${formatCents(q.totalCents)}`;
 ---
 
@@ -59,8 +65,8 @@ const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents
               <label class="plan">
                 <input type="radio" name="plan" value={plan} checked={plan === priced.plan} />
                 <span class="plan__body">
-                  <strong>{planCopy[plan].title}</strong>
-                  <span>{planCopy[plan].body(formatCents(pq.totalCents))}</span>
+                  <strong>{copy(plan, pq).title}</strong>
+                  <span>{copy(plan, pq).body}</span>
                 </span>
               </label>
             ))}
@@ -91,6 +97,7 @@ const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents
     </table>
 
     {q.later.length > 0 && <ul class="later">{q.later.map((l) => <li>{l}</li>)}</ul>}
+    {familyEffects.length > 0 && <ul class="later family" data-family-discount>{familyEffects.map((l) => <li>{l}</li>)}</ul>}
     {q.notes.length > 0 && <ul class="notes">{q.notes.map((n) => <li>{n}</li>)}</ul>}
     {error && <p class="error" role="alert">{error}</p>}
 
@@ -108,6 +115,7 @@ const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents
       )
     }
     <p class="fine">Card payments are processed securely by Stripe. We never see or store your card number.</p>
+    <AnotherChild note="This sign-up isn’t booked until you pay or confirm above." />
   </EnrollShell>
 </Base>
 
@@ -134,6 +142,7 @@ const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents
   .bill tfoot th, .bill tfoot td { font-family: var(--font-display); font-weight: 800; font-size: var(--step-1); border-bottom: 0; border-top: 2px solid var(--ink); }
   .later, .notes { margin: 0; padding-left: 1.2rem; color: var(--ink-soft); display: grid; gap: 0.3rem; font-size: var(--step--1); }
   .later li::marker { content: '→ '; }
+  .family { color: var(--ok); font-weight: 600; }
   .pay { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
   .error { color: var(--red-ink); font-weight: 600; }
   .fine { font-size: var(--step--2); color: var(--ink-mute); }

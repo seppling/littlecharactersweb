@@ -13,7 +13,7 @@ We hold parents' contact details, children's names and birthdays, and sometimes 
 | Allergies, medical notes | Safety in class | **Encrypted per field** (AES-256-GCM); decrypted only for your family and on staff rosters; every roster view logged |
 | Pickup notes, photo consent | Safety, marketing permission | Household-scoped |
 | Orders and enrollments | What you signed up and paid for | Household-scoped |
-| Card numbers | **Not stored.** Stripe holds them; we keep only Stripe's customer ID | PCI scope stays at the lightest level (SAQ A) |
+| Card numbers | **Not stored.** Stripe holds them; we keep only Stripe's customer and card IDs, and the card's brand, last four digits and expiry month and year (shown to the family as "Visa ending 4242, expires 4/2030") | PCI scope stays at the lightest level (SAQ A). Without the full card number, brand, last four and expiry can't be used to pay; they're copied from Stripe's own response, never typed into our forms |
 | Passwords | **None exist.** Sign-in is a 6-digit code emailed to you | Nothing to leak or reuse |
 
 Data minimization rules we follow:
@@ -32,7 +32,7 @@ Data minimization rules we follow:
 | A06 | **Insecure design** | Paying $49 for a $400 plan; enrolling past capacity; double charges | Prices are computed only on the server from the catalog, never taken from the browser. The chosen plan is re-checked against the plans allowed for that family. A Stripe payment only counts if it matches the order total exactly, and old checkouts are expired when the plan changes. Enrolling is idempotent and race-safe (the webhook and the confirmation page can't double-enroll or double-email). Monthly autopay can't double-charge (claimed in the database first, payment id saved before confirming, idempotency keys, retries paused while the family pays by hand), and only counts payments of the exact amount due. The class-full check moves families to the waitlist. | Review billing rules with Hannah before live payments (`todo.md`) |
 | A07 | **Authentication failures** | Guessing codes; flooding inboxes; stolen sessions | Codes are 6 digits, expire in 10 minutes, allow 5 tries, and are single-use. Per-IP limits, stored in the database so they hold across servers: 5 code requests and 10 sign-in attempts a minute. Imported accounts stay unverified until their owner proves the email. Sign-out deletes the session server-side. | Optional: ask for a fresh code before an admin opens rosters (step-up), and a "sign out everywhere" button |
 | A08 | **Software or data integrity failures** | Forged "payment succeeded" calls | The Stripe webhook verifies Stripe's signature, and the confirmation page re-checks the payment with Stripe's API. Database changes go through versioned migrations in git. | — |
-| A09 | **Logging and alerting failures** | Not noticing misuse | `audit_log` records sign-ups, data changes, payments, amount mismatches, imports, invitations and **every roster view**. Every published content change is kept with who published it (`content_version`). Logs hold IDs, not names or notes. | Uptime alert; a monthly look at the audit log (`infrastructure.md`) |
+| A09 | **Logging and alerting failures** | Not noticing misuse | `audit_log` records sign-ups, data changes, payments, staff discounts (added and removed), amount mismatches, imports, invitations and **every roster view**. Every published content change is kept with who published it (`content_version`). Logs hold IDs, not names or notes. | Uptime alert; a monthly look at the audit log (`infrastructure.md`) |
 | A10 | **Mishandling of exceptional conditions** | Errors leaking internals, or failing *open* | Missing configuration stops the app instead of running insecurely. A bad webhook signature returns 400. Payment problems leave the order unpaid rather than enrolling. Production error pages don't show stack traces. | — |
 
 CSRF: Astro's `checkOrigin` rejects cross-site form posts, and cookies are `SameSite=Lax`.
@@ -44,6 +44,7 @@ CSRF: Astro's `checkOrigin` rejects cross-site form posts, and cookies are `Same
 - Stripe's form shows its own save-card notice.
 - Every autopay charge is followed by an emailed receipt.
 - Families can stop future charges by withdrawing.
+- The family account shows which card is on file (brand, last four, expiry). To switch cards, families email us, and are told not to send card numbers by email.
 
 The daily billing endpoint only runs with the `CRON_SECRET` bearer token (compared in constant time), and it can't choose the date or the amount.
 

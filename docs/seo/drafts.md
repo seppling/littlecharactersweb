@@ -51,7 +51,7 @@ export const programs: CollectionDraft<'programs'>[] = [
 ```
 
 - **`kind`**: `pages`, `programs`, `events`, `faqs`, `team`, `testimonials` or `locations`.
-- **`id`**: the end of the entry's editor address, `/admin/content/<kind>/<id>`. Pages: `site`, `home`, `about`, `camps`, `geode`, `give`, `contact`, `faq`, `classes` (the class finder), `events` (the keys in `src/content/pages.ts`). Classes and events: their web address (`slug`). FAQs, team and testimonials: the id in the seed (`slugify` of the question, name or first name).
+- **`id`**: the end of the entry's editor address, `/admin/content/<kind>/<id>`. Pages: `site`, `home`, `about`, `team` (/about/team), `schools` (/about/schools), `camps`, `geode`, `give`, `contact`, `faq`, `classes` (the class finder), `events` (the keys in `src/content/pages.ts`). Classes and events: their web address (`slug`). FAQs, team and testimonials: the id in the seed (`slugify` of the question, name or first name).
 - **`path`**: field keys joined by dots, as defined in `src/content/collections.ts` and `src/content/pages.ts`. A number picks a list item, counting from 0:
   - `seo.title`: a field inside a group
   - `callSheet.items.2.text`: a field in the third card of a list
