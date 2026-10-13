@@ -6,8 +6,9 @@
  * greyed out and refused; the other two take the free first class together
  * (nothing due, no payment step). Then each continues after the trial: one on
  * monthly autopay, one paying for the season, at the prorated and discounted
- * amounts. A child can't take a second free class, a Geode class offers none,
- * and the billing run charges the right monthly amount.
+ * amounts. Once Ben is enrolled, the 15% family discount lowers Ava's later
+ * months too. A child can't take a second free class, a Geode class offers
+ * none, and the billing run charges the right monthly amount.
  *
  * Run after enroll-journey.mjs, on the same server (it also works on its own):
  *
@@ -97,6 +98,9 @@ const seasonTuition = Math.round(95 * shares.reduce((a, s) => a + s, 0) * 100);
 // Ben pays for the season while Ava is already in the class: the 15% sibling discount beats 10% for paying in full.
 const seasonDueToday = seasonTuition - Math.round(seasonTuition * 0.15) + FEE;
 const laterMonths = months.slice(1);
+// The family discount covers the whole family (decided Oct 13, 2026): once Ben is enrolled too, Ava's
+// later months are 15% off as well, the cent rounded in the family's favor. $95 → $80.75.
+const FAMILY_MONTH = TUITION - Math.ceil(TUITION * 0.15);
 
 // ───────────── 1. A new family; children outside the ages are greyed out ─────────────
 const email = `trial+${Date.now()}@example.com`;
@@ -260,20 +264,26 @@ const benDue = await page.locator('tfoot td').textContent();
 if (benDue !== money(seasonDueToday)) fail(`Ben season: expected ${money(seasonDueToday)} today, page says ${benDue}`);
 await page.waitForSelector('.bill >> text=15% multi-class / multi-student discount');
 await page.waitForSelector('text=Discounts don’t combine, so you’re getting the bigger one.');
+// Ben's enrollment also lowers Ava's months, and the page says so before the family pays.
+if (laterMonths.length) await page.waitForSelector(`[data-family-discount] >> text=Ava’s remaining monthly payments also drop to ${money(FAMILY_MONTH)}.`);
 await shot('t7-review-season');
+await phoneCheck('t7-review-season');
 await page.click('.pay button[type="submit"]');
 await page.waitForURL(/\/enroll\/pay/);
 await page.click('button:has-text("Complete test payment")');
 await page.waitForURL(/\/enroll\/confirmation/);
-step(`Ben pays for the season: ${money(seasonTuition)} less 15% (Ava is in the class) + $30 fee = ${benDue}`);
+step(`Ben pays for the season: ${money(seasonTuition)} less 15% (Ava is in the class) + $30 fee = ${benDue}; the page says Ava’s months drop to ${money(FAMILY_MONTH)}`);
 
 await page.goto(`${BASE}/account`);
 for (const k of ['Ava', 'Ben']) await page.locator('.classes li', { hasText: k }).locator('text=Enrolled').waitFor();
 if (await page.locator('a:has-text("Continue after the trial")').count()) fail('No “continue” link once both are enrolled');
 const autopayRows = await page.locator('[data-autopay] tbody tr').allTextContents();
-if (autopayRows.length !== laterMonths.length || !autopayRows.every((r) => r.includes('Ava') && r.endsWith(money(TUITION)))) fail(`Upcoming autopay should be Ava's ${laterMonths.length} months at $95: ${autopayRows}`);
+// Before the family discount covered the whole family these stayed at $95; now Ben counts, so they're $80.75.
+if (autopayRows.length !== laterMonths.length || !autopayRows.every((r) => r.includes('Ava') && r.includes(`Family discount (15%): −${money(TUITION - FAMILY_MONTH)}`) && r.endsWith(money(FAMILY_MONTH)))) fail(`Upcoming autopay should be Ava's ${laterMonths.length} months at ${money(FAMILY_MONTH)}, with the family discount: ${autopayRows}`);
+if (laterMonths.length) await page.waitForSelector('[data-family-note] >> text=15% off for multiple students or classes');
 await shot('t8-account-continued');
-step(`Account: both enrolled; Ava's ${laterMonths.length} later months at $95 on autopay, nothing for Ben`);
+await phoneCheck('t8-account-continued');
+step(`Account: both enrolled; Ava's ${laterMonths.length} later months at ${money(FAMILY_MONTH)} (Family discount (15%): −${money(TUITION - FAMILY_MONTH)}) on autopay, nothing for Ben`);
 
 // ───────────── 6. Geode offers no free class ─────────────
 await page.goto(`${BASE}/enroll/acting-studio-f26`);
@@ -289,7 +299,7 @@ if (await page.locator('input[name="plan"][value="trial"]').count()) fail('Geode
 if ((await page.locator('tfoot td').textContent()) === '$0') fail('Geode should have tuition due');
 step('Geode Acting Studio: Kai (new) is offered monthly or the season, no free class');
 
-// ───────────── 7. The billing run charges Ava $95 ─────────────
+// ───────────── 7. The billing run charges Ava $80.75 ─────────────
 if (laterMonths.length) {
   const due = `${laterMonths[0]}-01`;
   const run = await page.request.post(`${BASE}/api/billing/run?today=${due}`, { headers: { authorization: 'Bearer e2e-cron-secret' }, data: {} });
@@ -298,8 +308,9 @@ if (laterMonths.length) {
   await page.goto(`${BASE}/account`);
   const row = page.locator('[data-receipts] tr', { hasText: 'tuition: Ava' });
   await row.waitFor();
-  if ((await row.locator('td').last().textContent()) !== money(TUITION)) fail('Ava’s month should be charged $95');
-  step(`The ${due} billing run charges Ava’s month: $95, with a receipt`);
+  if ((await row.locator('td').last().textContent()) !== money(FAMILY_MONTH)) fail(`Ava’s month should be charged ${money(FAMILY_MONTH)}`);
+  await row.locator('[data-family-discount]').waitFor();
+  step(`The ${due} billing run charges Ava’s month: ${money(FAMILY_MONTH)}, with a receipt naming the family discount`);
 }
 
 await staff.close();

@@ -18,6 +18,7 @@ import { ageLabel, dayList, timeRange } from '@/lib/format';
 import type { Program, Session } from '@/content/types';
 import { bookingClock, bookingProblem } from '@/lib/session-dates';
 import { PRICING, availablePlans, formatCents, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
+import { countingEnrollments, logFamilyDiscount, previewEnrollmentEffect, refreshFamilyDiscount } from './family-discount';
 
 const { household, householdMember, student, order, enrollment, installment } = schema;
 
@@ -202,19 +203,20 @@ export async function takenSpots(sessionId: string) {
 }
 
 /**
- * The family's other active class enrollments, for the multi-class / multi-student
- * discount. A brother or sister already in this same class counts too (for example
- * when siblings who took the free class together continue one at a time).
+ * The family's other active weekly-class enrollments, for the multi-class /
+ * multi-student discount: the same ones the family discount counts
+ * (src/server/family-discount.ts). A brother or sister already in this same
+ * class counts too (for example when siblings who took the free class together
+ * continue one at a time).
  */
 async function otherClassEnrollments(householdId: string, sessionId: string, studentIds: string[]) {
-  const rows = await listEnrollments(householdId);
-  const catalog = await getCatalog();
-  return rows.filter(
-    (r) =>
-      r.enrollment.status === 'active' &&
-      !(r.enrollment.sessionId === sessionId && studentIds.includes(r.student.id)) &&
-      catalog.findSession(r.enrollment.sessionId)?.program.kind === 'class',
-  ).length;
+  const db = await getDb();
+  const rows = await countingEnrollments(db, householdId, {
+    catalog: await getCatalog(),
+    today: todayInAthens(),
+    skip: (e) => e.sessionId === sessionId && studentIds.includes(e.studentId),
+  });
+  return rows.length;
 }
 
 // ───────────── Orders ─────────────
@@ -272,6 +274,17 @@ export async function priceOrder(householdId: string, o: typeof order.$inferSele
     today: todayInAthens(),
   });
   return { program, session, students, plans, plan, quote: q, alreadyIn };
+}
+
+/**
+ * Review page: when this enrollment starts the family discount, the family's
+ * other monthly payments it lowers (nothing is saved). Only a paid weekly class
+ * counts, not a free trial or the waitlist.
+ */
+export async function familyDiscountEffect(householdId: string, priced: Pick<Awaited<ReturnType<typeof priceOrder>>, 'program' | 'plan' | 'students'>, orderId: string) {
+  if (priced.program.kind !== 'class' || (priced.plan !== 'monthly' && priced.plan !== 'full')) return [];
+  const effects = await previewEnrollmentEffect(householdId, priced.students.length);
+  return effects.filter((e) => e.orderId !== orderId);
 }
 
 /** Bump when the policy summary on /enroll/details changes, so we know what each family agreed to. */
@@ -332,14 +345,16 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
   if (!found) throw new Error('Unknown session');
 
   const status = o.plan === 'waitlist' ? 'waitlist' : o.plan === 'trial' ? 'trial' : 'active';
-  const won = await db.transaction(async (tx) => {
+  // Read before the transaction: the embedded database has a single connection.
+  const catalog = await getCatalog();
+  const result = await db.transaction(async (tx) => {
     // Whoever flips the status first does the work; a concurrent call finds nothing to update.
     const [claimed] = await tx
       .update(order)
       .set({ status: 'paid', paidAt: new Date(), stripeCheckoutSessionId: payment?.checkoutSessionId ?? o.stripeCheckoutSessionId })
       .where(and(eq(order.id, o.id), ne(order.status, 'paid')))
       .returning({ id: order.id });
-    if (!claimed) return false;
+    if (!claimed) return null;
     for (const studentId of o.studentIds) {
       await tx
         .insert(enrollment)
@@ -350,14 +365,28 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
     if (o.plan === 'monthly' && o.schedule.length) {
       await tx
         .insert(installment)
-        .values(o.schedule.map((c) => ({ householdId: o.householdId, orderId: o.id, sessionId: o.sessionId, dueDate: c.dueDate, amountCents: c.amountCents, baseAmountCents: c.amountCents, label: c.label })))
+        .values(
+          o.schedule.map((c) => ({
+            householdId: o.householdId,
+            orderId: o.id,
+            sessionId: o.sessionId,
+            dueDate: c.dueDate,
+            amountCents: c.amountCents,
+            baseAmountCents: c.amountCents,
+            // Orders confirmed before the regular price was recorded: take what was agreed.
+            regularAmountCents: c.regularAmountCents ?? c.amountCents,
+            label: c.label,
+          })),
+        )
         .onConflictDoNothing();
     }
-    return true;
+    // A new active class can start the family discount on the family's other payments.
+    return { family: status === 'active' ? await refreshFamilyDiscount(tx, o.householdId, { catalog }) : null };
   });
   const [done] = await db.select().from(order).where(eq(order.id, orderId));
-  if (!won) return done;
+  if (!result) return done;
   await audit(userId, o.totalCents > 0 ? 'order.paid' : 'order.confirmed', 'order', o.id);
+  if (result.family) await logFamilyDiscount(userId, o.householdId, result.family);
   await sendOrderConfirmation(done).catch((e) => console.error('Confirmation email failed', e));
   return done;
 }

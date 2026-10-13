@@ -7,7 +7,7 @@ import AdminShell from '@/components/admin/AdminShell.astro';
 import { AdjustmentError, addAdjustment, lockedReason, orderBilling, previewAdjustment, removeAdjustment, type AdjustmentInput, type PaymentChange } from '@/server/adjustments';
 import { failureReason } from '@/server/billing';
 import { formatCents } from '@/lib/pricing';
-import { ADJUSTMENTS, adjustmentLine, describeAdjustment, familyLabel, parseAdjustmentValue, repeatLabel, type AdjustmentKind, type AdjustmentRepeat } from '@/lib/adjustments';
+import { ADJUSTMENTS, FAMILY_DISCOUNT_LABEL, adjustmentLine, describeAdjustment, familyDiscountCents, familyLabel, parseAdjustmentValue, repeatLabel, type AdjustmentKind, type AdjustmentRepeat } from '@/lib/adjustments';
 
 export const prerender = false;
 const viewer = Astro.locals.user;
@@ -91,13 +91,14 @@ const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', tri
           {data.installments.length ? (
             <div class="scroll">
               <table class="pay" data-payments>
-                <thead><tr><th>Due</th><th>Status</th><th>Usual</th><th>Discounts</th><th>Charged</th></tr></thead>
+                <thead><tr><th>Due</th><th>Status</th><th>Regular</th><th>Family 15%</th><th>Staff discounts</th><th>Charged</th></tr></thead>
                 <tbody>
                   {data.installments.map((i) => (
                     <tr data-installment={i.dueDate}>
                       <td>{fmt(i.dueDate)}<span class="sub">{i.label.split(':')[0]}</span></td>
                       <td>{statusText[i.status]}{i.status === 'failed' && <span class="sub">{failureReason(i.lastError ?? '')}</span>}</td>
-                      <td>{formatCents(i.baseAmountCents)}</td>
+                      <td>{formatCents(i.regularAmountCents)}</td>
+                      <td data-family-discount>{familyDiscountCents(i) ? <span class="line line--family">{adjustmentLine({ label: FAMILY_DISCOUNT_LABEL, cents: familyDiscountCents(i) })}</span> : <span class="sub">—</span>}</td>
                       <td>{i.adjustments.length ? i.adjustments.map((l) => <span class="line">{adjustmentLine(l)}</span>) : <span class="sub">—</span>}</td>
                       <td><strong>{formatCents(i.amountCents)}</strong>{i.lateFeeCents > 0 && <span class="sub">+ {formatCents(i.lateFeeCents)} late fee</span>}</td>
                     </tr>
@@ -211,7 +212,7 @@ const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', tri
               </ul>
             </details>
           )}
-          <p class="admin-intro">Discounts come off tuition after the built-in ones (10% pay-in-full, 15% multi-class), rounded in the family’s favor, never below $0. The late fee isn’t discounted. Paid payments never change. Every change is logged.</p>
+          <p class="admin-intro">The 15% family discount is automatic: it’s on every unpaid monthly payment while the family has two or more weekly classes going (counting each child in each class), and comes off again when they drop to one. Staff discounts come off after it, rounded in the family’s favor, never below $0. The late fee isn’t discounted. Paid payments never change. Every change is logged.</p>
         </section>
       </div>
     )
@@ -233,6 +234,7 @@ const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', tri
   .pay th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
   .sub { display: block; color: var(--ink-mute); font-size: var(--step--1); }
   .line { display: block; color: var(--ok); font-weight: 600; }
+  .line--family { color: var(--ink-soft); }
   .adjs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-s, 0.75rem); }
   .adj__head { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: space-between; align-items: center; }
   .confirm { background: var(--yellow-tint); border-color: var(--yellow); }
@@ -241,7 +243,7 @@ const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', tri
   .removed ul { margin: 0.5rem 0 0; padding-left: 1.2rem; color: var(--ink-soft); font-size: var(--step--1); display: grid; gap: 0.4rem; }
   .cf-group > .btn { justify-self: start; }
   .cf-group > h3 { font-family: var(--font-display); font-size: var(--step-1); font-stretch: 92%; }
-  /* Phones: each payment is a small card instead of a five-column row. */
+  /* Phones: each payment is a small card instead of a six-column row. */
   @media (max-width: 640px) {
     .pay[data-payments], .pay[data-payments] tbody { display: block; }
     .pay[data-payments] thead { display: none; }
@@ -251,6 +253,8 @@ const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', tri
     .pay[data-payments] td:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
     .pay[data-payments] td:nth-child(3) { display: none; }
     .pay[data-payments] td:nth-child(4) { grid-column: 1 / -1; grid-row: 3; }
-    .pay[data-payments] td:nth-child(5) { grid-column: 2; grid-row: 1; text-align: right; }
+    .pay[data-payments] td:nth-child(4):has(> .sub) { display: none; }
+    .pay[data-payments] td:nth-child(5) { grid-column: 1 / -1; grid-row: 4; }
+    .pay[data-payments] td:nth-child(6) { grid-column: 2; grid-row: 1; text-align: right; }
   }
 </style>

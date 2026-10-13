@@ -202,7 +202,7 @@ describe('staff tools', () => {
     const oct = await byDue(G.h.id, '2026-10-01');
     expect(await markPaidOutsideStripe(oct.id, 'u-hannah')).toMatchObject({ status: 'paid' });
 
-    expect(await stopRemainingPayments(G.o.id, 'u-hannah')).toBe(2);
+    expect(await stopRemainingPayments(G.o.id, 'u-hannah')).toEqual({ stopped: 2, familyDiscount: [] });
     const f = fakeCharger();
     await runBilling({ charge: f.charge, today: '2026-12-01' });
     expect(f.calls.filter((c) => c.customerId === 'cus_park')).toHaveLength(0);

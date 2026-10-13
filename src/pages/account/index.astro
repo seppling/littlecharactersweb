@@ -11,7 +11,7 @@ import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
 import { bookingClock, canBook, sessionState } from '@/lib/session-dates';
 import { failureReason, listInstallments, totalDue } from '@/server/billing';
-import { adjustmentLine, type AppliedAdjustment } from '@/lib/adjustments';
+import { adjustmentLine, discountLines } from '@/lib/adjustments';
 
 export const prerender = false;
 const { locationById } = Astro.locals.content;
@@ -54,8 +54,15 @@ const orders = household ? await listOrders(household.id) : [];
 const installments = household ? await listInstallments(household.id) : [];
 const needsAttention = installments.filter((i) => i.status === 'failed');
 const autopay = installments.filter((i) => i.status === 'scheduled' || i.status === 'processing');
+// The 15% family discount on monthly payments to come, or a note that it ended (src/server/family-discount.ts).
+const withFamilyDiscount = (i: (typeof installments)[number]) => i.baseAmountCents < i.regularAmountCents;
+const familyNote = [...needsAttention, ...autopay].some(withFamilyDiscount)
+  ? 'Family discount: 15% off for multiple students or classes, on every monthly payment while two or more are enrolled. If that drops to one, the months not yet paid go back to the regular price.'
+  : autopay.length && installments.some(withFamilyDiscount)
+    ? 'Your family discount (15% off for multiple students or classes) ended when fewer than two were still enrolled, so the months not yet paid are back to the regular price.'
+    : '';
 const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-const receipts: { date: Date; label: string; amountCents: number; adjustments?: AppliedAdjustment[] }[] = [
+const receipts: { date: Date; label: string; amountCents: number; discounts?: ReturnType<typeof discountLines> }[] = [
   ...orders.map((o) => ({
     date: o.paidAt!,
     label: `${Astro.locals.content.findSession(o.sessionId)?.program.title ?? o.sessionId}${o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (full season)' : o.plan === 'monthly' ? ' (first month + fees)' : ''}`,
@@ -63,7 +70,7 @@ const receipts: { date: Date; label: string; amountCents: number; adjustments?: 
   })),
   ...installments
     .filter((i) => i.status === 'paid')
-    .map((i) => ({ date: i.paidAt!, label: `${i.label}${i.lateFeeCents ? ' + late fee' : ''}`, amountCents: totalDue(i), adjustments: i.adjustments })),
+    .map((i) => ({ date: i.paidAt!, label: `${i.label}${i.lateFeeCents ? ' + late fee' : ''}`, amountCents: totalDue(i), discounts: discountLines(i) })),
 ].sort((a, b) => b.date.getTime() - a.date.getTime());
 const today = todayInAthens();
 const clock = bookingClock(Astro.locals.content.site.lateJoinWeeks);
@@ -202,7 +209,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
               {needsAttention.map((i) => (
                 <div class="alert" role="alert">
                   <p>
-                    <strong>{i.label}: {formatCents(totalDue(i))}</strong>{i.adjustments.length > 0 && ` (after ${i.adjustments.map(adjustmentLine).join(', ')})`}{i.lateFeeCents > 0 && ` (includes a ${formatCents(i.lateFeeCents)} late fee)`} didn’t go through because {failureReason(i.lastError ?? '')}.
+                    <strong>{i.label}: {formatCents(totalDue(i))}</strong>{discountLines(i).length > 0 && ` (after ${discountLines(i).map(adjustmentLine).join(', ')})`}{i.lateFeeCents > 0 && ` (includes a ${formatCents(i.lateFeeCents)} late fee)`} didn’t go through because {failureReason(i.lastError ?? '')}.
                     {i.retryOn ? ` We’ll try again on ${fmtDate(i.retryOn)}, or you can pay now.` : ''}
                   </p>
                   <a class="btn btn--primary btn--sm" href={`/account/pay/${i.id}`}>Pay now</a>
@@ -217,13 +224,14 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                       {autopay.map((i) => (
                         <tr>
                           <td>{fmtDate(i.dueDate)}</td>
-                          <td>{i.label}{i.adjustments.map((l) => <span class="adj" data-adjustment>{adjustmentLine(l)}</span>)}</td>
-                          <td>{i.adjustments.length > 0 && <s class="was">{formatCents(i.baseAmountCents)}</s>}{formatCents(i.amountCents)}</td>
+                          <td>{i.label}{discountLines(i).map((l) => (l.family ? <span class="adj" data-family-discount>{adjustmentLine(l)}</span> : <span class="adj" data-adjustment>{adjustmentLine(l)}</span>))}</td>
+                          <td>{i.amountCents !== i.regularAmountCents && <s class="was">{formatCents(i.regularAmountCents)}</s>}{formatCents(i.amountCents)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                   <p class="fine">Charged automatically to your saved card on the 1st, with an emailed receipt. To use a different card or withdraw, email us before the 1st.</p>
+                  {familyNote && <p class="fine" data-family-note>{familyNote}</p>}
                 </div>
               )}
               <h3>Receipts</h3>
@@ -234,7 +242,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                     {receipts.map((r) => (
                       <tr>
                         <td>{shortDate(r.date)}</td>
-                        <td>{r.label}{r.adjustments?.map((l) => <span class="adj" data-adjustment>{adjustmentLine(l)}</span>)}</td>
+                        <td>{r.label}{r.discounts?.map((l) => (l.family ? <span class="adj" data-family-discount>{adjustmentLine(l)}</span> : <span class="adj" data-adjustment>{adjustmentLine(l)}</span>))}</td>
                         <td>{formatCents(r.amountCents)}</td>
                       </tr>
                     ))}

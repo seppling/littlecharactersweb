@@ -12,6 +12,8 @@
  *  - Tuition only: the late fee is added on top, never discounted.
  */
 
+import { PRICING } from './pricing';
+
 export type AdjustmentKind = 'percent' | 'amount';
 export type AdjustmentRepeat = 'once' | 'monthly';
 
@@ -74,6 +76,23 @@ export const repeatLabel = (r: AdjustmentRepeat) => (r === 'once' ? 'next paymen
 
 /** "Scholarship: −$40" */
 export const adjustmentLine = (l: Pick<AppliedAdjustment, 'label' | 'cents'>) => `${l.label}: −${formatMoney(l.cents)}`;
+
+/** What families read for the 15% family discount (src/server/family-discount.ts). */
+export const FAMILY_DISCOUNT_LABEL = `Family discount (${Math.round(PRICING.multiDiscount * 100)}%)`;
+
+type Discounted = { regularAmountCents: number; baseAmountCents: number; adjustments: AppliedAdjustment[] };
+
+/** The family discount on one monthly payment, in cents (0 when there's none). */
+export const familyDiscountCents = (i: Pick<Discounted, 'regularAmountCents' | 'baseAmountCents'>) => Math.max(0, i.regularAmountCents - i.baseAmountCents);
+
+/**
+ * Every discount on one monthly payment, as the family sees them: the family
+ * discount first ("Family discount (15%): −$14.25"), then staff adjustments.
+ */
+export function discountLines(i: Discounted): { label: string; cents: number; family: boolean }[] {
+  const family = familyDiscountCents(i);
+  return [...(family ? [{ label: FAMILY_DISCOUNT_LABEL, cents: family, family: true }] : []), ...i.adjustments.map((l) => ({ label: l.label, cents: l.cents, family: false }))];
+}
 
 function formatMoney(c: number) {
   return `$${(c / 100).toFixed(c % 100 === 0 ? 0 : 2)}`;
