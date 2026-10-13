@@ -104,6 +104,14 @@ export const site: PageDef = {
       fields: [
         { key: 'email', label: 'Email', type: 'text', format: 'email', required: true, half: true },
         { key: 'phone', label: 'Phone', type: 'text', required: true, half: true, placeholder: '(706) 555-0123' },
+        {
+          key: 'replyTime',
+          label: 'When families can expect a reply',
+          type: 'text',
+          max: 160,
+          placeholder: 'We reply within 2 school days.',
+          help: 'Optional. Shown under the contact form and in the “on its way” email the sender gets. Leave it empty and the site doesn’t promise a reply time.',
+        },
       ],
     },
     {

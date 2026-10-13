@@ -149,6 +149,9 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                           <span>Sign-ups for this season have closed. <a href={`/contact?topic=class&class=${encodeURIComponent(u.program.title)}`}>Ask us</a></span>
                         )}
                         {u.enrollment.status !== 'waitlist' && <a href={`/calendar/${u.session.id}.ics`} download>Add to calendar</a>}
+                        {u.enrollment.status !== 'waitlist' && u.next && (
+                          <a href={`/contact?${new URLSearchParams({ topic: 'absence', child: u.student.firstName, class: u.program.title, date: u.next })}`} data-absence-link>Missing a class?</a>
+                        )}
                       </div>
                     </li>
                   ))}

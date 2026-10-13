@@ -24,7 +24,7 @@ export type WithId<T> = T & { id: string };
 
 export type SiteInfo = typeof siteConfig & {
   description: string;
-  contact: { email: string; phone: string; phoneHref: string };
+  contact: { email: string; phone: string; phoneHref: string; /** Hannah's reply-time line; empty means the site promises nothing. */ replyTime?: string };
   social: SiteSettings['social'];
   givingUrl?: string;
   wishListUrl?: string;
@@ -112,6 +112,7 @@ export function buildSiteContent(rows: ContentRow[], uploads = new Map<string, U
       email: settings.contact.email,
       phone: settings.contact.phone,
       phoneHref: `tel:+1${settings.contact.phone.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '')}`,
+      replyTime: settings.contact.replyTime?.trim() || undefined,
     },
     social: settings.social ?? {},
     givingUrl: settings.links?.giving,

@@ -195,7 +195,7 @@ export interface Seo {
 
 export interface SiteSettings {
   announcement?: { show?: boolean; text?: string; link?: Link; gel?: Gel };
-  contact: { email: string; phone: string };
+  contact: { email: string; phone: string; replyTime?: string };
   social: { instagram?: string; facebook?: string };
   links: { giving?: string; wishList?: string };
   /** When class sign-ups close; see src/lib/session-dates.ts. */
