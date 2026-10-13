@@ -24,7 +24,7 @@ The 15% discount now covers the whole family. Once a family has two or more acti
 - `src/server/db/schema.ts`: the new column. Also an optional `regularAmountCents` on the order's locked-in schedule.
 - `src/lib/pricing.ts`: `familyDiscounted()` takes the 15% off and rounds the cent in the family's favor. Checkout's monthly installments use it and carry their regular price.
 - `src/lib/adjustments.ts`: `FAMILY_DISCOUNT_LABEL`, `familyDiscountCents()` and `discountLines()` (the family discount first, then staff lines).
-- `src/server/family-discount.ts` (new):
+- `src/server/family-discount.ts` (new; it also sends the "Your family discount has ended" email):
   - `countingEnrollments` decides what counts.
   - `refreshFamilyDiscount(tx, householdId, …)` locks the family's unpaid payments (`FOR UPDATE`) and sets each changeable one's `baseAmountCents` from its regular price. It then re-applies staff adjustments with `computeChanges`, as `reapply` does, and settles a failed month that comes to $0.
   - `refreshFamilyDiscountNow` and `refreshAllFamilyDiscounts` wrap it, with the audit log entry.
@@ -57,7 +57,7 @@ The 15% discount now covers the whole family. Once a family has two or more acti
 All commands were run with `STRIPE_SECRET_KEY= PUBLIC_STRIPE_PUBLISHABLE_KEY= STRIPE_WEBHOOK_SECRET=` blanked.
 
 - `npm run check`: 0 errors, 0 warnings.
-- `npm test`: 12 files, **318 tests pass**. The new tests in `family-discount.test.ts` cover:
+- `npm test`: 12 files, **319 tests pass**, run three times after the follow-up. The new tests in `family-discount.test.ts` cover:
   - 15% rounding in the family's favor ($99.90 → $84.91), and the line order and charge description;
   - the second child, monthly, lowers the first child's three months from $95 to $80.75. The review-page preview shows it first and saves nothing. Logged;
   - Ben continues after the free class and pays the season, which lowers Ava's months. A trial sibling doesn't count;
@@ -66,8 +66,10 @@ All commands were run with `STRIPE_SECRET_KEY= PUBLIC_STRIPE_PUBLISHABLE_KEY= ST
   - trial and waitlisted siblings don't count;
   - Parents' Night Out and a camp don't count;
   - two children in one order: $161.50 a month, as before, with nothing changed after checkout;
-  - Stop payments: the preview lists Ava's Nov and Dec going from $80.75 to $95. After stopping, only the unpaid months go back up, October stays $80.75 paid, and the next run charges $95;
-  - a class that ends: on Jan 1 the billing run puts the other class back to $115;
+  - Stop payments: the preview lists Ava's Nov and Dec going from $80.75 to $95. After stopping, only the unpaid months go back up, October stays $80.75 paid, and the next run charges $95. The family gets one "Your family discount has ended" email listing "Ava, Intro to Theater: $95 on Nov 1 and Dec 1 (was $80.75).";
+  - a class that ends: on Jan 1 the billing run puts the other class back to $115 and emails the family once;
+  - a drop-in night (Adult Improv) and a class priced by the session (Stories & Songs) don't count;
+  - no "ended" email when the discount starts;
   - with a 10% staff discount: $72.67, and the charges' amounts and descriptions are checked.
 - `npm run build`: builds.
 - Browser tests on a fresh local database (`tests/e2e/serve.sh`), in order, on the final build:
@@ -85,6 +87,7 @@ All commands were run with `STRIPE_SECRET_KEY= PUBLIC_STRIPE_PUBLISHABLE_KEY= ST
   - one child, no 15%, with a $40 staff discount: regular $95;
   - two children with 15% at checkout ($161.50): regular $190;
   - a $115 class with 15% ($97.75): regular $115.
+- **The email, in the browser cycle:** I ran the three browser tests again (all pass), then Stop payments on a new two-child family. The email text is quoted under Open points, and `shots/email-family-discount-ended.png` shows it in the dev mailbox.
 - **Screenshots** (`.orchestration/family-discount/shots/`, desktop and 390 px; no sideways scroll on any page):
   - `trial/t7-review-season*`: the review sentence;
   - `trial/t8-account-continued*`: the account with the family discount lines;
@@ -99,7 +102,7 @@ All commands were run with `STRIPE_SECRET_KEY= PUBLIC_STRIPE_PUBLISHABLE_KEY= ST
 1. **Regular price column, and how it's filled.** `regular_amount_cents` is set from the order's locked-in schedule at checkout, never from the catalog, so a later price edit can't change an existing enrollment.
    - Existing rows: the site isn't live, so they are demo and test data. If the order's checkout lines include the 15% line, regular = round(base / 0.85), which is exact for whole-dollar prices (all current prices). Otherwise regular = base.
    - For an order confirmed but not yet paid when this deploys, regular falls back to the agreed amount. The worst case is in the family's favor.
-2. **What counts.** Status `active`, `program.kind === 'class'` (as at checkout today), and the class hasn't ended (`session.endDate >= today`).
+2. **What counts.** Status `active`, `program.kind === 'class'` with a monthly price (Stephen's answer, Oct 13), and the class hasn't ended (`session.endDate >= today`).
    - The end date is the only marker of "a child's enrollment ends". There is no withdrawal status.
    - The checkout count (`otherClassEnrollments`) uses the same rule, so what checkout charges and what the refresh keeps always agree. Small change: a sibling whose class has ended, or whose payments were stopped, no longer gives 15% at checkout.
 3. **"Stopped" means the order has a cancelled payment.** Only Stop payments cancels payments. I didn't mark enrollments cancelled: that would change rosters and capacity, and roster changes are on hold for the back-office plan. Simple to switch later.
@@ -113,14 +116,27 @@ All commands were run with `STRIPE_SECRET_KEY= PUBLIC_STRIPE_PUBLISHABLE_KEY= ST
 
 ## Open points
 
-1. **For Hannah: when a family drops below two, their unpaid months go back up.** Staff see it before confirming Stop payments. The family sees new amounts and a note in their account, and the next receipt. They get no email at the moment the amount goes up.
-   - *Recommendation:* add a short email to the family when Stop payments raises another child's payments ("Ava's remaining payments are now $95, because the family discount needs two or more enrolled"), so nobody is surprised on the 1st. I didn't build it; it's a small follow-up.
-2. **A child who paid the season in full and then withdraws** keeps counting until their class ends: Stop payments has nothing to stop, and there's no withdraw action yet. Their sibling keeps the 15% (in the family's favor).
-   - *Recommendation:* fine for launch. Handle it with the back-office "withdraw" action.
-3. **Geode Adult Improv nights** (single $25 drop-ins) are `kind: class`, so they count as a weekly class, as they did before this change. An adult drop-in would give a child's class 15% off for as long as the night hasn't passed.
-   - *Recommendation:* count only month-priced classes. Hannah to confirm before I change the published behavior.
-4. **Should families get an email when the discount starts?**
-   - *Recommendation:* no. The review page tells them before they pay, and receipts and the account show it.
+Stephen answered all three on Oct 13. The changes are in commit "Family discount: email when it ends; count only month-priced classes".
+
+1. **Email when the discount ends: built.**
+   - When a refresh raises any payment, the family is emailed "Your family discount has ended". This happens after Stop payments, or when the billing run finds a class has ended.
+   - The email lists each child and class with the new amount, the dates, and what it was.
+   - It is logged as `family_discount.ended_email`.
+   - The Stop payments check now tells staff the family will be emailed.
+   - The email as sent in the local test:
+     > **Your family discount has ended**
+     > Our 15% family discount is for families with two or more students or classes in our weekly classes paid monthly. Your family now has one, so the monthly payments you haven’t made yet are back to the regular price:
+     > Ava, Intro to Theater: $85.50 on Nov 1 and Dec 1 (was $72.67).
+     > Payments you’ve already made don’t change. The new amounts are charged to your saved card on the 1st, as usual.
+     > Every upcoming payment is in your family account: …/account
+     > Questions, or think this isn’t right? Just reply to this email.
+   - *For Hannah:* the wording is a draft. It lives in `emailFamilyDiscountEnded` (`src/server/family-discount.ts`), so I can change it.
+   - No email goes out when the discount starts: the review page already says so.
+2. **A paid-in-full child who withdraws keeps counting until their class ends:** agreed, left as is for launch.
+3. **Only classes priced by the month count: built.**
+   - Adult Improv nights ($25 each) and Stories & Songs and the Homeschool class (priced by the session) no longer count toward the two.
+   - This applies at checkout too, for the family's *other* enrollments.
+   - **One choice I made, to confirm:** children signing up together in one order still get 15% on that order, whatever the class's price unit, as before. For example, two children in Stories & Songs together keep 15%. I only changed what counts from the family's other enrollments, not the multi-student rule within one sign-up. If Hannah wants session-priced classes out of the 15% entirely, that's a one-line change in `quote`.
 
 ## Follow-up candidates
 

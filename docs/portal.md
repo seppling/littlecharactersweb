@@ -131,9 +131,9 @@ Decided Oct 13, 2026 (Stephen): the published rule, "15% off for multiple studen
 
 **The rule** (`src/server/family-discount.ts`):
 - Once a family has **two or more active weekly-class enrollments**, every monthly payment for their weekly classes that can still change is 15% off (`familyDiscounted` in `src/lib/pricing.ts`, the cent rounded in the family's favor).
-- **What counts:** enrollments that are `active` in a weekly class (`program.kind === 'class'`, the same test as at checkout), whose class hasn't ended (`session.endDate`), and whose payments staff haven't stopped. Each child in each class counts once; two children in one order count as two. Not free trials, waitlists, camps, workshops, parties, Parents' Night Out or Ovation.
+- **What counts:** enrollments that are `active` in a weekly class priced by the month (`program.kind === 'class'` and a monthly price; decided Oct 13: drop-in nights like Geode Adult Improv and classes priced by the session, like Stories & Songs, don't count), whose class hasn't ended (`session.endDate`), and whose payments staff haven't stopped. Checkout uses the same count for the family's other enrollments; children in the same order still count together, as before. Each child in each class counts once; two children in one order count as two. Not free trials, waitlists, camps, workshops, parties, Parents' Night Out or Ovation.
 - A season **paid in full counts**, but isn't changed: no refunds, and its 10% pay-in-full discount still doesn't combine with the 15%.
-- **When the family drops below two** (a class ends, or staff stop a child's payments), the remaining payments of their other classes go back to the regular price. Paid months never change.
+- **When the family drops below two** (a class ends, or staff stop a child's payments), the remaining payments of their other classes go back to the regular price. Paid months never change. The family is **emailed** the new amounts ("Your family discount has ended", `emailFamilyDiscountEnded`), logged as `family_discount.ended_email`.
 
 **How it's applied.**
 - Each payment keeps its regular price (`regularAmountCents`, migration `0007`), fixed at checkout from the order's locked-in schedule, so a later price change in the editor never changes an existing enrollment.

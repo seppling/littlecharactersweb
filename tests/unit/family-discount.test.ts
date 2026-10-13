@@ -55,6 +55,8 @@ async function family(tag: string) {
 /** [month, charged, status] for one order's payments. */
 const months = async (householdId: string, orderId: string) =>
   (await listInstallments(householdId)).filter((i) => i.orderId === orderId).map((i) => [i.dueDate.slice(5, 7), i.amountCents, i.status]);
+const mail = async (to: string) => (await getDb()).select().from(schema.devEmail).where(eq(schema.devEmail.to, to));
+const ENDED = 'Your family discount has ended · Little Characters';
 const auditRows = async (action: string, entityId: string) => (await getDb()).select().from(schema.auditLog).where(and(eq(schema.auditLog.action, action), eq(schema.auditLog.entityId, entityId)));
 
 beforeAll(async () => {
@@ -109,6 +111,7 @@ describe('a second child enrolling', () => {
     const [oct] = await listInstallments(F.h.id);
     expect(oct).toMatchObject({ regularAmountCents: 9500, baseAmountCents: 8075, adjustments: [] });
     expect(await auditRows('family_discount.refresh', F.h.id)).toMatchObject([{ userId: F.u.id }]);
+    expect((await mail('adams@example.com')).filter((m) => m.subject === ENDED)).toEqual([]); // only when it ends
   });
 
   it('lowers them when the second continues after the free class and pays for the season', async () => {
@@ -188,6 +191,20 @@ describe('which payments change', () => {
     expect(await months(F.h.id, ava.id)).toEqual([['10', 9500, 'scheduled'], ['11', 9500, 'scheduled'], ['12', 9500, 'scheduled']]);
   });
 
+  it('only counts classes priced by the month: not a drop-in night or a class priced by the session', async () => {
+    const F = await family('kemp');
+    const ava = await F.enroll(['Ava'], INTRO, 'monthly');
+    const db = await getDb();
+    const ben = await createStudent(F.h.id, { firstName: 'Ben', lastName: 'kemp', birthdate: '2018-01-01' }, F.u.id);
+    await db.insert(schema.enrollment).values([
+      // Geode Adult Improv: a $25 night; Stories & Songs: $160 for 8 weeks. Both are weekly classes in the catalog.
+      { householdId: F.h.id, studentId: ben.id, sessionId: 'adult-improv-2026-11', programSlug: 'geode-adult-improv', status: 'active' },
+      { householdId: F.h.id, studentId: ben.id, sessionId: 'stories-songs-f26', programSlug: 'stories-and-songs', status: 'active' },
+    ]);
+    expect(await refreshFamilyDiscountNow(F.h.id, null)).toMatchObject({ count: 1, qualifies: false, changes: [] });
+    expect(await months(F.h.id, ava.id)).toEqual([['10', 9500, 'scheduled'], ['11', 9500, 'scheduled'], ['12', 9500, 'scheduled']]);
+  });
+
   it('keeps two children in one order as before: 15% at checkout, nothing more', async () => {
     const F = await family('gray');
     const both = await F.enroll(['Ava', 'Ben'], INTRO, 'monthly');
@@ -215,6 +232,11 @@ describe('dropping back to one', () => {
     expect(await months(F.h.id, ava.id)).toEqual([['10', 8075, 'paid'], ['11', 9500, 'scheduled'], ['12', 9500, 'scheduled']]);
     expect(await months(F.h.id, ben.id)).toEqual([['10', 8075, 'paid'], ['11', 8075, 'cancelled'], ['12', 8075, 'cancelled']]);
     expect(await auditRows('family_discount.refresh', F.h.id)).toMatchObject([{ userId: F.u.id }, { userId: hannah.id }]);
+    // The family is told before they're charged.
+    const [ended] = (await mail('hale@example.com')).filter((m) => m.subject === ENDED);
+    expect(ended.text).toContain('Ava, Intro to Theater: $95 on Nov 1 and Dec 1 (was $80.75).');
+    expect(ended.text).toContain('Payments you’ve already made don’t change.');
+    expect(await auditRows('family_discount.ended_email', F.h.id)).toHaveLength(1);
     // The next billing run doesn't bring it back.
     const f = fakeCharger();
     await runBilling({ charge: f.charge, today: '2026-11-01' });
@@ -232,6 +254,9 @@ describe('dropping back to one', () => {
       ['10', 9775, 'paid'], ['11', 9775, 'paid'], ['12', 9775, 'paid'],
       ['01', 11500, 'paid'], ['02', 11500, 'scheduled'], ['03', 11500, 'scheduled'],
     ]);
+    const ended = (await mail('ito@example.com')).filter((m) => m.subject === ENDED);
+    expect(ended).toHaveLength(1);
+    expect(ended[0].text).toContain('Ava, LC/Geode Performance Troupe: $115 on Jan 1, Feb 1 and Mar 1 (was $97.75).');
   });
 });
 
@@ -250,7 +275,8 @@ describe('with a staff discount', () => {
 
     const f = fakeCharger();
     await runBilling({ charge: f.charge, today: '2026-10-01' });
-    expect(f.calls.filter((c) => c.customerId === 'cus_jones').map((c) => [c.amountCents, c.description])).toEqual([
+    // Both are due Oct 1; the run doesn't promise an order between them.
+    expect(f.calls.filter((c) => c.customerId === 'cus_jones').map((c) => [c.amountCents, c.description]).sort((x, y) => Number(x[0]) - Number(y[0]))).toEqual([
       [7267, 'October tuition: Ava, Intro to Theater (Family discount (15%): −$14.25, Scholarship: −$8.08)'],
       [8075, 'October tuition: Ben, Yes, And… Improv (Family discount (15%): −$14.25)'],
     ]);
