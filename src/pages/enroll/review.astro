@@ -5,6 +5,8 @@ import EnrollShell from '@/components/portal/EnrollShell.astro';
 import { confirmOrder, getOrder, householdForUser, priceOrder } from '@/server/family';
 import { formatCents, type Plan } from '@/lib/pricing';
 
+import { bookingClock, bookingProblem } from '@/lib/session-dates';
+
 export const prerender = false;
 
 const user = Astro.locals.user;
@@ -15,6 +17,11 @@ const o = household ? await getOrder(household.id, orderId) : null;
 if (!household || !o) return Astro.redirect('/account');
 if (o.status === 'paid') return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
 if (!o.policyAcceptedAt) return Astro.redirect(`/enroll/details?order=${o.id}`);
+const found = Astro.locals.content.findSession(o.sessionId);
+if (!found) return Astro.redirect('/account');
+// The date closed since this order was started: the first step explains, with a link back to the class.
+const closed = () => bookingProblem(found.program, found.session, bookingClock(Astro.locals.content.site.lateJoinWeeks));
+if (closed()) return Astro.redirect(`/enroll/${o.sessionId}`, 303);
 
 let error = '';
 if (Astro.request.method === 'POST') {

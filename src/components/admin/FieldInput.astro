@@ -21,9 +21,11 @@ interface Props {
   depth?: number;
   /** Fields that can't change any more (a published item's web address). */
   locked?: string[];
+  /** A badge beside a list item's title, by the item's path ("sessions.2"): why a class date is off the site. */
+  itemBadges?: Record<string, { label: string; kind: string }>;
 }
 
-const { field: f, path, value, errors, refs, uploads, depth = 0, locked = [] } = Astro.props;
+const { field: f, path, value, errors, refs, uploads, depth = 0, locked = [], itemBadges = {} } = Astro.props;
 const isLocked = locked.includes(path);
 const id = `f-${path.replace(/[^\w-]+/g, '-')}`;
 const error = errors[path];
@@ -68,7 +70,7 @@ const [fx, fy] = (image?.position ?? '50% 50%').split(' ');
       {f.help && <p class="cf__help">{f.help}</p>}
       <div class="cf-grid">
         {f.fields.map((sub) => (
-          <Self field={sub} path={join(path, sub.key)} value={(value as Data | undefined)?.[sub.key]} errors={errors} refs={refs} uploads={uploads} depth={depth} locked={locked} />
+          <Self field={sub} path={join(path, sub.key)} value={(value as Data | undefined)?.[sub.key]} errors={errors} refs={refs} uploads={uploads} depth={depth} locked={locked} itemBadges={itemBadges} />
         ))}
       </div>
     </fieldset>
@@ -90,6 +92,7 @@ const [fx, fy] = (image?.position ?? '50% 50%').split(' ');
                 <span class="cf-item__title" data-item-title>
                   {itemTitle(item, f.titleKeys, `${f.itemLabel[0].toUpperCase()}${f.itemLabel.slice(1)} ${i + 1}`)}
                 </span>
+                {itemBadges[itemPath] && <span class={`badge badge--${itemBadges[itemPath].kind}`}>{itemBadges[itemPath].label}</span>}
                 <span class="cf-item__tools">
                   <button type="button" data-move="up" aria-label={`Move this ${f.itemLabel} up`} title="Move up">
                     ↑
@@ -108,7 +111,7 @@ const [fx, fy] = (image?.position ?? '50% 50%').split(' ');
               <input type="hidden" name={`${path}[]`} value={String(i)} />
               <div class="cf-grid">
                 {f.fields.map((sub) => (
-                  <Self field={sub} path={join(itemPath, sub.key)} value={item?.[sub.key]} errors={errors} refs={refs} uploads={uploads} depth={depth + 1} />
+                  <Self field={sub} path={join(itemPath, sub.key)} value={item?.[sub.key]} errors={errors} refs={refs} uploads={uploads} depth={depth + 1} itemBadges={itemBadges} />
                 ))}
               </div>
             </details>

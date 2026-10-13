@@ -12,6 +12,7 @@ import { deleteEntry, discardDraft, getContent, getEntry, publish, referencesTo,
 import { pages as seedPages } from '@/content/seed/pages';
 import { BASE, PREVIEW_COOKIE, editTarget, labelOf, refOptions, when } from '@/lib/editor';
 import type { Program } from '@/content/types';
+import { bookingClock, sessionState, stateLabels } from '@/lib/session-dates';
 
 export const prerender = false;
 
@@ -104,6 +105,17 @@ const locked = idField && entry?.published != null ? [idField] : [];
 // For classes: which sessions have sign-ups (they can be closed, not removed).
 const signups = kind === 'programs' && entry ? await signupCounts(((workingCopy(entry) as unknown as Program).sessions ?? []).map((s) => s.id)) : new Map<string, number>();
 const signedUp = kind === 'programs' ? ((values as unknown as Program).sessions ?? []).filter((s) => s.id && (signups.get(s.id) ?? 0) > 0) : [];
+// For classes: dates that are off the site because of their dates, so Hannah can see why.
+const clock = bookingClock(content.site.lateJoinWeeks);
+const dateBadges: Record<string, { label: string; kind: string }> = {};
+if (kind === 'programs') {
+  const p = values as unknown as Program;
+  (p.sessions ?? []).forEach((s, i) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s.startDate ?? '') || !/^\d{4}-\d{2}-\d{2}$/.test(s.endDate ?? '')) return;
+    const state = sessionState(p, s, clock);
+    if (state !== 'open') dateBadges[`sessions.${i}`] = { label: stateLabels[state], kind: state };
+  });
+}
 const usedBy = entry && isCollectionKey(kind) && kind !== 'programs' ? await referencesTo(kind, id) : [];
 const statusLabel = { live: 'On the site', changed: 'Unpublished changes', new: 'Not published yet' }[status];
 ---
@@ -161,7 +173,7 @@ const statusLabel = { live: 'On the site', changed: 'Unpublished changes', new: 
       <div class="editor">
         <div class="editor__fields">
           <div class="cf-grid">
-            {target.fields.map((f) => <FieldInput field={f} path={f.key} value={values?.[f.key]} errors={errors} refs={refs} uploads={content.uploads} locked={locked} />)}
+            {target.fields.map((f) => <FieldInput field={f} path={f.key} value={values?.[f.key]} errors={errors} refs={refs} uploads={content.uploads} locked={locked} itemBadges={dateBadges} />)}
           </div>
         </div>
 

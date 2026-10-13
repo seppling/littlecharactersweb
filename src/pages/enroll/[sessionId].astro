@@ -5,6 +5,7 @@ import { z } from 'zod';
 import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
 import SignInPanel from '@/components/portal/SignInPanel.astro';
+import SignupsClosed from '@/components/portal/SignupsClosed.astro';
 import { getDb, schema } from '@/server/db';
 import {
   ageOn,
@@ -21,20 +22,25 @@ import {
   takenSpots,
 } from '@/server/family';
 import { ageLabel } from '@/lib/format';
+import { bookingClock, bookingProblem } from '@/lib/session-dates';
 
 export const prerender = false;
 
 const { sessionId } = Astro.params;
 const found = Astro.locals.content.findSession(sessionId ?? '');
-if (!found || found.session.status === 'closed') return new Response('Not found', { status: 404 });
+if (!found) return new Response('Not found', { status: 404 });
 const { program, session } = found;
-if (session.externalUrl && !session.externalUrl.includes('docs.google.com')) return Astro.redirect(session.externalUrl);
+// A date that has passed, is past its sign-up cut-off or was closed by staff is
+// refused with a page that leads back to the class (the server refuses it too).
+const closedProblem = bookingProblem(program, session, bookingClock(Astro.locals.content.site.lateJoinWeeks));
+if (closedProblem) Astro.response.status = 410;
+if (!closedProblem && session.externalUrl && !session.externalUrl.includes('docs.google.com')) return Astro.redirect(session.externalUrl);
 
 const user = Astro.locals.user;
 const errors: Record<string, string> = {};
 let values: Record<string, string> = {};
 
-if (user && Astro.request.method === 'POST') {
+if (!closedProblem && user && Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const action = form.get('action');
   values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
@@ -110,7 +116,9 @@ const comingSoon = session.status === 'coming-soon';
 <Base title={`Enroll: ${program.title}`} noindex>
   <EnrollShell step={1} program={program} session={session}>
     {
-      comingSoon ? (
+      closedProblem ? (
+        <SignupsClosed program={program} problem={closedProblem} />
+      ) : comingSoon ? (
         <div class="stack">
           <h1>Registration opens soon</h1>
           <p class="lede">We haven’t opened registration for this date yet.</p>

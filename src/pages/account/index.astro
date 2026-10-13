@@ -9,6 +9,7 @@ import { getDb, schema } from '@/server/db';
 import { ageOn, createStudent, detailsFresh, ensureHousehold, listEnrollments, listOrders, listStudents, studentInput } from '@/server/family';
 import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
+import { bookingClock, canBook, sessionState } from '@/lib/session-dates';
 import { failureReason, listInstallments, totalDue } from '@/server/billing';
 import { adjustmentLine, type AppliedAdjustment } from '@/lib/adjustments';
 
@@ -65,15 +66,19 @@ const receipts: { date: Date; label: string; amountCents: number; adjustments?: 
     .map((i) => ({ date: i.paidAt!, label: `${i.label}${i.lateFeeCents ? ' + late fee' : ''}`, amountCents: totalDue(i), adjustments: i.adjustments })),
 ].sort((a, b) => b.date.getTime() - a.date.getTime());
 const today = todayInAthens();
+const clock = bookingClock(Astro.locals.content.site.lateJoinWeeks);
 
 const upcoming = enrollments
   .map(({ enrollment, student }) => {
     const found = Astro.locals.content.findSession(enrollment.sessionId);
     if (!found) return null;
     const next = meetings(found.session).find((m) => m >= today);
-    return { enrollment, student, ...found, next };
+    // After a free class, continuing is a new sign-up: only while the class still takes new students.
+    const canContinue = enrollment.status === 'trial' && canBook(found.program, found.session, clock);
+    return { enrollment, student, ...found, next, canContinue };
   })
-  .filter((x): x is NonNullable<typeof x> => !!x && (!!x.next || x.enrollment.status === 'waitlist'))
+  // A waitlist place shows until the class has ended.
+  .filter((x): x is NonNullable<typeof x> => !!x && (!!x.next || (x.enrollment.status === 'waitlist' && sessionState(x.program, x.session, clock) !== 'ended')))
   .sort((a, b) => (a.next ?? '9999').localeCompare(b.next ?? '9999'));
 
 const statusLabel = { active: 'Enrolled', trial: 'Free trial class', waitlist: 'Waitlist', cancelled: 'Cancelled' } as const;
@@ -139,7 +144,10 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                       <div class="classes__side">
                         <span class:list={['badge', `badge--${u.enrollment.status}`]}>{statusLabel[u.enrollment.status]}</span>
                         {u.next && <span class="classes__next">Next: {fmtDate(u.next)}</span>}
-                        {u.enrollment.status === 'trial' && <a href={`/enroll/${u.session.id}`}>Continue after the trial</a>}
+                        {u.canContinue && <a href={`/enroll/${u.session.id}`}>Continue after the trial</a>}
+                        {u.enrollment.status === 'trial' && !u.canContinue && (
+                          <span>Sign-ups for this season have closed. <a href={`/contact?topic=class&class=${encodeURIComponent(u.program.title)}`}>Ask us</a></span>
+                        )}
                         {u.enrollment.status !== 'waitlist' && <a href={`/calendar/${u.session.id}.ics`} download>Add to calendar</a>}
                       </div>
                     </li>

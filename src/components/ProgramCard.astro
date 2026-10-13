@@ -8,8 +8,9 @@ import type { Program } from '@/content/types';
 import PhotoFrame from './PhotoFrame.astro';
 import { kindLabels } from '@/content/catalog';
 import { ageLabel, dayList, price, spotsLabel, timeRange } from '@/lib/format';
+import { bookingClock, canBook, offeredSessions } from '@/lib/session-dates';
 
-const { locationById } = Astro.locals.content;
+const { locationById, site } = Astro.locals.content;
 
 interface Props {
   program: Program;
@@ -17,7 +18,10 @@ interface Props {
 }
 
 const { program, headingLevel: H = 'h3' } = Astro.props;
-const next = program.sessions.find((s) => s.status !== 'closed');
+// The next date families can sign up for; failing that, one that's coming soon.
+const clock = bookingClock(site.lateJoinWeeks);
+const offered = offeredSessions(program, clock);
+const next = offered.find((s) => canBook(program, s, clock)) ?? offered[0];
 const loc = next ? locationById(next.locationId) : undefined;
 const fromPrice = program.priceFrom ?? next?.price;
 ---
@@ -37,7 +41,7 @@ const fromPrice = program.priceFrom ?? next?.price;
               <dt class="sr-only">When</dt>
               <dd class="script">
                 {next.label ?? dayList(next.days)} · {timeRange(next.start, next.end)}
-                {program.sessions.length > 1 && <span class="more"> +{program.sessions.length - 1} more</span>}
+                {offered.length > 1 && <span class="more"> +{offered.length - 1} more</span>}
               </dd>
             </div>
           )
