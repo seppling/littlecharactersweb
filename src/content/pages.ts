@@ -73,7 +73,7 @@ const hero = (extra: Field[] = [], headlineHelp?: string): Field => ({
 export const site: PageDef = {
   key: 'site',
   label: 'Site settings & announcement',
-  intro: 'The announcement bar, contact details, social links, parking directions and when class sign-ups close, used across the whole site.',
+  intro: 'The announcement bar, contact details, social links, giving, parking directions and when class sign-ups close, used across the whole site.',
   url: '/',
   fields: [
     {
@@ -128,8 +128,35 @@ export const site: PageDef = {
       label: 'Giving',
       type: 'group',
       fields: [
-        { key: 'giving', label: 'Donation link', type: 'url', help: 'Where the “Give now” buttons go.' },
+        {
+          key: 'giving',
+          label: 'Donation link',
+          type: 'url',
+          help: 'Where the “Give now” button on the Give page goes: your donation form (for example on PayPal, Givebutter or Zeffy). Leave it empty and the button reads “Email us to give” and opens an email to the address above.',
+        },
+        {
+          key: 'taxNote',
+          label: 'Tax note',
+          type: 'textarea',
+          rows: 2,
+          max: 300,
+          help: 'Optional. A line under the button on the Give page, for example whether gifts are tax-deductible and the EIN. Leave it empty and nothing is shown.',
+        },
         { key: 'wishList', label: 'Wish list', type: 'url' },
+      ],
+    },
+    {
+      key: 'studioDirector',
+      label: 'Moving from Studio Director',
+      type: 'group',
+      help: 'Families imported from Studio Director see a welcome note in their account until they enroll here.',
+      fields: [
+        {
+          key: 'billingEnds',
+          label: 'Studio Director billing ends on',
+          type: 'date',
+          help: 'Optional. Added to the welcome note (“…until the term ends on December 18”). Leave it empty and the note leaves the date out.',
+        },
       ],
     },
     {
@@ -796,7 +823,7 @@ export const geode: PageDef = {
 export const give: PageDef = {
   key: 'give',
   label: 'Give page',
-  intro: 'The scholarship fund and other ways to help. The “Give now” button goes to the donation link in Site settings.',
+  intro: 'The scholarship fund and other ways to help. The “Give now” button goes to the donation link in Site settings → Giving; with no link it reads “Email us to give”. The tax note under it is set there too.',
   url: '/give',
   fields: [
     hero([

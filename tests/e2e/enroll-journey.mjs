@@ -5,7 +5,8 @@
  * Then Hannah signs in, sees the roster, and gives the family a discount,
  * which the family then sees on their next payment.
  *
- * Then a family imported from Studio Director claims their account.
+ * Then a family imported from Studio Director claims their account, finds a
+ * welcome note in place of empty panels, and confirms a child's care details.
  *
  *   npm run build && tests/e2e/serve.sh      # fresh local database + sample import
  *   node tests/e2e/enroll-journey.mjs [baseUrl] [screenshotDir]
@@ -149,7 +150,7 @@ step('Dashboard lists the class; static home page greets "Hi, Sam"');
 const now = new Date();
 const firstOfNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString().slice(0, 10);
 await page.goto(`${BASE}/account`);
-const upcoming = await page.locator('[data-autopay] tbody tr').count();
+const upcoming = await page.locator('[data-autopay-item]').count();
 if (upcoming < 1) throw new Error('Expected upcoming autopay charges');
 const run = await page.request.post(`${BASE}/api/billing/run?today=${firstOfNext}`, { headers: { authorization: 'Bearer e2e-cron-secret' }, data: {} });
 const report = await run.json();
@@ -158,9 +159,36 @@ const denied = await page.request.post(`${BASE}/api/billing/run`, { headers: { a
 if (denied.status() !== 401) throw new Error('Billing run should require the secret');
 await page.reload();
 await page.waitForSelector('[data-receipts] >> text=/tuition: Maya/');
-if ((await page.locator('[data-autopay] tbody tr').count()) !== upcoming - 1) throw new Error('Charged month should leave the upcoming list');
+if ((await page.locator('[data-autopay-item]').count()) !== upcoming - 1) throw new Error('Charged month should leave the upcoming list');
 await shot('6b-autopay');
 step(`Autopay: ${upcoming} monthly charges scheduled; the ${firstOfNext} run charges one and a receipt appears`);
+
+// 7c. The Payments section: the card on file, the receipts name the child, a statement on request
+if ((await page.locator('[data-card-label]').textContent()) !== 'Test card') throw new Error('The test stand-in’s card should show as “Test card”');
+await page.waitForSelector('[data-card] >> text=Please don’t send card numbers by email');
+await page.waitForSelector('[data-receipts] >> text=/Maya: Intro to Theater \\(first month \\+ fees\\)/');
+const statement = await page.locator('[data-statement] a').getAttribute('href');
+if (!statement?.startsWith('mailto:')) throw new Error('The statement line should be an email link');
+const plainEmails = await page.evaluate(() => {
+  const main = document.querySelector('main') ?? document.body;
+  const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT);
+  const out = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (/littlecharacterstheater@gmail\.com/.test(n.textContent ?? '') && !n.parentElement?.closest('a[href^="mailto:"]')) out.push(n.textContent);
+  }
+  return out;
+});
+if (plainEmails.length) throw new Error(`Email addresses on the account page should be links: ${plainEmails}`);
+step('Payments: “Test card” on file, receipts name Maya, statements by email, every email address a link');
+
+// 7d. "Add to calendar" from the account: Maya's own classes, from her first class, with a reminder
+const ics = await (await page.request.get(new URL((await page.locator('[data-calendar-link]').first().getAttribute('href')) ?? '', BASE).href)).text();
+const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }).replace(/-/g, '');
+const start = ics.match(/DTSTART;TZID=America\/New_York:(\d{8})/)?.[1] ?? '';
+if (!ics.includes('SUMMARY:Maya: Intro to Theater') || !ics.includes('TRIGGER:-PT60M') || start < today) throw new Error(`Account calendar file should start at Maya’s first class (${start}) with a reminder`);
+const publicIcs = await (await page.request.get(`${BASE}/calendar/intro-f26-tue.ics`)).text();
+if (!publicIcs.includes('DTSTART;TZID=America/New_York:20260818') || publicIcs.includes('VALARM')) throw new Error('The public calendar file should stay as it was');
+step(`Calendar from the account starts at Maya’s first class (${start}), names her, and reminds an hour before`);
 
 // 8. Returning family: straight to "Who's coming?" with Maya remembered
 await page.goto(`${BASE}/enroll/yesand-f26-wed`);
@@ -229,8 +257,36 @@ await signIn('ana.okafor@example.com');
 await page.waitForSelector('text=Zara Okafor');
 await page.waitForSelector('text=Theo Okafor');
 if (await page.locator('#p-name').count()) throw new Error('Imported parent should not be asked for their name again');
+await page.waitForSelector('[data-welcome] >> text=Welcome from Studio Director!');
+await page.waitForSelector('[data-welcome] >> text=Your fall classes and payments stay in Studio Director until the term ends. Spring sign-up happens here.');
+for (const empty of ['No classes yet', 'No payments yet']) {
+  if (await page.locator(`text=${empty}`).count()) throw new Error(`An imported family shouldn’t see “${empty}”`);
+}
+if (await page.locator('.dash__actions a:has-text("Find a class")').count()) throw new Error('No big “Find a class” button before an imported family has anything here');
 await shot('8-imported-family');
-step('Imported Studio Director family signs in and finds their students waiting');
+await phoneCheck('8-imported-family');
+step('Imported Studio Director family signs in and finds a welcome note and their students waiting');
+
+// 12b. "Confirm care details" opens Zara's page; "Looks right" records it and changes nothing else
+await Promise.all([page.waitForURL(/\/account\/students\//), page.locator('.kids li', { hasText: 'Zara Okafor' }).locator('[data-care-link]').click()]);
+const allergiesBefore = await page.inputValue('#a');
+await Promise.all([page.waitForURL(/\/account\?saved=/), page.click('[data-confirm] button:has-text("Looks right")')]);
+await page.waitForSelector('[data-saved] >> text=Saved. Zara’s details are up to date.');
+await page.waitForSelector('.kids li:has-text("Zara Okafor") >> text=Care details on file');
+await shot('8b-saved');
+await phoneCheck('8b-saved');
+await page.click('.kids li:has-text("Zara Okafor") a:has-text("Edit")');
+if ((await page.inputValue('#a')) !== allergiesBefore) throw new Error('“Looks right” should not change the details');
+if (await page.locator('[data-confirm]').count()) throw new Error('Once confirmed, the page shouldn’t ask again');
+step('“Confirm care details” → “Looks right”: confirmed, “Saved. Zara’s details are up to date.”, details unchanged');
+
+// 12c. Signed out, the sign-in page helps families moving from Studio Director
+const fresh = await browser.newContext();
+const freshPage = await fresh.newPage();
+await freshPage.goto(`${BASE}/account`);
+await freshPage.waitForSelector('[data-moving-note] >> text=Moving from Studio Director? Use the email address you used there, or ask us.');
+await fresh.close();
+step('Sign-in page: “Moving from Studio Director? Use the email address you used there, or ask us.”');
 
 // 13. A family can't give themselves a discount, even by posting the staff form
 const sneaky = await page.request.post(`${BASE}/admin/billing/${orderId}`, {
@@ -246,8 +302,17 @@ await page.goto(`${BASE}/account`);
 await signIn(email);
 await page.waitForSelector('[data-autopay] >> text=Scholarship: −$40');
 await page.waitForSelector('[data-autopay] >> text=$55');
+const day = await page.locator('[data-autopay-day]').first().textContent();
+if (!/^[A-Z][a-z]{2} \d{1,2}: \$55 · Maya \$55$/.test(day?.trim() ?? '')) throw new Error(`Upcoming autopay should be grouped by date with a total: “${day}”`);
 await shot('9-family-discount');
 await phoneCheck('9-family-discount');
+if (SHOTS) {
+  await page.locator('[data-payments]').screenshot({ path: `${SHOTS}/9b-payments.png` });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('[data-payments]').screenshot({ path: `${SHOTS}/9b-payments-390.png` });
+  await page.setViewportSize({ width: 1280, height: 900 });
+}
+step(`Upcoming autopay is grouped by date with a total: “${day?.trim()}”`);
 step('The family sees “Scholarship: −$40” and $55 on their next payment');
 
 await browser.close();

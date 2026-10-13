@@ -29,7 +29,7 @@ Deleted something by mistake? At the bottom of each list is **Recently deleted**
 
 | In the editor | What it changes |
 |---|---|
-| **Announcement & site settings** | The announcement bar across the top of every page, the email and phone number, social links, the donation and wish list links, and the parking directions with their two maps (walk-in and drop-off, shown on the contact page; tap a map there to see it full size). **Class sign-ups** holds the late-joining cut-off for weekly classes (4 weeks by default). Also the "Design preview" note, which should be turned off at launch. |
+| **Announcement & site settings** | The announcement bar across the top of every page, the email and phone number, social links, the Giving settings (the donation link behind "Give now", which reads "Email us to give" while it's empty, an optional tax note shown under it, and the wish list link), the last day of Studio Director billing for imported families' welcome note, and the parking directions with their two maps (walk-in and drop-off, shown on the contact page; tap a map there to see it full size). **Class sign-ups** holds the late-joining cut-off for weekly classes (4 weeks by default). Also the "Design preview" note, which should be turned off at launch. |
 | **Classes & camps** | Every class, camp, workshop, lesson and party: descriptions, ages, prices, photos, and the sessions families enroll in. |
 | **Shows & events** | Performances, Parents' Night Out, free classes and improv nights. Past events drop off the site on their own. |
 | **FAQs, Team, Testimonials, Locations** | The lists those pages are built from. |

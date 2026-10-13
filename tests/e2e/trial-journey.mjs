@@ -300,7 +300,7 @@ step(`Ben pays for the season: ${money(seasonTuition)} less 15% (Ava is in the c
 await page.goto(`${BASE}/account`);
 for (const k of ['Ava', 'Ben']) await page.locator('.classes li', { hasText: k }).locator('text=Enrolled').waitFor();
 if (await page.locator('a:has-text("Continue after the trial")').count()) fail('No “continue” link once both are enrolled');
-const autopayRows = await page.locator('[data-autopay] tbody tr').allTextContents();
+const autopayRows = await page.locator('[data-autopay-item]').allTextContents();
 // Before the family discount covered the whole family these stayed at $95; now Ben counts, so they're $80.75.
 if (autopayRows.length !== laterMonths.length || !autopayRows.every((r) => r.includes('Ava') && r.includes(`Family discount (15%): −${money(TUITION - FAMILY_MONTH)}`) && r.endsWith(money(FAMILY_MONTH)))) fail(`Upcoming autopay should be Ava's ${laterMonths.length} months at ${money(FAMILY_MONTH)}, with the family discount: ${autopayRows}`);
 if (laterMonths.length) await page.waitForSelector('[data-family-note] >> text=15% off for multiple students or classes');

@@ -90,6 +90,14 @@ export const household = pgTable('household', {
   stripeCustomerId: text('stripe_customer_id'),
   /** The card saved at checkout, charged automatically for monthly tuition. */
   stripePaymentMethodId: text('stripe_payment_method_id'),
+  /**
+   * What the family sees of that card ("Visa ending 4242, expires 4/2030"),
+   * copied from Stripe when the card is saved. Never the card number.
+   */
+  cardBrand: text('card_brand'),
+  cardLast4: text('card_last4'),
+  cardExpMonth: integer('card_exp_month'),
+  cardExpYear: integer('card_exp_year'),
   /** Where the family came from: signed up on the site, or imported from Studio Director. */
   source: text('source').notNull().default('portal'),
   createdAt: created(),

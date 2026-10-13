@@ -62,6 +62,23 @@ export async function ensureHousehold(user: SessionUser) {
   return h;
 }
 
+/** What the account page shows about the household itself: where it came from and the saved card. */
+export async function householdAccount(householdId: string) {
+  const db = await getDb();
+  const [h] = await db
+    .select({
+      source: household.source,
+      stripePaymentMethodId: household.stripePaymentMethodId,
+      cardBrand: household.cardBrand,
+      cardLast4: household.cardLast4,
+      cardExpMonth: household.cardExpMonth,
+      cardExpYear: household.cardExpYear,
+    })
+    .from(household)
+    .where(eq(household.id, householdId));
+  return h ?? null;
+}
+
 // ───────────── Students ─────────────
 
 export const studentInput = z.object({
@@ -116,6 +133,18 @@ export async function updateStudentDetails(householdId: string, studentId: strin
     .returning();
   if (s) await audit(userId, 'student.update', 'student', s.id);
   return s ?? null;
+}
+
+/** "Looks right": the guardian checked the details and nothing changed. Records when, and nothing else. */
+export async function confirmStudentDetails(householdId: string, studentId: string, userId: string) {
+  const db = await getDb();
+  const [s] = await db
+    .update(student)
+    .set({ detailsConfirmedAt: new Date() })
+    .where(and(eq(student.id, studentId), eq(student.householdId, householdId)))
+    .returning({ id: student.id });
+  if (s) await audit(userId, 'student.confirm', 'student', s.id);
+  return !!s;
 }
 
 export function readStudentNotes(s: typeof student.$inferSelect) {
@@ -193,6 +222,17 @@ export async function listEnrollments(householdId: string) {
     .innerJoin(student, eq(student.id, enrollment.studentId))
     .where(and(eq(enrollment.householdId, householdId), ne(enrollment.status, 'cancelled')))
     .orderBy(enrollment.createdAt);
+}
+
+/** One of this family's enrollments, with the student. */
+export async function getEnrollment(householdId: string, enrollmentId: string) {
+  const db = await getDb();
+  const [row] = await db
+    .select({ enrollment, student })
+    .from(enrollment)
+    .innerJoin(student, eq(student.id, enrollment.studentId))
+    .where(and(eq(enrollment.id, enrollmentId), eq(enrollment.householdId, householdId)));
+  return row ?? null;
 }
 
 export async function takenSpots(sessionId: string) {

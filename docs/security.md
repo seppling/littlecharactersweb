@@ -13,7 +13,7 @@ We hold parents' contact details, children's names and birthdays, and sometimes 
 | Allergies, medical notes | Safety in class | **Encrypted per field** (AES-256-GCM); decrypted only for your family and on staff rosters; every roster view logged |
 | Pickup notes, photo consent | Safety, marketing permission | Household-scoped |
 | Orders and enrollments | What you signed up and paid for | Household-scoped |
-| Card numbers | **Not stored.** Stripe holds them; we keep only Stripe's customer ID | PCI scope stays at the lightest level (SAQ A) |
+| Card numbers | **Not stored.** Stripe holds them; we keep only Stripe's customer and card IDs, and the card's brand, last four digits and expiry month and year (shown to the family as "Visa ending 4242, expires 4/2030") | PCI scope stays at the lightest level (SAQ A). Without the full card number, brand, last four and expiry can't be used to pay; they're copied from Stripe's own response, never typed into our forms |
 | Passwords | **None exist.** Sign-in is a 6-digit code emailed to you | Nothing to leak or reuse |
 
 Data minimization rules we follow:
@@ -44,6 +44,7 @@ CSRF: Astro's `checkOrigin` rejects cross-site form posts, and cookies are `Same
 - Stripe's form shows its own save-card notice.
 - Every autopay charge is followed by an emailed receipt.
 - Families can stop future charges by withdrawing.
+- The family account shows which card is on file (brand, last four, expiry). To switch cards, families email us, and are told not to send card numbers by email.
 
 The daily billing endpoint only runs with the `CRON_SECRET` bearer token (compared in constant time), and it can't choose the date or the amount.
 

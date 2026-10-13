@@ -202,7 +202,9 @@ export interface SiteSettings {
   announcement?: { show?: boolean; text?: string; link?: Link; gel?: Gel };
   contact: { email: string; phone: string; replyTime?: string };
   social: { instagram?: string; facebook?: string };
-  links: { giving?: string; wishList?: string };
+  links: { giving?: string; taxNote?: string; wishList?: string };
+  /** Families imported from Studio Director; see the welcome note on /account. */
+  studioDirector?: { billingEnds?: string };
   /** When class sign-ups close; see src/lib/session-dates.ts. */
   signups: { lateJoinWeeks: number };
   parking: { walkIn: string; dropOff: string; staffOnly: string; late: string; walkInMap?: ImageRef; dropOffMap?: ImageRef };

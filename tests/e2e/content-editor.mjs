@@ -3,7 +3,8 @@
  * End-to-end: Hannah edits the site. She signs in to /admin/content, changes a
  * class (the draft stays off the site until she publishes), previews it, adds
  * a new term's session by copying last term's, turns on the announcement bar,
- * uploads a photo, restores an older version, and brings back a deleted event.
+ * sets the Give page's donation link and tax note, uploads a photo, restores an
+ * older version, and brings back a deleted event.
  * A family can't see or use any of it.
  *
  *   npm run build && tests/e2e/serve.sh      # fresh local database
@@ -104,6 +105,38 @@ await page.fill('#f-announcement-link-href', '/programs');
 await submit('publish');
 check((await live('/about')).includes('Spring registration is open!'), 'announcement on every page');
 step('Announcement bar turned on');
+
+// 5b. The Give page's donation link and tax note, from site settings (Giving).
+const visitor = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+async function giveShots(name) {
+  await visitor.goto(`${BASE}/give`);
+  if (SHOTS) await visitor.screenshot({ path: `${SHOTS}/${name}.png` });
+  await visitor.setViewportSize({ width: 390, height: 844 });
+  await visitor.goto(`${BASE}/give`);
+  const wide = await visitor.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  if (SHOTS) await visitor.screenshot({ path: `${SHOTS}/${name}-390.png` });
+  await visitor.setViewportSize({ width: 1280, height: 900 });
+  check(wide <= 0, `${name}: no sideways scrolling at 390 px`);
+}
+await visitor.goto(`${BASE}/give`);
+const giveButton = visitor.locator('[data-give]');
+check((await giveButton.textContent()).includes('Email us to give'), 'with no donation link, the button reads “Email us to give”');
+check((await giveButton.getAttribute('href')).startsWith('mailto:littlecharacterstheater@gmail.com'), '…and emails the site address');
+check(!(await visitor.locator('[data-tax-note]').count()), 'no tax note until Hannah writes one');
+await giveShots('give-no-link');
+await page.goto(`${BASE}/admin/content/pages/site`);
+await page.fill('#f-links-giving', 'https://www.littlecharacters.org/giving-page');
+await submit('publish');
+check((await page.content()).includes('For a page on this site, use just its path'), 'the editor refuses a link to www.littlecharacters.org (it would loop)');
+await page.fill('#f-links-giving', 'https://example.org/donate');
+await page.fill('#f-links-taxNote', 'A sample tax note for this test.');
+await submit('publish');
+await visitor.goto(`${BASE}/give`);
+check((await giveButton.getAttribute('href')) === 'https://example.org/donate' && (await giveButton.textContent()).includes('Give now'), '“Give now” goes to the donation link');
+check((await visitor.locator('[data-tax-note]').textContent()) === 'A sample tax note for this test.', 'the tax note shows under the button');
+await giveShots('give-with-link');
+await visitor.context().close();
+step('Give page: “Email us to give” without a link; Hannah adds one and a tax note; a link to the old site is refused');
 
 // 6. Upload a photo, set its focus point, use it.
 const photo = path.join(tmpdir(), 'lc-upload-test.jpg');

@@ -18,6 +18,7 @@ Enrolling feels like part of the website, not a trip to another app. Families go
 | Payment | `/enroll/pay` | Stripe's card form embedded in the page. Apple Pay and Google Pay appear automatically. Cards are saved for monthly tuition. |
 | Confirmation | `/enroll/confirmation` | "You're in!", the first class date, time and place, **Add to calendar** (`.ics`), what to bring, and a confirmation email to every parent in the household (it says when this sign-up lowered another child's monthly payments). When the family signed up more than once today, or has other autopay, a **Your family** box adds up today's payments and the autopay total on the next 1st, read from the family's orders and payments (`familyTotals`). **Enroll another child or class** goes back to the finder. |
 | Account | `/account` | Coming up (next class per child), students and their care-details status, **upcoming autopay charges**, anything that needs paying, receipts, sign out. Signed in for 90 days, renewed on each visit. |
+| Family account | `/account` | Coming up (each class's "Can't make it?" opens the contact form for an absence, and **Add to calendar** gives that child's own file from their first class, with a reminder an hour before), the students and their care details, and Payments: the card on file, upcoming autopay by date with a total per date, receipts naming the child. |
 | Pay now | `/account/pay/<id>` | Linked from a "we couldn't charge your card" email: pay that month with any card, which also becomes the saved card. |
 | Staff | `/admin`, `/admin/<sessionId>` | For `ADMIN_EMAILS` only: counts per class, and rosters with ages, allergies, medical notes, pickup, photo consent and parent contacts. Every view is logged. |
 | Staff billing | `/admin/billing` | Failed charges that need a person, the next autopay date and total, **Paid by cash/check**, **Stop payments** when a family withdraws, and every family on monthly autopay. |
@@ -190,6 +191,11 @@ Optional later: passkeys ("Use Face ID next time") and a fresh code before staff
 5. **Run both systems for one term.** Current classes stay in Studio Director until they end; new enrollments go only to the new portal.
 
 Imported accounts are **unverified until claimed**: nobody can use one without a code sent to that email. Imported care notes are encrypted and marked "please confirm", so each family re-checks them on their next enrollment.
+
+**What an imported family sees** (`household.source = 'studio-director'`):
+- Until they have anything here (an enrollment, an order or a payment), the account shows "Welcome from Studio Director!" in place of the empty "Coming up" and "Payments" panels, and no "Find a class" button: their fall classes and payments are still in Studio Director. The note gives the last day of Studio Director billing when it's set in **Site settings → Moving from Studio Director** (empty by default).
+- Each child's "Confirm care details" opens the child's page, where **Looks right** records that the details were checked (`detailsConfirmedAt`) without changing them.
+- The sign-in page says: "Moving from Studio Director? Use the email address you used there, or ask us." A different email starts a new, empty family.
 
 ## Code map
 
