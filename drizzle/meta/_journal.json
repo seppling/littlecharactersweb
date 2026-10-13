@@ -43,6 +43,13 @@
       "when": 1790468430762,
       "tag": "0005_content",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791854803961,
+      "tag": "0006_staff_adjustments",
+      "breakpoints": true
     }
   ]
 }

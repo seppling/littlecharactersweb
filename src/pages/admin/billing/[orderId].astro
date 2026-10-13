@@ -1,0 +1,256 @@
+---
+/**
+ * Staff: one family's monthly payments for one class, and the discounts
+ * (adjustments) on them. Adding one is two steps: check what changes, then save.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { AdjustmentError, addAdjustment, lockedReason, orderBilling, previewAdjustment, removeAdjustment, type AdjustmentInput, type PaymentChange } from '@/server/adjustments';
+import { failureReason } from '@/server/billing';
+import { formatCents } from '@/lib/pricing';
+import { ADJUSTMENTS, adjustmentLine, describeAdjustment, familyLabel, parseAdjustmentValue, repeatLabel, type AdjustmentKind, type AdjustmentRepeat } from '@/lib/adjustments';
+
+export const prerender = false;
+const viewer = Astro.locals.user;
+const isAdmin = Astro.locals.isAdmin && !!viewer;
+if (!isAdmin && viewer) return new Response('Not found', { status: 404 });
+
+const orderId = Astro.params.orderId ?? '';
+const here = `/admin/billing/${orderId}`;
+let data = isAdmin ? await orderBilling(orderId) : null;
+if (isAdmin && !data) return new Response('Not found', { status: 404 });
+
+let error = '';
+let preview: { input: AdjustmentInput; changes: PaymentChange[] } | null = null;
+let values: Record<string, string> = {};
+const saved = Astro.url.searchParams.get('saved');
+
+if (isAdmin && viewer && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+  try {
+    if (values.action === 'remove') {
+      // Only an adjustment on this family's class, shown on this page.
+      if (!data!.adjustments.some((a) => a.id === values.id && !a.removedAt)) throw new AdjustmentError('That discount was already removed.');
+      await removeAdjustment(viewer, values.id);
+      return Astro.redirect(`${here}?saved=removed`, 303);
+    }
+    if (values.action === 'preview' || values.action === 'add') {
+      const kind = (values.kind === 'percent' ? 'percent' : 'amount') as AdjustmentKind;
+      const value = parseAdjustmentValue(kind, values.value ?? '');
+      if (value === null) throw new AdjustmentError(kind === 'percent' ? 'Enter a percentage from 1 to 100.' : 'Enter a dollar amount, like 40 or 12.50.');
+      const input: AdjustmentInput = {
+        orderId,
+        kind,
+        value,
+        repeat: (values.repeat === 'monthly' ? 'monthly' : 'once') as AdjustmentRepeat,
+        reason: values.reason ?? '',
+        showToFamily: values.showToFamily === 'on',
+      };
+      if (values.action === 'add') {
+        await addAdjustment(viewer, input);
+        return Astro.redirect(`${here}?saved=added`, 303);
+      }
+      preview = await previewAdjustment(viewer, input);
+    }
+  } catch (e) {
+    if (!(e instanceof AdjustmentError)) throw e;
+    error = e.message;
+  }
+  data = await orderBilling(orderId);
+}
+
+const found = data ? Astro.locals.content.findSession(data.order.sessionId) : undefined;
+const title = found?.program.title ?? data?.order.sessionId ?? 'Family billing';
+const fmt = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+const when = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
+const statusText = { scheduled: 'Scheduled', processing: 'Charging now', paid: 'Paid', failed: 'Didn’t go through', cancelled: 'Cancelled' } as const;
+const changeable = data ? data.installments.filter((i) => !lockedReason(i)) : [];
+const active = data ? data.adjustments.filter((a) => !a.removedAt) : [];
+const removed = data ? data.adjustments.filter((a) => a.removedAt) : [];
+const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', trial: 'Free trial', once: 'One payment', waitlist: 'Waitlist' } as const)[data.order.plan] : '';
+---
+
+<AdminShell title={`Billing: ${data?.family ?? 'family'}`} section="billing">
+  {
+    data && (
+      <div class="admin-page">
+        <nav class="admin-crumbs" aria-label="Breadcrumb"><a href="/admin/billing">Monthly autopay</a><span aria-hidden="true">/</span><span>{data.family}</span></nav>
+        <div class="admin-head">
+          <div>
+            <h1>{data.family}</h1>
+            <p class="admin-intro">{title}{found ? ` · ${found.session.term}` : ''} · {planText}</p>
+          </div>
+        </div>
+
+        {saved === 'added' && <p class="notice" role="status">Discount saved. The payments below show the new amounts, and the family sees it in their account.</p>}
+        {saved === 'removed' && <p class="notice" role="status">Discount removed. Payments that weren’t paid yet are back to their usual amount.</p>}
+        {error && <p class="notice notice--error" role="alert">{error}</p>}
+
+        <section class="admin-section" aria-labelledby="pay-h">
+          <h2 id="pay-h">Monthly payments</h2>
+          {data.installments.length ? (
+            <div class="scroll">
+              <table class="pay" data-payments>
+                <thead><tr><th>Due</th><th>Status</th><th>Usual</th><th>Discounts</th><th>Charged</th></tr></thead>
+                <tbody>
+                  {data.installments.map((i) => (
+                    <tr data-installment={i.dueDate}>
+                      <td>{fmt(i.dueDate)}<span class="sub">{i.label.split(':')[0]}</span></td>
+                      <td>{statusText[i.status]}{i.status === 'failed' && <span class="sub">{failureReason(i.lastError ?? '')}</span>}</td>
+                      <td>{formatCents(i.baseAmountCents)}</td>
+                      <td>{i.adjustments.length ? i.adjustments.map((l) => <span class="line">{adjustmentLine(l)}</span>) : <span class="sub">—</span>}</td>
+                      <td><strong>{formatCents(i.amountCents)}</strong>{i.lateFeeCents > 0 && <span class="sub">+ {formatCents(i.lateFeeCents)} late fee</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p class="admin-intro">No monthly payments: this family paid at enrollment. To give money back, refund it in the Stripe dashboard.</p>
+          )}
+        </section>
+
+        <section class="admin-section" aria-labelledby="adj-h">
+          <h2 id="adj-h">Discounts</h2>
+          {active.length === 0 && <p class="admin-intro">No discounts on this class.</p>}
+          {active.length > 0 && (
+            <ul class="adjs" data-adjustments>
+              {active.map((a) => (
+                <li class="tile">
+                  <div class="adj__head">
+                    <strong>{describeAdjustment(a)}, {repeatLabel(a.repeat)}</strong>
+                    <form method="post" data-confirm={`Remove “${a.reason}”? Payments not paid yet go back to their usual amount.`}>
+                      <input type="hidden" name="action" value="remove" />
+                      <input type="hidden" name="id" value={a.id} />
+                      <button class="btn btn--outline btn--sm" type="submit">Remove</button>
+                    </form>
+                  </div>
+                  <span>Reason: {a.reason}{a.showToFamily ? '' : ' (staff only)'}</span>
+                  <span>The family sees: “{a.familyLabel}”</span>
+                  <span>Added by {a.createdByName}, {when(a.createdAt)}</span>
+                  <span>{a.affects.length ? `Takes off: ${a.affects.map((x) => `${fmt(x.installment.dueDate)} −${formatCents(x.cents)}${x.installment.status === 'paid' ? ' (paid)' : ''}`).join(' · ')}` : 'Not taking anything off right now.'}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {preview ? (
+            <form method="post" class="cf-group confirm" data-preview>
+              <h3>Check before saving</h3>
+              <p>
+                <strong>{describeAdjustment(preview.input)}, {repeatLabel(preview.input.repeat)}.</strong> Reason: {preview.input.reason}. The family sees “{familyLabel(preview.input.reason, preview.input.showToFamily)}”.
+              </p>
+              <table class="pay">
+                <thead><tr><th>Payment</th><th>Now</th><th>After saving</th></tr></thead>
+                <tbody>
+                  {preview.changes.map((c) => (
+                    <tr>
+                      <td>{fmt(c.dueDate)}</td>
+                      <td>{formatCents(c.beforeCents)}</td>
+                      <td><strong>{formatCents(c.afterCents)}</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {preview.changes.length === 0 && <p>This wouldn’t change any payment.</p>}
+              <input type="hidden" name="kind" value={preview.input.kind} />
+              <input type="hidden" name="value" value={values.value} />
+              <input type="hidden" name="repeat" value={preview.input.repeat} />
+              <input type="hidden" name="reason" value={preview.input.reason} />
+              {preview.input.showToFamily && <input type="hidden" name="showToFamily" value="on" />}
+              <div class="row">
+                <button class="btn btn--primary" type="submit" name="action" value="add">Save discount</button>
+                <a class="btn btn--outline" href={here}>Cancel</a>
+              </div>
+            </form>
+          ) : changeable.length > 0 ? (
+            <form method="post" class="cf-group" data-add-adjustment>
+              <h3>Add a discount</h3>
+              <div class="cf-grid">
+                <fieldset class="cf-choices cf--half">
+                  <legend>Take off</legend>
+                  <div class="cf-choices__list">
+                    <label class="chip"><input type="radio" name="kind" value="amount" checked={values.kind !== 'percent'} />A dollar amount</label>
+                    <label class="chip"><input type="radio" name="kind" value="percent" checked={values.kind === 'percent'} />A percentage</label>
+                  </div>
+                </fieldset>
+                <div class="cf cf--half">
+                  <label for="adj-value">How much</label>
+                  <input id="adj-value" name="value" inputmode="decimal" required placeholder="40 (dollars) or 25 (percent)" value={values.value ?? ''} />
+                </div>
+                <fieldset class="cf-choices">
+                  <legend>Which payments</legend>
+                  <div class="cf-choices__list">
+                    <label class="chip"><input type="radio" name="repeat" value="once" checked={values.repeat !== 'monthly'} />Next payment only ({fmt(changeable[0].dueDate)})</label>
+                    <label class="chip"><input type="radio" name="repeat" value="monthly" checked={values.repeat === 'monthly'} />Every remaining month ({changeable.length})</label>
+                  </div>
+                </fieldset>
+                <div class="cf">
+                  <label for="adj-reason">Reason</label>
+                  <input id="adj-reason" name="reason" required maxlength={ADJUSTMENTS.maxReasonLength} placeholder="Scholarship, sibling deal, credit for a missed class…" value={values.reason ?? ''} />
+                  <p class="cf__help">Kept for staff. Families see “{ADJUSTMENTS.defaultFamilyLabel}” unless you tick the box below.</p>
+                </div>
+                <label class="cf-toggle"><input type="checkbox" name="showToFamily" checked={values.showToFamily === 'on'} />Show the reason to the family</label>
+              </div>
+              <button class="btn btn--primary" type="submit" name="action" value="preview">Check the new amounts</button>
+            </form>
+          ) : (
+            data.installments.length > 0 && <p class="admin-intro">No payment can take a discount right now: {data.installments.map((i) => lockedReason(i)).filter(Boolean)[0] ?? 'all are paid or cancelled'}.</p>
+          )}
+
+          {removed.length > 0 && (
+            <details class="removed">
+              <summary>Removed discounts ({removed.length})</summary>
+              <ul>
+                {removed.map((a) => (
+                  <li>
+                    {describeAdjustment(a)}, {repeatLabel(a.repeat)}. Reason: {a.reason}. Added by {a.createdByName}, {when(a.createdAt)}; removed by {a.removedByName ?? 'staff'}, {when(a.removedAt!)}.
+                    {a.affects.length > 0 && ` Still on paid payments: ${a.affects.map((x) => `${fmt(x.installment.dueDate)} −${formatCents(x.cents)}`).join(', ')}.`}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          <p class="admin-intro">Discounts come off tuition after the built-in ones (10% pay-in-full, 15% multi-class), rounded in the family’s favor, never below $0. The late fee isn’t discounted. Paid payments never change. Every change is logged.</p>
+        </section>
+      </div>
+    )
+  }
+</AdminShell>
+
+<script>
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-confirm]')) {
+    form.addEventListener('submit', (e) => {
+      if (!confirm(form.dataset.confirm)) e.preventDefault();
+    });
+  }
+</script>
+
+<style>
+  .scroll { overflow-x: auto; }
+  .pay { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .pay th, .pay td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .pay th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+  .sub { display: block; color: var(--ink-mute); font-size: var(--step--1); }
+  .line { display: block; color: var(--ok); font-weight: 600; }
+  .adjs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-s, 0.75rem); }
+  .adj__head { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: space-between; align-items: center; }
+  .confirm { background: var(--yellow-tint); border-color: var(--yellow); }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .removed summary { cursor: pointer; font-weight: 700; color: var(--purple); }
+  .removed ul { margin: 0.5rem 0 0; padding-left: 1.2rem; color: var(--ink-soft); font-size: var(--step--1); display: grid; gap: 0.4rem; }
+  .cf-group > .btn { justify-self: start; }
+  .cf-group > h3 { font-family: var(--font-display); font-size: var(--step-1); font-stretch: 92%; }
+  /* Phones: each payment is a small card instead of a five-column row. */
+  @media (max-width: 640px) {
+    .pay[data-payments], .pay[data-payments] tbody { display: block; }
+    .pay[data-payments] thead { display: none; }
+    .pay[data-payments] tr { display: grid; grid-template-columns: 1fr auto; gap: 0.15rem 1rem; padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
+    .pay[data-payments] td { padding: 0; border: 0; }
+    .pay[data-payments] td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: 600; }
+    .pay[data-payments] td:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+    .pay[data-payments] td:nth-child(3) { display: none; }
+    .pay[data-payments] td:nth-child(4) { grid-column: 1 / -1; grid-row: 3; }
+    .pay[data-payments] td:nth-child(5) { grid-column: 2; grid-row: 1; text-align: right; }
+  }
+</style>

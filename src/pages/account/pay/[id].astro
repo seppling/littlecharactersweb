@@ -12,6 +12,7 @@ import { completeCheckout, createInstallmentCheckout, paymentsMode, testPayments
 import { config } from '@/server/env';
 import { getDb, schema } from '@/server/db';
 import { formatCents } from '@/lib/pricing';
+import { adjustmentLine } from '@/lib/adjustments';
 
 export const prerender = false;
 
@@ -34,7 +35,8 @@ if (Astro.request.method === 'POST') {
   if (await holdForManualPayment(household.id, i.id)) {
     const db = await getDb();
     await db.update(schema.household).set({ stripeCustomerId: 'test_customer', stripePaymentMethodId: 'test_card' }).where(eq(schema.household.id, household.id));
-    await markInstallmentPaid(i.id, { paymentIntentId: `test_pi_manual_${i.id.slice(0, 8)}`, amountCents: totalDue(i) }, user.id);
+    const held = (await getInstallment(household.id, i.id)) ?? i;
+    await markInstallmentPaid(i.id, { paymentIntentId: `test_pi_manual_${i.id.slice(0, 8)}`, amountCents: totalDue(held) }, user.id);
   }
   return Astro.redirect(`/account/pay/${i.id}`, 303);
 }
@@ -45,6 +47,8 @@ let error = '';
 // Showing the card form pauses automatic retries so we can't charge twice; if
 // the form expires unused (1 hour), the webhook turns retries back on.
 if (i.status === 'failed' && paymentsMode === 'stripe' && (await holdForManualPayment(household.id, i.id))) {
+  // Read it again: from here on staff adjustments leave this month's amount alone until the form expires.
+  i = (await getInstallment(household.id, i.id)) ?? i;
   try {
     clientSecret = await createInstallmentCheckout({ installment: i, householdName: household.name, email: user.email });
   } catch (e) {
@@ -60,7 +64,15 @@ if (i.status === 'failed' && paymentsMode === 'stripe' && (await holdForManualPa
       <a class="back" href="/account">← Family account</a>
       <h1>{i.label}</h1>
       <p class="amount">{formatCents(totalDue(i))}</p>
-      {i.lateFeeCents > 0 && <p class="muted">{formatCents(i.amountCents)} tuition + {formatCents(i.lateFeeCents)} late fee (unpaid after the 10th)</p>}
+      {
+        (i.lateFeeCents > 0 || i.adjustments.length > 0) && (
+          <p class="muted">
+            {formatCents(i.adjustments.length ? i.baseAmountCents : i.amountCents)} tuition
+            {i.adjustments.map((l) => <>, {adjustmentLine(l)}</>)}
+            {i.lateFeeCents > 0 && <> + {formatCents(i.lateFeeCents)} late fee (unpaid after the 10th)</>}
+          </p>
+        )
+      }
       {
         i.status === 'paid' ? (
           <p class="ok" role="status">Paid, thank you! A receipt is on its way{i.paidAt ? ` (${i.paidAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}.</p>
