@@ -12,7 +12,7 @@ import { completeCheckout, createInstallmentCheckout, paymentsMode, testPayments
 import { config } from '@/server/env';
 import { getDb, schema } from '@/server/db';
 import { formatCents } from '@/lib/pricing';
-import { adjustmentLine } from '@/lib/adjustments';
+import { adjustmentLine, discountLines } from '@/lib/adjustments';
 
 export const prerender = false;
 
@@ -65,10 +65,10 @@ if (i.status === 'failed' && paymentsMode === 'stripe' && (await holdForManualPa
       <h1>{i.label}</h1>
       <p class="amount">{formatCents(totalDue(i))}</p>
       {
-        (i.lateFeeCents > 0 || i.adjustments.length > 0) && (
+        (i.lateFeeCents > 0 || discountLines(i).length > 0) && (
           <p class="muted">
-            {formatCents(i.adjustments.length ? i.baseAmountCents : i.amountCents)} tuition
-            {i.adjustments.map((l) => <>, {adjustmentLine(l)}</>)}
+            {formatCents(i.regularAmountCents)} tuition
+            {discountLines(i).map((l) => <>, {adjustmentLine(l)}</>)}
             {i.lateFeeCents > 0 && <> + {formatCents(i.lateFeeCents)} late fee (unpaid after the 10th)</>}
           </p>
         )

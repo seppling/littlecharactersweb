@@ -3,26 +3,47 @@
 import AdminShell from '@/components/admin/AdminShell.astro';
 import { billingOverview, failureReason, markPaidOutsideStripe, stopRemainingPayments, totalDue, waiveLateFee } from '@/server/billing';
 import { formatCents } from '@/lib/pricing';
-import { ordersWithUpcomingPayments } from '@/server/adjustments';
+import { orderBilling, ordersWithUpcomingPayments } from '@/server/adjustments';
+import { previewStopEffect, type FamilyDiscountEffect } from '@/server/family-discount';
 
 export const prerender = false;
 const viewer = Astro.locals.user;
 const isAdmin = Astro.locals.isAdmin && !!viewer;
 if (!isAdmin && viewer) return new Response('Not found', { status: 404 });
 
+const classTitle = (sessionId: string) => Astro.locals.content.findSession(sessionId)?.program.title ?? sessionId;
+const fmt = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
 let notice = '';
+let stopCheck: { orderId: string; family: string; title: string; stopping: { dueDate: string; amountCents: number }[]; effects: FamilyDiscountEffect[] } | null = null;
 if (isAdmin && viewer && Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const id = String(form.get('id') ?? '');
   if (form.get('action') === 'paid' && (await markPaidOutsideStripe(id, viewer.id))) notice = 'Marked as paid.';
   if (form.get('action') === 'waive' && (await waiveLateFee(id, viewer.id))) notice = 'Late fee waived.';
-  if (form.get('action') === 'stop') notice = `Stopped ${await stopRemainingPayments(id, viewer.id)} upcoming charge(s) for that family’s class.`;
+  // Stop payments is two steps: see what changes (the family discount may end for the family's other classes), then stop.
+  if (form.get('action') === 'check-stop') {
+    const billing = await orderBilling(id);
+    if (billing) {
+      stopCheck = {
+        orderId: id,
+        family: billing.family,
+        title: classTitle(billing.order.sessionId),
+        stopping: billing.installments.filter((i) => i.status === 'scheduled' || i.status === 'failed'),
+        effects: await previewStopEffect(id),
+      };
+    }
+  }
+  if (form.get('action') === 'stop') {
+    const r = await stopRemainingPayments(id, viewer.id);
+    notice = `Stopped ${plural(r.stopped, 'upcoming charge')} for that family’s class.`;
+    if (r.familyDiscount.length) notice += ` The 15% family discount ended for this family, so ${plural(r.familyDiscount.length, 'unpaid payment')} for their other classes went back to the regular price.`;
+  }
 }
 
 const { needsAttention, nextDue, nextDueRows } = isAdmin ? await billingOverview() : { needsAttention: [], nextDue: undefined, nextDueRows: [] };
 const families = isAdmin ? await ordersWithUpcomingPayments() : [];
-const classTitle = (sessionId: string) => Astro.locals.content.findSession(sessionId)?.program.title ?? sessionId;
-const fmt = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
 ---
 
@@ -30,6 +51,48 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
   <section class="wrap admin">
     <h1>Monthly autopay</h1>
     {notice && <p class="notice" role="status">{notice}</p>}
+
+    {
+      stopCheck && (
+        <form method="post" class="stop-check" data-stop-check>
+          <h2>Stop payments: {stopCheck.family}, {stopCheck.title}?</h2>
+          <p>
+            Use this when a family withdraws.{' '}
+            {stopCheck.stopping.length
+              ? `These charges are cancelled: ${stopCheck.stopping.map((i) => `${fmt(i.dueDate)} ${formatCents(i.amountCents)}`).join(', ')}.`
+              : 'This class has no charges left to stop.'}
+          </p>
+          {stopCheck.effects.length > 0 ? (
+            <>
+              <p><strong>The 15% family discount ends:</strong> the family drops below two weekly classes, so these unpaid payments for their other classes go back to the regular price.</p>
+              <table data-stop-effects>
+                <thead><tr><th>Child and class</th><th>Payment</th><th>Now</th><th>After</th></tr></thead>
+                <tbody>
+                  {stopCheck.effects.flatMap((e) =>
+                    e.changes.map((c) => (
+                      <tr>
+                        <td>{e.names.join(' & ')}<br /><span class="muted">{classTitle(e.sessionId)}</span></td>
+                        <td>{fmt(c.dueDate)}</td>
+                        <td>{formatCents(c.beforeCents)}</td>
+                        <td><strong>{formatCents(c.afterCents)}</strong> <span class="muted">(+{formatCents(c.afterCents - c.beforeCents)})</span></td>
+                      </tr>
+                    )),
+                  )}
+                </tbody>
+              </table>
+              <p class="muted">The family sees the new amounts in their account.</p>
+            </>
+          ) : (
+            <p class="muted">No other payment changes.</p>
+          )}
+          <input type="hidden" name="id" value={stopCheck.orderId} />
+          <div class="actions actions--start">
+            <button name="action" value="stop" class="btn btn--primary btn--sm">Stop payments</button>
+            <a class="btn btn--outline btn--sm" href="/admin/billing">Cancel</a>
+          </div>
+        </form>
+      )
+    }
 
     <h2>Needs attention ({needsAttention.length})</h2>
     {
@@ -50,7 +113,7 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
                   <div class="actions">
                     <form method="post"><input type="hidden" name="id" value={i.id} /><button name="action" value="paid" class="btn btn--outline btn--sm">Paid by cash/check</button></form>
                     {i.lateFeeCents > 0 && <form method="post"><input type="hidden" name="id" value={i.id} /><button name="action" value="waive" class="btn btn--outline btn--sm">Waive late fee</button></form>}
-                    <form method="post" data-confirm="Stop all remaining charges for this family’s class?"><input type="hidden" name="id" value={i.orderId} /><button name="action" value="stop" class="btn btn--outline btn--sm">Stop payments</button></form>
+                    <form method="post"><input type="hidden" name="id" value={i.orderId} /><button name="action" value="check-stop" class="btn btn--outline btn--sm">Stop payments</button></form>
                   </div>
                 </td>
               </tr>
@@ -75,7 +138,7 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
                 <td>{formatCents(i.amountCents)}</td>
                 <td>
                   <div class="actions">
-                    <form method="post" data-confirm="Stop all remaining charges for this family’s class? Use this when a family withdraws."><input type="hidden" name="id" value={i.orderId} /><button name="action" value="stop" class="btn btn--outline btn--sm">Stop payments</button></form>
+                    <form method="post"><input type="hidden" name="id" value={i.orderId} /><button name="action" value="check-stop" class="btn btn--outline btn--sm">Stop payments</button></form>
                   </div>
                 </td>
               </tr>
@@ -109,14 +172,6 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
   </section>
 </AdminShell>
 
-<script>
-  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-confirm]')) {
-    form.addEventListener('submit', (e) => {
-      if (!confirm(form.dataset.confirm)) e.preventDefault();
-    });
-  }
-</script>
-
 <style>
   .admin { padding-block: var(--space-2xl) var(--space-3xl); display: grid; gap: var(--space-m); }
   h2 { font-size: var(--step-1); margin-top: var(--space-m); }
@@ -126,4 +181,8 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
   .muted { color: var(--ink-mute); font-size: var(--step--1); }
   .actions { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: flex-end; }
   .notice { padding: 0.7rem 1rem; background: var(--ok-tint); color: var(--ok); border-radius: var(--r-sm); font-weight: 600; }
+  .stop-check { display: grid; gap: 0.75rem; padding: var(--space-m); border: 1.5px solid var(--yellow); background: var(--yellow-tint); border-radius: var(--r-md); }
+  .stop-check h2 { margin-top: 0; }
+  .stop-check p { margin: 0; }
+  .actions--start { justify-content: flex-start; }
 </style>

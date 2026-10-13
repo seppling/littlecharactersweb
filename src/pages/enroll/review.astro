@@ -2,7 +2,7 @@
 /** Enrollment step 3: choose how to pay, see exactly what's due today and later. */
 import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
-import { confirmOrder, getOrder, householdForUser, priceOrder } from '@/server/family';
+import { confirmOrder, familyDiscountEffect, getOrder, householdForUser, priceOrder } from '@/server/family';
 import { formatCents, type Plan } from '@/lib/pricing';
 
 export const prerender = false;
@@ -39,6 +39,12 @@ const planCopy: Record<Plan, { title: string; body: (total: string) => string }>
   waitlist: { title: 'Join the waitlist', body: () => 'Nothing due now. We’ll email you if a spot opens.' },
 };
 const q = priced.quote;
+// This enrollment can start the 15% family discount on the family's other monthly payments.
+const familyEffects = (await familyDiscountEffect(household.id, priced, o.id)).map((e) => {
+  const after = [...new Set(e.changes.map((c) => c.afterCents))];
+  const who = `${e.names.join(' and ')}’s`;
+  return after.length === 1 ? `${who} remaining monthly payments also drop to ${formatCents(after[0])}.` : `${who} remaining monthly payments also get the 15% family discount.`;
+});
 const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents === 0 ? 'Confirm enrollment' : `Pay ${formatCents(q.totalCents)}`;
 ---
 
@@ -91,6 +97,7 @@ const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents
     </table>
 
     {q.later.length > 0 && <ul class="later">{q.later.map((l) => <li>{l}</li>)}</ul>}
+    {familyEffects.length > 0 && <ul class="later family" data-family-discount>{familyEffects.map((l) => <li>{l}</li>)}</ul>}
     {q.notes.length > 0 && <ul class="notes">{q.notes.map((n) => <li>{n}</li>)}</ul>}
     {error && <p class="error" role="alert">{error}</p>}
 
@@ -134,6 +141,7 @@ const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents
   .bill tfoot th, .bill tfoot td { font-family: var(--font-display); font-weight: 800; font-size: var(--step-1); border-bottom: 0; border-top: 2px solid var(--ink); }
   .later, .notes { margin: 0; padding-left: 1.2rem; color: var(--ink-soft); display: grid; gap: 0.3rem; font-size: var(--step--1); }
   .later li::marker { content: '→ '; }
+  .family { color: var(--ok); font-weight: 600; }
   .pay { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
   .error { color: var(--red-ink); font-weight: 600; }
   .fine { font-size: var(--step--2); color: var(--ink-mute); }
