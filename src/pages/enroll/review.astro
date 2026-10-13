@@ -2,8 +2,9 @@
 /** Enrollment step 3: choose how to pay, see exactly what's due today and later. */
 import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
-import { confirmOrder, familyDiscountEffect, getOrder, householdForUser, priceOrder } from '@/server/family';
-import { formatCents, type Plan } from '@/lib/pricing';
+import { confirmOrder, familyDiscountEffect, getOrder, householdForUser, loweredLines, priceOrder } from '@/server/family';
+import { formatCents, planCopy, type Plan } from '@/lib/pricing';
+import AnotherChild from '@/components/portal/AnotherChild.astro';
 
 import { bookingClock, bookingProblem } from '@/lib/session-dates';
 
@@ -38,20 +39,12 @@ const requested = (Astro.url.searchParams.get('plan') ?? undefined) as Plan | un
 const priced = await priceOrder(household.id, o, requested);
 const options = await Promise.all(priced.plans.map(async (p) => ({ plan: p, q: (await priceOrder(household.id, o, p)).quote })));
 
-const planCopy: Record<Plan, { title: string; body: (total: string) => string }> = {
-  trial: { title: 'Try the first class free', body: () => 'Nothing due today. Decide after the class.' },
-  monthly: { title: 'Pay monthly', body: (t) => `${t} today, then charged automatically on the 1st of each month.` },
-  full: { title: 'Pay for the season in full', body: (t) => `${t} today, 10% off, and you’re done.` },
-  once: { title: 'Pay now', body: (t) => `${t} today.` },
-  waitlist: { title: 'Join the waitlist', body: () => 'Nothing due now. We’ll email you if a spot opens.' },
-};
+// The season-in-full line names the discount it really gets, and compares it with paying monthly.
+const monthlyQuote = options.find((x) => x.plan === 'monthly')?.q;
+const copy = (plan: Plan, pq: (typeof options)[number]['q']) => planCopy(plan, pq, monthlyQuote);
 const q = priced.quote;
 // This enrollment can start the 15% family discount on the family's other monthly payments.
-const familyEffects = (await familyDiscountEffect(household.id, priced, o.id)).map((e) => {
-  const after = [...new Set(e.changes.map((c) => c.afterCents))];
-  const who = `${e.names.join(' and ')}’s`;
-  return after.length === 1 ? `${who} remaining monthly payments also drop to ${formatCents(after[0])}.` : `${who} remaining monthly payments also get the 15% family discount.`;
-});
+const familyEffects = loweredLines(await familyDiscountEffect(household.id, priced, o.id));
 const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents === 0 ? 'Confirm enrollment' : `Pay ${formatCents(q.totalCents)}`;
 ---
 
@@ -72,8 +65,8 @@ const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents
               <label class="plan">
                 <input type="radio" name="plan" value={plan} checked={plan === priced.plan} />
                 <span class="plan__body">
-                  <strong>{planCopy[plan].title}</strong>
-                  <span>{planCopy[plan].body(formatCents(pq.totalCents))}</span>
+                  <strong>{copy(plan, pq).title}</strong>
+                  <span>{copy(plan, pq).body}</span>
                 </span>
               </label>
             ))}
@@ -122,6 +115,7 @@ const payLabel = priced.plan === 'waitlist' ? 'Join the waitlist' : q.totalCents
       )
     }
     <p class="fine">Card payments are processed securely by Stripe. We never see or store your card number.</p>
+    <AnotherChild note="This sign-up isn’t booked until you pay or confirm above." />
   </EnrollShell>
 </Base>
 

@@ -17,8 +17,9 @@ import { getCatalog } from './content';
 import { ageLabel, dayList, timeRange } from '@/lib/format';
 import type { Program, Session } from '@/content/types';
 import { bookingClock, bookingProblem } from '@/lib/session-dates';
-import { PRICING, availablePlans, formatCents, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
-import { countingEnrollments, logFamilyDiscount, previewEnrollmentEffect, refreshFamilyDiscount } from './family-discount';
+import { PRICING, availablePlans, defaultPlan, formatCents, isWeeklyTuitionClass, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
+import { countingEnrollments, effects, logFamilyDiscount, previewEnrollmentEffect, refreshFamilyDiscount, type FamilyDiscountChange } from './family-discount';
+import { detailsOnFile } from '@/lib/student-details';
 import { isAdult, isOneOff, oneOffWhen } from '@/lib/program-fit';
 
 const { household, householdMember, student, order, enrollment, installment } = schema;
@@ -123,7 +124,7 @@ export function readStudentNotes(s: typeof student.$inferSelect) {
 
 /** Details are "fresh" if a guardian confirmed them within the past year. */
 export function detailsFresh(s: typeof student.$inferSelect) {
-  return !!s.detailsConfirmedAt && Date.now() - s.detailsConfirmedAt.getTime() < 365 * 86_400_000;
+  return detailsOnFile(s);
 }
 
 export function ageOn(birthdate: string | null, on = todayInAthens()) {
@@ -264,7 +265,8 @@ export async function priceOrder(householdId: string, o: typeof order.$inferSele
   // Staff can mark a session "waitlist only" in the editor before it's technically at capacity.
   const full = session.status === 'waitlist' || (cap !== undefined && (await takenSpots(o.sessionId)) + students.filter((s) => !holding.has(s.id)).length > cap);
   const plans = availablePlans(program, session, { newStudents, full });
-  const plan = requestedPlan && plans.includes(requestedPlan) ? requestedPlan : plans.includes('monthly') ? 'monthly' : plans[0];
+  // New students start on the free first class where it's offered; everyone else on monthly.
+  const plan = requestedPlan && plans.includes(requestedPlan) ? requestedPlan : defaultPlan(plans);
 
   const q = quote({
     program,
@@ -273,6 +275,8 @@ export async function priceOrder(householdId: string, o: typeof order.$inferSele
     plan,
     otherClassEnrollments: await otherClassEnrollments(householdId, o.sessionId, students.map((s) => s.id)),
     today: todayInAthens(),
+    // Staying on after the free class: a class priced per session charges the classes left.
+    trialStudentIds: students.filter((s) => holding.has(s.id)).map((s) => s.id),
   });
   return { program, session, students, plans, plan, quote: q, alreadyIn };
 }
@@ -280,10 +284,10 @@ export async function priceOrder(householdId: string, o: typeof order.$inferSele
 /**
  * Review page: when this enrollment starts the family discount, the family's
  * other monthly payments it lowers (nothing is saved). Only a paid weekly class
- * counts, not a free trial or the waitlist.
+ * counts (monthly or per session), not a free trial, the waitlist or a drop-in night.
  */
-export async function familyDiscountEffect(householdId: string, priced: Pick<Awaited<ReturnType<typeof priceOrder>>, 'program' | 'plan' | 'students'>, orderId: string) {
-  if (priced.program.kind !== 'class' || (priced.plan !== 'monthly' && priced.plan !== 'full')) return [];
+export async function familyDiscountEffect(householdId: string, priced: Pick<Awaited<ReturnType<typeof priceOrder>>, 'program' | 'session' | 'plan' | 'students'>, orderId: string) {
+  if (!isWeeklyTuitionClass(priced.program, priced.session) || priced.plan === 'trial' || priced.plan === 'waitlist') return [];
   const effects = await previewEnrollmentEffect(householdId, priced.students.length);
   return effects.filter((e) => e.orderId !== orderId);
 }
@@ -388,14 +392,30 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
   if (!result) return done;
   await audit(userId, o.totalCents > 0 ? 'order.paid' : 'order.confirmed', 'order', o.id);
   if (result.family) await logFamilyDiscount(userId, o.householdId, result.family);
-  await sendOrderConfirmation(done).catch((e) => console.error('Confirmation email failed', e));
+  const lowered = result.family?.changes.filter((c) => c.orderId !== o.id && c.afterCents < c.beforeCents) ?? [];
+  await sendOrderConfirmation(done, lowered).catch((e) => console.error('Confirmation email failed', e));
   return done;
 }
 
-async function sendOrderConfirmation(o: typeof order.$inferSelect) {
+/**
+ * "Ava's remaining monthly payments drop to $80.75 with the 15% family
+ * discount." One line per child and class whose payments this sign-up lowered.
+ */
+export function loweredLines(list: { names: string[]; changes: Pick<FamilyDiscountChange, 'afterCents'>[] }[]) {
+  return list.map((e) => {
+    const after = [...new Set(e.changes.map((c) => c.afterCents))];
+    const who = `${e.names.join(' and ')}’s`;
+    return after.length === 1
+      ? `${who} remaining monthly payments also drop to ${formatCents(after[0])} with the 15% family discount.`
+      : `${who} remaining monthly payments also get the 15% family discount.`;
+  });
+}
+
+async function sendOrderConfirmation(o: typeof order.$inferSelect, lowered: FamilyDiscountChange[] = []) {
   const found = await findSession(o.sessionId);
   if (!found) return;
   const { program, session } = found;
+  const unit = (session.price ?? program.priceFrom)?.unit;
   const guardians = await householdGuardians(o.householdId);
   const kids = (await listStudents(o.householdId)).filter((s) => o.studentIds.includes(s.id)).map((s) => s.firstName);
   const first = meetings(session).find((m) => m >= todayInAthens()) ?? session.startDate;
@@ -405,8 +425,14 @@ async function sendOrderConfirmation(o: typeof order.$inferSelect) {
   const lines = [
     `${kids.join(' and ')} ${o.plan === 'waitlist' ? (kids.length > 1 ? 'are' : 'is') + ' on the waitlist for' : (kids.length > 1 ? 'are' : 'is') + ' enrolled in'} ${program.title}.`,
     `${isOneOff(session) ? oneOffWhen(program, session) : `${dayList(session.days)}, ${timeRange(session.start, session.end)}${o.plan === 'waitlist' ? '' : `, starting ${firstDate}`}`}${loc ? ` at ${loc.name}, ${loc.address.join(', ')}` : ''}.`,
-    o.plan === 'trial' ? 'Your first class is free. After it, you can continue with monthly tuition or pay for the season from your family account.' : o.totalCents > 0 ? `Paid today: ${formatCents(o.totalCents)}.` : '',
-    o.plan === 'monthly' && o.schedule.length ? autopayLine(o.schedule) : '',
+    o.plan === 'trial'
+      ? unit === 'session'
+        ? 'Your first class is free. After it, you can stay on from your family account and pay for the classes left.'
+        : 'Your first class is free. After it, you can continue with monthly tuition or pay for the season from your family account.'
+      : o.totalCents > 0
+        ? `Paid today: ${formatCents(o.totalCents)}.`
+        : '',
+    [o.plan === 'monthly' && o.schedule.length ? autopayLine(o.schedule) : '', ...loweredLines(await effects(o.householdId, lowered))].filter(Boolean).join(' '),
     isAdult(program)
       ? 'Wear comfy clothes and bring a water bottle. Park on Minor St and walk in to our front door on W Broad St.'
       : 'Wear comfy clothes and closed-toe shoes, and bring a water bottle. Park on Minor St and walk in, or use the drop-off circle after 5 pm.',
@@ -428,6 +454,33 @@ export function autopayLine(schedule: { dueDate: string; amountCents: number }[]
   const amounts = new Set(schedule.map((c) => c.amountCents));
   const amount = amounts.size === 1 ? formatCents(schedule[0].amountCents) : 'the monthly tuition';
   return `We’ll charge ${amount} to your saved card on ${dates.join(', ').replace(/, ([^,]*)$/, ' and $1')}, and email a receipt each time.`;
+}
+
+/**
+ * The confirmation page's family totals, read from the family's payments (no
+ * prices are worked out again): what was paid today across today's sign-ups,
+ * and what autopay charges on the next 1st across all their children.
+ */
+export async function familyTotals(householdId: string, today = todayInAthens()) {
+  const db = await getDb();
+  const paid = await db
+    .select({ id: order.id, totalCents: order.totalCents, paidAt: order.paidAt })
+    .from(order)
+    .where(and(eq(order.householdId, householdId), eq(order.status, 'paid')));
+  const todays = paid.filter((p) => p.paidAt && todayInAthens(p.paidAt) === today);
+  const [y, m] = today.split('-').map(Number);
+  const nextFirst = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
+  const next = await db
+    .select({ orderId: installment.orderId, amountCents: installment.amountCents })
+    .from(installment)
+    .where(and(eq(installment.householdId, householdId), eq(installment.dueDate, nextFirst), inArray(installment.status, ['scheduled', 'failed'])));
+  return {
+    signUpsToday: todays.length,
+    paidTodayCents: todays.reduce((a, p) => a + p.totalCents, 0),
+    nextFirst,
+    nextMonthCents: next.reduce((a, i) => a + i.amountCents, 0),
+    nextMonthOrders: new Set(next.map((i) => i.orderId)).size,
+  };
 }
 
 export async function listOrders(householdId: string) {

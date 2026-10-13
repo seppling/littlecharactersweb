@@ -8,12 +8,12 @@
  * regular price.
  *
  * What counts: enrollments that are active (not a free trial or the waitlist),
- * in a weekly class with a monthly price (`program.kind === 'class'` and the
- * price is per month; decided Oct 13: drop-in nights like Geode Adult Improv
- * and classes priced by the session don't count), whose class hasn't ended,
- * and whose payments staff haven't stopped. A season paid in full counts, but
- * has no monthly payments to change. Camps, workshops, parties, Parents' Night
- * Out and Ovation never count.
+ * in a weekly class with tuition priced by the month or by the session
+ * (isWeeklyTuitionClass; decided Oct 13: Stories and Songs and the Homeschool
+ * Class count too, drop-in nights like Geode Adult Improv don't), whose class
+ * hasn't ended, and whose payments staff haven't stopped. A season paid in full
+ * or a class priced per session counts, but has no monthly payments to change.
+ * Camps, workshops, parties, Parents' Night Out and Ovation never count.
  *
  * When the discount ends and payments go back up, the family gets an email
  * listing the new amounts (emailFamilyDiscountEnded).
@@ -36,7 +36,7 @@ import { audit, householdGuardians } from './records';
 import { emailHtml, sendEmail } from './email';
 import { config } from './env';
 import { computeChanges, lockedReason } from './adjustments';
-import { familyDiscounted, formatCents, todayInAthens } from '@/lib/pricing';
+import { familyDiscounted, formatCents, isWeeklyTuitionClass, todayInAthens } from '@/lib/pricing';
 import type { AppliedAdjustment } from '@/lib/adjustments';
 import type { SiteContent } from '@/content/site-content';
 
@@ -75,11 +75,11 @@ export type FamilyDiscountChange = {
   lines: AppliedAdjustment[];
 };
 
-/** A weekly class priced by the month, whose last day is today or later. */
+/** A weekly class with tuition (monthly or per session, not a drop-in night), whose last day is today or later. */
 function isCurrentWeeklyClass(catalog: Catalog, sessionId: string, today: string) {
   const found = catalog.findSession(sessionId);
-  if (!found || found.program.kind !== 'class' || found.session.endDate < today) return false;
-  return (found.session.price ?? found.program.priceFrom)?.unit === 'month';
+  if (!found || found.session.endDate < today) return false;
+  return isWeeklyTuitionClass(found.program, found.session);
 }
 
 /** Orders whose remaining payments staff stopped (Stop payments cancels them; nothing else does). */
@@ -223,7 +223,7 @@ export async function emailFamilyDiscountEnded(householdId: string, raised: Fami
   const classTitle = (sessionId: string) => catalog.findSession(sessionId)?.program.title ?? 'your class';
   const heading = 'Your family discount has ended';
   const lines = [
-    'Our 15% family discount is for families with two or more students or classes in our weekly classes paid monthly. Your family now has one, so the monthly payments you haven’t made yet are back to the regular price:',
+    'Our 15% family discount is for families with two or more students or classes in our weekly classes. Your family now has one, so the monthly payments you haven’t made yet are back to the regular price:',
     ...endedLines(await effects(householdId, raised), classTitle),
     'Payments you’ve already made don’t change. The new amounts are charged to your saved card on the 1st, as usual.',
     `Every upcoming payment is in your family account: ${new URL('/account', config.siteUrl)}`,
@@ -271,7 +271,7 @@ export type FamilyDiscountEffect = {
   changes: FamilyDiscountChange[];
 };
 
-async function effects(householdId: string, changes: FamilyDiscountChange[]): Promise<FamilyDiscountEffect[]> {
+export async function effects(householdId: string, changes: FamilyDiscountChange[]): Promise<FamilyDiscountEffect[]> {
   if (!changes.length) return [];
   const db = await getDb();
   const orderIds = [...new Set(changes.map((c) => c.orderId))];

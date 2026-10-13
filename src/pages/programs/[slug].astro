@@ -5,10 +5,10 @@ import ProgramCard from '@/components/ProgramCard.astro';
 import FaqList from '@/components/FaqList.astro';
 import { kindLabels } from '@/content/catalog';
 import { rich } from '@/content/rich';
-import { ageLabel, feeLabel, price, spotsLabel } from '@/lib/format';
+import { ageLabel, feeLabel, priceLabel, spotsLabel } from '@/lib/format';
 import { cardParts, performanceLabel, sessionLines, sessionPrice, whenSummary } from '@/lib/class-summary';
 import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
-import { hasFreeFirstClass } from '@/lib/pricing';
+import { hasFreeFirstClass, joiningNow, sessionPriceParts, todayInAthens } from '@/lib/pricing';
 import { bookingClock, offeredSessions, sessionState } from '@/lib/session-dates';
 import { breadcrumbLd, courseLd, isCourse } from '@/lib/seo';
 import { faqsFor, highlightsHeading, isAdult, kindTag, moneyLines, perChild } from '@/lib/program-fit';
@@ -38,6 +38,12 @@ const hadDates = program.sessions.length > 0 && !program.requestCta;
 const datesSoon = bookable.length === 0 && (program.notify || hadDates);
 const running = program.sessions.find((s) => s.status !== 'closed' && sessionState(program, s, clock) === 'signups-closed' && s.startDate !== s.endDate);
 const monthly = program.priceFrom?.unit === 'month';
+// A class priced per session says what the session covers: "$160 for 9 weeks ($17.78 a class)".
+const priceSession = firstOpen ?? program.sessions.at(-1);
+const sessionParts = sessionPriceParts(fromPrice, priceSession);
+// What a new student pays today and after, for each date on the card (src/lib/pricing.ts joiningNow).
+const today = todayInAthens();
+const joining = new Map(bookable.filter((s) => s.status !== 'coming-soon' && !partnerOnly).map((s) => [s.id, joiningNow(program, s, today)] as const));
 const freeTrial = hasFreeFirstClass(program) && !partnerOnly;
 
 // What fits this kind of program: its pricing lines, FAQs and the heading over its highlights.
@@ -114,9 +120,9 @@ const structuredData = [
           <div>
             <dt>Cost</dt>
             <dd>
-              {fromPrice ? price(fromPrice) : partnerOnly ? 'Set by the school' : program.requestCta ? 'Ask us for rates' : 'Pricing TBA'}
+              {fromPrice ? priceLabel(fromPrice, priceSession) : partnerOnly ? 'Set by the school' : program.requestCta ? 'Ask us for rates' : 'Pricing TBA'}
               {program.fee && <span class="fee"> {feeLabel(program.fee)}</span>}
-              {fromPrice?.note && fromPrice.amount > 0 && <span class="fee"> · {fromPrice.note}</span>}
+              {fromPrice?.note && fromPrice.amount > 0 && !sessionParts && <span class="fee"> · {fromPrice.note}</span>}
             </dd>
           </div>
           {program.teachers && (
@@ -174,6 +180,12 @@ const structuredData = [
                     );
                   })}
                 </fieldset>
+                {[...joining].map(([id, lines]) => lines && (
+                  <div class="joining" data-joining-for={id} hidden={id !== firstOpen?.id}>
+                    <p class="joining__title">Joining now, per student</p>
+                    <ul>{lines.map((l) => <li>{l}</li>)}</ul>
+                  </div>
+                ))}
                 {firstOpen && (
                   <a
                     class="btn btn--primary btn--block"
@@ -301,8 +313,8 @@ const structuredData = [
     firstOpen && (
       <div class="mobile-enroll">
         <span>
-          <strong>{fromPrice ? price(fromPrice) : 'Pick a time'}</strong>
-          <span class="script">{ageLabel(program.ages, program.agesLabel)}</span>
+          <strong>{sessionParts ? sessionParts.total : fromPrice ? priceLabel(fromPrice, priceSession) : 'Pick a time'}</strong>
+          <span class="script">{sessionParts ? `${sessionParts.perClass} · ` : ''}{ageLabel(program.ages, program.agesLabel)}</span>
         </span>
         <a class="btn btn--primary btn--sm" href="#enroll">{comingSoon ? 'See dates' : 'Choose a time'}</a>
       </div>
@@ -319,6 +331,7 @@ const structuredData = [
     form.addEventListener('change', () => {
       const picked = form.querySelector<HTMLInputElement>('input[name="session"]:checked');
       if (!picked) return;
+      form.querySelectorAll<HTMLElement>('[data-joining-for]').forEach((el) => (el.hidden = el.dataset.joiningFor !== picked.value));
       cta.href = picked.dataset.href ?? '#';
       const text = picked.dataset.label ?? 'Enroll';
       label.textContent = text === 'Enroll' ? 'Continue to enrollment' : text;
@@ -415,6 +428,10 @@ const structuredData = [
   .opt__meta { font-size: var(--step--1); color: var(--ink-soft); }
   .opt__foot { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-top: 0.2rem; }
   .opt__foot strong { font-family: var(--font-display); font-size: 1.1rem; }
+  .joining { display: grid; gap: 0.3rem; padding: 0.75rem 0.9rem; background: var(--hall); border-radius: var(--r-md); font-size: var(--step--1); }
+  .joining[hidden] { display: none; }
+  .joining__title { font-weight: 700; color: var(--ink); }
+  .joining ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; color: var(--ink-soft); }
   .enroll__note, .enroll__help { font-size: var(--step--1); color: var(--ink-soft); }
   .enroll__help { padding-top: var(--space-s); border-top: 1.5px dashed var(--line-strong); }
   .notify { display: grid; gap: 0.5rem; padding-top: var(--space-s); border-top: 1.5px dashed var(--line-strong); }

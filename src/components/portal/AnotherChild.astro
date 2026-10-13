@@ -1,0 +1,33 @@
+---
+/**
+ * "Enroll another child or class": back to the class finder, still signed in,
+ * with the age the family last chose in the finder (kept for this tab in
+ * sessionStorage by /programs). Without it, the finder opens unfiltered.
+ */
+interface Props {
+  /** A short line under the link, e.g. that this sign-up isn't booked yet. */
+  note?: string;
+}
+const { note } = Astro.props;
+---
+
+<div class="another" data-another-child>
+  <a class="btn btn--outline btn--sm" href="/programs" data-another-link>Enroll another child or class <span class="arrow" aria-hidden="true">→</span></a>
+  {note && <p>{note}</p>}
+</div>
+
+<script>
+  try {
+    const age = sessionStorage.getItem('lc.finder.age');
+    if (age && /^[\w-]{1,10}$/.test(age)) {
+      document.querySelectorAll<HTMLAnchorElement>('[data-another-link]').forEach((a) => (a.href = `/programs?age=${encodeURIComponent(age)}`));
+    }
+  } catch {
+    // Storage blocked: the finder opens unfiltered.
+  }
+</script>
+
+<style>
+  .another { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; padding-top: var(--space-m); border-top: 1.5px dashed var(--line-strong); }
+  .another p { margin: 0; font-size: var(--step--1); color: var(--ink-mute); }
+</style>

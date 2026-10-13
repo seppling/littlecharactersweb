@@ -6,7 +6,7 @@
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { getDb, schema } from '@/server/db';
-import { confirmOrder, createDraftOrder, createStudent, ensureHousehold, familyDiscountEffect, fulfillOrder, priceOrder } from '@/server/family';
+import { confirmOrder, createDraftOrder, createStudent, ensureHousehold, familyDiscountEffect, familyTotals, fulfillOrder, priceOrder } from '@/server/family';
 import { chargeDescription, holdForManualPayment, listInstallments, runBilling, stopRemainingPayments, type ChargeRequest } from '@/server/billing';
 import { addAdjustment, type StaffUser } from '@/server/adjustments';
 import { previewStopEffect, refreshFamilyDiscountNow } from '@/server/family-discount';
@@ -191,16 +191,34 @@ describe('which payments change', () => {
     expect(await months(F.h.id, ava.id)).toEqual([['10', 9500, 'scheduled'], ['11', 9500, 'scheduled'], ['12', 9500, 'scheduled']]);
   });
 
-  it('only counts classes priced by the month: not a drop-in night or a class priced by the session', async () => {
+  it('does not count a drop-in night', async () => {
     const F = await family('kemp');
     const ava = await F.enroll(['Ava'], INTRO, 'monthly');
     const db = await getDb();
     const ben = await createStudent(F.h.id, { firstName: 'Ben', lastName: 'kemp', birthdate: '2018-01-01' }, F.u.id);
-    await db.insert(schema.enrollment).values([
-      // Geode Adult Improv: a $25 night; Stories & Songs: $160 for 8 weeks. Both are weekly classes in the catalog.
-      { householdId: F.h.id, studentId: ben.id, sessionId: 'adult-improv-2026-11', programSlug: 'geode-adult-improv', status: 'active' },
-      { householdId: F.h.id, studentId: ben.id, sessionId: 'stories-songs-f26', programSlug: 'stories-and-songs', status: 'active' },
-    ]);
+    // Geode Adult Improv: a $25 night, a "class" in the catalog but one date.
+    await db.insert(schema.enrollment).values({ householdId: F.h.id, studentId: ben.id, sessionId: 'adult-improv-2026-11', programSlug: 'geode-adult-improv', status: 'active' });
+    expect(await refreshFamilyDiscountNow(F.h.id, null)).toMatchObject({ count: 1, qualifies: false, changes: [] });
+    expect(await months(F.h.id, ava.id)).toEqual([['10', 9500, 'scheduled'], ['11', 9500, 'scheduled'], ['12', 9500, 'scheduled']]);
+  });
+
+  it('counts a weekly class priced by the session (decided Oct 13): Stories and Songs lowers a sibling’s months', async () => {
+    const F = await family('kemp2');
+    const ava = await F.enroll(['Ava'], INTRO, 'monthly');
+    const db = await getDb();
+    const ben = await createStudent(F.h.id, { firstName: 'Ben', lastName: 'kemp2', birthdate: '2021-01-01' }, F.u.id);
+    // Stories & Songs: $160 for the session. It has no monthly payments of its own to change; it just counts.
+    await db.insert(schema.enrollment).values({ householdId: F.h.id, studentId: ben.id, sessionId: 'stories-songs-f26', programSlug: 'stories-and-songs', status: 'active' });
+    expect(await refreshFamilyDiscountNow(F.h.id, null)).toMatchObject({ count: 2, qualifies: true });
+    expect(await months(F.h.id, ava.id)).toEqual([['10', 8075, 'scheduled'], ['11', 8075, 'scheduled'], ['12', 8075, 'scheduled']]);
+  });
+
+  it('does not count a free trial in a class priced by the session', async () => {
+    const F = await family('kemp3');
+    const ava = await F.enroll(['Ava'], INTRO, 'monthly');
+    const db = await getDb();
+    const ben = await createStudent(F.h.id, { firstName: 'Ben', lastName: 'kemp3', birthdate: '2021-01-01' }, F.u.id);
+    await db.insert(schema.enrollment).values({ householdId: F.h.id, studentId: ben.id, sessionId: 'stories-songs-f26', programSlug: 'stories-and-songs', status: 'trial' });
     expect(await refreshFamilyDiscountNow(F.h.id, null)).toMatchObject({ count: 1, qualifies: false, changes: [] });
     expect(await months(F.h.id, ava.id)).toEqual([['10', 9500, 'scheduled'], ['11', 9500, 'scheduled'], ['12', 9500, 'scheduled']]);
   });
@@ -280,5 +298,66 @@ describe('with a staff discount', () => {
       [7267, 'October tuition: Ava, Intro to Theater (Family discount (15%): −$14.25, Scholarship: −$8.08)'],
       [8075, 'October tuition: Ben, Yes, And… Improv (Family discount (15%): −$14.25)'],
     ]);
+  });
+});
+
+describe('whole families (decided Oct 13, 2026)', () => {
+  it('starts new students on the free first class, and the rest on monthly', async () => {
+    const F = await family('ford');
+    await F.enroll(['Ava'], INTRO, 'monthly');
+    const kids = await createStudent(F.h.id, { firstName: 'Ben', lastName: 'ford', birthdate: '2017-05-05' }, F.u.id);
+    const fresh = await priceOrder(F.h.id, await createDraftOrder(F.h.id, F.u.id, YESAND, [kids.id]));
+    expect(fresh.plans).toEqual(['trial', 'monthly', 'full']);
+    expect(fresh.plan).toBe('trial');
+    const again = await priceOrder(F.h.id, await createDraftOrder(F.h.id, F.u.id, YESAND, [F.kid('Ava')]));
+    expect(again.plans).toEqual(['monthly', 'full']);
+    expect(again.plan).toBe('monthly');
+  });
+
+  it('Stories and Songs: a free first class, then the classes left, prorated', async () => {
+    const F = await family('grant');
+    const db = await getDb();
+    const leo = await createStudent(F.h.id, { firstName: 'Leo', lastName: 'grant', birthdate: '2021-03-03' }, F.u.id);
+    const trial = await confirmOrder(F.h.id, (await createDraftOrder(F.h.id, F.u.id, 'stories-songs-f26', [leo.id])).id, 'trial', F.u.id);
+    expect(trial).toMatchObject({ status: 'paid', plan: 'trial', totalCents: 0 });
+    vi.setSystemTime(new Date('2026-10-21T16:00:00Z')); // the day after Leo's free class on Oct 20
+    try {
+      const priced = await priceOrder(F.h.id, await createDraftOrder(F.h.id, F.u.id, 'stories-songs-f26', [leo.id]));
+      expect(priced.plans).toEqual(['once']);
+      // 8 of the 9 Tuesdays left: $160 × 8/9 = $142.22, plus the $30 performance fee.
+      expect(priced.quote.lines.map((l) => [l.label, l.amountCents])).toEqual([
+        ['Leo: Stories and Songs (8 of 9 classes, prorated)', 14222],
+        ['Leo: performance fee (one-time)', 3000],
+      ]);
+      expect(priced.quote.totalCents).toBe(17222);
+    } finally {
+      vi.setSystemTime(new Date('2026-09-10T16:00:00Z'));
+    }
+    const [e] = await db.select().from(schema.enrollment).where(eq(schema.enrollment.studentId, leo.id));
+    expect(e.status).toBe('trial');
+  });
+
+  it('the confirmation email says when another child’s payments went down', async () => {
+    const F = await family('hill');
+    await F.enroll(['Ava'], INTRO, 'monthly');
+    await F.enroll(['Ben'], YESAND, 'monthly');
+    const confirmations = (await mail('hill@example.com')).filter((m) => m.subject.startsWith('You’re in!'));
+    expect(confirmations).toHaveLength(2);
+    const ben = confirmations.find((m) => m.text.includes('Ben is enrolled'))!;
+    expect(ben.text).toContain('We’ll charge $80.75 to your saved card on Oct 1, Nov 1 and Dec 1, and email a receipt each time. Ava’s remaining monthly payments also drop to $80.75 with the 15% family discount.');
+    const ava = confirmations.find((m) => m.text.includes('Ava is enrolled'))!;
+    expect(ava.text).not.toContain('family discount');
+  });
+
+  it('adds up the family’s day from their payments', async () => {
+    const F = await family('irwin');
+    await F.enroll(['Ava'], INTRO, 'monthly');
+    await F.enroll(['Ben'], YESAND, 'monthly');
+    const t = await familyTotals(F.h.id, '2026-09-10');
+    const paid = (await getDb()).select().from(schema.order).where(eq(schema.order.householdId, F.h.id));
+    expect(t.signUpsToday).toBe(2);
+    expect(t.paidTodayCents).toBe((await paid).reduce((a, o) => a + o.totalCents, 0));
+    // Autopay on Oct 1: both children at $80.75.
+    expect(t).toMatchObject({ nextFirst: '2026-10-01', nextMonthCents: 16150, nextMonthOrders: 2 });
   });
 });

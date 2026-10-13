@@ -4,7 +4,7 @@
  * The Enroll button is where Discovery hands off to Enrollment.
  */
 import type { Program, Session } from '@/content/types';
-import { dateRange, dayList, price, spotsLabel, timeRange } from '@/lib/format';
+import { dateRange, dayList, priceLabel, spotsLabel, timeRange } from '@/lib/format';
 import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
 
 const { locationById } = Astro.locals.content;
@@ -38,7 +38,7 @@ const dates = singleDay
     <span>{loc?.shortName}</span>
   </div>
   <div class="session__price">
-    <strong>{session.price ? price(session.price) : session.externalUrl ? 'Via school' : 'Pricing TBA'}</strong>
+    <strong>{session.price ? priceLabel(session.price, session) : session.externalUrl ? 'Via school' : 'Pricing TBA'}</strong>
     <span class="status" data-status={session.status}>{spotsLabel(session)}</span>
   </div>
   <a

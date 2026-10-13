@@ -245,6 +245,13 @@ const structuredData = courseUrls.length >= 3 ? [courseListLd(courseUrls)] : [];
     if (s.trial) params.set('trial', '1');
     const qs = params.toString();
     history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
+    // "Enroll another child or class" (after a sign-up) comes back to this age.
+    try {
+      if (s.age) sessionStorage.setItem('lc.finder.age', s.age);
+      else sessionStorage.removeItem('lc.finder.age');
+    } catch {
+      // Storage blocked: nothing to remember.
+    }
   }
 
   // Pre-select from the URL (age picker links, nav links like ?kind=class)

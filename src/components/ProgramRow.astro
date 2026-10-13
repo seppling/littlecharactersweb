@@ -10,7 +10,7 @@ import SessionLine from './SessionLine.astro';
 import { focusLabels } from '@/content/catalog';
 import { kindTag } from '@/lib/program-fit';
 import { hasFreeFirstClass } from '@/lib/pricing';
-import { ageLabel, feeLabel, price } from '@/lib/format';
+import { ageLabel, feeLabel, priceLabel } from '@/lib/format';
 import { bookingClock, offeredSessions } from '@/lib/session-dates';
 import { finderLimit, schoolOnlyLabel } from '@/lib/finder';
 
@@ -82,7 +82,7 @@ const schoolOnly = limit === 'school' ? schoolOnlyLabel(program, Astro.locals.co
       <p>{program.summary}</p>
       <p class="prow__foot">
         {program.duration && <span class="script">{program.duration}</span>}
-        {fromPrice && <span class="script">{fromPrice.amount === 0 ? 'Free' : `${price(fromPrice)} ${feeLabel(program.fee)}`}</span>}
+        {fromPrice && <span class="script">{fromPrice.amount === 0 ? 'Free' : `${priceLabel(fromPrice, sessions[0] ?? program.sessions.at(-1))} ${feeLabel(program.fee)}`}</span>}
         {program.showcase && <span class="prow__show">★ Ends in a show</span>}
       </p>
     </div>
