@@ -134,8 +134,8 @@ export const programs: CollectionDraft<'programs'>[] = [
       },
       {
         path: 'description.0',
-        from: 'Have a student who is itching to perform more than once a semester? This class is for students who have worked in theater before and want to sharpen their acting skills. We spend the fall putting on short performances around town, then use December through March to prepare a full-length production.',
-        to: 'Have a student who is itching to perform more than once a semester? This youth theater troupe is for students ages 9 and up who have worked in theater before and want to sharpen their acting skills. We spend the fall putting on short performances around town, then use December through March to prepare a full-length production.',
+        from: 'Have a student who is itching to perform more than once a season? This class is for students who have worked in theater before and want to sharpen their acting skills. We spend the fall putting on short performances around town, then use December through March to prepare a full-length production.',
+        to: 'Have a student who is itching to perform more than once a season? This youth theater troupe is for students ages 9 and up who have worked in theater before and want to sharpen their acting skills. We spend the fall putting on short performances around town, then use December through March to prepare a full-length production.',
         why: 'Says “youth theater troupe” and the ages in plain words near the top.',
       },
       {
@@ -278,8 +278,8 @@ export const programs: CollectionDraft<'programs'>[] = [
       },
       {
         path: 'description.0',
-        from: 'We hold weekend workshops 1–2 times a semester, as well as half-day workshops and mini camps on CCSD school holidays.',
-        to: 'We hold weekend workshops 1–2 times a semester, as well as half-day workshops and mini camps on Clarke County School District (CCSD) school holidays.',
+        from: 'We hold weekend workshops 1–2 times a season, as well as half-day workshops and mini camps on CCSD school holidays.',
+        to: 'We hold weekend workshops 1–2 times a season, as well as half-day workshops and mini camps on Clarke County School District (CCSD) school holidays.',
         why: 'Spells out the school district, which parents also search for by its full name.',
       },
       {

@@ -21,7 +21,9 @@ const first = dated
     };
 // A show's title links to its own page; a recurring night's to its class page.
 const titleHref = eventLink(event, (slug) => !!programBySlug(slug));
-const venue = event.venue ?? locationById(event.locationId ?? '')?.name;
+// "Or another venue" is free text and shows as it is; otherwise the location's name, street address and map.
+const location = event.venue ? undefined : locationById(event.locationId ?? '');
+const venue = event.venue ?? location?.name;
 const kindLabel: Record<EventItem['kind'], string> = {
   show: 'Show',
   community: 'Free class',
@@ -54,8 +56,16 @@ const kindLabel: Record<EventItem['kind'], string> = {
           );
         })
       }
-      {venue && <span class="ticket__venue"> — {venue}</span>}
     </p>
+    {
+      venue && (
+        <p class="ticket__where">
+          <span class="ticket__venue">{venue}</span>
+          {location && location.address.length > 0 && <span class="ticket__address">{location.address.join(', ')}</span>}
+          {location?.mapUrl && <a class="ticket__map" href={location.mapUrl} rel="noopener">Map</a>}
+        </p>
+      )
+    }
     <p class="ticket__summary">{event.summary}</p>
     <div class="ticket__actions">
       {event.cta && <a class="btn btn--sm btn--orange" href={event.cta.href}>{event.cta.label}</a>}
@@ -121,7 +131,9 @@ const kindLabel: Record<EventItem['kind'], string> = {
   .ticket h3 { font-size: var(--step-2); color: var(--on-stage); }
   .ticket h3 a { color: inherit; text-decoration-thickness: 2px; text-underline-offset: 0.18em; text-decoration-color: var(--gel); }
   .ticket__times { color: var(--on-stage); }
-  .ticket__venue { color: var(--on-stage-mute); }
+  .ticket__where { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.1rem 0.6rem; font-size: var(--step--1); color: var(--on-stage-mute); }
+  .ticket__venue { color: var(--on-stage); font-weight: 600; }
+  .ticket__map { color: var(--on-stage); font-weight: 600; }
   .ticket__summary { color: var(--on-stage-mute); max-width: 60ch; }
   .ticket__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1.1rem; margin-top: 0.4rem; }
   .ticket__cal { color: var(--on-stage); font-weight: 600; font-size: var(--step--1); }

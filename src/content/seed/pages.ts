@@ -86,7 +86,7 @@ export const pages: Pages = {
       steps: [
         { title: 'Pick a class', text: 'Look for the “First class free” tag in the class finder.' },
         { title: 'Choose “Try the first class free”', text: 'Nothing is due when you enroll.' },
-        { title: 'Stay if they love it', text: 'Continue monthly or pay the semester, right from your family account.' },
+        { title: 'Stay if they love it', text: 'Continue monthly or pay for the season, right from your family account.' },
       ],
     },
     pathway: {
@@ -125,14 +125,14 @@ export const pages: Pages = {
         },
       ],
     },
-    featured: { eyebrow: 'Fall 2026 · registration open', heading: 'This semester’s classes' },
+    featured: { eyebrow: 'Fall 2026 · registration open', heading: 'This season’s classes' },
     why: {
       eyebrow: 'Why families choose Little Characters',
       heading: 'Small groups. Big confidence.',
       facts: [
         { big: '8–12', text: 'Kids in a typical class, with about 7 students per teacher. We add teachers when friends need extra attention.', gel: 'teal' },
         { big: 'Free', text: 'New students can try most weekly classes free, so your child can see if it clicks before you commit.', gel: 'orange' },
-        { big: '15% off', text: 'For multiple students or multiple classes. Pay the semester up front and save 10%.', gel: 'red' },
+        { big: '15% off', text: 'For multiple students or multiple classes. Pay for the season up front and save 10%.', gel: 'red' },
         { big: '1 : 1', text: 'Class buddies for students with higher needs, through the UGA Speech and Hearing Clinic, at no cost to parents.', gel: 'purple' },
       ],
       testimonial: 'lane',
@@ -187,7 +187,7 @@ export const pages: Pages = {
       items: [
         {
           title: 'Weekly classes',
-          body: 'Acting, improv, filmmaking, writing and stagecraft, once a week through the fall and spring. Every class builds to a mid-semester showcase and an end-of-term show.',
+          body: 'Acting, improv, filmmaking, writing and stagecraft, once a week through the fall and spring. Every class builds to a mid-season showcase and an end-of-term show.',
           link: { label: 'Find a class', href: '/programs?kind=class' },
           gel: 'teal',
         },
@@ -230,7 +230,7 @@ export const pages: Pages = {
       items: [
         {
           title: 'Every class ends in a show',
-          body: 'Students perform in a mid-semester showcase and a full show at the end of the term, and each family gets 2 free tickets per student.',
+          body: 'Students perform in a mid-season showcase and a full show at the end of the term, and each family gets 2 free tickets per student.',
         },
         {
           title: 'Small classes, more teachers',
@@ -380,7 +380,7 @@ export const pages: Pages = {
         { label: 'Hours', value: '9 am – 1 pm' },
         { label: 'Cost', value: 'About $50 a day' },
         { label: 'After-camp', value: 'Until 3 pm, $30/day' },
-        { label: 'The finale', value: 'A show for families' },
+        { label: 'Performances', value: 'A show for families' },
       ],
       summerButton: 'Summer 2027',
       miniButton: 'Mini camps & workshops',
@@ -554,7 +554,7 @@ export const pages: Pages = {
     },
     perform: {
       heading: 'Want your kid on this stage?',
-      body: 'Every class has a mid-semester showcase and ends with a big show, and each student gets 2 free tickets for family.',
+      body: 'Every class has a mid-season showcase and ends with a big show, and each student gets 2 free tickets for family.',
       button: 'Find a class',
     },
   },

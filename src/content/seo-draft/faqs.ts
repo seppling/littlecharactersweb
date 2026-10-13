@@ -35,7 +35,7 @@ export const faqs: CollectionDraft<'faqs'>[] = [
     create: {
       group: 'Getting started',
       q: 'Can I stay and watch?',
-      a: 'You’re welcome to wait in our lobby during class. Families watch at the mid-semester showcase and the big show at the end of each term, with 2 free tickets per student. See our [shows and events](/events).',
+      a: 'You’re welcome to wait in our lobby during class. Families watch at the mid-season showcase and the big show at the end of each term, with 2 free tickets per student. See our [shows and events](/events).',
     },
     why: 'Answers a question parents of young children ask before signing up, and links to the shows.',
   },
@@ -128,8 +128,8 @@ export const faqs: CollectionDraft<'faqs'>[] = [
     edits: [
       {
         path: 'a',
-        from: 'Yes! All classes have a mid-semester showcase and end with a big show at the end of the term. Each family receives 2 free tickets per student.',
-        to: 'Yes! All classes have a mid-semester showcase and end with a big show at the end of the term. Each family receives 2 free tickets per student. See what’s coming up on our [shows and events](/events) page.',
+        from: 'Yes! All classes have a mid-season showcase and end with a big show at the end of the term. Each family receives 2 free tickets per student.',
+        to: 'Yes! All classes have a mid-season showcase and end with a big show at the end of the term. Each family receives 2 free tickets per student. See what’s coming up on our [shows and events](/events) page.',
         why: 'Links to the events page, where the shows are listed.',
       },
     ],
@@ -140,8 +140,8 @@ export const faqs: CollectionDraft<'faqs'>[] = [
     edits: [
       {
         path: 'a',
-        from: 'Camps run about $50 a day, usually 9 am to 1 pm with snacks and materials included (bring a lunch). Summer camp weeks end with a performance for parents and friends. We also run mini camps on CCSD school holidays and weekend workshops 1–2 times a semester.',
-        to: 'Camps run about $50 a day, usually 9 am to 1 pm with snacks and materials included (bring a lunch). [Summer camp](/programs/summer-camp) weeks end with a performance for parents and friends. We also run [mini camps](/programs/mini-camps-and-workshops) on Clarke County School District (CCSD) school holidays and weekend workshops 1–2 times a semester. See [all our camps](/camps).',
+        from: 'Camps run about $50 a day, usually 9 am to 1 pm with snacks and materials included (bring a lunch). Summer camp weeks end with a performance for parents and friends. We also run mini camps on CCSD school holidays and weekend workshops 1–2 times a season.',
+        to: 'Camps run about $50 a day, usually 9 am to 1 pm with snacks and materials included (bring a lunch). [Summer camp](/programs/summer-camp) weeks end with a performance for parents and friends. We also run [mini camps](/programs/mini-camps-and-workshops) on Clarke County School District (CCSD) school holidays and weekend workshops 1–2 times a season. See [all our camps](/camps).',
         why: 'Links each kind of camp to its page and spells out the school district, which parents search by name.',
       },
     ],
