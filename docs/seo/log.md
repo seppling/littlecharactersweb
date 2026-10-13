@@ -350,3 +350,13 @@ The helper also ran it for real: the public page kept its wording, and the edito
 **Merge.** `docs/content-editor.md` conflicted. Both paragraphs were kept: the show and repeating-night paragraphs, plus the share-photo sentence. `docs/seo/review.md` was regenerated.
 
 **For Stephen and Hannah.** The redirects only work once the domain points at the new site. The PDFs on Squarespace go away when it does.
+
+### Business Profile kit review (October 13)
+
+Stephen reviewed the kit. These changes went into `docs/seo/business-profile.md`:
+- **Hours:** show the class hours, set from the fall schedule at HQ for Hannah to check. Monthly nights go in as special hours. The hours are updated each term.
+- **Name:** the sign says "Little Characters Theater Troupe", which matches the profile.
+- **Macaroni KID:** free listings first, then decide on sponsorship.
+- **Links (Part 7):** these wait until launch day, because `/programs` and `/camps` don't exist on today's Squarespace site. Posts link to the home page or `/events` until then.
+- **Prices:** Ovation's $15 is marked "confirm first", and the summer camp price is marked as 2026's.
+- **First post:** due by Thursday, October 15.
