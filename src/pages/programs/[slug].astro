@@ -11,7 +11,7 @@ import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
 import { hasFreeFirstClass } from '@/lib/pricing';
 import { bookingClock, offeredSessions, sessionState } from '@/lib/session-dates';
 import { breadcrumbLd, courseLd, isCourse } from '@/lib/seo';
-import { faqsFor, highlightsHeading, kindTag, moneyLines, perChild } from '@/lib/program-fit';
+import { faqsFor, highlightsHeading, isAdult, kindTag, moneyLines, perChild } from '@/lib/program-fit';
 
 const { programs, faqs, locationById, programBySlug, vars, site } = Astro.locals.content;
 const found = programBySlug(Astro.params.slug ?? '');
@@ -276,7 +276,7 @@ const structuredData = [
 
         {relevantFaqs.length > 0 && (
           <section class="stack" aria-labelledby="faq-title">
-            <h2 id="faq-title">Questions parents ask</h2>
+            <h2 id="faq-title">{isAdult(program) ? 'Questions people ask' : 'Questions parents ask'}</h2>
             <FaqList items={relevantFaqs} />
             <p><a href="/faq">All FAQs</a></p>
           </section>
