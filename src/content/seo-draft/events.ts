@@ -18,8 +18,8 @@ const IMPROV_SUMMARY: Edit = {
 
 const FREE_CLASS_SUMMARY: Edit = {
   path: 'summary',
-  from: 'Our monthly free class, open to all ages, with a different teacher each month. Registration opens soon.',
-  to: 'Our monthly free theater class at our W Broad St space in Athens, open to all ages, with a different teacher each month. Registration opens soon.',
+  from: 'Our monthly free class, open to all ages, with a different teacher each month.',
+  to: 'Our monthly free theater class at our W Broad St space in Athens, open to all ages, with a different teacher each month.',
   why: 'Says what kind of class it is and where, for “free kids activities Athens” searches.',
 };
 

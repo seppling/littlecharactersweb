@@ -7,6 +7,7 @@ import { autopayLine, getOrder, householdForUser, listStudents } from '@/server/
 import { completeCheckout, paymentsMode } from '@/server/payments';
 import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
+import { arrivalLines, isOneOff, oneOffWhen } from '@/lib/program-fit';
 
 export const prerender = false;
 const { locationById, site } = Astro.locals.content;
@@ -35,6 +36,9 @@ const loc = locationById(session.locationId);
 const first = meetings(session).find((m) => m >= todayInAthens()) ?? session.startDate;
 const firstDate = new Date(`${first}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
 const waitlist = o.plan === 'waitlist';
+// One date (a night out, the free class): its date and time in one line, no "first class".
+const oneOff = isOneOff(session);
+const arrival = arrivalLines(program, parking);
 ---
 
 <Base title="You’re in!" noindex>
@@ -56,8 +60,14 @@ const waitlist = o.plan === 'waitlist';
     {
       !waitlist && (
         <dl class="facts">
-          <div><dt>First class</dt><dd>{firstDate}</dd></div>
-          <div><dt>Time</dt><dd>{dayList(session.days)}, {timeRange(session.start, session.end)}</dd></div>
+          {oneOff ? (
+            <div class="wide"><dt>When</dt><dd>{oneOffWhen(program, session)}</dd></div>
+          ) : (
+            <>
+              <div><dt>First class</dt><dd>{firstDate}</dd></div>
+              <div><dt>Time</dt><dd>{dayList(session.days)}, {timeRange(session.start, session.end)}</dd></div>
+            </>
+          )}
           {loc && <div><dt>Where</dt><dd>{loc.name}<br /><span class="muted">{loc.address.join(', ')}</span></dd></div>}
           <div><dt>{o.plan === 'trial' ? 'Today' : 'Paid'}</dt><dd>{o.plan === 'trial' ? 'Your first class is free' : formatCents(o.totalCents)}</dd></div>
         </dl>
@@ -74,11 +84,9 @@ const waitlist = o.plan === 'waitlist';
     }
 
     <div class="bring">
-      <h2>Before the first class</h2>
+      <h2>{oneOff ? 'Before you come' : 'Before the first class'}</h2>
       <ul>
-        <li>Wear comfy clothes and closed-toe shoes, and bring a water bottle.</li>
-        <li>{parking.walkIn}</li>
-        <li>{parking.late}</li>
+        {arrival.map((line) => <li>{line}</li>)}
         {o.plan === 'monthly' && o.schedule.length > 0 && <li>{autopayLine(o.schedule)} You can see upcoming charges in your family account.</li>}
       </ul>
     </div>
@@ -92,6 +100,7 @@ const waitlist = o.plan === 'waitlist';
   .facts { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-m); padding: var(--space-l); background: var(--hall); border-radius: var(--r-md); }
   .facts dt { font-family: var(--font-script); font-weight: 700; font-size: var(--step--2); text-transform: uppercase; color: var(--purple); }
   .facts dd { margin: 0.2rem 0 0; font-weight: 600; }
+  .facts .wide { grid-column: 1 / -1; }
   .muted { color: var(--ink-mute); font-weight: 400; }
   .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
   .bring h2 { font-size: var(--step-1); margin-bottom: 0.5rem; }

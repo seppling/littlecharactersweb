@@ -4,7 +4,7 @@ import AdminShell from '@/components/admin/AdminShell.astro';
 import { listLeads } from '@/server/leads';
 
 export const prerender = false;
-const { programBySlug } = Astro.locals.content;
+const { programBySlug, events } = Astro.locals.content;
 const isAdmin = Astro.locals.isAdmin;
 if (!isAdmin && Astro.locals.user) return new Response('Not found', { status: 404 });
 
@@ -32,7 +32,7 @@ const fmt = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numer
                 <td>{label[l.kind] ?? l.kind}</td>
                 <td>{l.name && <strong>{l.name}<br /></strong>}<a href={`mailto:${l.email}`}>{l.email}</a></td>
                 <td>
-                  {l.details.program && <span class="muted">{programBySlug(l.details.program)?.title ?? l.details.program}</span>}
+                  {l.details.program && <span class="muted">{programBySlug(l.details.program)?.title ?? events.find((e) => e.slug === l.details.program)?.title ?? l.details.program}</span>}
                   {l.details.topic && <span class="muted">About: {l.details.topic}</span>}
                   {l.details.ages && <span class="muted"> · Ages {l.details.ages}</span>}
                   {l.message && <p class="msg">{l.message}</p>}

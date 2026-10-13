@@ -158,7 +158,6 @@ const free = programBySlug('free-community-class');
         <p class="lede">{[mini?.summary, page.mini.lede].filter(Boolean).join(' ')}</p>
         <div class="mini__cards">
           {mini && <ProgramCard program={mini} />}
-          {free && <ProgramCard program={free} />}
         </div>
       </div>
       {
@@ -178,6 +177,21 @@ const free = programBySlug('free-community-class');
       }
     </div>
   </section>
+
+  {
+    free && (
+      <section class="section section--hall section--tight" id="free-class" aria-labelledby="free-title">
+        <div class="wrap free">
+          <div class="stack">
+            <span class="tape" data-gel={free.gel}>Free</span>
+            <h2 id="free-title">{free.title}</h2>
+            <p class="lede">{free.summary}</p>
+          </div>
+          <ProgramCard program={free} />
+        </div>
+      </section>
+    )
+  }
 
   <section class="section section--stage" aria-labelledby="day-title">
     <div class="wrap day">
@@ -286,7 +300,9 @@ const free = programBySlug('free-community-class');
 
   .mini { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.7fr); gap: var(--space-2xl); align-items: start; }
   .mini h2 { font-size: var(--step-4); }
-  .mini__cards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-l); }
+  .mini__cards { display: grid; grid-template-columns: minmax(0, 22rem); gap: var(--space-l); }
+  .free { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.7fr); gap: var(--space-2xl); align-items: center; }
+  .free h2 { font-size: var(--step-4); }
   .recent { padding: var(--space-l); background: var(--hall); border-radius: var(--r-lg); }
   .recent h3 { font-size: var(--step-1); margin-bottom: var(--space-m); }
   .recent ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
@@ -304,7 +320,7 @@ const free = programBySlug('free-community-class');
   .timeline p { color: var(--on-stage-mute); font-size: var(--step--1); }
 
   @media (max-width: 960px) {
-    .camp-hero__grid, .day, .soon, .mini { grid-template-columns: 1fr; }
+    .camp-hero__grid, .day, .soon, .mini, .free { grid-template-columns: 1fr; }
     .camp-hero :global(.camp-hero__photo) { justify-self: start; max-width: 320px; order: -1; }
     .camp-facts { grid-template-columns: 1fr 1fr; }
   }

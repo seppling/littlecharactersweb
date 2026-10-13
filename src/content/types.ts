@@ -140,8 +140,13 @@ export interface EventItem {
   price?: string;
   cta?: { label: string; href: string };
   ages?: string;
-  /** The class page that tells more, for recurring nights like Parents’ Night Out (a program's slug). */
+  /**
+   * The class page that tells more, for recurring nights like Parents’ Night Out (a program's slug).
+   * A one-date event is booked through that class's session on the same date.
+   */
   programSlug?: string;
+  /** For a show: the classes performing in it (programs' slugs), linked from its page. */
+  performers?: string[];
   /** Shown on a show's own page and in its link previews. */
   image?: ImageRef;
   /** What Google shows for a show's own page. Empty = its name and description. */
@@ -208,7 +213,7 @@ export interface SiteSettings {
 export interface HomePage {
   seo?: Seo;
   hero: { eyebrow?: string; headline: string; intro: string; promises: string[]; photo?: ImageRef };
-  callSheet: { heading: string; items: { when: string; title: string; text?: string; href?: string; gel: Gel }[] };
+  callSheet: { heading: string; items: { when: string; title: string; text?: string; href?: string; until?: string; gel: Gel }[] };
   trial: { eyebrow?: string; heading: string; body: string; button: string; steps: { title: string; text: string }[] };
   pathway: SectionHead & { steps: { age: string; title: string; character: CharacterName; gel: Gel; programs: string[] }[] };
   approach: SectionHead & { steps: { title: string; body: string; gel: Gel; photo?: ImageRef }[] };

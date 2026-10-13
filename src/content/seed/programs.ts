@@ -35,9 +35,6 @@ const TUITION = {
 const FALL = { term: 'Fall 2026', startDate: '2026-08-17', endDate: '2026-12-18' };
 const FALL_TO_MARCH = { term: 'Fall 2026 – Spring 2027', startDate: '2026-08-17', endDate: '2027-03-31' };
 
-const PNO_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSceXu5NWca5TztIjA44qk9WdC4FWK77re6xsBDdUg9uuAFz7w/viewform';
-const ADULT_IMPROV_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSdtbKfY86bY81dHuNwBVomyLUmm7LbEXpPS9NCg-gpXEKIHXA/viewform';
-
 function weekly(
   id: string,
   day: Weekday,
@@ -347,8 +344,8 @@ export const programs: Program[] = [
     priceFrom: { amount: 0, unit: 'class', note: 'Free' },
     image: { src: rehearsalCircle, alt: 'Students sitting in a circle on the stage floor', position: '50% 60%' },
     sessions: [
-      oneNight('free-class-2026-10-15', 'Thu, Oct 15', 'Thu', '2026-10-15', '16:15', '17:15', { price: { amount: 0, unit: 'class' }, status: 'coming-soon' }),
-      oneNight('free-class-2026-11-02', 'Mon, Nov 2', 'Mon', '2026-11-02', '16:00', '17:00', { price: { amount: 0, unit: 'class' }, status: 'coming-soon' }),
+      oneNight('free-class-2026-10-15', 'Thu, Oct 15', 'Thu', '2026-10-15', '16:15', '17:15', { price: { amount: 0, unit: 'class' } }),
+      oneNight('free-class-2026-11-02', 'Mon, Nov 2', 'Mon', '2026-11-02', '16:00', '17:00', { price: { amount: 0, unit: 'class' } }),
     ],
   },
 
@@ -373,10 +370,10 @@ export const programs: Program[] = [
     priceFrom: { amount: 30, unit: 'child', note: '$10 for each additional child' },
     image: { src: filmSuperhero, alt: 'A child in a superhero mask and costume', position: '50% 30%' },
     sessions: [
-      oneNight('pno-2026-09-25', 'Fri, Sep 25', 'Fri', '2026-09-25', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
-      oneNight('pno-2026-10-24', 'Sat, Oct 24', 'Sat', '2026-10-24', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
-      oneNight('pno-2026-11-14', 'Sat, Nov 14', 'Sat', '2026-11-14', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
-      oneNight('pno-2026-12-19', 'Sat, Dec 19', 'Sat', '2026-12-19', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
+      oneNight('pno-2026-09-25', 'Fri, Sep 25', 'Fri', '2026-09-25', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 } }),
+      oneNight('pno-2026-10-24', 'Sat, Oct 24', 'Sat', '2026-10-24', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 } }),
+      oneNight('pno-2026-11-14', 'Sat, Nov 14', 'Sat', '2026-11-14', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 } }),
+      oneNight('pno-2026-12-19', 'Sat, Dec 19', 'Sat', '2026-12-19', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 } }),
     ],
   },
   {
@@ -490,9 +487,9 @@ export const programs: Program[] = [
     teachers: ['Hannah Eppling'],
     image: { src: geodeImprovNight, alt: 'Adults laughing together at a Geode improv night', position: '50% 45%' },
     sessions: [
-      oneNight('adult-improv-2026-10', 'Thu, Oct 15', 'Thu', '2026-10-15', '18:30', '20:30', { price: { amount: 25, unit: 'class' }, teacher: 'Hannah Eppling', externalUrl: ADULT_IMPROV_FORM, externalLabel: 'Register' }),
-      oneNight('adult-improv-2026-11', 'Thu, Nov 19', 'Thu', '2026-11-19', '18:30', '20:30', { price: { amount: 25, unit: 'class' }, teacher: 'Hannah Eppling', externalUrl: ADULT_IMPROV_FORM, externalLabel: 'Register' }),
-      oneNight('adult-improv-2026-12', 'Thu, Dec 17', 'Thu', '2026-12-17', '18:30', '20:30', { price: { amount: 25, unit: 'class' }, teacher: 'Hannah Eppling', externalUrl: ADULT_IMPROV_FORM, externalLabel: 'Register' }),
+      oneNight('adult-improv-2026-10', 'Thu, Oct 15', 'Thu', '2026-10-15', '18:30', '20:30', { price: { amount: 25, unit: 'class' }, teacher: 'Hannah Eppling' }),
+      oneNight('adult-improv-2026-11', 'Thu, Nov 19', 'Thu', '2026-11-19', '18:30', '20:30', { price: { amount: 25, unit: 'class' }, teacher: 'Hannah Eppling' }),
+      oneNight('adult-improv-2026-12', 'Thu, Dec 17', 'Thu', '2026-12-17', '18:30', '20:30', { price: { amount: 25, unit: 'class' }, teacher: 'Hannah Eppling' }),
     ],
   },
 ];

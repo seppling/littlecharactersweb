@@ -74,7 +74,7 @@ describe('field definitions', () => {
     for (const t of [tokens[2], tokens[0], tokens[1], 'new1']) fd.append('callSheet.items[]', String(t));
     fd.append('callSheet.items.new1.title', '');
     const data = readForm(fields, fd) as { callSheet: { items: { title: string }[] } };
-    expect(data.callSheet.items.map((i) => i.title)).toEqual(['Stories and Songs & Acting Studio', 'Registration is open for all classes', 'Jack and the Beanstalk']);
+    expect(data.callSheet.items.map((i) => i.title)).toEqual(['Stories and Songs & Acting Studio', 'Registration is open for all classes', 'Free Community Theater Class']);
   });
 
   it('says “Required” for a missing required field, and names it in the list of problems', () => {

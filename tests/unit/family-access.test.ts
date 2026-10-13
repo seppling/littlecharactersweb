@@ -8,6 +8,7 @@ import { getDb, schema } from '@/server/db';
 import { decrypt, encrypt } from '@/server/crypto';
 import { isAdmin } from '@/server/auth';
 import { roster } from '@/server/admin';
+import { getEntry, publish, saveDraft, workingCopy } from '@/server/content';
 import {
   confirmOrder,
   createDraftOrder,
@@ -265,7 +266,20 @@ describe('class dates that have closed', () => {
 
   it('refuses a date staff haven’t opened yet', async () => {
     const hal = await createStudent(F.id, { firstName: 'Hal', lastName: 'Lund', birthdate: '2018-02-01' }, fay.id);
-    await expect(createDraftOrder(F.id, fay.id, 'free-class-2026-10-15', [hal.id])).rejects.toThrow('hasn’t opened yet');
+    // Hannah marks the Oct 15 free class "Coming soon" in the editor, then opens it again.
+    const setStatus = async (status: string) => {
+      const data = structuredClone(workingCopy((await getEntry('programs', 'free-community-class'))!)) as { sessions: { id: string; status: string }[] };
+      data.sessions.find((s) => s.id === 'free-class-2026-10-15')!.status = status;
+      expect(await saveDraft('programs', 'free-community-class', data, fay.id)).toMatchObject({ ok: true });
+      expect(await publish('programs', 'free-community-class', fay.id)).toMatchObject({ ok: true });
+    };
+    await setStatus('coming-soon');
+    try {
+      await expect(createDraftOrder(F.id, fay.id, 'free-class-2026-10-15', [hal.id])).rejects.toThrow('hasn’t opened yet');
+    } finally {
+      await setStatus('open');
+    }
+    await expect(createDraftOrder(F.id, fay.id, 'free-class-2026-10-15', [hal.id])).resolves.toMatchObject({ studentIds: [hal.id] });
   });
 
   it('refuses at checkout when the late-joining cut-off passes partway through', async () => {

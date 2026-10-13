@@ -196,7 +196,7 @@ export const home: PageDef = {
       label: 'On the call sheet',
       type: 'group',
       required: true,
-      help: 'The three “what’s happening now” cards under the top of the page. Keep these current.',
+      help: 'The “what’s happening now” cards under the top of the page. Past cards come down on their own.',
       fields: [
         heading,
         {
@@ -212,6 +212,12 @@ export const home: PageDef = {
             { key: 'title', label: 'Title', type: 'text', required: true },
             { key: 'text', label: 'Text', type: 'text' },
             { key: 'href', label: 'Goes to', type: 'url', placeholder: '/events' },
+            {
+              key: 'until',
+              label: 'Take down after',
+              type: 'date',
+              help: 'Optional. The card leaves the home page the day after. Cards about an event or a class also leave once it’s over.',
+            },
             gel,
           ],
         },
