@@ -3,7 +3,7 @@
 Branch: `claude/review-navigation` (from `claude/blissful-archimedes-enun5m` at a3adbd2).
 
 ## Commits
-- Navigation, class finder and accessibility fixes (menus, phone header, finder sort, h1s, contrast, footer logo name, browser test).
+- 9cfd4b3 Navigation, class finder and accessibility fixes (menus, phone header, finder sort, h1s, contrast, footer logo name, browser test).
 
 ## Decisions
 - Parents' Night Out and Parties go in a "Shows & Events" dropdown (where the audit's parent looked); Parking & drop-off ends the About dropdown; Give is a quiet link before "Family login" (desktop) and an item in the phone menu.
@@ -18,4 +18,4 @@ Branch: `claude/review-navigation` (from `claude/blissful-archimedes-enun5m` at 
 - none blocking
 
 ## Next action
-Write report.md and push.
+Done. Report pushed; waiting for the coordinator.
