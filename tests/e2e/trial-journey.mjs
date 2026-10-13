@@ -267,6 +267,7 @@ await page.waitForSelector('text=Discounts don’t combine, so you’re getting 
 // Ben's enrollment also lowers Ava's months, and the page says so before the family pays.
 if (laterMonths.length) await page.waitForSelector(`[data-family-discount] >> text=Ava’s remaining monthly payments also drop to ${money(FAMILY_MONTH)}.`);
 await shot('t7-review-season');
+await phoneCheck('t7-review-season');
 await page.click('.pay button[type="submit"]');
 await page.waitForURL(/\/enroll\/pay/);
 await page.click('button:has-text("Complete test payment")');

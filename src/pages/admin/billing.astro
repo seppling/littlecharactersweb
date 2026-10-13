@@ -65,28 +65,23 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
           {stopCheck.effects.length > 0 ? (
             <>
               <p><strong>The 15% family discount ends:</strong> the family drops below two weekly classes, so these unpaid payments for their other classes go back to the regular price.</p>
-              <table data-stop-effects>
-                <thead><tr><th>Child and class</th><th>Payment</th><th>Now</th><th>After</th></tr></thead>
-                <tbody>
-                  {stopCheck.effects.flatMap((e) =>
-                    e.changes.map((c) => (
-                      <tr>
-                        <td>{e.names.join(' & ')}<br /><span class="muted">{classTitle(e.sessionId)}</span></td>
-                        <td>{fmt(c.dueDate)}</td>
-                        <td>{formatCents(c.beforeCents)}</td>
-                        <td><strong>{formatCents(c.afterCents)}</strong> <span class="muted">(+{formatCents(c.afterCents - c.beforeCents)})</span></td>
-                      </tr>
-                    )),
-                  )}
-                </tbody>
-              </table>
+              <ul class="effects" data-stop-effects>
+                {stopCheck.effects.flatMap((e) =>
+                  e.changes.map((c) => (
+                    <li>
+                      <span><strong>{e.names.join(' & ')}</strong>, {classTitle(e.sessionId)}, {fmt(c.dueDate)}</span>
+                      <span><s>{formatCents(c.beforeCents)}</s> → <strong>{formatCents(c.afterCents)}</strong> <span class="muted">(+{formatCents(c.afterCents - c.beforeCents)})</span></span>
+                    </li>
+                  )),
+                )}
+              </ul>
               <p class="muted">The family sees the new amounts in their account.</p>
             </>
           ) : (
             <p class="muted">No other payment changes.</p>
           )}
           <input type="hidden" name="id" value={stopCheck.orderId} />
-          <div class="actions actions--start">
+          <div class="stop-check__buttons">
             <button name="action" value="stop" class="btn btn--primary btn--sm">Stop payments</button>
             <a class="btn btn--outline btn--sm" href="/admin/billing">Cancel</a>
           </div>
@@ -184,5 +179,10 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
   .stop-check { display: grid; gap: 0.75rem; padding: var(--space-m); border: 1.5px solid var(--yellow); background: var(--yellow-tint); border-radius: var(--r-md); }
   .stop-check h2 { margin-top: 0; }
   .stop-check p { margin: 0; }
-  .actions--start { justify-content: flex-start; }
+  .stop-check__buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .effects { list-style: none; margin: 0; padding: 0; }
+  .effects li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.2rem 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .effects s { color: var(--ink-mute); }
+  /* Long class names ("LC/Geode Performance Troupe") wrap instead of pushing the page sideways on phones. */
+  td { overflow-wrap: anywhere; }
 </style>

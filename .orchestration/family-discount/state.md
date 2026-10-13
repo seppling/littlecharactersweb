@@ -3,17 +3,19 @@
 Branch `claude/review-family-discount` (from `claude/blissful-archimedes-enun5m` at 7f607ac).
 
 ## Status
-In progress: design done, implementing.
+Done. Report: `report.md` in this folder.
 
-## Decisions (so far)
-- New column `installment.regular_amount_cents` (migration 0007): the month's price for the order's children before the 15% family discount. Backfill: the site isn't live; for rows whose order shows the 15% line, regular = round(base / 0.85), else regular = base.
-- One module `src/server/family-discount.ts`: counting + `refreshFamilyDiscount(tx, householdId, opts)`.
-- An enrollment counts when: status active, program kind `class` (as today), its session hasn't ended (endDate >= today), and its order's payments weren't stopped by staff (no cancelled payment on the order).
-- Family discount rounding: in the family's favor (cents − ceil(15%)), also used for checkout installments so the two agree.
-- Stop payments becomes a two-step check-then-stop on /admin/billing, showing which other payments go back up.
+## Commits
+- d2543e6 start state file
+- c4e5a62 regular price column (migration 0007), `src/server/family-discount.ts`, refresh after fulfillment, Stop payments and in the billing run; unit tests
+- 9be281c what families and staff see, two-step Stop payments, docs, browser tests
+- (final) phone layout fix on /admin/billing, review page checked at 390 px, report
+
+## Decisions
+See report.md → Decisions. In short: new `regular_amount_cents` column with a backfill from the order's 15% line; an enrollment counts when active, a weekly class (`kind === 'class'`), its class not ended, and its order not stopped; the 15% rounds in the family's favor everywhere; Stop payments is check-then-stop.
 
 ## Open questions
-None blocking.
+For Hannah (not blocking): see report.md → Open points.
 
 ## Next action
-Migration + schema, then the module and call sites.
+None. Waiting for the coordinator.
