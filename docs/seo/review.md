@@ -642,9 +642,9 @@ Before:
 
 After:
 
-> This 8-week class is for the littlest characters, ages 4 to 6 (pre-K and kindergarten), who show a lot of interest in performing and playing pretend! Students act out some of their favorite books, learn songs, and of course, play in the costume box. No experience needed.
+> This 8-week class is for the littlest characters, ages 4 to 6 (pre-K and kindergarten), who are always putting on a show and playing pretend! Students act out some of their favorite books, learn songs, and of course, raid the costume box. No experience needed, just a big imagination.
 
-_Why:_ Says “pre-K and kindergarten” (as the class finder does) for “preschool theater class” searches, and answers “does my child need experience?”.
+_Why:_ Replaces the SEO version: keeps its search words and adds a warmer, more playful tone.
 
 ### Full description › paragraph 2
 
@@ -654,9 +654,45 @@ Before:
 
 After:
 
-> We help nurture the physical and emotional development of your growing child, all while having a whole lot of fun. At age 7, [Intro to Theater](/programs/intro-to-theater) is the next step.
+> We help nurture the physical and emotional development of your growing child, all while having a whole lot of fun (and a few wiggles). When they turn 7, [Intro to Theater](/programs/intro-to-theater) is the next step.
 
-_Why:_ Links to the next class on the pathway, so families see where their child goes next.
+_Why:_ Replaces the SEO version: keeps its search words and adds a warmer, more playful tone.
+
+### Tagline
+
+Before:
+
+> For the littlest characters who love to perform and play pretend.
+
+After:
+
+> For the littlest characters who love to sing, pretend and put on a show.
+
+_Why:_ Says what the youngest students actually love doing, in a lighter voice.
+
+### Summary
+
+Before:
+
+> An 8-week class where 4- to 6-year-olds act out favorite books, learn songs and, of course, play in the costume box.
+
+After:
+
+> An 8-week class where 4- to 6-year-olds jump into their favorite books, learn songs and, of course, dive into the costume box.
+
+_Why:_ Same facts as today, with livelier verbs for the class cards.
+
+### How it ends
+
+Before:
+
+> Ends with a performance at our Variety Show in December.
+
+After:
+
+> Ends with a performance at our Variety Show in December, bows and all.
+
+_Why:_ Adds a small smile to the line about the show; the event and month are unchanged.
 
 ## Classes & camps: Intro to Theater
 
@@ -694,9 +730,9 @@ Before:
 
 After:
 
-> This acting class for ages 7 to 10 will broaden your Little Character’s view of all things theater, no experience needed! We cover vocality, movement and character exploration onstage while working individually and in groups to build confidence, teamwork and individualism.
+> This acting class for ages 7 to 10 raises the curtain on all things theater for your Little Character, no experience needed! We cover vocality, movement and character exploration onstage while working individually and in groups to build confidence, teamwork and individualism.
 
-_Why:_ Adds the plain words parents search (“acting class”, the ages) and answers “is it for beginners?”.
+_Why:_ Replaces the SEO version: keeps its search words and adds a warmer, more playful tone.
 
 ### Full description › paragraph 2
 
@@ -706,9 +742,33 @@ Before:
 
 After:
 
-> Class is full of games and activities geared toward learning all of the aspects of theater. Want more? Students often pair it with [Yes, And… Improv](/programs/yes-and-improv) or [Produce a Show](/programs/produce-a-show).
+> Class is packed with games and activities, so learning every part of theater feels a lot like play. Want more? Students often pair it with [Yes, And… Improv](/programs/yes-and-improv) or [Produce a Show](/programs/produce-a-show).
 
-_Why:_ Links to the classes that build on this one, by need.
+_Why:_ Replaces the SEO version: keeps its search words and adds a warmer, more playful tone.
+
+### Tagline
+
+Before:
+
+> All things theater: voice, movement and character.
+
+After:
+
+> All things theater: voice, movement, character and lots of games.
+
+_Why:_ Tells families up front that class is full of games, as the description already says.
+
+### Summary
+
+Before:
+
+> This course broadens students’ view of all things theater, covering vocality, movement and character exploration, full of games and activities.
+
+After:
+
+> A playful tour of all things theater: vocality, movement and character exploration, learned through games and activities.
+
+_Why:_ Says the same things in a warmer, shorter way for class cards.
 
 ## Classes & camps: Yes, And… Improv
 
@@ -746,9 +806,9 @@ Before:
 
 After:
 
-> In improv, “Yes, And…” means accepting an idea and building on it, and that’s exactly what this improv class for kids and teens, ages 8 and up, is all about!
+> In improv, “Yes, And…” means accepting an idea and building on it, and that’s exactly what this improv class for kids and teens, ages 8 and up, is all about! No script? No problem.
 
-_Why:_ Says “improv class for kids and teens” and the ages in the first sentence.
+_Why:_ Replaces the SEO version: keeps its search words and adds a warmer, more playful tone.
 
 ### Full description › paragraph 2
 
@@ -761,6 +821,30 @@ After:
 > Through fast-paced games, creative storytelling and unscripted scenes, students grow their confidence, creativity and collaboration skills in a fun, supportive environment. Whether they’re new to improv or experienced performers, every class is full of laughter, surprises and endless possibilities. Your student might just learn that “Yes, And” works outside of theater, too. Itching to perform more? See the [Performance Troupe](/programs/performance-troupe), and [Geode](/geode) for tweens and teens.
 
 _Why:_ Links to the next steps for students who want more stage time or are older.
+
+### Tagline
+
+Before:
+
+> Accept an idea and build on it. On stage and off.
+
+After:
+
+> Say “yes”, add an idea, and see where the scene goes. On stage and off.
+
+_Why:_ Shows what “Yes, And” means in action instead of defining it.
+
+### Summary
+
+Before:
+
+> Fast-paced games, creative storytelling and unscripted scenes that grow confidence, creativity and collaboration.
+
+After:
+
+> Fast-paced games, creative storytelling and unscripted scenes, full of laughter and surprises, that grow confidence, creativity and collaboration.
+
+_Why:_ Brings the description’s “laughter and surprises” onto the class cards.
 
 ## Classes & camps: Produce a Show
 
@@ -801,6 +885,30 @@ After:
 > From brainstorming and playwriting to set design, costumes and performance, every student plays an important role in bringing the story to life. Whether they love being in the spotlight or behind the scenes, this class celebrates creativity, collaboration, and the magic of creating something entirely your own. Love telling stories on screen too? Try [Film Creation](/programs/film-creation).
 
 _Why:_ Uses “playwriting”, the word parents search, and links to the film class for storytellers.
+
+### Summary
+
+Before:
+
+> Students dream up an original story, create characters, explore technical theater, and turn their ideas into a fully staged production.
+
+After:
+
+> Students dream up an original story, invent the characters, try their hand at technical theater, and turn their big ideas into a fully staged production.
+
+_Why:_ Same steps as today, in livelier words for the class cards.
+
+### How it ends
+
+Before:
+
+> A fully staged, completely original production.
+
+After:
+
+> A fully staged, completely original production, dreamed up by the cast.
+
+_Why:_ Reminds families the show is the students’ own, as the description says.
 
 ## Classes & camps: LC/Geode Performance Troupe
 
@@ -854,6 +962,18 @@ After:
 
 _Why:_ Links to the events page, where families find the troupe’s performances.
 
+### Summary
+
+Before:
+
+> Short performances around town all fall, then a full-length production from December to March. For students who have worked in theater before.
+
+After:
+
+> Short performances around town all fall, then a full-length production from December to March. For students who have worked in theater before and can’t wait for their next curtain call.
+
+_Why:_ Adds the troupe’s eagerness to perform; the months and who it’s for are unchanged.
+
 ## Classes & camps: Film Creation
 
 Edit: `/admin/content/programs/film-creation`
@@ -890,9 +1010,9 @@ Before:
 
 After:
 
-> In this filmmaking class for ages 9 and up, students explore acting behind the camera, create short film storylines, act and shoot on a green screen, and learn how a film comes to life!
+> In this filmmaking class for ages 9 and up, students step behind the camera (and in front of it), dream up short film storylines, act and shoot on a green screen, and learn how a film comes to life!
 
-_Why:_ Adds “filmmaking class”, the ages and the green screen to the first sentence.
+_Why:_ Replaces the SEO version: keeps its search words and adds a warmer, more playful tone.
 
 ### Full description › paragraph 2
 
@@ -905,6 +1025,42 @@ After:
 > Students explore storytelling, scriptwriting, directing, acting, camera work, special effects and basic editing. Activities range from storyboarding to mini-film production, and student films screen at our Variety Show. Love writing stories for the stage too? See [Produce a Show](/programs/produce-a-show).
 
 _Why:_ Answers “will my child’s work be shown?” and links to the class for young writers.
+
+### Tagline
+
+Before:
+
+> Learn how a film comes to life, from storyboard to screen.
+
+After:
+
+> Lights, camera, action! Learn how a film comes to life, from storyboard to screen.
+
+_Why:_ Opens with the line every young filmmaker wants to shout.
+
+### Summary
+
+Before:
+
+> Storytelling, scriptwriting, directing, acting, camera work, special effects and basic editing, from storyboarding to mini-film production.
+
+After:
+
+> Young filmmakers try it all: storytelling, scriptwriting, directing, acting, camera work, special effects and basic editing, from the first storyboard to their own mini-film.
+
+_Why:_ Turns the list into a sentence about the students, keeping every item.
+
+### How it ends
+
+Before:
+
+> Student films screen at our Variety Show.
+
+After:
+
+> Student films get their big-screen moment at our Variety Show.
+
+_Why:_ Makes the screening sound like the celebration it is; same event.
 
 ## Classes & camps: LC Homeschool Class
 
@@ -1050,6 +1206,30 @@ After:
 
 _Why:_ Links to Geode for teens and to the camps page for holiday mini camps.
 
+### Tagline
+
+Before:
+
+> Three to five weeks of camp every summer, ending with a show.
+
+After:
+
+> Three to five weeks of summer fun, and every camp ends with a show.
+
+_Why:_ Warmer, and says every camp ends in a show, as the description does.
+
+### How it ends
+
+Before:
+
+> A performance for parents and friends at the end of the week.
+
+After:
+
+> A performance for parents and friends at the end of the week. Bring your loudest applause!
+
+_Why:_ Invites families to the show with a little fun; the timing is unchanged.
+
 ## Classes & camps: Mini Camps & Workshops
 
 Edit: `/admin/content/programs/mini-camps-and-workshops`
@@ -1102,6 +1282,30 @@ After:
 
 _Why:_ Links to the summer camp and camps pages.
 
+### Tagline
+
+Before:
+
+> Theater on school holidays and weekends.
+
+After:
+
+> School’s out? Theater’s in! Mini camps and workshops on school holidays and weekends.
+
+_Why:_ A playful hook that still says exactly when these run.
+
+### How it ends
+
+Before:
+
+> Most mini camps end with a short performance at pickup.
+
+After:
+
+> Most mini camps end with a short performance at pickup, so come ready to cheer.
+
+_Why:_ Tells parents the pickup show is for them; “most” stays.
+
 ## Classes & camps: Free Community Theater Class
 
 Edit: `/admin/content/programs/free-community-class`
@@ -1138,9 +1342,33 @@ Before:
 
 After:
 
-> Join us once a month for a FREE community theater class at our W Broad St space in Athens! All ages are welcome, and our teachers rotate every month, so each class is a little different. Liked it? [Find a weekly class](/programs) to keep going.
+> Join us once a month for a FREE community theater class at our W Broad St space in Athens! All ages are welcome, and our teachers rotate every month, so each class brings a little surprise. Caught the theater bug? [Find a weekly class](/programs) to keep going.
 
-_Why:_ Says where, and links families who enjoyed it to the weekly classes.
+_Why:_ Replaces the SEO version: keeps its search words and adds a warmer, more playful tone.
+
+### Tagline
+
+Before:
+
+> A free theater class, once a month, for anyone.
+
+After:
+
+> A free theater class, once a month, for anyone who wants to play.
+
+_Why:_ Adds an invitation to the line under the name.
+
+### Summary
+
+Before:
+
+> Join us once a month for a free community theater class. All ages welcome, with a different teacher each month.
+
+After:
+
+> Come play with us! Once a month, a free community theater class for all ages, with a different teacher each month.
+
+_Why:_ Opens with a warm invitation; free, monthly, all ages and the rotating teacher all stay.
 
 ## Classes & camps: Parents’ Night Out
 
@@ -1182,6 +1410,18 @@ After:
 
 _Why:_ Puts the ages in the text and names Athens.
 
+### Summary
+
+Before:
+
+> Once a month, 5–8 pm. Kids play games, learn theater activities and make friends while you enjoy downtown, only a mile away.
+
+After:
+
+> Once a month, 5–8 pm. Kids play games, learn theater activities and make new friends while you enjoy a night out downtown, only a mile away.
+
+_Why:_ Puts the grown-ups’ night out into the card, matching the page’s “night on the town”.
+
 ## Classes & camps: Private Lessons
 
 Edit: `/admin/content/programs/private-lessons`
@@ -1221,6 +1461,18 @@ After:
 > Looking for audition help, assistance in playwriting, one-on-one acting, or singing (voice) lessons in Athens? We provide private lessons on an hourly basis, for all ages. Tweens, teens and adults can also find us at [Geode](/geode).
 
 _Why:_ Adds “voice lessons” beside “singing lessons”, names Athens, and links to Geode, which offers lessons too.
+
+### Tagline
+
+Before:
+
+> One-on-one help, booked by the hour.
+
+After:
+
+> One-on-one help for your next audition, script or song, booked by the hour.
+
+_Why:_ Says what a lesson can be for, using the page’s own list.
 
 ## Classes & camps: Parties
 
@@ -1365,6 +1617,18 @@ After:
 > Every class is designed to inspire confidence, encourage collaboration, and help young performers discover their unique voice. Want to perform more? See the [Performance Troupe](/programs/performance-troupe), and everything else at [Geode](/geode).
 
 _Why:_ Links to the troupe and to Geode’s other programs for teens.
+
+### Tagline
+
+Before:
+
+> For tweens and teens ready to explore the world of acting.
+
+After:
+
+> For tweens and teens ready to step into the world of acting.
+
+_Why:_ A touch more action for teens; who it’s for is unchanged.
 
 ## Classes & camps: Geode: Adult Improv Night
 
