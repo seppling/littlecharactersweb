@@ -391,6 +391,7 @@ export async function markPaidOutsideStripe(installmentId: string, staffUserId: 
 /** Development only: pretends every charge succeeds. */
 export const devCharger: Charger = async (req) => {
   const id = `test_pi_${req.installmentId.slice(0, 8)}_${req.attempt}`;
+  console.log(`[test charge] ${formatCents(req.amountCents)} · ${req.description}`);
   await req.remember(id);
   return { status: 'succeeded', paymentIntentId: id };
 };

@@ -20,7 +20,8 @@ Enrolling feels like part of the website, not a trip to another app. Families go
 | Account | `/account` | Coming up (next class per child), students and their care-details status, **upcoming autopay charges**, anything that needs paying, receipts, sign out. Signed in for 90 days, renewed on each visit. |
 | Pay now | `/account/pay/<id>` | Linked from a "we couldn't charge your card" email: pay that month with any card, which also becomes the saved card. |
 | Staff | `/admin`, `/admin/<sessionId>` | For `ADMIN_EMAILS` only: counts per class, and rosters with ages, allergies, medical notes, pickup, photo consent and parent contacts. Every view is logged. |
-| Staff billing | `/admin/billing` | Failed charges that need a person, the next autopay date and total, **Paid by cash/check**, and **Stop payments** when a family withdraws. |
+| Staff billing | `/admin/billing` | Failed charges that need a person, the next autopay date and total, **Paid by cash/check**, **Stop payments** when a family withdraws, and every family on monthly autopay. |
+| Family payments | `/admin/billing/<orderId>` | One family's monthly payments for one class, and **discounts** (staff adjustments) on them. See below and `staff-billing.md`. |
 
 The Enroll buttons on every page go through one switch: `site.portal.mode` in `src/config/site.ts`.
 - `'native'` sends families to this portal.
@@ -99,6 +100,30 @@ All of this is covered by unit tests (`tests/unit/billing.test.ts`), including t
 
 Charging saved cards directly keeps the pricing rules in one place (`src/lib/pricing.ts`) and costs only the normal card fee.
 
+## Staff discounts (adjustments)
+
+Decided Oct 13, 2026 (Stephen and Hannah): staff give one family a discount on their monthly payments, for scholarships, pay-what-you-can, deals and credits. No Stripe coupons or promo codes: the site works out each charge and Stripe only collects it. Hannah's guide is `staff-billing.md`.
+
+**What an adjustment is** (`billing_adjustment`, `src/server/adjustments.ts`, math in `src/lib/adjustments.ts`):
+- one order (a family's class), a percentage (whole, 1–100) or a dollar amount, **once** (the next payment that can change, chosen when it's added) or **every month** (every unpaid one);
+- a required reason, private to staff unless **shown to the family**; who added it and when; who removed it and when. Rows are never deleted.
+
+**How it's applied.**
+- Each `installment` keeps `baseAmountCents` (what was agreed at checkout, built-in discounts included). `amountCents`, which autopay, pay-now and receipts use, is the base less the adjustments in force, and `adjustments` lists them as the family sees them ("Scholarship: −$40").
+- After the built-in 10% / 15%, in the order added; a percentage comes off what's left. The cent rounds in the family's favor. Never below $0, and a remainder under 50¢ (Stripe's minimum) is taken off too.
+- Tuition only: the late fee is added on top and never discounted.
+- Adding or removing recomputes the order's payments from scratch, so removing restores what it took off the unpaid ones.
+
+**Which payments change.**
+- `scheduled`: yes. `failed`: yes; the next retry or pay-now form charges the new amount.
+- Not while the family may have the pay-now form open (opened in the last 2 hours, `payNowOpenedAt`): Stripe's form holds the old amount, and a payment that doesn't match isn't counted. The daily billing run catches such a month up before charging it.
+- `processing` (the payment already exists in Stripe), `paid`, `cancelled`: never. A paid month keeps the adjustments it was charged with, even after one is removed.
+- A month at $0 isn't sent to Stripe: the run marks it paid and emails "Nothing to pay". A failed month brought to $0 with no late fee is settled right away.
+- Changes lock the order's payments (`SELECT … FOR UPDATE`), so the billing run can't claim one mid-change.
+- Orders paid in full (or one-time) have no later payments, so there's nothing to adjust; give money back as a Stripe refund.
+
+**Access and record.** Only staff (`isAdmin`, checked on the page and again in `src/server/adjustments.ts`). Adding and removing write `adjustment.add` / `adjustment.remove` to `audit_log`. Tested in `tests/unit/adjustments.test.ts` and the end-to-end journey.
+
 ## Persistent login
 
 1. **No account wall for browsing.** Prices, times and open spots are always public.
@@ -145,7 +170,7 @@ Imported accounts are **unverified until claimed**: nobody can use one without a
 src/server/
   env.ts            configuration; fails closed in production
   db/schema.ts      tables: Better Auth (user, session, verification, rate_limit), household,
-                    household_member, student, order, enrollment, installment, lead, audit_log,
+                    household_member, student, order, enrollment, installment, billing_adjustment, lead, audit_log,
                     dev_email, and site content (content_entry, content_version, media)
   content.ts        site content: cached reads for pages, drafts, publish, history, safeguards
   media.ts          photo uploads: resized once, stored in the database
@@ -153,6 +178,7 @@ src/server/
   family.ts         household-scoped data access, orders, fulfillment, confirmation email
   payments.ts       Stripe Embedded Checkout, saved-card charges, finishing checkouts
   billing.ts        monthly autopay: daily run, retries, pay now, staff tools
+  adjustments.ts    staff discounts on a family's monthly payments
   crypto.ts         field encryption for care notes
   email.ts          Resend, or the dev mailbox at /dev/mailbox
   admin.ts          rosters (logged)

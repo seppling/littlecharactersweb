@@ -56,6 +56,8 @@ What stays with Stephen: the layout and design, new kinds of pages, prices and d
 
 **What Google shows.** Every page, every class and every show has a **Search engines** box with a title and a description. Leave them empty to use the page's usual heading and intro (for a class, its name and summary). The title gets " · Little Characters" added at the end, unless it already says Little Characters. When someone shares a link to a page, the preview shows that page's main photo (a class's photo, or the photo at the top of the page), cropped around the spot you clicked; other pages show the home page photo. To pick a different picture for the preview (the Geode page, for example), set **Photo when the page is shared** in the same box: it wins over the page's usual photo, and it's cropped to the same wide shape around its focus point. Empty it to go back to the usual photo.
 
+**A discount for one family** (a scholarship, a sibling deal, a credit for a missed class) isn't in the editor: it's on the family's payments page. See [Giving a family a discount](staff-billing.md).
+
 ## Writing tips
 
 - **Links:** `[the words to click](/contact)` or `[our wish list](https://a.co/...)`.

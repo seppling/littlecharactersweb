@@ -1,22 +1,20 @@
 # Unit: staff discount adjustments (`claude/review-discounts`)
 
 ## Status
-In progress. Started 2026-10-13 from `claude/blissful-archimedes-enun5m` (0b44eaf).
+Done; see report.md. Started from `claude/blissful-archimedes-enun5m` (0b44eaf).
 
-## Plan
-1. Pure math in `src/lib/adjustments.ts` (no change to `src/lib/pricing.ts`).
-2. Table `billing_adjustment`; installment gets `base_amount_cents`, `adjustments` (lines the family sees) and `pay_now_opened_at`. Migration `drizzle/0006_*`.
-3. `src/server/adjustments.ts`: add, remove, re-apply (in a transaction, row locks), staff-only check.
-4. Billing: $0 months settle without Stripe; charge description and receipts name the adjustment.
-5. Admin page `/admin/billing/<orderId>`, list of families on `/admin/billing`.
-6. Family account shows "Scholarship: −$40" (or "Discount: −$40" by default).
-7. Tests, docs, billing script run, e2e, screenshots.
+## Commits
+- Staff discount adjustments: table, billing, admin page, family view, tests
+- Docs, e2e steps, the billing run's test charge line, order tie-break, report
 
 ## Decisions
-(see report.md once written)
+See report.md → Decisions.
 
 ## Open questions
-None yet.
+See report.md → Open points (refunds for paid-in-full/first month; the 2-hour pay-now lock; whether to email families). None block this unit.
+
+## Note
+One accidental request reached Stripe's test mode (failed, no money moved); see report.md → Proof.
 
 ## Next action
-Write the code.
+None. Waiting for the coordinator to review and merge.

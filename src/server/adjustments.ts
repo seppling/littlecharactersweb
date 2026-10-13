@@ -136,7 +136,7 @@ function checkInput(input: AdjustmentInput) {
 }
 
 /** The new adjustment as it would be saved: checks, and picks the payment a 'once' applies to. */
-function draft(rows: Installment[], staff: StaffUser, input: AdjustmentInput, now: Date): Adjustment {
+function draft(rows: Installment[], existing: Adjustment[], staff: StaffUser, input: AdjustmentInput, now: Date): Adjustment {
   const changeable = rows.filter((i) => !lockedReason(i, now));
   if (!changeable.length) throw new AdjustmentError('This family has no upcoming payment that can be changed right now.');
   return {
@@ -150,7 +150,8 @@ function draft(rows: Installment[], staff: StaffUser, input: AdjustmentInput, no
     reason: input.reason,
     showToFamily: input.showToFamily,
     createdBy: staff.id,
-    createdAt: now,
+    // Always after the ones already there, so "the order they were added" is never a tie.
+    createdAt: new Date(Math.max(now.getTime(), ...existing.map((a) => a.createdAt.getTime() + 1))),
     removedAt: null,
     removedBy: null,
   };
@@ -163,7 +164,7 @@ export async function previewAdjustment(staff: StaffUser, raw: AdjustmentInput, 
   const db = await getDb();
   const rows = await db.select().from(installment).where(eq(installment.orderId, input.orderId)).orderBy(asc(installment.dueDate));
   const existing = await db.select().from(billingAdjustment).where(eq(billingAdjustment.orderId, input.orderId));
-  const a = draft(rows, staff, input, now);
+  const a = draft(rows, existing, staff, input, now);
   return { input, changes: computeChanges(rows, [...existing, a], now) };
 }
 
@@ -175,7 +176,8 @@ export async function addAdjustment(staff: StaffUser, raw: AdjustmentInput, now 
     const [o] = await tx.select().from(order).where(eq(order.id, input.orderId));
     if (!o || o.status !== 'paid') throw new AdjustmentError('That enrollment isn’t paid and active.');
     const rows = await tx.select().from(installment).where(eq(installment.orderId, o.id)).orderBy(asc(installment.dueDate)).for('update');
-    const [a] = await tx.insert(billingAdjustment).values(draft(rows, staff, input, now)).returning();
+    const existing = await tx.select().from(billingAdjustment).where(eq(billingAdjustment.orderId, o.id));
+    const [a] = await tx.insert(billingAdjustment).values(draft(rows, existing, staff, input, now)).returning();
     return { adjustment: a, ...(await reapply(tx, o.id, now)) };
   });
   await audit(staff.id, 'adjustment.add', 'billing_adjustment', result.adjustment.id);
