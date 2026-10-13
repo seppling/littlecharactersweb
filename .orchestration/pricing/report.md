@@ -97,7 +97,7 @@ Branch `claude/review-pricing` (from `claude/blissful-archimedes-enun5m` at c197
   - `5b-another-child*`, `5-confirmation*`: "Enroll another child or class".
   - `t7b-confirmation-family-totals*`: family totals.
   - `t5b-details-on-file`: the details summary.
-- CI: pushed. See Handoff for its status.
+- CI (`.github/workflows/ci.yml`): green on 6baefa9 (all code changes). The later commits change only tests, docs and the report, and their CI was still running when this report was written.
 
 ## Decisions
 
