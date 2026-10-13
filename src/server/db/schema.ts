@@ -138,7 +138,13 @@ export const student = pgTable(
 // ───────────── Orders & enrollments ─────────────
 
 /** A future automatic charge, agreed to at checkout (see Installment in src/lib/pricing.ts). */
-export type ScheduledCharge = { dueDate: string; amountCents: number; label: string };
+export type ScheduledCharge = {
+  dueDate: string;
+  amountCents: number;
+  /** Before the 15% family discount. Missing on orders confirmed before it was recorded. */
+  regularAmountCents?: number;
+  label: string;
+};
 
 export type OrderLine = {
   kind: 'tuition' | 'fee' | 'discount';
@@ -218,8 +224,14 @@ export const installment = pgTable(
     dueDate: date('due_date').notNull(),
     /** What's charged for tuition: the starting amount less any staff adjustments (see src/server/adjustments.ts). */
     amountCents: integer('amount_cents').notNull(),
-    /** The amount agreed at checkout, before staff adjustments (built-in discounts already applied). */
+    /**
+     * The starting amount, before staff adjustments: the regular price less the
+     * 15% family discount when the family has two or more weekly classes (see
+     * src/server/family-discount.ts).
+     */
     baseAmountCents: integer('base_amount_cents').notNull(),
+    /** The month's regular price for this order's children, before any discount. Fixed at checkout, so later price edits never change it. */
+    regularAmountCents: integer('regular_amount_cents').notNull(),
     /** Staff adjustments taken off this month, as the family sees them. Frozen once paid. */
     adjustments: jsonb('adjustments').$type<AppliedAdjustment[]>().notNull().default([]),
     /** $15 when the month is still unpaid after the 10th (see BILLING.lateFeeCents). Owed on top of amountCents. */

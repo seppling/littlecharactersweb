@@ -30,7 +30,9 @@ import { config } from './env';
 import { audit, householdGuardians } from './records';
 import { reapplyPendingAdjustments } from './adjustments';
 import { formatCents, todayInAthens } from '@/lib/pricing';
-import { adjustmentLine } from '@/lib/adjustments';
+import { adjustmentLine, discountLines } from '@/lib/adjustments';
+import { refreshAllFamilyDiscounts, refreshFamilyDiscount, logFamilyDiscount } from './family-discount';
+import { getCatalog } from './content';
 
 const { installment, household } = schema;
 
@@ -50,12 +52,16 @@ type Installment = typeof installment.$inferSelect;
 /** What the family owes for this month right now: tuition (after any staff adjustment) plus any late fee. */
 export const totalDue = (i: Pick<Installment, 'amountCents' | 'lateFeeCents'>) => i.amountCents + i.lateFeeCents;
 
-/** "Scholarship: −$40", for receipts and the charge's description in Stripe. */
-export const adjustmentNote = (i: Pick<Installment, 'adjustments'>) => i.adjustments.map(adjustmentLine).join(', ');
+type Discounts = Pick<Installment, 'regularAmountCents' | 'baseAmountCents' | 'adjustments'>;
 
-/** What the card statement's charge says: the month, any adjustment, any late fee. */
-export const chargeDescription = (i: Pick<Installment, 'label' | 'adjustments' | 'lateFeeCents'>) =>
-  `${i.label}${i.adjustments.length ? ` (${adjustmentNote(i)})` : ''}${i.lateFeeCents ? ' + late fee' : ''}`;
+/** "Family discount (15%): −$14.25, Scholarship: −$40", for receipts and the charge's description in Stripe. */
+export const adjustmentNote = (i: Discounts) => discountLines(i).map(adjustmentLine).join(', ');
+
+/** What the card statement's charge says: the month, any discount, any late fee. */
+export const chargeDescription = (i: Discounts & Pick<Installment, 'label' | 'lateFeeCents'>) => {
+  const note = adjustmentNote(i);
+  return `${i.label}${note ? ` (${note})` : ''}${i.lateFeeCents ? ' + late fee' : ''}`;
+};
 
 export type ChargeRequest = {
   installmentId: string;
@@ -105,6 +111,8 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
  */
 export async function runBilling({ charge, today = todayInAthens(), limit = Infinity }: { charge: Charger; today?: string; limit?: number }): Promise<BillingReport> {
   const db = await getDb();
+  // Before charging: the family discount (a class ended, or a month skipped earlier), then staff adjustments.
+  await refreshAllFamilyDiscounts({ today });
   await reapplyPendingAdjustments();
   const lateFees = await applyLateFees(today);
   const staleBefore = new Date(Date.now() - BILLING.staleAfterMinutes * 60_000);
@@ -263,7 +271,7 @@ async function notify(i: Installment, kind: 'paid' | 'failed' | 'late_fee', toda
   const guardians = await householdGuardians(i.householdId);
   const payUrl = new URL(`/account/pay/${i.id}`, config.siteUrl).toString();
   const lastDayNoFee = addDays(i.dueDate, BILLING.lateFeeAfterDays - 1);
-  const note = i.adjustments.length ? ` (${adjustmentNote(i)})` : '';
+  const note = adjustmentNote(i) ? ` (${adjustmentNote(i)})` : '';
   const covered = kind === 'paid' && totalDue(i) === 0;
   const heading = { paid: covered ? `Nothing to pay: ${i.label}` : `Payment received: ${formatCents(totalDue(i))}`, failed: 'We couldn’t charge your card', late_fee: `Late fee added: ${i.label}` }[kind];
   const lines = {
@@ -352,16 +360,26 @@ export async function billingOverview(today = todayInAthens()) {
   };
 }
 
-/** A family withdrew: stop the charges that haven't happened yet. */
+/**
+ * A family withdrew: stop the charges that haven't happened yet. If that leaves
+ * the family with fewer than two weekly classes, their other remaining payments
+ * go back to the regular price (staff see which ones first, previewStopEffect).
+ */
 export async function stopRemainingPayments(orderId: string, staffUserId: string) {
   const db = await getDb();
-  const stopped = await db
-    .update(installment)
-    .set({ status: 'cancelled', retryOn: null })
-    .where(and(eq(installment.orderId, orderId), inArray(installment.status, ['scheduled', 'failed'])))
-    .returning({ id: installment.id });
+  const catalog = await getCatalog();
+  const result = await db.transaction(async (tx) => {
+    const stopped = await tx
+      .update(installment)
+      .set({ status: 'cancelled', retryOn: null })
+      .where(and(eq(installment.orderId, orderId), inArray(installment.status, ['scheduled', 'failed'])))
+      .returning({ id: installment.id, householdId: installment.householdId });
+    const householdId = stopped[0]?.householdId;
+    return { stopped: stopped.length, householdId, family: householdId ? await refreshFamilyDiscount(tx, householdId, { catalog }) : null };
+  });
   await audit(staffUserId, 'installment.stop', 'order', orderId);
-  return stopped.length;
+  if (result.householdId && result.family) await logFamilyDiscount(staffUserId, result.householdId, result.family);
+  return { stopped: result.stopped, familyDiscount: result.family?.changes ?? [] };
 }
 
 /** Staff decided not to charge the late fee this time. */

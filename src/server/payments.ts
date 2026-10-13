@@ -119,10 +119,10 @@ export async function createInstallmentCheckout(opts: {
     mode: 'payment',
     customer,
     line_items: [
-      // The tuition after any staff adjustment, which the description names ("Scholarship: −$40").
+      // The tuition after the family discount and any staff adjustment, which the description names ("Family discount (15%): −$14.25").
       // Left out when a discount covers it all and only the late fee is due.
       ...(i.amountCents > 0
-        ? [{ quantity: 1, price_data: { currency: 'usd', unit_amount: i.amountCents, product_data: { name: i.label, ...(i.adjustments.length ? { description: adjustmentNote(i) } : {}) } } }]
+        ? [{ quantity: 1, price_data: { currency: 'usd', unit_amount: i.amountCents, product_data: { name: i.label, ...(adjustmentNote(i) ? { description: adjustmentNote(i) } : {}) } } }]
         : []),
       ...(i.lateFeeCents ? [{ quantity: 1, price_data: { currency: 'usd', unit_amount: i.lateFeeCents, product_data: { name: 'Late fee (unpaid after the 10th)' } } }] : []),
     ],

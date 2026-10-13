@@ -61,9 +61,9 @@ describe('monthly plan', () => {
     const r = q('monthly', '2026-09-01');
     expect(r.totalCents).toBe(9500 + 3000);
     expect(r.installments).toEqual([
-      { dueDate: '2026-10-01', amountCents: 9500, label: 'October tuition: Maya, Test Class' },
-      { dueDate: '2026-11-01', amountCents: 9500, label: 'November tuition: Maya, Test Class' },
-      { dueDate: '2026-12-01', amountCents: 9500, label: 'December tuition: Maya, Test Class' },
+      { dueDate: '2026-10-01', amountCents: 9500, regularAmountCents: 9500, label: 'October tuition: Maya, Test Class' },
+      { dueDate: '2026-11-01', amountCents: 9500, regularAmountCents: 9500, label: 'November tuition: Maya, Test Class' },
+      { dueDate: '2026-12-01', amountCents: 9500, regularAmountCents: 9500, label: 'December tuition: Maya, Test Class' },
     ]);
     expect(r.later[0]).toBe('Then $95 charged automatically to your saved card on the 1st of October, November and December.');
   });

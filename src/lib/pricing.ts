@@ -39,6 +39,8 @@ export interface Installment {
   /** YYYY-MM-DD (always the 1st). */
   dueDate: string;
   amountCents: number;
+  /** The same month before the 15% family discount (equal to amountCents when there's none). */
+  regularAmountCents: number;
   label: string;
 }
 
@@ -118,6 +120,16 @@ export function monthlySchedule(session: Session, today: string) {
 }
 
 const cents = (dollars: number) => Math.round(dollars * 100);
+
+/**
+ * A monthly payment less the 15% family discount, the cent rounded in the
+ * family's favor. Checkout and src/server/family-discount.ts both use it, so
+ * the two always agree.
+ */
+export function familyDiscounted(regularCents: number) {
+  const pct = Math.round(PRICING.multiDiscount * 100);
+  return regularCents - Math.ceil((regularCents * pct) / 100);
+}
 const money = (c: number) => `$${(c / 100).toFixed(c % 100 === 0 ? 0 : 2)}`;
 const monthName = (key: string) => toDate(`${key}-01`).toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' });
 
@@ -197,10 +209,10 @@ export function quote(input: QuoteInput): Quote {
       const rest = schedule.slice(1);
       if (rest.length) {
         const perMonth = cents(price.amount) * students.length;
-        const perMonthAfterDiscount = multi ? Math.round(perMonth * (1 - PRICING.multiDiscount)) : perMonth;
+        const perMonthAfterDiscount = multi ? familyDiscounted(perMonth) : perMonth;
         const who = students.map((s) => s.firstName).join(' & ');
         for (const m of rest) {
-          installments.push({ dueDate: `${m.month}-01`, amountCents: perMonthAfterDiscount, label: `${monthName(m.month)} tuition: ${who}, ${program.title}` });
+          installments.push({ dueDate: `${m.month}-01`, amountCents: perMonthAfterDiscount, regularAmountCents: perMonth, label: `${monthName(m.month)} tuition: ${who}, ${program.title}` });
         }
         later.push(
           `Then ${money(perMonthAfterDiscount)} charged automatically to your saved card on the 1st of ${rest.map((m) => monthName(m.month)).join(', ').replace(/, ([^,]*)$/, ' and $1')}.`,
