@@ -55,8 +55,17 @@ async function signIn(email) {
   await page.waitForTimeout(800);
 }
 
-// 1. Discovery → Selection
+// 1. Discovery → Selection. The family picks an age in the finder first; "Enroll another child or class" comes back to it.
+await page.goto(`${BASE}/programs?age=7-10`);
 await page.goto(`${BASE}/programs/intro-to-theater`);
+// "Joining now" on the class page (decided Oct 13, 2026): what a new student pays today, from the same quote as checkout.
+const joining = page.locator('[data-joining-for]:visible');
+await joining.locator('text=Nothing today; the first class is free.').waitFor();
+const joiningMonthly = (await joining.locator('li', { hasText: 'fee today' }).first().textContent()).match(/(\$[\d.,]+) \+ (\$\d+) fee today/);
+if (!joiningMonthly) throw new Error('The class page should say what joining monthly costs today');
+await shot('0-class-joining-now');
+await phoneCheck('0-class-joining-now');
+step(`Class page: “Joining now, per student”: nothing today with the free class, or ${joiningMonthly[1]} + ${joiningMonthly[2]} fee today`);
 await page.click('[data-enroll-cta]');
 await page.waitForURL(/\/enroll\/intro-f26-tue/);
 await shot('1-sign-in');
@@ -91,13 +100,23 @@ await page.check('input[name="policies"]');
 await shot('3-details');
 await page.click('button:has-text("Review & pay")');
 
-// 5. Review & pay
+// 5. Review & pay. Maya is new, so the free first class is pre-selected (decided Oct 13, 2026: the home page
+// promises "Nothing is due when you enroll"). This journey pays monthly, one tap away.
 await page.waitForURL(/\/enroll\/review/);
 const orderId = new URL(page.url()).searchParams.get('order');
+if (!(await page.locator('input[type="radio"][name="plan"][value="trial"]').isChecked())) throw new Error('A new student should start on the free first class');
+if ((await page.locator('tfoot td').textContent()) !== '$0') throw new Error('The free class should have nothing due today');
+await page.waitForSelector('[data-another-child] >> text=Enroll another child or class');
+await shot('4a-review-trial-preselected');
+await phoneCheck('4a-review-trial-preselected');
+await page.check('input[name="plan"][value="monthly"]');
+await page.waitForURL(/plan=monthly/);
 await page.waitForSelector('[data-autopay-consent]');
 await shot('4-review');
 const due = await page.locator('tfoot td').textContent();
-step(`Review shows plans and an itemized total (due today: ${due})`);
+const joiningCents = Math.round((Number(joiningMonthly[1].slice(1)) + Number(joiningMonthly[2].slice(1))) * 100);
+if (Math.round(Number(due.slice(1)) * 100) !== joiningCents) throw new Error(`Checkout (${due}) should match the class page’s joining-now total (${joiningMonthly[1]} + ${joiningMonthly[2]})`);
+step(`Review starts on the free class ($0); monthly is one tap away, and its total (${due}) matches the class page`);
 await page.click('.pay button[type="submit"]');
 await page.waitForURL(/\/enroll\/pay/);
 await page.click('button:has-text("Complete test payment")');
@@ -106,7 +125,17 @@ await page.click('button:has-text("Complete test payment")');
 await page.waitForURL(/\/enroll\/confirmation/);
 await page.waitForSelector('h1:has-text("You’re in!")');
 await shot('5-confirmation');
+await phoneCheck('5-confirmation');
 step('Confirmation page with first class date and calendar link');
+
+// 6b. "Enroll another child or class": back to the class finder, still signed in, at the age the family chose.
+await page.click('[data-another-link]');
+await page.waitForURL(/\/programs\?age=7-10/);
+if (!(await page.locator('input[name="age"][value="7-10"]').isChecked())) throw new Error('The finder should keep the 7–10 age filter');
+await page.waitForSelector('[data-account-label]:has-text("Hi, Sam")');
+await shot('5b-another-child');
+await phoneCheck('5b-another-child');
+step('“Enroll another child or class” goes back to the finder, signed in, with ages 7–10 still chosen');
 
 // 7. Family dashboard + header greeting on a static page
 await page.goto(`${BASE}/account`);

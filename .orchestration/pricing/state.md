@@ -2,21 +2,21 @@
 
 Branch `claude/review-pricing`, from `claude/blissful-archimedes-enun5m` at c197dbc.
 
-## Plan
-1. `src/lib/pricing.ts`: free class on LC session-priced weekly classes; continuing after it prorates the classes left; mid-month first month; class counts on tuition lines; drop-ins never get the 15%; 15% line rounded in the family's favor; price label and joining-now helpers.
-2. `src/server/family-discount.ts`: session-priced weekly classes count; drop-ins and free classes don't.
-3. `src/server/family.ts`: trial pre-selected for new students; trial continuation flag; family totals; confirmation email line.
-4. Pages: class card, class page Cost row + joining-now + sticky bar, EnrollShell, review plan labels + "Enroll another child or class", details summary for fresh students, confirmation family totals.
-5. Tests (unit + browser), billing script, docs, screenshots, report.
+## Status
+Done. Report: `.orchestration/pricing/report.md`.
 
 ## Commits
-(none yet)
+1. Pricing rules, labels, joining-now, plan labels, whole-family checkout, unit tests.
+2. Browser tests, docs, screenshots, report.
 
 ## Decisions
-(see report)
+See report → Decisions (13 items).
 
-## Open questions
-(none yet)
+## Open questions (for the coordinator / Hannah)
+1. Stories and Songs: the dates give 9 Tuesdays, the copy says 8 weeks. Is a week off?
+2. Seed wording listed in the report (not changed).
+3. Staying on the same day as the free class still pays for that class.
+4. Should a last month that ends mid-month be prorated too?
 
 ## Next action
-Implement step 1.
+None. Waiting for the coordinator.

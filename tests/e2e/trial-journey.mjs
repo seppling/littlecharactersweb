@@ -175,9 +175,9 @@ for (const radio of await page.locator('input[name^="photo-"][value="yes"]').all
 await page.check('input[name="policies"]');
 await page.click('button:has-text("Review & pay")');
 await page.waitForURL(/\/enroll\/review/);
-const trialOrder = new URL(page.url()).searchParams.get('order');
-await page.check('input[name="plan"][value="trial"]');
-await page.waitForURL(/plan=trial/);
+// New students start on the free first class (decided Oct 13, 2026): no tap needed, and the other plans are there.
+if (!(await page.locator('input[type="radio"][name="plan"][value="trial"]').isChecked())) fail('The free first class should be pre-selected for new students');
+for (const plan of ['monthly', 'full']) if (!(await page.locator(`input[name="plan"][value="${plan}"]`).count())) fail(`“${plan}” should stay one tap away`);
 if ((await page.locator('tfoot td').textContent()) !== '$0') fail('The free class should have nothing due today');
 await page.waitForSelector('.bill >> text=Ava: first class free');
 await page.waitForSelector('.bill >> text=Ben: first class free');
@@ -192,7 +192,7 @@ await page.waitForSelector('.facts >> text=Your first class is free');
 await shot('t4-trial-confirmation');
 await phoneCheck('t4-trial-confirmation');
 await mailTo(email, /Your first class is free\. After it, you can continue/);
-step('Free first class: $0 due, no payment step, confirmation page and email say the first class is free');
+step('Free first class: pre-selected, $0 due, no payment step, confirmation page and email say the first class is free');
 
 await page.goto(`${BASE}/account`);
 for (const k of ['Ava', 'Ben']) {
@@ -225,6 +225,8 @@ async function startOrder(kids) {
   for (const k of ['Ava', 'Ben']) if (await box(k).isEnabled()) await box(k).setChecked(kids.includes(k));
   await page.click('#students button[type="submit"]');
   await page.waitForURL(/\/enroll\/details/);
+  // Details confirmed this year aren't asked again: a one-line summary with "Edit" (decided Oct 13, 2026).
+  if ((await page.locator('[data-details-on-file]').count()) !== kids.length || (await page.locator('fieldset.kid').count())) fail('Details on file should be a summary, not the form');
   await page.check('input[name="policies"]');
   await page.click('button:has-text("Review & pay")');
   await page.waitForURL(/\/enroll\/review/);
@@ -233,6 +235,16 @@ async function startOrder(kids) {
 await page.goto(`${BASE}/enroll/intro-f26-tue`);
 await pick('Ava').locator('text=Trial class taken · continue').waitFor();
 const avaOrder = await startOrder(['Ava']);
+// Ava's details from the free class are summarized; "Edit" brings the form back.
+await page.goto(`${BASE}/enroll/details?order=${avaOrder}`);
+await page.waitForSelector('[data-details-on-file] >> text=Ava Lee');
+await shot('t5b-details-on-file');
+await page.click('[data-details-on-file] a:has-text("Edit")');
+await page.waitForSelector('fieldset.kid legend:has-text("Ava Lee")');
+await page.check('input[name="policies"]');
+await page.click('button:has-text("Review & pay")');
+await page.waitForURL(/\/enroll\/review/);
+step('Details step: Ava’s details on file show as one line with “Edit”, which opens her form');
 if (await page.locator('input[name="plan"][value="trial"]').count()) fail('Ava already had her free class; it must not be offered again');
 await page.goto(`${BASE}/enroll/review?order=${avaOrder}&plan=trial`);
 if ((await page.locator('tfoot td').textContent()) === '$0') fail('Asking for ?plan=trial again must not make it free');
@@ -264,14 +276,25 @@ const benDue = await page.locator('tfoot td').textContent();
 if (benDue !== money(seasonDueToday)) fail(`Ben season: expected ${money(seasonDueToday)} today, page says ${benDue}`);
 await page.waitForSelector('.bill >> text=15% multi-class / multi-student discount');
 await page.waitForSelector('text=Discounts don’t combine, so you’re getting the bigger one.');
+// The season line names the discount it really gets (the 15%, not 10%) and compares it with paying monthly.
+const fullLabel = await page.locator('label.plan:has(input[value="full"])').textContent();
+if (!fullLabel.includes(`${money(seasonDueToday)} today with the 15% family discount`) || fullLabel.includes('10%')) fail(`The season line should name the 15%: ${fullLabel}`);
+if (!fullLabel.includes('same total as paying monthly')) fail(`The season line should say it costs the same as monthly: ${fullLabel}`);
 // Ben's enrollment also lowers Ava's months, and the page says so before the family pays.
-if (laterMonths.length) await page.waitForSelector(`[data-family-discount] >> text=Ava’s remaining monthly payments also drop to ${money(FAMILY_MONTH)}.`);
+if (laterMonths.length) await page.waitForSelector(`[data-family-discount] >> text=Ava’s remaining monthly payments also drop to ${money(FAMILY_MONTH)} with the 15% family discount.`);
 await shot('t7-review-season');
 await phoneCheck('t7-review-season');
 await page.click('.pay button[type="submit"]');
 await page.waitForURL(/\/enroll\/pay/);
 await page.click('button:has-text("Complete test payment")');
 await page.waitForURL(/\/enroll\/confirmation/);
+// Family totals, read from the family's payments: today's three sign-ups, and autopay from the next 1st.
+await page.waitForSelector(`[data-family-totals] >> text=${money(monthlyDueToday + seasonDueToday)}`);
+await page.waitForSelector('[data-family-totals] >> text=for 3 sign-ups');
+if (laterMonths.length) await page.waitForSelector(`[data-family-totals] >> text=${money(FAMILY_MONTH)} a month`);
+await mailTo(email, /Ava’s remaining monthly payments also drop to/);
+await shot('t7b-confirmation-family-totals');
+await phoneCheck('t7b-confirmation-family-totals');
 step(`Ben pays for the season: ${money(seasonTuition)} less 15% (Ava is in the class) + $30 fee = ${benDue}; the page says Ava’s months drop to ${money(FAMILY_MONTH)}`);
 
 await page.goto(`${BASE}/account`);
@@ -296,6 +319,25 @@ await page.check('input[name="policies"]');
 await page.click('button:has-text("Review & pay")');
 await page.waitForURL(/\/enroll\/review/);
 if (await page.locator('input[name="plan"][value="trial"]').count()) fail('Geode must not offer the free first class');
+// Acting Studio starts mid-month (Tue Oct 20): its first month is charged for the classes in it (decided Oct 13,
+// 2026): October's 2 of 4 Tuesdays is $47.50. Worked out here from the dates, independently of src/lib/pricing.ts.
+const actTue = tuesdays.filter((t) => t >= '2026-10-20' && t <= '2026-12-15');
+const actLeft = actTue.filter((t) => t >= today);
+if (actLeft.length) {
+  const m0 = actLeft[0].slice(0, 7);
+  const actLate = (new Date(`${today}T12:00:00Z`) - new Date('2026-10-20T12:00:00Z')) / 86_400_000 > 7;
+  const inM0 = actTue.filter((t) => t.startsWith(m0));
+  const classes = actLate ? inM0.filter((t) => t >= today).length : inM0.length;
+  const tuesInOct = 4; // Oct 6, 13, 20, 27
+  const share = m0 === '2026-10' ? classes / tuesInOct : actLate ? classes / inM0.length : 1;
+  // Ava and Ben are enrolled, so Kai's month is 15% off too, the cent rounded in the family's favor.
+  const actTuition = Math.round(95 * share * 100);
+  const actDue = actTuition - Math.ceil((actTuition * 15) / 100) + FEE;
+  const shown = await page.locator('tfoot td').textContent();
+  if (shown !== money(actDue)) fail(`Acting Studio monthly: expected ${money(actDue)} today, page says ${shown}`);
+  await page.waitForSelector(`.bill >> text=Kai: ${new Date(`${m0}-01T12:00:00Z`).toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' })} tuition, ${classes} ${classes === 1 ? 'class' : 'classes'}`);
+  step(`Acting Studio (starts mid-month): ${money(actTuition)} for ${classes} ${m0 === '2026-10' ? 'of October’s 4 Tuesdays' : 'classes'}, less 15% (Ava and Ben are enrolled), + $30 fee = ${shown}`);
+}
 if ((await page.locator('tfoot td').textContent()) === '$0') fail('Geode should have tuition due');
 step('Geode Acting Studio: Kai (new) is offered monthly or the season, no free class');
 
