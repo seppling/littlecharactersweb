@@ -191,7 +191,7 @@ On the merged branch: type check clean, 388 unit tests pass, the site builds, an
   - **What staff see:** "Stop payments" shows which other payments go back up before it stops anything.
   - **When it ends:** the family gets an email.
   - **What counts:** only monthly-priced weekly classes, not session-priced classes or drop-in nights.
-  - **To confirm with Stephen:** the helper recorded that Stephen answered three questions in its session: the end-of-discount email, a paid-in-full withdrawal still counting until the class ends, and only monthly-priced classes counting.
+  - **Confirmed by Stephen (October 13):** the end-of-discount email, and a paid-in-full withdrawal still counting until the class ends. Changed by Stephen: weekly classes priced per session (Stories and Songs, Homeschool) also count toward the two; drop-in nights don't. Two or more students in one sign-up keep the 15% whatever the price type, except drop-in nights. Unit 13 makes these changes.
 - **One booking path** (unit 10).
   - **Booking:** Parents' Night Out and improv-night "Register" buttons go to the site's own sign-up. The Google Forms are gone from the seed.
   - **Dates:** the home call sheet shows only upcoming items. The free class dates are open for sign-up.
