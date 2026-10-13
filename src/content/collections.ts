@@ -165,7 +165,7 @@ export const programs: CollectionDef<Program> = {
       titleKeys: ['term', 'label', 'days', 'start'],
       keepEmpty: true,
       collapsed: true,
-      help: 'Each time this runs: a term of a weekly class, a camp week, or one night. A session with families enrolled can be closed but not removed.',
+      help: 'Each time this runs: a term of a weekly class, a camp week, or one night. Dates leave the site on their own (one night or a camp week when it starts, a weekly class at the late-joining cut-off in Site settings) and stay here marked “Sign-ups closed” or “Ended”. A session with families enrolled can be closed but not removed.',
       fields: sessionFields,
     },
     { key: 'notify', label: 'No dates yet: show a “tell me when” signup', type: 'toggle' },

@@ -198,6 +198,8 @@ export interface SiteSettings {
   contact: { email: string; phone: string };
   social: { instagram?: string; facebook?: string };
   links: { giving?: string; wishList?: string };
+  /** When class sign-ups close; see src/lib/session-dates.ts. */
+  signups: { lateJoinWeeks: number };
   parking: { walkIn: string; dropOff: string; staffOnly: string; late: string; guideUrl?: string; walkInMap?: ImageRef; dropOffMap?: ImageRef };
   description: string;
   previewBanner?: boolean;

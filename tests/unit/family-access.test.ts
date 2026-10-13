@@ -231,3 +231,76 @@ describe('encryption at rest', () => {
     expect(encrypt('   ')).toBeNull();
   });
 });
+
+describe('class dates that have closed', () => {
+  // Each test moves the clock, then puts it back to mid-September.
+  const at = (iso: string) => vi.setSystemTime(new Date(iso));
+  const reset = () => at('2026-09-10T16:00:00Z');
+  let F: { id: string };
+  const fay: SessionUser = { id: 'u-fay', name: 'Fay Lund', email: 'fay@example.com', emailVerified: true };
+  beforeAll(async () => {
+    const db = await getDb();
+    await db.insert(schema.user).values(fay);
+    F = await ensureHousehold(fay);
+  });
+
+  it('refuses a one-night date once it has started, whatever its status says', async () => {
+    const gus = await createStudent(F.id, { firstName: 'Gus', lastName: 'Lund', birthdate: '2018-02-01' }, fay.id);
+    at('2026-09-25T21:30:00Z'); // 5:30 pm in Athens: Parents’ Night Out started at 5.
+    try {
+      await expect(createDraftOrder(F.id, fay.id, 'pno-2026-09-25', [gus.id])).rejects.toThrow('Sign-ups for this Parents’ Night Out date closed when it started.');
+      at('2026-09-26T14:00:00Z');
+      await expect(createDraftOrder(F.id, fay.id, 'pno-2026-09-25', [gus.id])).rejects.toBeInstanceOf(PickError);
+    } finally {
+      reset();
+    }
+    // Before it starts it can be booked.
+    at('2026-09-25T20:59:00Z');
+    try {
+      await expect(createDraftOrder(F.id, fay.id, 'pno-2026-09-25', [gus.id])).resolves.toMatchObject({ studentIds: [gus.id] });
+    } finally {
+      reset();
+    }
+  });
+
+  it('refuses a date staff haven’t opened yet', async () => {
+    const hal = await createStudent(F.id, { firstName: 'Hal', lastName: 'Lund', birthdate: '2018-02-01' }, fay.id);
+    await expect(createDraftOrder(F.id, fay.id, 'free-class-2026-10-15', [hal.id])).rejects.toThrow('hasn’t opened yet');
+  });
+
+  it('refuses at checkout when the late-joining cut-off passes partway through', async () => {
+    const ivy = await createStudent(F.id, { firstName: 'Ivy', lastName: 'Lund', birthdate: '2017-02-01' }, fay.id);
+    const draft = await createDraftOrder(F.id, fay.id, SESSION, [ivy.id]);
+    at('2026-11-20T15:00:00Z'); // Intro to Theater ends Dec 18: 4 weeks before is Nov 20.
+    try {
+      await expect(confirmOrder(F.id, draft.id, 'monthly', fay.id)).rejects.toThrow('Sign-ups for Intro to Theater (Fall 2026) closed 4 weeks before the last class.');
+      expect((await getOrder(F.id, draft.id))?.status).toBe('draft');
+    } finally {
+      reset();
+    }
+  });
+
+  it('refuses continuing after the free class once sign-ups have closed', async () => {
+    const jo = await createStudent(F.id, { firstName: 'Jo', lastName: 'Lund', birthdate: '2017-02-01' }, fay.id);
+    await confirmOrder(F.id, (await createDraftOrder(F.id, fay.id, SESSION, [jo.id])).id, 'trial', fay.id);
+    at('2026-12-01T15:00:00Z');
+    try {
+      await expect(createDraftOrder(F.id, fay.id, SESSION, [jo.id])).rejects.toBeInstanceOf(PickError);
+    } finally {
+      reset();
+    }
+  });
+
+  it('honours a payment already handed to Stripe when the date closes', async () => {
+    const kit = await createStudent(F.id, { firstName: 'Kit', lastName: 'Lund', birthdate: '2017-02-01' }, fay.id);
+    const pending = await confirmOrder(F.id, (await createDraftOrder(F.id, fay.id, SESSION, [kit.id])).id, 'monthly', fay.id);
+    expect(pending.status).toBe('pending_payment');
+    at('2026-11-20T15:00:00Z');
+    try {
+      await fulfillOrder(pending.id, fay.id, { checkoutSessionId: 'cs_kit', amountCents: pending.totalCents });
+      expect((await listEnrollments(F.id)).find((r) => r.student.id === kit.id)?.enrollment.status).toBe('active');
+    } finally {
+      reset();
+    }
+  });
+});

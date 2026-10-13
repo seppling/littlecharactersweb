@@ -16,6 +16,7 @@ import { config } from './env';
 import { getCatalog } from './content';
 import { ageLabel, dayList, timeRange } from '@/lib/format';
 import type { Program, Session } from '@/content/types';
+import { bookingClock, bookingProblem } from '@/lib/session-dates';
 import { PRICING, availablePlans, formatCents, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
 
 const { household, householdMember, student, order, enrollment, installment } = schema;
@@ -167,6 +168,18 @@ async function checkPicks(householdId: string, program: Program, sessionId: stri
   }
 }
 
+/**
+ * Throws a PickError when the session can't be booked right now: its date has
+ * passed or is past its sign-up cut-off, or staff closed it or haven't opened
+ * it yet (src/lib/session-dates.ts). Covers new sign-ups, the waitlist and
+ * continuing after a free class, which all start an order here.
+ */
+async function checkBookable(program: Program, session: Session) {
+  if (session.status === 'coming-soon') throw new PickError(`Registration for this ${program.title} date hasn’t opened yet.`);
+  const problem = bookingProblem(program, session, bookingClock((await getCatalog()).site.lateJoinWeeks));
+  if (problem) throw new PickError(problem);
+}
+
 // ───────────── Enrollments ─────────────
 
 export async function listEnrollments(householdId: string) {
@@ -222,6 +235,7 @@ export async function createDraftOrder(householdId: string, userId: string, sess
   const mine = new Map((await listStudents(householdId)).map((s) => [s.id, s]));
   const ids = [...new Set(studentIds)].filter((id) => mine.has(id));
   if (!ids.length) throw new Error('Pick at least one student');
+  await checkBookable(found.program, found.session);
   // The picker greys these out; this catches a stale page or a hand-made request.
   await checkPicks(householdId, found.program, sessionId, ids.map((id) => mine.get(id)!));
   const db = await getDb();
@@ -268,6 +282,9 @@ export async function confirmOrder(householdId: string, orderId: string, plan: P
   const o = await getOrder(householdId, orderId);
   if (!o || o.status === 'paid' || o.status === 'cancelled') throw new Error('This order can’t be changed');
   const priced = await priceOrder(householdId, o, plan);
+  // The date may have closed while the family filled in the details. An order
+  // already handed to payment is honoured (fulfillOrder doesn't check dates).
+  await checkBookable(priced.program, priced.session);
   // Checked again here: a child may have been enrolled by another order since this one was started.
   await checkPicks(householdId, priced.program, o.sessionId, priced.students);
   const db = await getDb();

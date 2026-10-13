@@ -9,6 +9,7 @@ import { ageLabel, feeLabel, price, spotsLabel } from '@/lib/format';
 import { cardParts, performanceLabel, sessionLines, sessionPrice, whenSummary } from '@/lib/class-summary';
 import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
 import { hasFreeFirstClass } from '@/lib/pricing';
+import { bookingClock, offeredSessions, sessionState } from '@/lib/session-dates';
 import { breadcrumbLd, courseLd, isCourse } from '@/lib/seo';
 
 const { programs, faqs, locationById, programBySlug, vars, site } = Astro.locals.content;
@@ -16,7 +17,10 @@ const found = programBySlug(Astro.params.slug ?? '');
 if (!found) return Astro.rewrite('/404');
 const program = found;
 
-const bookable = program.sessions.filter((s) => s.status !== 'closed');
+// Only dates families can still sign up for (or hear about): past dates, and
+// weekly classes past their late-joining cut-off, leave on their own.
+const clock = bookingClock(site.lateJoinWeeks);
+const bookable = offeredSessions(program, clock);
 const firstOpen = bookable.find((s) => s.status === 'open' || s.status === 'few-left') ?? bookable[0];
 const fromPrice = program.priceFrom ?? bookable.find((s) => s.price)?.price;
 // The summary at the top says when and where from the sessions families can pick;
@@ -29,7 +33,10 @@ const isCamp = program.kind === 'camp';
 const comingSoon = bookable.length > 0 && bookable.every((s) => s.status === 'coming-soon');
 const partnerOnly = bookable.length > 0 && bookable.every((s) => s.externalUrl && !s.externalUrl.includes('docs.google.com'));
 const formOnly = bookable.length > 0 && bookable.every((s) => s.externalUrl?.includes('docs.google.com'));
-const datesSoon = bookable.length === 0 && program.notify;
+// Nothing left to pick: say what's next, with the "tell me when" signup.
+const hadDates = program.sessions.length > 0 && !program.requestCta;
+const datesSoon = bookable.length === 0 && (program.notify || hadDates);
+const running = program.sessions.find((s) => s.status !== 'closed' && sessionState(program, s, clock) === 'signups-closed' && s.startDate !== s.endDate);
 const monthly = program.priceFrom?.unit === 'month';
 const freeTrial = hasFreeFirstClass(program) && !partnerOnly && !formOnly;
 
@@ -187,8 +194,17 @@ const structuredData = [
               </form>
             ) : datesSoon ? (
               <div class="enroll__form">
-                <h2 id="enroll-title">Dates coming soon</h2>
-                <p>We announce {program.title.toLowerCase()} a few weeks ahead. Leave your email and we’ll tell you as soon as registration opens.</p>
+                {running ? (
+                  <>
+                    <h2 id="enroll-title">Sign-ups have closed</h2>
+                    <p>{running.term} is in its last weeks, so it’s closed to new students. Leave your email and we’ll tell you as soon as the next dates open.</p>
+                  </>
+                ) : (
+                  <>
+                    <h2 id="enroll-title">Dates coming soon</h2>
+                    <p>We announce {program.title.toLowerCase()} a few weeks ahead. Leave your email and we’ll tell you as soon as registration opens.</p>
+                  </>
+                )}
               </div>
             ) : (
               <div class="enroll__form">

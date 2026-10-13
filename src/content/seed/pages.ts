@@ -15,6 +15,8 @@ export const pages: Pages = {
     },
     // TODO: the current giving page has no payment form yet; point this at a real donation link.
     links: { giving: 'https://www.littlecharacters.org/giving-page', wishList: 'https://a.co/510Gges' },
+    // Hannah to confirm the number (October 2026 review).
+    signups: { lateJoinWeeks: 4 },
     /** How to get to HQ, from the "Parking Instructions" guide on the old site. */
     parking: {
       walkIn:

@@ -73,7 +73,7 @@ const hero = (extra: Field[] = [], headlineHelp?: string): Field => ({
 export const site: PageDef = {
   key: 'site',
   label: 'Site settings & announcement',
-  intro: 'The announcement bar, contact details, social links and parking directions used across the whole site.',
+  intro: 'The announcement bar, contact details, social links, parking directions and when class sign-ups close, used across the whole site.',
   url: '/',
   fields: [
     {
@@ -122,6 +122,25 @@ export const site: PageDef = {
       fields: [
         { key: 'giving', label: 'Donation link', type: 'url', help: 'Where the “Give now” buttons go.' },
         { key: 'wishList', label: 'Wish list', type: 'url' },
+      ],
+    },
+    {
+      key: 'signups',
+      label: 'Class sign-ups',
+      type: 'group',
+      required: true,
+      help: 'Class dates leave the site on their own. One-night dates and camp weeks close when they start. Weekly classes take late joiners (the first month is prorated) until the cut-off below. Every date is gone from the site after its last day; it stays in the editor, marked “Ended”.',
+      fields: [
+        {
+          key: 'lateJoinWeeks',
+          label: 'Weekly classes: stop taking new students this many weeks before the last class',
+          type: 'number',
+          integer: true,
+          min: 0,
+          max: 52,
+          required: true,
+          help: 'For example 4: a season ending December 18 takes new students until November 19. 0 closes sign-ups on the morning of the last class.',
+        },
       ],
     },
     {

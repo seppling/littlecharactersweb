@@ -5,6 +5,7 @@
  */
 import { site as siteConfig } from '@/config/site';
 import { PRICING } from '@/lib/pricing';
+import { lateJoinWeeksOr } from '@/lib/session-dates';
 import type { Field } from './fields';
 import { pages as pageDefs } from './pages';
 import { pages as seedPages } from './seed/pages';
@@ -30,6 +31,8 @@ export type SiteInfo = typeof siteConfig & {
   preview: boolean;
   announcement?: SiteSettings['announcement'];
   parking: SiteSettings['parking'];
+  /** Weekly classes stop taking new students this many weeks before the last class. */
+  lateJoinWeeks: number;
 };
 
 export interface SiteContent {
@@ -116,6 +119,7 @@ export function buildSiteContent(rows: ContentRow[], uploads = new Map<string, U
     preview: !!settings.previewBanner,
     announcement: settings.announcement,
     parking: settings.parking,
+    lateJoinWeeks: lateJoinWeeksOr(settings.signups?.lateJoinWeeks),
   };
 
   const programBySlug = (slug: string) => programs.find((p) => p.slug === slug);

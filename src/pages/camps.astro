@@ -8,18 +8,21 @@ import Character from '@/components/Character.astro';
 import { ageBands } from '@/content/catalog';
 import { rich } from '@/content/rich';
 import { ageLabel, dateRange } from '@/lib/format';
+import { bookingClock, isOffered } from '@/lib/session-dates';
 
-const { programs, faqs, programBySlug, locationById, vars, pages } = Astro.locals.content;
+const { programs, faqs, programBySlug, locationById, vars, pages, site } = Astro.locals.content;
 const page = pages.camps;
 const camps = programs.filter((p) => p.kind === 'camp' || p.kind === 'workshop');
 
 // Week-by-week summer grid. It fills itself in once summer sessions labeled
-// "Week 1", "Week 2"… are added to a camp in the editor.
+// "Week 1", "Week 2"… are added to a camp in the editor. Weeks that have
+// started (sign-ups close then) and closed weeks leave the grid on their own.
+const clock = bookingClock(site.lateJoinWeeks);
 type Slot = { program: (typeof camps)[number]; locationId: string };
 const weeks = new Map<string, { label: string; start: string; end: string; slots: Slot[] }>();
 for (const program of camps) {
   for (const s of program.sessions) {
-    if (!s.term.startsWith('Summer') || !s.label?.startsWith('Week')) continue;
+    if (!s.term.startsWith('Summer') || !s.label?.startsWith('Week') || !isOffered(program, s, clock)) continue;
     const week = weeks.get(s.label) ?? { label: s.label, start: s.startDate, end: s.endDate, slots: [] };
     week.slots.push({ program, locationId: s.locationId });
     weeks.set(s.label, week);

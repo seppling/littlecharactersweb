@@ -11,6 +11,7 @@ import { completeCheckout, createEmbeddedCheckout, paymentsMode, testPaymentsAll
 import { getDb, schema } from '@/server/db';
 import { eq } from 'drizzle-orm';
 import { formatCents } from '@/lib/pricing';
+import { bookingClock, bookingProblem } from '@/lib/session-dates';
 
 export const prerender = false;
 
@@ -23,9 +24,14 @@ if (!household || !o) return Astro.redirect('/account');
 if (o.status === 'paid') return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
 if (o.status !== 'pending_payment') return Astro.redirect(`/enroll/review?order=${o.id}`);
 const found = Astro.locals.content.findSession(o.sessionId)!;
+// The date closed since this order was started: no new payment form. A payment
+// already made is still honoured (the check below and the Stripe webhook).
+const closed = () => bookingProblem(found.program, found.session, bookingClock(Astro.locals.content.site.lateJoinWeeks));
+const back = () => Astro.redirect(`/enroll/${o.sessionId}`, 303);
 
 if (Astro.request.method === 'POST') {
   if (!testPaymentsAllowed()) return new Response('Test payments are disabled', { status: 403 });
+  if (closed()) return back();
   if (o.plan === 'monthly') {
     // Stand-in for the card Stripe would save for autopay.
     const db = await getDb();
@@ -43,6 +49,7 @@ if (paymentsMode === 'stripe') {
     const prior = await completeCheckout(o.stripeCheckoutSessionId, user.id).catch(() => null);
     if (prior?.paid && prior.orderId === o.id) return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
   }
+  if (closed()) return back();
   try {
     clientSecret = await createEmbeddedCheckout({
       order: o,

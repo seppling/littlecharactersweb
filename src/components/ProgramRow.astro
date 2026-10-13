@@ -10,12 +10,16 @@ import SessionLine from './SessionLine.astro';
 import { focusLabels, kindLabels } from '@/content/catalog';
 import { hasFreeFirstClass } from '@/lib/pricing';
 import { ageLabel, feeLabel, price } from '@/lib/format';
+import { bookingClock, offeredSessions } from '@/lib/session-dates';
 
 interface Props {
   program: Program;
 }
 
 const { program } = Astro.props;
+// Only dates families can still sign up for (or hear about); past ones leave on their own.
+const sessions = offeredSessions(program, bookingClock(Astro.locals.content.site.lateJoinWeeks));
+const hadDates = program.sessions.length > 0 && !program.requestCta;
 
 const castByGel: Record<Program['gel'], CharacterName> = {
   red: 'royal',
@@ -26,8 +30,8 @@ const castByGel: Record<Program['gel'], CharacterName> = {
 };
 
 const maxAge = program.ages.max ?? 120;
-const days = [...new Set(program.sessions.flatMap((s) => s.days))];
-const locs = [...new Set(program.sessions.map((s) => s.locationId))];
+const days = [...new Set(sessions.flatMap((s) => s.days))];
+const locs = [...new Set(sessions.map((s) => s.locationId))];
 const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.price;
 ---
 
@@ -43,7 +47,7 @@ const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.pr
   data-age-max={maxAge}
   data-days={days.join(',')}
   data-locs={locs.join(',')}
-  data-open={program.sessions.some((s) => s.status === 'open' || s.status === 'few-left') ? '1' : '0'}
+  data-open={sessions.some((s) => s.status === 'open' || s.status === 'few-left') ? '1' : '0'}
 >
   <div class="prow__summary">
     {
@@ -75,11 +79,11 @@ const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.pr
   </div>
   <div class="prow__sessions">
     {
-      program.sessions.length > 0 ? (
-        program.sessions.map((session) => <SessionLine program={program} session={session} compact />)
+      sessions.length > 0 ? (
+        sessions.map((session) => <SessionLine program={program} session={session} compact />)
       ) : (
         <div class="prow__request">
-          {program.notify ? (
+          {program.notify || hadDates ? (
             <>
               <p>Dates coming soon.</p>
               <a class="btn btn--sm btn--outline" href={`/programs/${program.slug}#notify`}>Get notified</a>

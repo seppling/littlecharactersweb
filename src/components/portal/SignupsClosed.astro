@@ -1,0 +1,26 @@
+---
+/**
+ * What a family sees when they reach a step of enrollment for a date that
+ * can't be booked any more: it has passed, sign-ups closed by date, or staff
+ * closed it. They're sent back to the class page, which shows what's next.
+ */
+import type { Program } from '@/content/types';
+
+interface Props {
+  program: Program;
+  /** Why, in words for the family (bookingProblem in src/lib/session-dates.ts). */
+  problem: string;
+}
+const { program, problem } = Astro.props;
+const askUs = `/contact?topic=class&class=${encodeURIComponent(program.title)}`;
+---
+
+<div class="stack" data-signups-closed>
+  <h1>Sign-ups are closed</h1>
+  <p class="lede">{problem}</p>
+  <p>The class page has the dates you can still sign up for, or a way to hear when the next ones open.</p>
+  <p>
+    <a class="btn btn--primary" href={`/programs/${program.slug}`}>See {program.title} <span class="arrow" aria-hidden="true">→</span></a>
+  </p>
+  <p>Questions? <a href={askUs}>Ask us</a>.</p>
+</div>
