@@ -7,7 +7,8 @@ import type { CharacterName, Program } from '@/content/types';
 import Character from './Character.astro';
 import PhotoFrame from './PhotoFrame.astro';
 import SessionLine from './SessionLine.astro';
-import { focusLabels, kindLabels } from '@/content/catalog';
+import { focusLabels } from '@/content/catalog';
+import { kindTag } from '@/lib/program-fit';
 import { hasFreeFirstClass } from '@/lib/pricing';
 import { ageLabel, feeLabel, price } from '@/lib/format';
 import { bookingClock, offeredSessions } from '@/lib/session-dates';
@@ -63,7 +64,7 @@ const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.pr
     }
     <div class="prow__text">
       <div class="prow__tags">
-        <span class="tape tape--quiet" data-tilt="flat">{kindLabels[program.kind].singular}</span>
+        <span class="tape tape--quiet" data-tilt="flat">{kindTag(program)}</span>
         {hasFreeFirstClass(program) && <span class="tape" data-gel="yellow" data-tilt="flat">First class free</span>}
         <span class="prow__age">{ageLabel(program.ages, program.agesLabel)}</span>
         {program.focus && program.focus.length > 0 && <span class="prow__focus">{program.focus.map((f) => focusLabels[f]).join(' · ')}</span>}

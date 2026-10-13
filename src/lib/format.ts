@@ -5,7 +5,7 @@ const DAY_NAMES: Record<Weekday, string> = {
 };
 
 /** "16:30" → "4:30" (meridiem added separately so ranges read "4:30–5:30 pm"). */
-function clock(t: string) {
+export function clock(t: string) {
   const [h, m] = t.split(':').map(Number);
   const h12 = ((h + 11) % 12) + 1;
   return m === 0 ? `${h12}` : `${h12}:${String(m).padStart(2, '0')}`;

@@ -18,6 +18,7 @@ import { ageLabel, dayList, timeRange } from '@/lib/format';
 import type { Program, Session } from '@/content/types';
 import { bookingClock, bookingProblem } from '@/lib/session-dates';
 import { PRICING, availablePlans, formatCents, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
+import { isAdult, isOneOff, oneOffWhen } from '@/lib/program-fit';
 
 const { household, householdMember, student, order, enrollment, installment } = schema;
 
@@ -374,10 +375,12 @@ async function sendOrderConfirmation(o: typeof order.$inferSelect) {
   const heading = o.plan === 'waitlist' ? 'You’re on the waitlist' : 'You’re in!';
   const lines = [
     `${kids.join(' and ')} ${o.plan === 'waitlist' ? (kids.length > 1 ? 'are' : 'is') + ' on the waitlist for' : (kids.length > 1 ? 'are' : 'is') + ' enrolled in'} ${program.title}.`,
-    `${dayList(session.days)}, ${timeRange(session.start, session.end)}${o.plan === 'waitlist' ? '' : `, starting ${firstDate}`}${loc ? ` at ${loc.name}, ${loc.address.join(', ')}` : ''}.`,
+    `${isOneOff(session) ? oneOffWhen(program, session) : `${dayList(session.days)}, ${timeRange(session.start, session.end)}${o.plan === 'waitlist' ? '' : `, starting ${firstDate}`}`}${loc ? ` at ${loc.name}, ${loc.address.join(', ')}` : ''}.`,
     o.plan === 'trial' ? 'Your first class is free. After it, you can continue with monthly tuition or pay for the season from your family account.' : o.totalCents > 0 ? `Paid today: ${formatCents(o.totalCents)}.` : '',
     o.plan === 'monthly' && o.schedule.length ? autopayLine(o.schedule) : '',
-    'Wear comfy clothes and closed-toe shoes, and bring a water bottle. Park on Minor St and walk in, or use the drop-off circle after 5 pm.',
+    isAdult(program)
+      ? 'Wear comfy clothes and bring a water bottle. Park on Minor St and walk in to our front door on W Broad St.'
+      : 'Wear comfy clothes and closed-toe shoes, and bring a water bottle. Park on Minor St and walk in, or use the drop-off circle after 5 pm.',
     `Your family account: ${config.siteUrl}/account`,
   ].filter(Boolean);
   for (const g of guardians) {

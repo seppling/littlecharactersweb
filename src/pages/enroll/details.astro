@@ -7,6 +7,7 @@ import { getDb, schema } from '@/server/db';
 import { detailsFresh, getOrder, householdForUser, listStudents, readStudentNotes, studentDetailsInput, updateStudentDetails } from '@/server/family';
 
 import { bookingClock, bookingProblem } from '@/lib/session-dates';
+import { isOneOff, oneOffPolicies } from '@/lib/program-fit';
 
 export const prerender = false;
 
@@ -20,6 +21,15 @@ const found = Astro.locals.content.findSession(o.sessionId)!;
 // The date closed since this order was started: the first step explains, with a link back to the class.
 const closed = () => bookingProblem(found.program, found.session, bookingClock(Astro.locals.content.site.lateJoinWeeks));
 if (closed()) return Astro.redirect(`/enroll/${o.sessionId}`, 303);
+
+// A single date (a night out, the free class) has its own short rules, not the monthly-tuition ones.
+const policies = isOneOff(found.session)
+  ? oneOffPolicies(found.program, found.session)
+  : [
+      'Monthly tuition is charged automatically to your saved card on the 1st. Balances still unpaid after the 10th have a $15 late fee.',
+      'To unenroll, tell us at least 5 days before the next billing date. Missed classes aren’t refunded.',
+      'Doors lock 5 minutes after class starts; walk late students to the front door.',
+    ];
 
 const students = (await listStudents(household.id)).filter((s) => o.studentIds.includes(s.id));
 const errors: Record<string, string> = {};
@@ -90,9 +100,7 @@ if (Astro.request.method === 'POST') {
       <div class="policies">
         <h2>The short version of our policies</h2>
         <ul>
-          <li>Monthly tuition is charged automatically to your saved card on the 1st. Balances still unpaid after the 10th have a $15 late fee.</li>
-          <li>To unenroll, tell us at least 5 days before the next billing date. Missed classes aren’t refunded.</li>
-          <li>Doors lock 5 minutes after class starts; walk late students to the front door.</li>
+          {policies.map((line) => <li>{line}</li>)}
         </ul>
         <p><a href="/faq" target="_blank" rel="noopener">Read the full FAQ and policies</a></p>
         <label class="agree">

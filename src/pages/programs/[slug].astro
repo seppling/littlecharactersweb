@@ -11,6 +11,7 @@ import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
 import { hasFreeFirstClass } from '@/lib/pricing';
 import { bookingClock, offeredSessions, sessionState } from '@/lib/session-dates';
 import { breadcrumbLd, courseLd, isCourse } from '@/lib/seo';
+import { faqsFor, highlightsHeading, kindTag, moneyLines, perChild } from '@/lib/program-fit';
 
 const { programs, faqs, locationById, programBySlug, vars, site } = Astro.locals.content;
 const found = programBySlug(Astro.params.slug ?? '');
@@ -32,16 +33,17 @@ const parts = cardParts(bookable);
 const isCamp = program.kind === 'camp';
 const comingSoon = bookable.length > 0 && bookable.every((s) => s.status === 'coming-soon');
 const partnerOnly = bookable.length > 0 && bookable.every((s) => s.externalUrl && !s.externalUrl.includes('docs.google.com'));
-const formOnly = bookable.length > 0 && bookable.every((s) => s.externalUrl?.includes('docs.google.com'));
 // Nothing left to pick: say what's next, with the "tell me when" signup.
 const hadDates = program.sessions.length > 0 && !program.requestCta;
 const datesSoon = bookable.length === 0 && (program.notify || hadDates);
 const running = program.sessions.find((s) => s.status !== 'closed' && sessionState(program, s, clock) === 'signups-closed' && s.startDate !== s.endDate);
 const monthly = program.priceFrom?.unit === 'month';
-const freeTrial = hasFreeFirstClass(program) && !partnerOnly && !formOnly;
+const freeTrial = hasFreeFirstClass(program) && !partnerOnly;
 
-const faqGroups = isCamp || program.kind === 'party' ? ['Camps & parties', 'Payments & discounts'] : ['Classes', 'Payments & discounts', 'Performances'];
-const relevantFaqs = faqs.filter((f) => faqGroups.includes(f.group)).slice(0, 5);
+// What fits this kind of program: its pricing lines, FAQs and the heading over its highlights.
+const money = moneyLines(program);
+const children = perChild(program);
+const relevantFaqs = faqsFor(program, faqs);
 
 const related = programs
   .filter((p) => p.slug !== program.slug && p.brand === program.brand && p.kind === program.kind)
@@ -80,7 +82,7 @@ const structuredData = [
           <a href={backHref}>{backLabel}</a>
         </nav>
         <div class="phero__tags">
-          <span class="tape">{kindLabels[program.kind].singular}</span>
+          <span class="tape">{kindTag(program)}</span>
           <span class="tape tape--quiet" data-tilt="right">{ageLabel(program.ages, program.agesLabel)}</span>
           {program.brand === 'geode' && <span class="tape tape--ink" data-tilt="flat">Geode</span>}
         </div>
@@ -185,9 +187,7 @@ const structuredData = [
                 <p class="enroll__note">
                   {partnerOnly
                     ? 'Registration for this program is handled by the school.'
-                    : formOnly
-                      ? 'Registration is a short online form.'
-                      : comingSoon
+                    : comingSoon
                         ? 'Registration opens soon.'
                         : `Next you’ll pick your student and pay in our family portal.${freeTrial ? ' New students’ first class is free.' : ''}${monthly ? ' Joining more than a week into the term? The first month is prorated to the classes left.' : ''}`}
                 </p>
@@ -247,28 +247,32 @@ const structuredData = [
         </section>
 
         <section class="stack" aria-labelledby="skills-title">
-          <h2 id="skills-title">What they’ll practice</h2>
+          <h2 id="skills-title">{highlightsHeading(program)}</h2>
           <ul class="skills">
             {program.highlights.map((h, i) => <li class="tape tape--lg" data-tilt={i % 2 ? 'right' : undefined}>{h}</li>)}
           </ul>
         </section>
 
-        <section class="money" aria-labelledby="money-title">
-          <h2 id="money-title">Pricing & discounts</h2>
-          <ul>
-            {freeTrial && (
-              <li><strong>First class free.</strong> New students can try it before paying: choose “Try the first class free” when you enroll. Nothing is due until you decide to stay.</li>
-            )}
-            {monthly && (
-              <li><strong>Monthly or up front.</strong> Pay monthly, or pay for the season in full and save 10%.</li>
-            )}
-            {program.fee && (
-              <li><strong>One-time {program.fee.label}: ${program.fee.amount}.</strong> It covers extra rehearsal time, costumes, props and space for the show.</li>
-            )}
-            <li><strong>15% off</strong> for multiple students or multiple classes.</li>
-            <li><strong>Pay-what-you-can is available.</strong> <a href="/contact?topic=scholarship">Ask us privately</a>; we never want cost to keep a student from joining.</li>
-          </ul>
-        </section>
+        {money.length > 0 && (
+          <section class="money" aria-labelledby="money-title">
+            <h2 id="money-title">{money.some((l) => l === 'multi' || l === 'monthly' || l === 'pay-what-you-can') ? 'Pricing & discounts' : 'Pricing'}</h2>
+            <ul>
+              {money.map((line) => (
+                <li>
+                  {line === 'school' && <><strong>Set by the school.</strong> The school handles registration and payment for this class.</>}
+                  {line === 'free' && <><strong>Free.</strong> There’s nothing to pay; just sign up for the date you’d like.</>}
+                  {line === 'trial' && <><strong>First class free.</strong> New students can try it before paying: choose “Try the first class free” when you enroll. Nothing is due until you decide to stay.</>}
+                  {line === 'monthly' && <><strong>Monthly or up front.</strong> Pay monthly, or pay for the season in full and save 10%.</>}
+                  {line === 'fee' && program.fee && <><strong>One-time {program.fee.label}: ${program.fee.amount}.</strong> It covers extra rehearsal time, costumes, props and space for the show.</>}
+                  {line === 'per-child' && children && <><strong>${children.first} for the first child, ${children.additional} for each additional child</strong> on the same night.</>}
+                  {line === 'per-night' && fromPrice && <><strong>${fromPrice.amount} a night.</strong> Sign up for just the nights you want.</>}
+                  {line === 'multi' && <><strong>15% off</strong> for multiple students or multiple classes.</>}
+                  {line === 'pay-what-you-can' && <><strong>Pay-what-you-can is available.</strong> <a href="/contact?topic=scholarship">Ask us privately</a>; we never want cost to keep a student from joining.</>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {relevantFaqs.length > 0 && (
           <section class="stack" aria-labelledby="faq-title">
@@ -360,7 +364,7 @@ const structuredData = [
   .pbody__main { grid-area: body; display: grid; gap: var(--space-2xl); align-content: start; }
   .pbody__main h2 { font-size: var(--step-3); }
   .skills { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.8rem 1rem; }
-  .skills .tape { --tape: var(--gel-tint); white-space: normal; }
+  .skills .tape { --tape: var(--gel-tint); --tape-on: var(--ink); white-space: normal; }
   .money { padding: var(--space-xl); background: var(--hall); border-radius: var(--r-lg); display: grid; gap: var(--space-m); }
   .money h2 { font-size: var(--step-2); }
   .money ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.7rem; }

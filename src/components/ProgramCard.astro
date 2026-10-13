@@ -6,7 +6,7 @@
  */
 import type { Program } from '@/content/types';
 import PhotoFrame from './PhotoFrame.astro';
-import { kindLabels } from '@/content/catalog';
+import { kindTag } from '@/lib/program-fit';
 import { ageLabel, dayList, price, spotsLabel, timeRange } from '@/lib/format';
 import { bookingClock, canBook, offeredSessions } from '@/lib/session-dates';
 
@@ -29,7 +29,7 @@ const fromPrice = program.priceFrom ?? next?.price;
 <article class="pcard" data-gel={program.gel}>
   <a class="pcard__link" href={`/programs/${program.slug}`}>
     <PhotoFrame image={program.image} gel={program.gel} ratio="16 / 10" />
-    <span class="tape pcard__kind">{kindLabels[program.kind].singular}</span>
+    <span class="tape pcard__kind">{kindTag(program)}</span>
     <div class="pcard__body">
       <H class="pcard__title">{program.title}</H>
       <span class="pcard__age">{ageLabel(program.ages, program.agesLabel)}</span>

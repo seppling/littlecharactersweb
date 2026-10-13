@@ -1678,11 +1678,11 @@ Edit: `/admin/content/events/free-class-oct`
 
 Before:
 
-> Our monthly free class, open to all ages, with a different teacher each month. Registration opens soon.
+> Our monthly free class, open to all ages, with a different teacher each month.
 
 After:
 
-> Our monthly free theater class at our W Broad St space in Athens, open to all ages, with a different teacher each month. Registration opens soon.
+> Our monthly free theater class at our W Broad St space in Athens, open to all ages, with a different teacher each month.
 
 _Why:_ Says what kind of class it is and where, for “free kids activities Athens” searches.
 
@@ -1694,11 +1694,11 @@ Edit: `/admin/content/events/free-class-nov`
 
 Before:
 
-> Our monthly free class, open to all ages, with a different teacher each month. Registration opens soon.
+> Our monthly free class, open to all ages, with a different teacher each month.
 
 After:
 
-> Our monthly free theater class at our W Broad St space in Athens, open to all ages, with a different teacher each month. Registration opens soon.
+> Our monthly free theater class at our W Broad St space in Athens, open to all ages, with a different teacher each month.
 
 _Why:_ Says what kind of class it is and where, for “free kids activities Athens” searches.
 
