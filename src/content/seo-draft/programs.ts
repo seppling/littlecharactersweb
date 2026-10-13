@@ -225,7 +225,7 @@ export const programs: CollectionDraft<'programs'>[] = [
       {
         path: 'description.1',
         from: 'Teachers meet students where they are, whether they are made for the stage or more interested in what happens behind the scenes.',
-        to: 'Teachers meet students where they are, whether they are made for the stage or more interested in what happens behind the scenes. Registration is through Athens Academy. We also run programs at [other Athens schools](/about#schools).',
+        to: 'Teachers meet students where they are, whether they are made for the stage or more interested in what happens behind the scenes. Registration is through Athens Academy. We also run programs at [other Athens schools](/about/schools).',
         why: 'Answers “how do I sign up?” in the text and links to the other schools, for families at those schools.',
       },
     ],

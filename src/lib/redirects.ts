@@ -9,7 +9,7 @@ const OLD_PAGES: Record<string, string> = {
   '/classes': '/programs',
   '/classes1': '/programs',
   '/camp': '/camps',
-  '/team': '/about#team',
+  '/team': '/about/team',
   '/faqs': '/faq',
   '/giving-page': '/give',
   // PDFs the old site linked to, now pages here (keys in lower case).

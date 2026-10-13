@@ -144,7 +144,7 @@ export const pages: Pages = {
         { title: 'Parties', body: 'Two hours on our stage for any occasion, with your own teacher/party coordinator.', href: '/programs/parties', character: 'artist' },
         { title: 'Private lessons', body: 'Audition help, playwriting, one-on-one acting and singing, by the hour.', href: '/programs/private-lessons', character: 'professor' },
         { title: 'Free community class', body: 'A free theater class once a month, open to all ages.', href: '/programs/free-community-class', character: 'magician' },
-        { title: 'At your school', body: 'We’re a verified CCSD school vendor, running after-school programs around the county.', href: '/about#schools', character: 'stagehand' },
+        { title: 'At your school', body: 'We’re a verified CCSD school vendor, running after-school programs around the county.', href: '/about/schools', character: 'stagehand' },
         { title: 'Geode: tweens, teens & adults', body: 'Acting Studio, Performance Troupe and Third Thursday Improv Nights for 11 and up.', href: '/geode', character: 'dancer', geode: true },
       ],
     },
@@ -296,21 +296,6 @@ export const pages: Pages = {
         { title: 'Fun', body: 'Not taking ourselves too seriously, being okay with messing up, encouraging each other’s creativity.', gel: 'yellow' },
       ],
     },
-    team: {
-      eyebrow: 'The troupe',
-      heading: 'The team behind Little Characters',
-      lede: 'An incredible group of creative individuals. We are so grateful for what each of them brings to our little corner of the world.',
-      social: 'Follow along on [Instagram]({instagram}) and [Facebook]({facebook}).',
-      quote: 'alex',
-      hiring: 'Interested in working with us? Email [{email}](mailto:{email}).',
-    },
-    schools: {
-      eyebrow: 'Schools & community',
-      heading: 'Theater at your school',
-      lede: 'Little Characters is a verified CCSD school vendor. We offer after-school programs and weekend events throughout the county.',
-      body: 'We’ve run programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=general).',
-      quote: 'gracie',
-    },
     how: {
       eyebrow: 'Getting started',
       heading: 'How Little Characters works',
@@ -370,6 +355,25 @@ export const pages: Pages = {
     },
   },
 
+  team: {
+    team: {
+      eyebrow: 'The troupe',
+      heading: 'The team behind Little Characters',
+      lede: 'An incredible group of creative individuals. We are so grateful for what each of them brings to our little corner of the world.',
+      social: 'Follow along on [Instagram]({instagram}) and [Facebook]({facebook}).',
+      quote: 'alex',
+      hiring: 'Interested in working with us? Email [{email}](mailto:{email}).',
+    },
+  },
+  schools: {
+    schools: {
+      eyebrow: 'Schools & community',
+      heading: 'Theater at your school',
+      lede: 'Little Characters is a verified CCSD school vendor. We offer after-school programs and weekend events throughout the county.',
+      body: 'We’ve run programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=general).',
+      quote: 'gracie',
+    },
+  },
   camps: {
     hero: {
       eyebrow: 'Theater camps in Athens, GA',

@@ -272,7 +272,7 @@ export const team: CollectionDef<TeamMember> = {
   blank: { gel: 'teal', bio: [] },
   label: 'Team',
   singular: 'team member',
-  intro: 'The people on the About page. The first person is shown larger, with a longer bio.',
+  intro: 'The people on the Team page (under About). The first person is shown larger, with a longer bio.',
   fields: [
     { key: 'name', label: 'Name', type: 'text', required: true, half: true },
     { key: 'role', label: 'Role', type: 'text', required: true, half: true, placeholder: 'Lead Teacher' },
@@ -283,7 +283,7 @@ export const team: CollectionDef<TeamMember> = {
   ],
   title: (m) => m.name,
   subtitle: (m) => m.role,
-  url: () => '/about#team',
+  url: () => '/about/team',
 };
 
 export const testimonials: CollectionDef<Testimonial> = {
@@ -291,7 +291,7 @@ export const testimonials: CollectionDef<Testimonial> = {
   blank: {},
   label: 'Testimonials',
   singular: 'testimonial',
-  intro: 'Quotes from families and students. Choose where each one appears in the Home and About page settings.',
+  intro: 'Quotes from families and students. Choose where each one appears in the Home, Team and Schools & partners page settings.',
   fields: [
     { key: 'quote', label: 'Quote', type: 'textarea', rows: 5, required: true, max: 1200, help: 'Without quotation marks; the site adds them.' },
     { key: 'attribution', label: 'Who said it', type: 'text', required: true, placeholder: 'Lane, parent', help: 'First name only, with their permission.' },

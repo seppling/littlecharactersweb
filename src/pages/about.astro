@@ -1,22 +1,20 @@
 ---
 /**
- * About: the story and team first, then the plain facts (what we do, what's
+ * About: the story first, then the plain facts (what we do, what's
  * different, who it's for, how it works, key facts, FAQ) that families skim
- * and that search engines and AI assistants quote. The text is edited at
- * /admin/content/pages/about; facts like prices and the team size are filled
- * in from the rest of the site's content, so they can't drift.
+ * and that search engines and AI assistants quote. The team and the schools
+ * have their own pages (/about/team, /about/schools); cards here link to them.
+ * The text is edited at /admin/content/pages/about; facts like prices and the
+ * team size are filled in from the rest of the site's content, so they can't drift.
  */
 import Base from '@/layouts/Base.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
-import Character from '@/components/Character.astro';
 import JourneySteps from '@/components/JourneySteps.astro';
 import { href, rich } from '@/content/rich';
 
-const { team, programBySlug, testimonial, faq, site, vars, pages } = Astro.locals.content;
+const { programBySlug, faq, site, vars, pages } = Astro.locals.content;
 const page = pages.about;
-const [lead, ...crew] = team;
-const teamQuote = testimonial(page.team.quote);
-const schoolsQuote = testimonial(page.schools.quote);
+const { team: teamPage, schools: schoolsPage } = pages;
 const aboutFaqs = page.faq.questions.map((id) => faq(id)).filter((f) => f !== undefined);
 ---
 
@@ -27,6 +25,15 @@ const aboutFaqs = page.faq.questions.map((id) => faq(id)).filter((f) => f !== un
   image={page.hero.photo}
   edit="/admin/content/pages/about"
 >
+  <script is:inline>
+    // The team and schools used to be sections of this page. Links to them
+    // (/about#team, /about#schools) go to their own pages now. The server never
+    // sees the part after #, so this is done here.
+    {
+      const to = { '#team': '/about/team', '#schools': '/about/schools' }[location.hash];
+      if (to) location.replace(to);
+    }
+  </script>
   <section class="about-hero">
     <div class="wrap about-hero__grid">
       <div class="stack" style="--stack: var(--space-l)">
@@ -145,82 +152,24 @@ const aboutFaqs = page.faq.questions.map((id) => faq(id)).filter((f) => f !== un
     </div>
   </section>
 
-  <section class="section section--hall" id="team" aria-labelledby="team-title">
-    <div class="wrap">
-      <div class="section-head">
-        {page.team.eyebrow && <p class="eyebrow">{page.team.eyebrow}</p>}
-        <h2 id="team-title">{page.team.heading}</h2>
-        {page.team.lede && <p class="lede" set:html={rich(page.team.lede, vars)} />}
-        {page.team.social && <p class="team__social" set:html={rich(page.team.social, vars)} />}
-      </div>
+  <section class="section more-about-band" aria-label="More about us">
+    <div class="wrap more-about">
       {
-        lead && (
-          <article class="lead" data-gel={lead.gel}>
-            <PhotoFrame shape="arch" ratio="4 / 5" gel={lead.gel} image={lead.image} sizes="(max-width: 960px) 80vw, 340px" class="lead__photo" />
-            <div class="lead__text">
-              <h3>{lead.name}</h3>
-              <p class="member__role">{lead.role}</p>
-              {lead.bio.map((para) => (
-                <p class="lead__bio" set:html={rich(para, vars)} />
-              ))}
-            </div>
+        [
+          { part: teamPage.team, href: '/about/team', label: 'Meet the team', gel: 'teal' },
+          { part: schoolsPage.schools, href: '/about/schools', label: 'Schools & partners', gel: 'purple' },
+        ].map((c) => (
+          <article class="more-card" data-gel={c.gel}>
+            {c.part.eyebrow && <p class="eyebrow">{c.part.eyebrow}</p>}
+            <h2>
+              <a href={c.href}>{c.part.heading}</a>
+            </h2>
+            {c.part.lede && <p set:html={rich(c.part.lede, vars)} />}
+            <span class="link-arrow" aria-hidden="true">
+              {c.label} →
+            </span>
           </article>
-        )
-      }
-      <div class="team">
-        {
-          crew.map((m) => (
-            <article class="member" data-gel={m.gel}>
-              <PhotoFrame shape="circle" gel={m.gel} image={m.image} class="member__photo" sizes="140px" />
-              <div class="member__text">
-                <h3>{m.name}</h3>
-                <p class="member__role">{m.role}</p>
-                {m.bio.map((para) => (
-                  <p class="member__bio" set:html={rich(para, vars)} />
-                ))}
-              </div>
-            </article>
-          ))
-        }
-      </div>
-      {
-        (teamQuote || page.team.hiring) && (
-          <figure class="work">
-            {teamQuote && (
-              <>
-                <blockquote>
-                  <p>“{teamQuote.quote}”</p>
-                </blockquote>
-                <figcaption>{teamQuote.attribution}</figcaption>
-              </>
-            )}
-            {page.team.hiring && <p class="work__cta" set:html={rich(page.team.hiring, vars)} />}
-          </figure>
-        )
-      }
-    </div>
-  </section>
-
-  <section class="section" id="schools" aria-labelledby="schools-title">
-    <div class="wrap schools">
-      <div class="stack" style="--stack: var(--space-m)">
-        {page.schools.eyebrow && <p class="eyebrow">{page.schools.eyebrow}</p>}
-        <h2 id="schools-title">{page.schools.heading}</h2>
-        {page.schools.lede && <p class="lede" set:html={rich(page.schools.lede, vars)} />}
-        <p set:html={rich(page.schools.body, vars)} />
-      </div>
-      {
-        schoolsQuote && (
-          <figure class="quote-card">
-            <blockquote>
-              <p>“{schoolsQuote.quote}”</p>
-            </blockquote>
-            <figcaption>{schoolsQuote.attribution}</figcaption>
-            <div class="quote-card__cast" aria-hidden="true">
-              <Character name="magician" size={70} />
-            </div>
-          </figure>
-        )
+        ))
       }
     </div>
   </section>
@@ -335,43 +284,17 @@ const aboutFaqs = page.faq.questions.map((id) => faq(id)).filter((f) => f !== un
   .value h4 { font-size: var(--step-1); font-stretch: 90%; }
   .value p { color: var(--ink-soft); font-size: var(--step--1); }
 
-  .team__social { color: var(--ink-soft); }
-
-  .lead {
-    display: grid;
-    grid-template-columns: minmax(0, 0.45fr) minmax(0, 1fr);
-    gap: var(--space-2xl);
-    align-items: center;
-    padding-bottom: var(--space-2xl);
-    margin-bottom: var(--space-2xl);
-    border-bottom: 2px solid var(--ink);
-  }
-  .lead :global(.lead__photo) { width: 100%; max-width: 340px; }
-  .lead h3 { font-size: var(--step-4); }
-  .lead__bio { color: var(--ink-soft); max-width: var(--measure); }
-  .lead__bio + .lead__bio { margin-top: 0.9em; }
-
-  .team { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--space-xl) var(--space-l); }
-  .member { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-m); align-items: start; }
-  .member :global(.member__photo) { width: 120px; box-shadow: 0 0 0 5px var(--gel-tint); }
-  .member h3 { font-size: var(--step-1); font-stretch: 92%; }
-  .member__role { font-family: var(--font-script); font-weight: 700; font-size: var(--step--1); color: var(--gel-ink); margin: 0.2rem 0 0.5rem; }
-  .member__bio { color: var(--ink-soft); font-size: var(--step--1); }
-
-  .work { margin: var(--space-2xl) 0 0; padding: var(--space-xl); background: var(--paper); border-radius: var(--r-lg); }
-  .work blockquote { margin: 0; }
-  .work p { font-family: var(--font-display); font-size: var(--step-1); font-weight: 550; line-height: 1.4; }
-  .work figcaption { margin-top: 0.6rem; font-family: var(--font-script); font-weight: 700; color: var(--purple); }
-  .work .work__cta { margin-top: var(--space-m); font-family: var(--font-body); font-size: var(--step-0); font-weight: 400; color: var(--ink-soft); }
-
-  .schools { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: var(--space-2xl); align-items: center; }
-  .schools h2 { font-size: var(--step-3); }
-  .schools p:not(.lede):not(.eyebrow) { color: var(--ink-soft); }
-  .quote-card { position: relative; margin: 0; padding: var(--space-xl) var(--space-xl) var(--space-2xl); border: 2px solid var(--ink); border-radius: var(--r-lg); box-shadow: 8px 8px 0 var(--teal); }
-  .quote-card blockquote { margin: 0; }
-  .quote-card p { font-family: var(--font-display); font-size: var(--step-1); font-weight: 550; line-height: 1.4; }
-  .quote-card figcaption { margin-top: var(--space-m); font-family: var(--font-script); font-weight: 700; color: var(--purple); }
-  .quote-card__cast { position: absolute; right: 1.2rem; bottom: -1.1rem; }
+  .more-about { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--space-l); }
+  .more-about-band { padding-top: 0; }
+  .more-card { position: relative; display: grid; gap: 0.6rem; align-content: start; padding: var(--space-xl); background: var(--hall); border-radius: var(--r-lg); border-top: 8px solid var(--gel); }
+  .more-card h2 { font-size: var(--step-3); }
+  .more-card h2 a { color: var(--ink); text-decoration: none; }
+  .more-card h2 a::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+  .more-card h2 a:focus-visible { outline: none; }
+  .more-card:has(h2 a:focus-visible) { outline: 3px solid var(--focus); outline-offset: 3px; }
+  .more-card:hover { box-shadow: var(--shadow-lift); }
+  .more-card p:not(.eyebrow) { color: var(--ink-soft); }
+  .more-card .link-arrow { justify-self: start; margin-top: 0.4rem; }
 
   .how-notes { list-style: none; margin: var(--space-2xl) 0 0; padding: var(--space-xl) 0 0; border-top: 2px solid var(--ink); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--space-l); }
   .how-notes li { display: grid; gap: 0.4rem; align-content: start; }
@@ -389,13 +312,11 @@ const aboutFaqs = page.faq.questions.map((id) => faq(id)).filter((f) => f !== un
   .about-faqs p { color: var(--ink-soft); }
 
   @media (max-width: 960px) {
-    .about-hero__grid, .lead, .schools, .different { grid-template-columns: 1fr; }
+    .about-hero__grid, .different { grid-template-columns: 1fr; }
     .about-hero :global(.about-hero__photo) { justify-self: start; max-width: 300px; order: -1; }
     .different__side { position: static; }
   }
   @media (max-width: 520px) {
-    .member { grid-template-columns: 88px 1fr; }
-    .member :global(.member__photo) { width: 88px; }
     .key-facts > div { grid-template-columns: 1fr; gap: 0.2rem; }
   }
 </style>

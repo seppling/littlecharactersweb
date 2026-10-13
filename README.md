@@ -55,7 +55,7 @@ src/
   assets/               logo, photos and headshots (resized at build time; see lib/media.ts)
   styles/global.css     base styles + shared pieces (tape labels, buttons, chips)
   components/           Character (illustrations), PhotoFrame, ProgramCard/Row, SessionLine, EventTicket…
-  pages/                /, /programs, /programs/[slug], /camps, /events, /about, /faq, /give, /contact, /geode
+  pages/                /, /programs, /programs/[slug], /camps, /events, /about, /about/team, /about/schools, /faq, /give, /contact, /geode
   pages/enroll, account, api   the family portal
   pages/admin           staff: the content editor (/admin/content), rosters, autopay, messages
   server/               database, content store, auth, payments, email, encryption (see docs/portal.md)

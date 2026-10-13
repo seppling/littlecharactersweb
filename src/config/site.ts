@@ -34,10 +34,21 @@ export const site = {
   },
 } as const;
 
-export const nav = [
+/** The top menu. An item with `children` is a dropdown (a list of links on phones). */
+export const nav: { label: string; href: string; note?: string; children?: { label: string; href: string }[] }[] = [
   { label: 'Classes', href: '/programs?kind=class' },
   { label: 'Camps', href: '/camps' },
   { label: 'Shows & Events', href: '/events' },
-  { label: 'About', href: '/about' },
+  {
+    label: 'About',
+    href: '/about',
+    children: [
+      { label: 'Our story', href: '/about' },
+      { label: 'Team', href: '/about/team' },
+      { label: 'Schools & partners', href: '/about/schools' },
+      { label: 'FAQ', href: '/faq' },
+    ],
+  },
   { label: 'Geode', href: '/geode', note: 'Teens & adults' },
-] as const;
+  { label: 'Contact', href: '/contact' },
+];

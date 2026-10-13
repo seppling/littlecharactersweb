@@ -211,7 +211,7 @@ describe('redirects from the old site', () => {
     expect(oldSiteRedirect('/classes')).toBe('/programs');
     expect(oldSiteRedirect('/classes1')).toBe('/programs');
     expect(oldSiteRedirect('/camp')).toBe('/camps');
-    expect(oldSiteRedirect('/team')).toBe('/about#team');
+    expect(oldSiteRedirect('/team')).toBe('/about/team');
     expect(oldSiteRedirect('/faqs')).toBe('/faq');
     expect(oldSiteRedirect('/giving-page')).toBe('/give');
     expect(oldSiteRedirect('/home')).toBe('/');
