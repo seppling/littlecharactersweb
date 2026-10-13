@@ -39,7 +39,8 @@ End-to-end journeys in a real browser (sign in → enroll → pay → dashboard 
 ```bash
 npm run build && tests/e2e/serve.sh     # fresh local database with a sample import
 node tests/e2e/enroll-journey.mjs       # in a second terminal
-node tests/e2e/content-editor.mjs       # after the journey, on the same database
+node tests/e2e/trial-journey.mjs        # then the free first class and the age rule
+node tests/e2e/content-editor.mjs       # after the journeys, on the same database
 ```
 
 ## Where things live

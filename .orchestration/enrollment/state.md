@@ -3,14 +3,15 @@
 Branch `claude/review-enrollment`, from `claude/blissful-archimedes-enun5m` at f7b07cb.
 
 ## Commits
-- (none yet)
+- abade6c state file
+- ea6dec7 age rule on the picker and server, server refuses already-enrolled, sibling discount fix, unit tests
+- (next) browser test `tests/e2e/trial-journey.mjs`, docs, screenshots, report
 
 ## Decisions
-- Server check goes in `createDraftOrder` and again in `confirmOrder` (so an old draft order can't slip through).
-- "Ask us" links to `/contact?topic=class&class=<title>`; the contact page's existing topic script also pre-fills the message with the class name.
+See report.md → Decisions.
 
 ## Open questions
-- (none yet)
+See report.md → Open points (none block the merge).
 
 ## Next action
-- Implement the age rule on the picker and the server, then the trial browser test.
+- Done. Waiting for the coordinator to review and merge.
