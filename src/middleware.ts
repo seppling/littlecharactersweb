@@ -12,6 +12,8 @@ import { getAuth, isAdmin } from '@/server/auth';
 import { assertProductionConfig } from '@/server/env';
 import { getContent } from '@/server/content';
 import { PREVIEW_COOKIE } from '@/lib/editor';
+import { oldSiteRedirect } from '@/lib/redirects';
+import { hasShowPage } from '@/lib/events';
 
 /** A readable, non-sensitive hint so public pages know to ask /api/me who's signed in. */
 const HINT_COOKIE = 'lc_signed_in';
@@ -39,9 +41,17 @@ const SECURITY_HEADERS: Record<string, string> = {
   'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
 };
 
+const permanentRedirect = (location: string) =>
+  new Response(null, { status: 301, headers: { Location: location, 'Cache-Control': 'public, max-age=86400' } });
+
 export const onRequest = defineMiddleware(async (ctx, next) => {
   if (ctx.isPrerendered) return next();
   const path = ctx.url.pathname;
+  // Addresses from the old site (Squarespace) go to their new pages, for good.
+  // Event addresses wait for the content, which says which shows have a page.
+  const eventPath = path.startsWith('/events/');
+  const moved = eventPath ? undefined : oldSiteRedirect(path);
+  if (moved) return permanentRedirect(moved);
   // Uploaded photos: served as-is, cached for good by the route itself.
   if (path.startsWith('/media/')) {
     const response = await next();
@@ -72,6 +82,11 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
 
   ctx.locals.preview = wantsPreview && ctx.locals.isAdmin;
   ctx.locals.content = await getContent(ctx.locals.preview ? 'draft' : 'live');
+  if (eventPath) {
+    const { events } = ctx.locals.content;
+    const movedEvent = oldSiteRedirect(path, (slug) => events.some((e) => e.slug === slug && hasShowPage(e)));
+    if (movedEvent) return permanentRedirect(movedEvent);
+  }
 
   const response = await next();
   const out = new Response(response.body, response);

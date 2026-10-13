@@ -6,7 +6,8 @@ import Character from '@/components/Character.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
 import ProgramCard from '@/components/ProgramCard.astro';
 import EventTicket from '@/components/EventTicket.astro';
-import { sortKey } from '@/content/catalog';
+import { isUpcoming, sortKey } from '@/content/catalog';
+import { todayInAthens } from '@/lib/pricing';
 import { href, rich } from '@/content/rich';
 
 const { programs, events, programBySlug, locationById, locations, testimonial, testimonials, site, vars, pages } = Astro.locals.content;
@@ -14,7 +15,7 @@ const page = pages.home;
 
 const featured = programs.filter((p) => p.featured);
 const upcoming = [...events]
-  .filter((e) => e.brand === 'lc' && e.times.length)
+  .filter((e) => e.brand === 'lc' && e.times.length && isUpcoming(e, todayInAthens()))
   .sort((a, b) => sortKey(a).localeCompare(sortKey(b)))
   .slice(0, 3);
 const hq = locationById('hq') ?? locations[0];
@@ -22,7 +23,7 @@ const quote = testimonial(page.why.testimonial) ?? testimonials[0];
 const tapes = [{ gel: 'yellow' }, { gel: 'teal', tilt: 'right' }, { gel: 'orange' }] as const;
 ---
 
-<Base seo={page.seo} edit="/admin/content/pages/home">
+<Base seo={page.seo} image={page.hero.photo} edit="/admin/content/pages/home">
   <!-- ───────────── Hero ───────────── -->
   <section class="hero">
     <div class="wrap hero__grid">

@@ -97,6 +97,8 @@ export interface Program {
   /** No dates yet: show a "tell me when" signup instead of sessions. */
   notify?: boolean;
   featured?: boolean;
+  /** What Google shows for the class page. Empty = its name and summary. */
+  seo?: Seo;
 }
 
 export interface ImageRef {
@@ -138,6 +140,12 @@ export interface EventItem {
   price?: string;
   cta?: { label: string; href: string };
   ages?: string;
+  /** The class page that tells more, for recurring nights like Parents’ Night Out (a program's slug). */
+  programSlug?: string;
+  /** Shown on a show's own page and in its link previews. */
+  image?: ImageRef;
+  /** What Google shows for a show's own page. Empty = its name and description. */
+  seo?: Seo;
 }
 
 export interface TeamMember {
@@ -181,6 +189,8 @@ export interface SectionHead {
 export interface Seo {
   title?: string;
   description?: string;
+  /** The photo for link previews; wins over the page's own photo. */
+  image?: ImageRef;
 }
 
 export interface SiteSettings {
@@ -188,7 +198,7 @@ export interface SiteSettings {
   contact: { email: string; phone: string };
   social: { instagram?: string; facebook?: string };
   links: { giving?: string; wishList?: string };
-  parking: { walkIn: string; dropOff: string; staffOnly: string; late: string; guideUrl?: string };
+  parking: { walkIn: string; dropOff: string; staffOnly: string; late: string; guideUrl?: string; walkInMap?: ImageRef; dropOffMap?: ImageRef };
   description: string;
   previewBanner?: boolean;
 }

@@ -3,12 +3,18 @@ import Base from '@/layouts/Base.astro';
 import ProgramRow from '@/components/ProgramRow.astro';
 import EventTicket from '@/components/EventTicket.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
+import { isUpcoming, sortKey } from '@/content/catalog';
 import { rich } from '@/content/rich';
+import { todayInAthens } from '@/lib/pricing';
 
 const { programs, events, programBySlug, vars, pages } = Astro.locals.content;
 const page = pages.geode;
 const geodePrograms = programs.filter((p) => p.brand === 'geode');
-const geodeEvents = events.filter((e) => e.brand === 'geode').slice(0, 3);
+const today = todayInAthens();
+const geodeEvents = events
+  .filter((e) => e.brand === 'geode' && isUpcoming(e, today))
+  .sort((a, b) => sortKey(a).localeCompare(sortKey(b)))
+  .slice(0, 3);
 // The Performance Troupe is a Little Characters class for ages 9–17, listed here for teens too.
 const troupe = programBySlug('performance-troupe');
 const rows = [geodePrograms[0], troupe, ...geodePrograms.slice(1)].filter((p) => p !== undefined);

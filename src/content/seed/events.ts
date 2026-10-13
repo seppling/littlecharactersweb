@@ -18,6 +18,7 @@ const pno = (slug: string, date: string): EventItem => ({
   summary: 'Drop your kiddo(s) off for games, theater activities and new friends while you enjoy an evening to yourself.',
   price: '$30 first child · $10 each additional',
   cta: { label: 'Register', href: PNO_FORM },
+  programSlug: 'parents-night-out',
 });
 
 const improvNight = (slug: string, date: string): EventItem => ({
@@ -32,6 +33,7 @@ const improvNight = (slug: string, date: string): EventItem => ({
   ages: '18+',
   price: '$25',
   cta: { label: 'Register', href: ADULT_IMPROV_FORM },
+  programSlug: 'geode-adult-improv',
 });
 
 const freeClass = (slug: string, start: string, end: string): EventItem => ({
@@ -45,6 +47,7 @@ const freeClass = (slug: string, start: string, end: string): EventItem => ({
   summary: 'Our monthly free class, open to all ages, with a different teacher each month. Registration opens soon.',
   price: 'Free',
   cta: { label: 'Details', href: '/programs/free-community-class' },
+  programSlug: 'free-community-class',
 });
 
 export const events: EventItem[] = [

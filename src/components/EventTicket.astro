@@ -2,8 +2,9 @@
 /** A show or event as a ticket stub, for the dark "house lights down" sections. */
 import type { EventItem } from '@/content/types';
 import { eventDate, timeOf } from '@/lib/format';
+import { eventLink } from '@/lib/events';
 
-const { locationById } = Astro.locals.content;
+const { locationById, programBySlug } = Astro.locals.content;
 
 interface Props {
   event: EventItem;
@@ -18,6 +19,8 @@ const first = dated
       day: 'TBA',
       weekday: 'Save the date',
     };
+// A show's title links to its own page; a recurring night's to its class page.
+const titleHref = eventLink(event, (slug) => !!programBySlug(slug));
 const venue = event.venue ?? locationById(event.locationId ?? '')?.name;
 const kindLabel: Record<EventItem['kind'], string> = {
   show: 'Show',
@@ -36,7 +39,7 @@ const kindLabel: Record<EventItem['kind'], string> = {
   </div>
   <div class="ticket__body">
     <span class="tape">{kindLabel[event.kind]}</span>
-    <h3>{event.title}</h3>
+    <h3>{titleHref ? <a href={titleHref}>{event.title}</a> : event.title}</h3>
     <p class="ticket__times script">
       {!dated && <span>Date coming soon</span>}
       {
@@ -116,6 +119,7 @@ const kindLabel: Record<EventItem['kind'], string> = {
   }
   .ticket__body .tape { --tape: var(--gel); }
   .ticket h3 { font-size: var(--step-2); color: var(--on-stage); }
+  .ticket h3 a { color: inherit; text-decoration-thickness: 2px; text-underline-offset: 0.18em; text-decoration-color: var(--gel); }
   .ticket__times { color: var(--on-stage); }
   .ticket__venue { color: var(--on-stage-mute); }
   .ticket__summary { color: var(--on-stage-mute); max-width: 60ch; }

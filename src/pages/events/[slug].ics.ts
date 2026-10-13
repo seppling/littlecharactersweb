@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { site } from '@/config/site';
+import { eventPath } from '@/lib/events';
 
 /** "Add to calendar" files, one per dated event. */
 // Floating local times with an explicit Eastern TZID, which every major calendar accepts.
@@ -22,7 +23,7 @@ export const GET: APIRoute = ({ params, locals }) => {
       `DTSTART;TZID=America/New_York:${stamp(t.start)}`,
       `DTEND;TZID=America/New_York:${stamp(t.end)}`,
       `SUMMARY:${escape(event.title)}`,
-      `DESCRIPTION:${escape(`${event.summary}\n\n${site.url}/events#${event.slug}`)}`,
+      `DESCRIPTION:${escape(`${event.summary}\n\n${site.url}${eventPath(event)}`)}`,
       where && `LOCATION:${escape(where)}`,
       'END:VEVENT',
     ]
