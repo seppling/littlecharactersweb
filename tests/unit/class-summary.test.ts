@@ -76,7 +76,7 @@ describe('Performance or Performances', () => {
     ['A fully staged, completely original production.', 'Performance'],
     ['A show on October 30.', 'Performance'],
     ['Most mini camps end with a short performance at pickup.', 'Performance'],
-    ['Mid-semester showcase and a big show at the end of the term.', 'Performances'],
+    ['Mid-season showcase and a big show at the end of the term.', 'Performances'],
     ['Short performances around town this fall, then a full-length production in spring.', 'Performances'],
     ['Student films screen at our Variety Show.', 'Performances'],
   ])('%s → %s', (text, label) => {

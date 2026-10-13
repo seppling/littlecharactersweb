@@ -120,7 +120,10 @@ export async function createInstallmentCheckout(opts: {
     customer,
     line_items: [
       // The tuition after any staff adjustment, which the description names ("Scholarship: −$40").
-      { quantity: 1, price_data: { currency: 'usd', unit_amount: i.amountCents, product_data: { name: i.label, ...(i.adjustments.length ? { description: adjustmentNote(i) } : {}) } } },
+      // Left out when a discount covers it all and only the late fee is due.
+      ...(i.amountCents > 0
+        ? [{ quantity: 1, price_data: { currency: 'usd', unit_amount: i.amountCents, product_data: { name: i.label, ...(i.adjustments.length ? { description: adjustmentNote(i) } : {}) } } }]
+        : []),
       ...(i.lateFeeCents ? [{ quantity: 1, price_data: { currency: 'usd', unit_amount: i.lateFeeCents, product_data: { name: 'Late fee (unpaid after the 10th)' } } }] : []),
     ],
     return_url: `${config.siteUrl}/account/pay/${i.id}?checkout={CHECKOUT_SESSION_ID}`,

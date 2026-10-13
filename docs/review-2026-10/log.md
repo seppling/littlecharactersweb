@@ -49,3 +49,31 @@ Stephen asked for a wider plan for the staff back office, designed around how Ha
 - **Switching over:** fall classes finish in Studio Director (no new data typed into it after launch). New sign-ups and spring are on the new site. Studio Director is cancelled in February, after a clean month of spring billing and a full export.
 - **Hannah's input:** a short online form asks how often she uses each Studio Director screen, plus 8 questions. The back-office pieces are designed from her answers.
 - **Staff discounts:** continue now. Their admin screen moves into the new payments area later.
+
+### Wave 1 merged (October 13)
+
+Units 1, 2 and 3 are merged. On the merged branch: type check clean, 295 unit tests pass, the site builds, and both browser tests pass (the enrollment journey now includes Hannah adding a $40 discount and the family seeing it).
+
+- **Wording and cards** (unit 1). Families now read "season" everywhere: home, camps, the class finder, the FAQ, class pages, checkout and the family account. Term names such as "Fall 2026" are unchanged. The camps page fact reads "Performances". The logo was re-exported with "THEATER TROUPE" 1.8× larger, in the lockup's own lettering, and the phone logo is a little wider. Event cards show the place, its street address and a Map link. The SEO drafts were updated to match, so they still load.
+- **Class page** (unit 2).
+  - The top summary shows the day and time, the place with its street address and a Map link, the cost, the teachers and "Performance(s)". The "Choose a time" card sits beside the summary from the top, and comes right after it on phones.
+  - The hero photo is gone. The class photo is still used for link previews and on class cards elsewhere.
+  - The card repeats a time, place or price only when sessions differ.
+  - "Ask Hannah" now reads "Ask us".
+- **Staff discounts** (unit 3).
+  - **For Hannah:** Monthly autopay → Payments & discounts → Add a discount → check the new amounts → Save discount. Remove undoes it.
+  - **Kinds:** a dollar amount or a whole percentage, on the next payment or every remaining month.
+  - **What families see:** "Discount: −$40", or the reason itself if Hannah ticks "Show the reason to the family".
+  - **What changes:** only unpaid months change. A month being charged, or with the pay-now form open in the last 2 hours, catches up at the next billing run. A month the discount covers completely is not sent to Stripe.
+  - **Records:** every change is in the audit log. How-to for Hannah: `docs/staff-billing.md`.
+  - **Checked:** with the billing script on a local database, November charged $55 instead of $95.
+- **Fixed at merge:**
+  - the last two "semester" phrases, on the class page and in the free-class note;
+  - the Stripe pay-now form leaves out a $0 tuition line when a discount covers the month and only the late fee is due.
+- **Reported by the discounts session:** during its first billing-script run, before it blanked the keys, one request reached Stripe's test mode. It failed ("No such PaymentMethod"). No money moved; it was test mode. Every later run blanked the keys.
+- **Open, for Hannah:**
+  - Should families get an email when a discount is added? Today they see it in their account and on the next receipt.
+  - A discount on a class already paid in full, or on the first month paid at checkout, is a refund in the Stripe dashboard (documented).
+- **Follow-ups noted:**
+  - Parents' Night Out still lists Sep 25 as open, which is in the past. Hannah can close it in the editor, or the page could hide past one-night dates on its own.
+  - The footer's "Theater Troupe" could grow to match the header logo.

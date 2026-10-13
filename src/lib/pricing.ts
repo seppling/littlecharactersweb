@@ -7,7 +7,7 @@
  *  - Monthly classes: the first month is due at registration; the rest are
  *    charged automatically to the saved card on the 1st of each month.
  *    Joining after the first week prorates the first month.
- *  - Pay the semester in full: 10% off.
+ *  - Pay for the season in full: 10% off.
  *  - Multi-class or multi-student families: 15% off tuition.
  *  - Discounts don't stack; each line gets the best one (PRICING.stackDiscounts).
  *  - One-time performance/materials fee per student.
@@ -162,7 +162,7 @@ export function quote(input: QuoteInput): Quote {
 
   if (plan === 'trial') {
     for (const s of students) lines.push({ kind: 'tuition', label: `${s.firstName}: first class free`, studentId: s.id, amountCents: 0 });
-    notes.push('Nothing is due today. After the free class, you can continue with monthly tuition or pay for the semester.');
+    notes.push('Nothing is due today. After the free class, you can continue with monthly tuition or pay for the season.');
     return { plan, lines, subtotalCents: 0, discountCents: 0, totalCents: 0, later, installments, notes };
   }
 
