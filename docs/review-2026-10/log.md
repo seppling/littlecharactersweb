@@ -180,3 +180,40 @@ Stephen approved fixing every site-side note from the audit. Decisions:
 | 12 | Facts and policies: ages from data, FAQ payment answers, Policies page, contact form topics | 6 (FAQ), 9, 10 | `claude/review-facts` | now |
 | 13 | Prices and checkout: price labels, joining-now total, discount label, mid-month proration, Stories and Songs free class, another child, family totals | 2, 6, 7 | `claude/review-pricing` | after unit 9 |
 | 14 | Account basics and old links: imported-family welcome, card on file, receipts, saved message, Give link setting, old PDF redirects | 1 (site part), 5, 12, 13 | `claude/review-account` | after unit 9 |
+
+### Units 9–12 merged (October 13)
+
+On the merged branch: type check clean, 388 unit tests pass, the site builds, and all four browser tests pass (the new navigation test included). A December billing run on the test database charged the expected amounts: Ava $80.75 (family discount, her brother paid the season in full), and Maya $55 ($95 less a $40 scholarship).
+
+- **The family discount covers the whole family** (unit 9).
+  - **How it works:** each monthly payment keeps its regular price from checkout (migration `0007_family_discount`). Whenever enrollments change, and in every billing run, the 15% is recomputed on payments that can still change. Hannah's discounts then apply on top.
+  - **What families see:** the review page says when another child's payments drop; the account, receipts and charges show "Family discount (15%)".
+  - **What staff see:** "Stop payments" shows which other payments go back up before it stops anything.
+  - **When it ends:** the family gets an email.
+  - **What counts:** only monthly-priced weekly classes, not session-priced classes or drop-in nights.
+  - **To confirm with Stephen:** the helper recorded that Stephen answered three questions in its session: the end-of-discount email, a paid-in-full withdrawal still counting until the class ends, and only monthly-priced classes counting.
+- **One booking path** (unit 10).
+  - **Booking:** Parents' Night Out and improv-night "Register" buttons go to the site's own sign-up. The Google Forms are gone from the seed.
+  - **Dates:** the home call sheet shows only upcoming items. The free class dates are open for sign-up.
+  - **Show pages:** they always show "Where" and "Tickets", and offer "tell me when" for an undated show.
+  - **Program pages:** pricing lines, questions and "What's included" depend on the type of program, and adult improv shows as a monthly drop-in.
+  - **Confirmations:** one-off bookings are confirmed in one-off words, with policies that fit.
+  - **Accessibility:** the Geode tags are readable, and event links say which event they're for.
+- **Navigation** (unit 11).
+  - **Menu:** Give, Nights out & parties, and Parking are in the menu, and the phone header has a sign-in link.
+  - **Class finder:** it sorts by age fit (Acting Studio leads for 14–17, school-only and homeschool classes come last), and on phones the filters fold away once an age is picked.
+  - **Accessibility:** the phone menu closes with Escape and keeps keyboard focus; the account and sign-up pages have a main heading; the contrast fixes are in.
+- **Facts and policies** (unit 12).
+  - **Ages and prices:** taken from the class data, so the home page age guide, About and Geode now agree.
+  - **FAQ:** its payment answers match checkout.
+  - **Parents' Night Out:** priced one way everywhere.
+  - **Withdrawing:** one rule (5 days before the 1st).
+  - **Policies page:** new and editable in the editor; a draft for Hannah to read.
+  - **Contact form:** new topics (a missed class, a school partnership); signed-in parents are prefilled; a copy is emailed to the sender; a reply-time setting appears only when Hannah sets it.
+- **For Hannah to confirm:**
+  - the free class sign-ups being open;
+  - a cancellation line for one-night bookings;
+  - the FAQ sentences (checks or cash by arrangement? the timing for cancelling small classes);
+  - the whole Policies page (how long data is kept, what the photo permission covers, and a lawyer's read of the privacy part);
+  - the reply time;
+  - the wording of the end-of-discount email.
