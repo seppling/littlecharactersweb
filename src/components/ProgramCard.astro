@@ -7,7 +7,7 @@
 import type { Program } from '@/content/types';
 import PhotoFrame from './PhotoFrame.astro';
 import { kindTag } from '@/lib/program-fit';
-import { ageLabel, dayList, price, spotsLabel, timeRange } from '@/lib/format';
+import { ageLabel, dayList, priceLabel, spotsLabel, timeRange } from '@/lib/format';
 import { bookingClock, canBook, offeredSessions } from '@/lib/session-dates';
 
 const { locationById, site } = Astro.locals.content;
@@ -54,7 +54,7 @@ const fromPrice = program.priceFrom ?? next?.price;
         )}
         <div class="pcard__row">
           <dt class="sr-only">Price</dt>
-          <dd class="pcard__price">{fromPrice ? price(fromPrice) : program.requestCta ? 'By request' : 'Pricing TBA'}</dd>
+          <dd class="pcard__price">{fromPrice ? priceLabel(fromPrice, next ?? program.sessions.at(-1)) : program.requestCta ? 'By request' : 'Pricing TBA'}</dd>
           {next && <dd class="status" data-status={next.status}>{spotsLabel(next)}</dd>}
         </div>
       </dl>

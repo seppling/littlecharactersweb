@@ -1,4 +1,5 @@
 import type { Fee, Price, Program, Session, Weekday } from '@/content/types';
+import { sessionPriceParts } from '@/lib/pricing';
 
 const DAY_NAMES: Record<Weekday, string> = {
   Mon: 'Mondays', Tue: 'Tuesdays', Wed: 'Wednesdays', Thu: 'Thursdays', Fri: 'Fridays', Sat: 'Saturdays', Sun: 'Sundays',
@@ -55,6 +56,16 @@ export function price(p?: Price) {
   // Parents' Night Out: the one per-child price, said the same way everywhere.
   if (p.unit === 'child' && p.additional != null && p.additional !== p.amount) return `$${p.amount} first child, $${p.additional} each additional`;
   return `$${p.amount}${UNIT[p.unit]}`;
+}
+
+/**
+ * A price as families should read it. A class priced per session says what the
+ * session covers, from its real meetings: "$160 for 9 weeks ($17.78 a class)",
+ * not "$160/session" (read as $160 a class). Everything else as price().
+ */
+export function priceLabel(p?: Price, session?: Pick<Session, 'days' | 'startDate' | 'endDate'>) {
+  const parts = sessionPriceParts(p, session);
+  return parts ? `${parts.total} (${parts.perClass})` : price(p);
 }
 
 export function ageLabel(ages: Program['ages'], override?: string) {

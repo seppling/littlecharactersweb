@@ -5,7 +5,7 @@
  * only what tells the sessions apart.
  */
 import type { Session } from '@/content/types';
-import { dateRange, dayList, price, timeRange } from '@/lib/format';
+import { dateRange, dayList, priceLabel, timeRange } from '@/lib/format';
 
 /** More lines than this and the summary points to the card instead. */
 export const MAX_WHEN_LINES = 3;
@@ -45,7 +45,7 @@ export interface CardParts {
   price: boolean;
 }
 
-export const sessionPrice = (s: Session) => (s.price ? price(s.price) : s.externalUrl ? 'Via school' : 'Pricing TBA');
+export const sessionPrice = (s: Session) => (s.price ? priceLabel(s.price, s) : s.externalUrl ? 'Via school' : 'Pricing TBA');
 
 /** Which details the card repeats for each session: only those that differ. */
 export function cardParts(sessions: Session[]): CardParts {

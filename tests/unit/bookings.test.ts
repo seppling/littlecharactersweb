@@ -130,7 +130,8 @@ describe('class pages that fit the program', () => {
 
   it('shows each pricing line only where it applies', () => {
     expect(moneyLines(program('intro-to-theater'))).toEqual(['trial', 'monthly', 'fee', 'multi', 'pay-what-you-can']);
-    expect(moneyLines(program('stories-and-songs'))).toEqual(['fee', 'multi', 'pay-what-you-can']);
+    // A free first class on Stories and Songs too (decided Oct 13, 2026).
+    expect(moneyLines(program('stories-and-songs'))).toEqual(['trial', 'fee', 'multi', 'pay-what-you-can']);
     expect(moneyLines(program('free-community-class'))).toEqual(['free']);
     expect(moneyLines(program('athens-academy-enrichment'))).toEqual(['school']);
     expect(moneyLines(program('geode-adult-improv'))).toEqual(['per-night']);

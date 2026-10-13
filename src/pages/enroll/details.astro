@@ -1,10 +1,15 @@
 ---
-/** Enrollment step 2: care details for each student (asked once, then confirmed yearly) and one policy checkbox. */
+/**
+ * Enrollment step 2: care details for each student (asked once, then confirmed
+ * yearly) and one policy checkbox. A student whose details were confirmed within
+ * the year gets a one-line summary with "Edit" instead of the form.
+ */
 import { eq } from 'drizzle-orm';
 import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
 import { getDb, schema } from '@/server/db';
-import { detailsFresh, getOrder, householdForUser, listStudents, readStudentNotes, studentDetailsInput, updateStudentDetails } from '@/server/family';
+import { getOrder, householdForUser, listStudents, readStudentNotes, studentDetailsInput, updateStudentDetails } from '@/server/family';
+import { detailsSummary, needsDetailsForm } from '@/lib/student-details';
 
 import { bookingClock, bookingProblem } from '@/lib/session-dates';
 import { isOneOff, oneOffPolicies } from '@/lib/program-fit';
@@ -33,11 +38,14 @@ const policies = isOneOff(found.session)
 
 const students = (await listStudents(household.id)).filter((s) => o.studentIds.includes(s.id));
 const errors: Record<string, string> = {};
+const editing = Astro.url.searchParams.get('edit');
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   if (form.get('policies') !== 'on') errors.policies = 'Please agree to the policies to continue.';
-  const parsedAll = students.map((s) => ({
+  // Only the forms on the page are read; a student shown as a summary keeps what's on file.
+  const asked = students.filter((s) => form.get(`details-${s.id}`) === '1' || needsDetailsForm(s, editing));
+  const parsedAll = asked.map((s) => ({
     s,
     parsed: studentDetailsInput.safeParse({
       allergies: String(form.get(`allergies-${s.id}`) ?? ''),
@@ -61,16 +69,31 @@ if (Astro.request.method === 'POST') {
   <EnrollShell step={2} program={found.program} session={found.session}>
     <form method="post" class="form">
       <h1>A few details</h1>
-      <p class="lede">So teachers can take good care of everyone. You only fill this in once; we’ll ask you to confirm it each year.</p>
+      <p class="lede">
+        {students.every((s) => !needsDetailsForm(s, editing))
+          ? 'We have these on file from this year. Edit anything that’s changed, then agree to the policies.'
+          : 'So teachers can take good care of everyone. You only fill this in once; we’ll ask you to confirm it each year.'}
+      </p>
 
       {
         students.map((s) => {
           const notes = readStudentNotes(s);
-          const fresh = detailsFresh(s);
+          if (!needsDetailsForm(s, editing)) {
+            return (
+              <div class="kid kid--on-file" data-details-on-file>
+                <p>
+                  <strong>{s.firstName} {s.lastName}</strong> <span class="fresh">✓ On file</span>
+                  <span class="summary">{detailsSummary({ firstName: s.firstName, ...notes, pickupNotes: s.pickupNotes, photoConsent: s.photoConsent })}</span>
+                </p>
+                <a href={`/enroll/details?order=${o.id}&edit=${s.id}`}>Edit<span class="sr-only"> {s.firstName}’s details</span></a>
+              </div>
+            );
+          }
           return (
             <fieldset class="kid">
+              <input type="hidden" name={`details-${s.id}`} value="1" />
               <legend>{s.firstName} {s.lastName}</legend>
-              {fresh && <p class="fresh">✓ On file from before. Update anything that’s changed.</p>}
+              {editing === s.id && <p class="fresh">✓ On file from before. Update anything that’s changed.</p>}
               <div class="field">
                 <label for={`allergies-${s.id}`}>Allergies <span class="opt">optional</span></label>
                 <input id={`allergies-${s.id}`} name={`allergies-${s.id}`} value={notes.allergies} placeholder="e.g. peanuts, bee stings" />
@@ -124,6 +147,10 @@ if (Astro.request.method === 'POST') {
   .kid { border: 1.5px solid var(--line); border-radius: var(--r-md); padding: var(--space-l); margin: 0; display: grid; gap: var(--space-m); }
   .kid legend { font-family: var(--font-display); font-weight: 750; font-size: var(--step-1); padding: 0 0.4rem; }
   .fresh { color: var(--ok); font-weight: 600; font-size: var(--step--1); }
+  .kid--on-file { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding-block: var(--space-m); }
+  .kid--on-file p { margin: 0; display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; align-items: baseline; min-width: 0; }
+  .kid--on-file .summary { flex-basis: 100%; color: var(--ink-soft); font-size: var(--step--1); overflow-wrap: anywhere; }
+  .kid--on-file a { font-weight: 650; flex: none; }
   .opt { font-weight: 400; color: var(--ink-mute); }
   .hint { font-size: var(--step--2); color: var(--ink-mute); }
   .label { font-weight: 650; font-size: var(--step--1); }
