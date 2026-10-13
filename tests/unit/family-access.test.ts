@@ -175,6 +175,32 @@ describe('siblings who take the free class together', () => {
   });
 });
 
+describe('siblings in separate classes', () => {
+  it('get the sibling discount once a brother or sister is enrolled in another weekly class', async () => {
+    const di: SessionUser = { id: 'u-di', name: 'Di Okafor', email: 'di@example.com', emailVerified: true };
+    const db = await getDb();
+    await db.insert(schema.user).values(di);
+    const D = await ensureHousehold(di);
+    const eli = await createStudent(D.id, { firstName: 'Eli', lastName: 'Okafor', birthdate: '2018-01-01' }, di.id);
+    const dee = await createStudent(D.id, { firstName: 'Dee', lastName: 'Okafor', birthdate: '2014-05-01' }, di.id);
+    const TROUPE = 'troupe-f26-wed';
+    const hasMulti = (q: Awaited<ReturnType<typeof priceOrder>>['quote']) => q.lines.some((l) => l.label === '15% multi-class / multi-student discount');
+
+    // Eli alone in Intro to Theater: no discount.
+    const e = await confirmOrder(D.id, (await createDraftOrder(D.id, di.id, SESSION, [eli.id])).id, 'monthly', di.id);
+    expect(e.discountCents).toBe(0);
+
+    // Until Eli's enrollment is paid, it doesn't count.
+    expect(hasMulti((await priceOrder(D.id, await createDraftOrder(D.id, di.id, TROUPE, [dee.id]), 'monthly')).quote)).toBe(false);
+    await fulfillOrder(e.id, di.id, { checkoutSessionId: 'cs_eli', amountCents: e.totalCents });
+
+    // Dee joins Performance Troupe, a different class: Eli counts, so Dee gets 15% off, monthly or for the season.
+    const draft = await createDraftOrder(D.id, di.id, TROUPE, [dee.id]);
+    expect(hasMulti((await priceOrder(D.id, draft, 'monthly')).quote)).toBe(true);
+    expect(hasMulti((await priceOrder(D.id, draft, 'full')).quote)).toBe(true);
+  });
+});
+
 describe('staff access', () => {
   it('requires a verified email on the admin list', () => {
     expect(isAdmin({ email: 'Hannah@example.com', emailVerified: true })).toBe(true);
