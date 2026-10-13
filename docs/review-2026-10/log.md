@@ -217,3 +217,32 @@ On the merged branch: type check clean, 388 unit tests pass, the site builds, an
   - the whole Policies page (how long data is kept, what the photo permission covers, and a lawyer's read of the privacy part);
   - the reply time;
   - the wording of the end-of-discount email.
+
+### Units 13 and 14 merged (October 13)
+
+On the merged branch: type check clean, 438 unit tests pass, the site builds, and all four browser tests pass. November and December billing runs on the test database charged the expected amounts: Ava $80.75 (family discount), Maya $95, then $55 after a $40 scholarship.
+
+- **Prices and checkout** (unit 13).
+  - **Free first class:** Stories and Songs (and any Little Characters weekly class priced per session) now has one. Families who continue pay for the classes left, out of the session price.
+  - **Mid-month starts:** a class that starts mid-month charges only that month's classes (Acting Studio from Oct 20: $47.50), and tuition lines name their class count.
+  - **Prices:** session prices read "$160 for 9 weeks ($17.78 a class)". Each weekly class page shows "Joining now, per student", from the same quote checkout uses.
+  - **Review page:**
+    - new students start on the free first class;
+    - the season option names the discount it really gets ("same total as paying monthly" with the 15%);
+    - "Enroll another child or class" appears there and on the confirmation page;
+    - details on file show as one line with Edit;
+    - the confirmation page shows family totals, and the email says when another child's payments went down.
+  - **Family discount:** session-priced weekly classes count toward it; drop-in nights never get the 15%.
+- **Family account, giving and old links** (unit 14).
+  - **Imported families:** they see "Welcome from Studio Director!" instead of empty panels. "Confirm care details" leads to a "Looks right" button, and the sign-in page says "Moving from Studio Director?".
+  - **Payments:** the card on file shows (brand, last four, expiry; migration `0008_card_on_file`), with a "don't email card numbers" note. Autopay is grouped by date with totals, receipts name the child, and there's a statement line.
+  - **Other account changes:**
+    - a "Saved" message;
+    - "Can't make it?" on each class;
+    - per-child calendar files that start at the child's first class, with a reminder.
+  - **Giving:** the Give page uses a donation-link setting. Until Hannah sets it, the button reads "Email us to give". The editor refuses links to the old site.
+  - **Old links:** the old tuition PDFs, a show program, past class pages and template pages now redirect.
+- **For Hannah:**
+  - **Stories and Songs runs 9 Tuesdays (Oct 20 – Dec 15), but its text says 8 weeks.** Is a week off (which one), or is it 9 weeks? Once she answers, add "no class" dates or update the wording.
+  - The donation link, the tax note, and the Studio Director billing end date (Site settings).
+- **For Stephen:** should a last month that ends mid-month also be charged only for its classes? Today it's a full month.
