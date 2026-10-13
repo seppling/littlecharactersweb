@@ -17,6 +17,7 @@ import {
   getOrder,
   getStudent,
   listEnrollments,
+  PickError,
   priceOrder,
   updateStudentDetails,
   type SessionUser,
@@ -107,6 +108,70 @@ describe('free trial', () => {
     const o = await confirmOrder(A.id, next.id, 'monthly', ana.id);
     await fulfillOrder(o.id, ana.id, { checkoutSessionId: 'cs_leo', amountCents: o.totalCents });
     expect(await leoIn()).toEqual(['active']);
+  });
+});
+
+describe('who can be signed up', () => {
+  it('refuses a child outside the class’s ages, even in a hand-made request', async () => {
+    const pip = await createStudent(A.id, { firstName: 'Pip', lastName: 'Rivera', birthdate: '2021-05-01' }, ana.id);
+    const attempt = createDraftOrder(A.id, ana.id, SESSION, [pip.id]);
+    await expect(attempt).rejects.toBeInstanceOf(PickError);
+    await expect(createDraftOrder(A.id, ana.id, SESSION, [pip.id])).rejects.toThrow('Intro to Theater is for ages 7–10, and Pip is 5.');
+    // The rule itself is unchanged: one year either side of the ages still fits.
+    const six = await createStudent(A.id, { firstName: 'Sol', lastName: 'Rivera', birthdate: '2020-01-01' }, ana.id);
+    await expect(createDraftOrder(A.id, ana.id, SESSION, [six.id])).resolves.toMatchObject({ studentIds: [six.id] });
+  });
+
+  it('refuses a child who is already enrolled', async () => {
+    await expect(createDraftOrder(A.id, ana.id, SESSION, [maya.id])).rejects.toThrow('Maya is already enrolled in Intro to Theater.');
+  });
+
+  it('checks again when the order is confirmed', async () => {
+    const kim = await createStudent(A.id, { firstName: 'Kim', lastName: 'Rivera', birthdate: '2017-01-01' }, ana.id);
+    const first = await createDraftOrder(A.id, ana.id, SESSION, [kim.id]);
+    const second = await createDraftOrder(A.id, ana.id, SESSION, [kim.id]);
+    const paid = await confirmOrder(A.id, first.id, 'monthly', ana.id);
+    await fulfillOrder(paid.id, ana.id, { checkoutSessionId: 'cs_kim', amountCents: paid.totalCents });
+    await expect(confirmOrder(A.id, second.id, 'monthly', ana.id)).rejects.toThrow('Kim is already enrolled');
+    expect((await getOrder(A.id, second.id))?.status).toBe('draft');
+  });
+
+  it('holds a child continuing after the free class to the same ages', async () => {
+    // Ned is 11 at the free class (the top of the range, plus one year) and turns 12 before continuing.
+    const ned = await createStudent(A.id, { firstName: 'Ned', lastName: 'Rivera', birthdate: '2014-09-20' }, ana.id);
+    await confirmOrder(A.id, (await createDraftOrder(A.id, ana.id, SESSION, [ned.id])).id, 'trial', ana.id);
+    vi.setSystemTime(new Date('2026-09-25T16:00:00Z'));
+    try {
+      await expect(createDraftOrder(A.id, ana.id, SESSION, [ned.id])).rejects.toThrow('and Ned is 12.');
+    } finally {
+      vi.setSystemTime(new Date('2026-09-10T16:00:00Z'));
+    }
+  });
+});
+
+describe('siblings who take the free class together', () => {
+  it('get the sibling discount when they continue one at a time', async () => {
+    const cy: SessionUser = { id: 'u-cy', name: 'Cy Park', email: 'cy@example.com', emailVerified: true };
+    const db = await getDb();
+    await db.insert(schema.user).values(cy);
+    const C = await ensureHousehold(cy);
+    const ava = await createStudent(C.id, { firstName: 'Ava', lastName: 'Park', birthdate: '2017-03-01' }, cy.id);
+    const ben = await createStudent(C.id, { firstName: 'Ben', lastName: 'Park', birthdate: '2018-03-01' }, cy.id);
+    await confirmOrder(C.id, (await createDraftOrder(C.id, cy.id, SESSION, [ava.id, ben.id])).id, 'trial', cy.id);
+
+    // Ava continues first, alone: Ben is still on his free class, so no discount yet.
+    const a = await confirmOrder(C.id, (await createDraftOrder(C.id, cy.id, SESSION, [ava.id])).id, 'monthly', cy.id);
+    expect(a.discountCents).toBe(0);
+    await fulfillOrder(a.id, cy.id, { checkoutSessionId: 'cs_ava', amountCents: a.totalCents });
+
+    // Then Ben: Ava is now in the same class, which counts as a second student (15%, the bigger discount).
+    const draft = await createDraftOrder(C.id, cy.id, SESSION, [ben.id]);
+    const monthly = (await priceOrder(C.id, draft, 'monthly')).quote;
+    expect(monthly.lines).toContainEqual(expect.objectContaining({ kind: 'discount', label: '15% multi-class / multi-student discount' }));
+    expect(monthly.installments.every((i) => i.amountCents === 8075)).toBe(true);
+    const full = (await priceOrder(C.id, draft, 'full')).quote;
+    expect(full.lines.filter((l) => l.kind === 'discount')).toEqual([expect.objectContaining({ label: '15% multi-class / multi-student discount' })]);
+    expect(full.notes).toContain('Discounts don’t combine, so you’re getting the bigger one.');
   });
 });
 

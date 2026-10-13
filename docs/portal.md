@@ -12,7 +12,7 @@ Enrolling feels like part of the website, not a trip to another app. Families go
 | Step | URL | What the family sees |
 |---|---|---|
 | Discovery | `/programs`, `/programs/<slug>` | Static pages: age-first finder, times, prices, "ends in a show". The header says "Hi, Sam" if this browser has signed in before. |
-| Selection | `/enroll/<sessionId>` | **Signed out:** email → 6-digit code, typed in the same tab, so there's no trip to the inbox and back. First time: name and phone, then add a child. **Signed in:** saved children as checkboxes with an age-fit badge; enrolled ones are greyed out; after a free trial, "continue". |
+| Selection | `/enroll/<sessionId>` | **Signed out:** email → 6-digit code, typed in the same tab, so there's no trip to the inbox and back. First time: name and phone, then add a child. **Signed in:** saved children as checkboxes with an age-fit badge; enrolled ones, and children outside the class's ages ("Ages 7–10. Maya is 5." with an **Ask us** link to the contact form), are greyed out and can't be picked; after a free trial, "continue". The server refuses the same children (`pickProblem` in `src/server/family.ts`) when the order is started and again when it's confirmed. |
 | Details | `/enroll/details` | Per child: allergies, medical notes (encrypted), pickup people, photo consent. Pre-filled, and only asked again when older than a year. Then a 3-bullet policy summary with one checkbox. |
 | Review | `/enroll/review` | Plan choice with live totals (free first class · monthly · pay in full · waitlist), an itemized bill, what's due later, and discounts applied automatically. |
 | Payment | `/enroll/pay` | Stripe's card form embedded in the page. Apple Pay and Google Pay appear automatically. Cards are saved for monthly tuition. |
@@ -37,7 +37,7 @@ Implemented in `src/lib/pricing.ts` (pure functions, unit-tested in `tests/unit/
 - **Pay in full:** 10% off the term.
 - **Multiple classes or students:** 15% off tuition. **Discounts don't stack**; the bigger one applies (`PRICING.stackDiscounts`).
 - **One-time fees** (performance, materials): per student, at registration.
-- **Free first class** for new students in Little Characters classes (not Geode). Nothing is due, and "Continue after the trial" on the account page leads to paid tuition in the same spot.
+- **Free first class** for new students in Little Characters classes (not Geode). Nothing is due, and "Continue after the trial" on the account page leads to paid tuition in the same spot. One free class per student. A brother or sister already in the same class counts for the multi-student discount, so siblings who continue one at a time still get it.
 - **Per-child pricing:** Parents' Night Out is $30 for the first child and $10 for each additional.
 - **Capacity:** default 20 per class (override per session). When full, the only option is the waitlist, with nothing due.
 - **Price conflicts** on the old site resolved to the monthly price.
@@ -188,5 +188,5 @@ src/pages/enroll/   the journey;  src/pages/account/  dashboard;  src/pages/admi
 src/pages/api/      auth, /api/me, Stripe webhook, /api/billing/run (daily autopay)
 drizzle/            SQL migrations (npm run db:generate after schema changes)
 tests/unit/         pricing, autopay, import, access control, content editing (npm test)
-tests/e2e/          the full journey, and staff editing the site, in a real browser
+tests/e2e/          the full journey, the free first class (trial-journey.mjs), and staff editing the site, in a real browser
 ```

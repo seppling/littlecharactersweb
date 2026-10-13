@@ -14,7 +14,7 @@ import { emailHtml, sendEmail } from './email';
 import { audit, householdGuardians } from './records';
 import { config } from './env';
 import { getCatalog } from './content';
-import { dayList, timeRange } from '@/lib/format';
+import { ageLabel, dayList, timeRange } from '@/lib/format';
 import type { Program, Session } from '@/content/types';
 import { PRICING, availablePlans, formatCents, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
 
@@ -135,6 +135,38 @@ export function fitsAges(program: Program, age: number | null) {
   return age >= program.ages.min - 1 && age <= (program.ages.max ?? 120) + 1;
 }
 
+/** "Ages 7–10. Maya is 5." Shown beside a student who is outside a class's ages. */
+export function outsideAgesNote(program: Program, firstName: string, age: number) {
+  return `${ageLabel(program.ages, program.agesLabel)}. ${firstName} is ${age}.`;
+}
+
+type EnrollmentStatus = typeof enrollment.$inferSelect.status;
+
+/**
+ * Why this student can't be signed up for this class, or null if they can.
+ * Enrolled and waitlisted students can't be picked again; a student after a free
+ * trial can continue. Everyone is held to the class's ages (fitsAges).
+ */
+export function pickProblem(program: Program, s: { firstName: string; birthdate: string | null }, status?: EnrollmentStatus) {
+  if (status === 'active') return `${s.firstName} is already enrolled in ${program.title}.`;
+  if (status === 'waitlist') return `${s.firstName} is already on the waitlist for ${program.title}.`;
+  const age = ageOn(s.birthdate);
+  if (!fitsAges(program, age)) return `${program.title} is for ${ageLabel(program.ages, program.agesLabel).toLowerCase()}, and ${s.firstName} is ${age}. Ask us if you think it’s still a good fit.`;
+  return null;
+}
+
+/** A student the family can't sign up for this class; the message is safe to show them. */
+export class PickError extends Error {}
+
+/** Throws a PickError if any of these students can't be signed up for the session. */
+async function checkPicks(householdId: string, program: Program, sessionId: string, students: { id: string; firstName: string; birthdate: string | null }[]) {
+  const here = new Map((await listEnrollments(householdId)).filter((r) => r.enrollment.sessionId === sessionId).map((r) => [r.student.id, r.enrollment.status]));
+  for (const s of students) {
+    const problem = pickProblem(program, s, here.get(s.id));
+    if (problem) throw new PickError(problem);
+  }
+}
+
 // ───────────── Enrollments ─────────────
 
 export async function listEnrollments(householdId: string) {
@@ -156,10 +188,20 @@ export async function takenSpots(sessionId: string) {
   return row?.n ?? 0;
 }
 
-async function otherClassEnrollments(householdId: string, sessionId: string) {
+/**
+ * The family's other active class enrollments, for the multi-class / multi-student
+ * discount. A brother or sister already in this same class counts too (for example
+ * when siblings who took the free class together continue one at a time).
+ */
+async function otherClassEnrollments(householdId: string, sessionId: string, studentIds: string[]) {
   const rows = await listEnrollments(householdId);
   const catalog = await getCatalog();
-  return rows.filter((r) => r.enrollment.status === 'active' && r.enrollment.sessionId !== sessionId && catalog.findSession(r.enrollment.sessionId)?.program.kind === 'class').length;
+  return rows.filter(
+    (r) =>
+      r.enrollment.status === 'active' &&
+      !(r.enrollment.sessionId === sessionId && studentIds.includes(r.student.id)) &&
+      catalog.findSession(r.enrollment.sessionId)?.program.kind === 'class',
+  ).length;
 }
 
 // ───────────── Orders ─────────────
@@ -177,9 +219,11 @@ export async function createDraftOrder(householdId: string, userId: string, sess
   const found = await findSession(sessionId);
   if (!found) throw new Error('Unknown session');
   // Only this family's students can be added.
-  const mine = new Set((await listStudents(householdId)).map((s) => s.id));
+  const mine = new Map((await listStudents(householdId)).map((s) => [s.id, s]));
   const ids = [...new Set(studentIds)].filter((id) => mine.has(id));
   if (!ids.length) throw new Error('Pick at least one student');
+  // The picker greys these out; this catches a stale page or a hand-made request.
+  await checkPicks(householdId, found.program, sessionId, ids.map((id) => mine.get(id)!));
   const db = await getDb();
   const [o] = await db.insert(order).values({ householdId, sessionId, studentIds: ids, createdByUserId: userId }).returning();
   return o;
@@ -210,7 +254,7 @@ export async function priceOrder(householdId: string, o: typeof order.$inferSele
     session,
     students: students.map((s) => ({ id: s.id, firstName: s.firstName })),
     plan,
-    otherClassEnrollments: await otherClassEnrollments(householdId, o.sessionId),
+    otherClassEnrollments: await otherClassEnrollments(householdId, o.sessionId, students.map((s) => s.id)),
     today: todayInAthens(),
   });
   return { program, session, students, plans, plan, quote: q, alreadyIn };
@@ -224,6 +268,8 @@ export async function confirmOrder(householdId: string, orderId: string, plan: P
   const o = await getOrder(householdId, orderId);
   if (!o || o.status === 'paid' || o.status === 'cancelled') throw new Error('This order can’t be changed');
   const priced = await priceOrder(householdId, o, plan);
+  // Checked again here: a child may have been enrolled by another order since this one was started.
+  await checkPicks(householdId, priced.program, o.sessionId, priced.students);
   const db = await getDb();
   const [updated] = await db
     .update(order)

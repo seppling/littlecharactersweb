@@ -127,9 +127,14 @@ const routes = [
 
 <script>
   // Pre-select the topic from links like /contact?topic=party
-  const topic = new URLSearchParams(location.search).get('topic');
+  const params = new URLSearchParams(location.search);
+  const topic = params.get('topic');
   const select = document.getElementById('c-topic') as HTMLSelectElement | null;
   if (topic && select && [...select.options].some((o) => o.value === topic)) select.value = topic;
+  // "Ask us" on enrollment links here with the class's name (/contact?topic=class&class=Intro%20to%20Theater).
+  const className = params.get('class')?.trim().slice(0, 80);
+  const message = document.getElementById('c-msg') as HTMLTextAreaElement | null;
+  if (className && message && !message.value) message.value = `About ${className}: `;
 </script>
 
 <style>
