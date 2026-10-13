@@ -157,3 +157,11 @@ On the merged branch: type check clean, 335 unit tests pass, the site builds, an
   - **C1:** says "unless your child wants to stay" where the page says "until you decide to stay".
   - **C26:** adds a sign-off to the confirmation email.
 - **Follow-up:** the browser tests use Intro to Theater, which passes its cut-off on Nov 20. Point them at a spring session when spring dates are added.
+
+### Customer journey audit (October 13)
+
+Eleven personas, 38 tasks, 33 pages, plus a baseline on the live site. Summary and ranked fixes: [cx-audit.md](cx-audit.md). The four blockers:
+1. Give now loops after the domain move.
+2. "First class free" isn't true for ages 4–6.
+3. The show has no date, place or tickets.
+4. Two booking systems for Parents' Night Out and the improv nights.
