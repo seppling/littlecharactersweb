@@ -131,3 +131,29 @@ Siblings in separate weekly classes already count toward the 15% (a unit test no
 - **Hannah's own discounts** apply on top of the family discount.
 - **If the family drops back to one class,** the remaining payments return to the regular price. Staff see that before they confirm the drop.
 - **When:** unit 9, started now.
+
+### Units 8 and 7 merged (October 13)
+
+On the merged branch: type check clean, 335 unit tests pass, the site builds, and all three browser tests pass.
+
+- **Class dates retire on their own** (unit 8).
+  - **The rule:** one rule (`src/lib/session-dates.ts`) decides what can be booked, everywhere: the class page, class cards, the class finder, the Geode page, the camps grid and every enrollment step, on the server too.
+    - One-night dates close at their start time.
+    - Camp weeks close when they start.
+    - Weekly classes take late joiners until the cut-off.
+    - Past dates disappear.
+    - Hannah's status still applies on top. The server now also refuses "coming soon" dates.
+  - **The cut-off:** a setting in **Site content → Announcement & site settings → Class sign-ups**, 4 weeks by default.
+  - **What Hannah sees:** the editor marks sessions "Ended" or "Sign-ups closed". Nothing is deleted.
+  - **What families see:** an old sign-up link shows a friendly "Sign-ups are closed" page. A payment already made when a date closes is still honored.
+  - **Today:** Parents' Night Out offers Oct 24, Nov 14 and Dec 19 (Sep 25 is gone). The Homeschool Class (ends Oct 30) says sign-ups have closed and offers the email signup.
+- **Playful wording, as drafts** (unit 7).
+  - **Class wording:** 29 edits across 12 classes, camps and workshops are drafts in the editor, unpublished until Hannah publishes them. Seven of them replace an earlier SEO draft and keep its search words.
+  - **Fixed wording:** 26 numbered lines (C1–C26) for the class page, the sign-up steps and the confirmation email are in `docs/review-2026-10/copy-drafts.md`. They're applied once Hannah approves them.
+  - Every price, date, age and policy stays the same.
+- **Open, for Hannah:**
+  - **The cut-off:** confirm 4 weeks.
+  - **Per-session classes:** Stories & Songs and the Homeschool Class are priced per session, not monthly, so a late joiner pays the full price. Should they close at their start instead?
+  - **C1:** says "unless your child wants to stay" where the page says "until you decide to stay".
+  - **C26:** adds a sign-off to the confirmation email.
+- **Follow-up:** the browser tests use Intro to Theater, which passes its cut-off on Nov 20. Point them at a spring session when spring dates are added.
