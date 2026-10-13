@@ -441,7 +441,7 @@ export const programs: CollectionDraft<'programs'>[] = [
       {
         path: 'seo.description',
         from: '',
-        to: 'Kids 4–12 play theater games, craft and snack, 5–8 pm once a month, while you head to downtown Athens, GA, a mile away. $30, $10 each extra child.',
+        to: 'Kids 4–12 play theater games, craft and snack, 5–8 pm once a month, while you head to downtown Athens, GA, a mile away. $30 first child, $10 each additional.',
         why: 'Gives the ages, hours and price a parent planning a date night needs.',
       },
       {

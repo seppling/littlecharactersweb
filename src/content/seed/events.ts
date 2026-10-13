@@ -16,7 +16,7 @@ const pno = (slug: string, date: string): EventItem => ({
   times: [{ start: `${date}T17:00`, end: `${date}T20:00` }],
   locationId: 'hq',
   summary: 'Drop your kiddo(s) off for games, theater activities and new friends while you enjoy an evening to yourself.',
-  price: '$30 first child · $10 each additional',
+  price: '$30 first child, $10 each additional',
   cta: { label: 'Register', href: PNO_FORM },
   programSlug: 'parents-night-out',
 });

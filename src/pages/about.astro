@@ -11,6 +11,7 @@ import Base from '@/layouts/Base.astro';
 import PhotoFrame from '@/components/PhotoFrame.astro';
 import JourneySteps from '@/components/JourneySteps.astro';
 import { href, rich } from '@/content/rich';
+import { ageLabel, agesShort, agesSpan } from '@/lib/format';
 
 const { programBySlug, faq, site, vars, pages } = Astro.locals.content;
 const page = pages.about;
@@ -102,16 +103,16 @@ const aboutFaqs = page.faq.questions.map((id) => faq(id)).filter((f) => f !== un
       <ul class="audiences">
         {
           page.audiences.items.map((a) => {
+            // Ages come from the classes, so the label and the class pages can't disagree.
+            const linked = (a.programs ?? []).map((slug) => programBySlug(slug)).filter((p) => p !== undefined);
+            const label = /^Ages\b/.test(a.label) ? (agesSpan(linked) ?? a.label) : a.label;
             const links = [
-              ...(a.programs ?? [])
-                .map((slug) => programBySlug(slug))
-                .filter((p) => p !== undefined)
-                .map((p) => ({ label: p.title, href: `/programs/${p.slug}` })),
-              ...(a.links ?? []).map((l) => ({ label: l.label, href: href(l.href, vars) })),
+              ...linked.map((p) => ({ label: p.title, href: `/programs/${p.slug}`, ages: agesShort(ageLabel(p.ages, p.agesLabel)) })),
+              ...(a.links ?? []).map((l) => ({ label: l.label, href: href(l.href, vars), ages: undefined })),
             ];
             return (
               <li class="audience" data-gel={a.gel}>
-                <span class="tape">{a.label}</span>
+                <span class="tape">{label}</span>
                 <p set:html={rich(a.body, vars)} />
                 {links.length > 0 && (
                   <p class="audience__links">
@@ -119,6 +120,7 @@ const aboutFaqs = page.faq.questions.map((id) => faq(id)).filter((f) => f !== un
                       <>
                         {i > 0 && <span aria-hidden="true"> · </span>}
                         <a href={l.href}>{l.label}</a>
+                        {l.ages && <span class="audience__ages"> ({l.ages})</span>}
                       </>
                     ))}
                   </p>
@@ -276,6 +278,7 @@ const aboutFaqs = page.faq.questions.map((id) => faq(id)).filter((f) => f !== un
   .audience { display: grid; grid-template-rows: auto 1fr auto; gap: 0.7rem; align-content: start; padding: var(--space-l); background: var(--paper); border-radius: var(--r-md); }
   .audience p { color: var(--ink-soft); }
   .audience__links { font-family: var(--font-display); font-weight: 700; font-stretch: 92%; }
+  .audience__ages { font-weight: 500; color: var(--ink-mute); white-space: nowrap; }
   .audience__links a { color: var(--ink); text-decoration-color: var(--gel); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 
   .values__title { font-size: var(--step-2); margin-bottom: var(--space-l); }

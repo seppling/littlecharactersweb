@@ -52,6 +52,8 @@ const UNIT: Record<Price['unit'], string> = {
 export function price(p?: Price) {
   if (!p) return 'Pricing TBA';
   if (p.amount === 0) return 'Free';
+  // Parents' Night Out: the one per-child price, said the same way everywhere.
+  if (p.unit === 'child' && p.additional != null && p.additional !== p.amount) return `$${p.amount} first child, $${p.additional} each additional`;
   return `$${p.amount}${UNIT[p.unit]}`;
 }
 
@@ -60,6 +62,21 @@ export function ageLabel(ages: Program['ages'], override?: string) {
   if (ages.max == null) return ages.min >= 18 ? 'Adults 18+' : `Ages ${ages.min}+`;
   return `Ages ${ages.min}–${ages.max}`;
 }
+
+/**
+ * The ages a group of programs spans, for a heading over them: "Ages 7–17", or
+ * "Ages 7+" when any of them is shown open-ended (no top age, or a label like
+ * "Ages 9+"), so the heading agrees with the class pages. Undefined for none.
+ */
+export function agesSpan(list: Pick<Program, 'ages' | 'agesLabel'>[]) {
+  if (!list.length) return undefined;
+  const min = Math.min(...list.map((p) => p.ages.min));
+  const open = list.some((p) => p.ages.max == null || /\+$/.test(p.agesLabel?.trim() ?? ''));
+  return ageLabel({ min, max: open ? undefined : Math.max(...list.map((p) => p.ages.max!)) });
+}
+
+/** "Ages 7–10" → "7–10", for a program named beside its age. */
+export const agesShort = (label: string) => label.replace(/^Ages /, '');
 
 export const statusLabel: Record<Session['status'], string> = {
   open: 'Open',

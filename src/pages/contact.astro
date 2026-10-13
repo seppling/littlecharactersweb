@@ -120,7 +120,6 @@ const routes = [
         <dl class="parking__card" data-gel="red"><dt>Please don’t</dt><dd>{parking.staffOnly}</dd></dl>
         <dl class="parking__card" data-gel="purple"><dt>Running late?</dt><dd>{parking.late}</dd></dl>
       </div>
-      {parking.guideUrl && <p class="parking__more"><a href={parking.guideUrl} rel="noopener">Download the full parking guide (PDF)</a></p>}
     </div>
   </section>
 </Base>
@@ -156,7 +155,6 @@ const routes = [
   .parking__map figcaption { font-size: var(--step--1); color: var(--ink-mute); }
   .parking dt { font-family: var(--font-display); font-weight: 750; font-size: 1.1rem; font-stretch: 92%; }
   .parking__card dd { margin: 0.2rem 0 0; color: var(--ink-soft); }
-  .parking__more { margin-top: var(--space-l); }
   @media (max-width: 860px) {
     .contact__grid, .parking, .parking__route.has-map { grid-template-columns: 1fr; }
   }

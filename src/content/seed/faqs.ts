@@ -2,7 +2,11 @@ import type { Faq } from '../types';
 
 /*
  * From the live FAQ page, the Fall 2026 classes page, the Fall 2026 tuition
- * guidelines and the parking guide (captured Sep 25, 2026).
+ * guidelines and the parking guide (captured Sep 25, 2026). The payment
+ * answers say what checkout and autopay do (src/lib/pricing.ts,
+ * src/server/billing.ts); prices come from the classes through {tuitionRange}.
+ * Class pages show the first answers of their sections, so keep the questions'
+ * wording (it is their id) and order.
  */
 export const faqs: Faq[] = [
   // Getting started
@@ -35,22 +39,22 @@ export const faqs: Faq[] = [
   {
     group: 'Classes',
     q: 'How much do classes cost?',
-    a: 'Our typical breakdown is $85/month for 45-minute classes, $95/month for 1-hour classes, $115/month for 1¼-hour classes and $125/month for 1½-hour classes. Some classes run as 8-week sessions with a single price. Each class also has a one-time performance or materials fee that pays teachers for extra writing and rehearsal time, costumes, props and facility rentals.',
+    a: 'Most weekly classes are {tuitionRange}, by class length. A few, like Stories and Songs, run as 8-week sessions with a single price. Every class shows its price in the [class finder](/programs?kind=class). Each class also has a one-time performance or materials fee that pays teachers for extra writing and rehearsal time, costumes, props and facility rentals.',
   },
   {
     group: 'Classes',
     q: 'When is tuition due?',
-    a: 'If you sign up for the full season, the first month’s tuition is due at registration to hold your spot. After that, tuition is due on the 1st of each month; you can choose auto-draft or pay manually. Tuition paid after the 10th has a $15 late fee. Performance fees are one-time and due October 1.',
+    a: 'When you sign up, you pay the first month (prorated if you join after the first week) and the one-time performance or materials fee. After that, monthly tuition is charged automatically to your saved card on the 1st of each month. Or pay for the whole season up front and save {payInFullDiscount}. A month still unpaid after the 10th has a $15 late fee. Trying the first class free? Nothing is due until you decide to stay.',
   },
   {
     group: 'Classes',
     q: 'What if I need to unenroll?',
-    a: 'Let us know at least 5 days before the next billing cycle. We can’t refund tuition for missed classes or for a student who drops mid-season after paying.',
+    a: 'Let us know at least 5 days before the 1st, and we’ll stop the next monthly charge. We can’t refund tuition for missed classes or for a student who drops mid-season after paying.',
   },
   {
     group: 'Classes',
     q: 'What happens if a class doesn’t fill?',
-    a: 'Classes need 5 students to run. If a class doesn’t have 5 by September 1, it’s cancelled for the season and students can move to a different class. Students who choose not to move are only charged for the first month.',
+    a: 'Classes need 5 students to run. If a class doesn’t have 5 about two weeks into the season, it’s cancelled for the season and students can move to a different class. Students who choose not to move are only charged for the first month.',
   },
   // Payments & discounts
   {
@@ -66,7 +70,7 @@ export const faqs: Faq[] = [
   {
     group: 'Payments & discounts',
     q: 'How can I pay?',
-    a: 'Through the registration portal by credit card (3% fee per transaction) or bank account (1% fee). Cash, check, Zelle or Venmo add $5 per month.',
+    a: 'By card, when you sign up on this site. For monthly tuition, we keep the card on file and charge it automatically on the 1st; email us to switch cards. Card numbers go straight to Stripe, our payment processor, and never touch our site. Ask us about other ways to pay.',
   },
   // Performances
   {

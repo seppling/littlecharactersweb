@@ -8,6 +8,7 @@ import ProgramCard from '@/components/ProgramCard.astro';
 import EventTicket from '@/components/EventTicket.astro';
 import { isUpcoming, sortKey } from '@/content/catalog';
 import { todayInAthens } from '@/lib/pricing';
+import { ageLabel, agesShort, agesSpan } from '@/lib/format';
 import { href, rich } from '@/content/rich';
 
 const { programs, events, programBySlug, locationById, locations, testimonial, testimonials, site, vars, pages } = Astro.locals.content;
@@ -121,27 +122,28 @@ const tapes = [{ gel: 'yellow' }, { gel: 'teal', tilt: 'right' }, { gel: 'orange
 
       <ol class="risers">
         {
-          page.pathway.steps.map((step, i) => (
-            <li class="riser" data-gel={step.gel} style={`--rise: ${i}`}>
-              <div class="riser__cast" aria-hidden="true">
-                <Character name={step.character} size={72} />
-              </div>
-              <div class="riser__block">
-                <span class="riser__age">Ages {step.age}</span>
-                <h3>{step.title}</h3>
-                <ul>
-                  {step.programs
-                    .map((slug) => programBySlug(slug))
-                    .filter((p) => p !== undefined)
-                    .map((p) => (
+          page.pathway.steps.map((step, i) => {
+            // Ages come from the classes themselves, so they can't drift from the class pages.
+            const stepPrograms = step.programs.map((slug) => programBySlug(slug)).filter((p) => p !== undefined);
+            return (
+              <li class="riser" data-gel={step.gel} style={`--rise: ${i}`}>
+                <div class="riser__cast" aria-hidden="true">
+                  <Character name={step.character} size={72} />
+                </div>
+                <div class="riser__block">
+                  <span class="riser__age">{agesSpan(stepPrograms) ?? `Ages ${step.age}`}</span>
+                  <h3>{step.title}</h3>
+                  <ul>
+                    {stepPrograms.map((p) => (
                       <li>
-                        <a href={`/programs/${p.slug}`}>{p.title}</a>
+                        <a href={`/programs/${p.slug}`}>{p.title}</a> <span class="riser__ages">{agesShort(ageLabel(p.ages, p.agesLabel))}</span>
                       </li>
                     ))}
-                </ul>
-              </div>
-            </li>
-          ))
+                  </ul>
+                </div>
+              </li>
+            );
+          })
         }
       </ol>
     </div>
@@ -511,6 +513,7 @@ const tapes = [{ gel: 'yellow' }, { gel: 'teal', tilt: 'right' }, { gel: 'orange
   .riser h3 { font-size: var(--step-2); }
   .riser ul { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gap: 0.3rem; }
   .riser ul a { color: var(--ink); font-weight: 600; text-decoration-color: var(--gel); }
+  .riser__ages { color: var(--ink-mute); font-size: var(--step--1); white-space: nowrap; }
 
   /* ── Approach ── */
   .approach {

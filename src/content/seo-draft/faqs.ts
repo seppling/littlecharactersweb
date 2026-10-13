@@ -100,18 +100,6 @@ export const faqs: CollectionDraft<'faqs'>[] = [
   },
   {
     kind: 'faqs',
-    id: 'how-much-do-classes-cost',
-    edits: [
-      {
-        path: 'a',
-        from: 'Our typical breakdown is $85/month for 45-minute classes, $95/month for 1-hour classes, $115/month for 1¼-hour classes and $125/month for 1½-hour classes. Some classes run as 8-week sessions with a single price. Each class also has a one-time performance or materials fee that pays teachers for extra writing and rehearsal time, costumes, props and facility rentals.',
-        to: 'Our typical breakdown is $85/month for 45-minute classes, $95/month for 1-hour classes, $115/month for 1¼-hour classes and $125/month for 1½-hour classes. Some classes run as 8-week sessions with a single price. Each class also has a one-time performance or materials fee that pays teachers for extra writing and rehearsal time, costumes, props and facility rentals. Every class page shows its price: [find a class](/programs).',
-        why: 'Links to the class pages, where each price is listed.',
-      },
-    ],
-  },
-  {
-    kind: 'faqs',
     id: 'do-you-offer-scholarships',
     edits: [
       {
