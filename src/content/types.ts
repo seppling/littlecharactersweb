@@ -227,11 +227,21 @@ export interface AboutPage {
   differences: SectionHead & { photo?: ImageRef; items: { title: string; body: string }[] };
   audiences: SectionHead & { items: { label: string; body: string; gel: Gel; programs?: string[]; links?: Link[] }[] };
   beliefs: SectionHead & { valuesHeading: string; values: { title: string; body: string; gel: Gel }[] };
-  team: SectionHead & { social?: string; quote?: string; hiring?: string };
-  schools: SectionHead & { body: string; quote?: string };
   how: SectionHead & { notes: { title: string; body: string }[] };
   facts: SectionHead & { items: { label: string; text: string }[] };
   faq: { heading: string; questions: string[] };
+}
+
+/** /about/team: the page's own words. The people are in the Team list. */
+export interface TeamPage {
+  seo?: Seo;
+  team: SectionHead & { social?: string; quote?: string; hiring?: string };
+}
+
+/** /about/schools */
+export interface SchoolsPage {
+  seo?: Seo;
+  schools: SectionHead & { body: string; quote?: string };
 }
 
 export interface CampsPage {
@@ -289,6 +299,8 @@ export interface Pages {
   site: SiteSettings;
   home: HomePage;
   about: AboutPage;
+  team: TeamPage;
+  schools: SchoolsPage;
   camps: CampsPage;
   geode: GeodePage;
   give: GivePage;

@@ -210,6 +210,22 @@ After:
 
 _Why:_ Names Ovation’s founding partner (from the Ovation page) and links to Ovation, for families searching for adaptive or special-needs theater.
 
+### Key facts › Facts › fact 13 › Answer
+
+Before:
+
+> Verified CCSD school vendor. Programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens
+
+After:
+
+> Verified Clarke County School District (CCSD) school vendor. Programs at Athens Academy, Athens Montessori School, David C. Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Road Elementary School and Love.Craft Athens
+
+_Why:_ Keeps the key facts (which search engines and AI assistants quote) in step with the schools list above.
+
+## Team page
+
+Edit: `/admin/content/pages/team`
+
 ### The team › Social line
 
 Before:
@@ -221,6 +237,10 @@ After:
 > Follow along on [Instagram]({instagram}) and [Facebook]({facebook}), or read [Macaroni KID Athens’s story about us](https://athens.macaronikid.com/articles/64cdb2aabfe2815b16aec3f8/little-characters-theatre-troupe).
 
 _Why:_ Links the Macaroni KID Athens article about Little Characters, so families (and Google) see that a local parents’ guide has written about us.
+
+## Schools & partners page
+
+Edit: `/admin/content/pages/schools`
 
 ### Theater at your school › Intro
 
@@ -245,18 +265,6 @@ After:
 > We’ve run programs at Athens Academy, Athens Montessori School, David C. Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Road Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=general).
 
 _Why:_ Adds Barrow and Timothy Elementary, where programs run now, so families searching for their school’s after-school options find us.
-
-### Key facts › Facts › fact 13 › Answer
-
-Before:
-
-> Verified CCSD school vendor. Programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens
-
-After:
-
-> Verified Clarke County School District (CCSD) school vendor. Programs at Athens Academy, Athens Montessori School, David C. Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Road Elementary School and Love.Craft Athens
-
-_Why:_ Keeps the key facts (which search engines and AI assistants quote) in step with the schools list above.
 
 ## Camps page
 
@@ -986,7 +994,7 @@ Before:
 
 After:
 
-> Teachers meet students where they are, whether they are made for the stage or more interested in what happens behind the scenes. Registration is through Athens Academy. We also run programs at [other Athens schools](/about#schools).
+> Teachers meet students where they are, whether they are made for the stage or more interested in what happens behind the scenes. Registration is through Athens Academy. We also run programs at [other Athens schools](/about/schools).
 
 _Why:_ Answers “how do I sign up?” in the text and links to the other schools, for families at those schools.
 

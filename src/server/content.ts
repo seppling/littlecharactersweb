@@ -125,11 +125,14 @@ export const getCatalog = () => getContent('live');
 /**
  * Copy in the starting content for any collection that has never had content.
  * A collection someone emptied on purpose has history, so it stays empty.
+ * Pages can't be deleted, so a page added to the site later (like /about/team)
+ * gets its starting text too.
  */
 async function seedIfEmpty() {
   const db = await getDb();
   const known = new Set((await db.selectDistinct({ collection: contentVersion.collection }).from(contentVersion)).map((r) => r.collection));
-  const entries = seedEntries().filter((e) => !known.has(e.collection));
+  const savedPages = new Set((await db.select({ id: contentEntry.id }).from(contentEntry).where(eq(contentEntry.collection, 'pages'))).map((r) => r.id));
+  const entries = seedEntries().filter((e) => !known.has(e.collection) || (e.collection === 'pages' && !savedPages.has(e.id)));
   if (!entries.length) return;
   await db.transaction(async (tx) => {
     const now = new Date();

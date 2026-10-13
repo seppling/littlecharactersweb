@@ -351,7 +351,7 @@ export const home: PageDef = {
 export const about: PageDef = {
   key: 'about',
   label: 'About page',
-  intro: 'Our story, what we do, who it’s for, the team section, and the key facts. The team members themselves are edited under Team.',
+  intro: 'Our story, what we do, who it’s for, what we believe, how it works, and the key facts. The team and the schools have their own pages.',
   url: '/about',
   fields: [
     {
@@ -477,26 +477,6 @@ export const about: PageDef = {
       ],
     },
     {
-      key: 'team',
-      label: 'The team',
-      type: 'group',
-      required: true,
-      help: 'Team members are edited under Team.',
-      fields: [
-        ...head(),
-        { key: 'social', label: 'Social line', type: 'text', help: 'You can use {instagram} and {facebook}, like [Instagram]({instagram}).' },
-        { key: 'quote', label: 'Quote', type: 'ref', collection: 'testimonials' },
-        { key: 'hiring', label: 'Working with us', type: 'text', help: `${RICH} ${VARS}` },
-      ],
-    },
-    {
-      key: 'schools',
-      label: 'Theater at your school',
-      type: 'group',
-      required: true,
-      fields: [...head(), { key: 'body', label: 'Text', type: 'textarea', rows: 3, required: true, help: RICH }, { key: 'quote', label: 'Quote', type: 'ref', collection: 'testimonials' }],
-    },
-    {
       key: 'how',
       label: 'How it works',
       type: 'group',
@@ -553,6 +533,46 @@ export const about: PageDef = {
       type: 'group',
       required: true,
       fields: [heading, { key: 'questions', label: 'Questions to show', type: 'ref', collection: 'faqs', multiple: true, help: 'Pick from the FAQs.' }],
+    },
+    seo,
+  ],
+};
+
+export const team: PageDef = {
+  key: 'team',
+  label: 'Team page',
+  intro: 'The words at the top and bottom of the Team page (under About). The team members themselves are edited under Team.',
+  url: '/about/team',
+  fields: [
+    {
+      key: 'team',
+      label: 'The team',
+      type: 'group',
+      required: true,
+      help: 'Team members are edited under Team.',
+      fields: [
+        ...head(),
+        { key: 'social', label: 'Social line', type: 'text', help: 'You can use {instagram} and {facebook}, like [Instagram]({instagram}).' },
+        { key: 'quote', label: 'Quote', type: 'ref', collection: 'testimonials' },
+        { key: 'hiring', label: 'Working with us', type: 'text', help: `${RICH} ${VARS}` },
+      ],
+    },
+    seo,
+  ],
+};
+
+export const schools: PageDef = {
+  key: 'schools',
+  label: 'Schools & partners page',
+  intro: 'The Schools & partners page (under About): theater at your school.',
+  url: '/about/schools',
+  fields: [
+    {
+      key: 'schools',
+      label: 'Theater at your school',
+      type: 'group',
+      required: true,
+      fields: [...head(), { key: 'body', label: 'Text', type: 'textarea', rows: 3, required: true, help: RICH }, { key: 'quote', label: 'Quote', type: 'ref', collection: 'testimonials' }],
     },
     seo,
   ],
@@ -832,6 +852,6 @@ export const eventsPage: PageDef = {
   ],
 };
 
-export const pages: Record<PageKey, PageDef> = { site, home, about, camps, geode, give, contact, faq, classes, events: eventsPage };
+export const pages: Record<PageKey, PageDef> = { site, home, about, team, schools, camps, geode, give, contact, faq, classes, events: eventsPage };
 export const pageKeys = Object.keys(pages) as PageKey[];
 export const isPageKey = (k: string): k is PageKey => k in pages;
