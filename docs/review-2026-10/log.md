@@ -89,3 +89,34 @@ Shows and events already leave the site once they're over. Their show pages stay
 - **Camp weeks:** sign-ups close when the week starts.
 - **Nothing is deleted.** Past dates stay in the editor marked "Ended", because enrollments and payments point to them.
 - **When:** unit 8, after unit 4 is merged, since both change the enrollment page.
+
+### Wave 2 merged (October 13)
+
+Units 4 and 6 are merged. On the merged branch: type check clean, 305 unit tests pass, the site builds, and all three browser tests pass (the new free-class test runs between the enrollment journey and the editor test).
+
+- **Registration** (unit 4).
+  - **Ages:** a child outside a class's ages is greyed out and can't be ticked. A line says why ("Ages 7–10. Leo is 5.") with an "Ask us" link, which opens the contact form already filled in with the class name. The server refuses such a child too, at the start of the order and again before payment. The age rule itself is unchanged (one year either side): Hannah's age questions are still open.
+  - **Bug fixed:** the server didn't refuse a child already enrolled in the class, so a stale page could start a second paid order.
+  - **Bug fixed:** a brother or sister already enrolled in the same class now counts toward the 15% multi-student discount. Before, siblings who took the free class together and continued one at a time didn't get it. The published rule is unchanged ("multiple classes or students: 15% off"); these families now pay what it promises.
+  - **The free first class is proven end to end** by a new browser test (`tests/e2e/trial-journey.mjs`). It checks five things:
+    - the trial costs $0 and never calls Stripe;
+    - the confirmation, the email and the account say the class is free;
+    - no child gets a second free class;
+    - continuing monthly charges the prorated month plus the $30 fee, then $95 on the 1st;
+    - continuing for the season takes off 10%, or 15% with a sibling.
+    - It also checks that Geode classes offer no free class.
+- **About pages and menus** (unit 6).
+  - **New pages:** `/about/team` and `/about/schools`, each with its own page in the editor (the same fields and words as before). `/about` links to them with two cards.
+  - **Old links still work:** old `/about#team` and `/about#schools` links go to the new pages, and the old site's `/team` now redirects to `/about/team`.
+  - **Top menu:** an About dropdown (Our story, Team, Schools & partners, FAQ) and Contact. It works with a keyboard, a mouse and touch; 47 checks passed. To make room, the phone menu now starts below 1000 px wide instead of 960 px.
+  - **Footer:** regrouped into Programs, About and Families. The address, phone and email sit under the logo, and the email no longer breaks mid-word.
+  - **Starting text for new pages:** when the server starts, any page with no saved row gets its starting text, so a database filled before this change still gets the new pages. It never overwrites a saved page.
+- **Open, for Hannah:**
+  - **A trial holds a spot until the end of the term** if the family never continues. Should it expire, for example a week after the free class?
+  - **Class counts:** `/admin` counts trials toward capacity but not in "Enrolled". The new staff class page should show both.
+  - **Continuing early:** a family that continues on the day of the free class, before it starts, pays for that class in the prorated month (a few dollars). Left as is for launch.
+- **Follow-ups noted:**
+  - **Same-time checkouts:** two checkout forms open at once for the same child could both be paid. Recommended: refuse the second at payment and flag it for a refund.
+  - **CI:** CI doesn't run the browser tests yet.
+  - **Phone menu:** it could close on Escape, like the desktop dropdown.
+  - **Draft wording:** one draft's reason still says "the schools list above".
