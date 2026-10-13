@@ -826,11 +826,11 @@ _Why:_ Says who it’s for (some stage experience) and what students get: more c
 
 Before:
 
-> Have a student who is itching to perform more than once a semester? This class is for students who have worked in theater before and want to sharpen their acting skills. We spend the fall putting on short performances around town, then use December through March to prepare a full-length production.
+> Have a student who is itching to perform more than once a season? This class is for students who have worked in theater before and want to sharpen their acting skills. We spend the fall putting on short performances around town, then use December through March to prepare a full-length production.
 
 After:
 
-> Have a student who is itching to perform more than once a semester? This youth theater troupe is for students ages 9 and up who have worked in theater before and want to sharpen their acting skills. We spend the fall putting on short performances around town, then use December through March to prepare a full-length production.
+> Have a student who is itching to perform more than once a season? This youth theater troupe is for students ages 9 and up who have worked in theater before and want to sharpen their acting skills. We spend the fall putting on short performances around town, then use December through March to prepare a full-length production.
 
 _Why:_ Says “youth theater troupe” and the ages in plain words near the top.
 
@@ -1074,11 +1074,11 @@ _Why:_ Says when, where and how much, the three things a parent with a day to co
 
 Before:
 
-> We hold weekend workshops 1–2 times a semester, as well as half-day workshops and mini camps on CCSD school holidays.
+> We hold weekend workshops 1–2 times a season, as well as half-day workshops and mini camps on CCSD school holidays.
 
 After:
 
-> We hold weekend workshops 1–2 times a semester, as well as half-day workshops and mini camps on Clarke County School District (CCSD) school holidays.
+> We hold weekend workshops 1–2 times a season, as well as half-day workshops and mini camps on Clarke County School District (CCSD) school holidays.
 
 _Why:_ Spells out the school district, which parents also search for by its full name.
 
@@ -1624,7 +1624,7 @@ _Why:_ Answers a question parents of young children ask before signing up, and l
 
 **Answer**
 
-> You’re welcome to wait in our lobby during class. Families watch at the mid-semester showcase and the big show at the end of each term, with 2 free tickets per student. See our [shows and events](/events).
+> You’re welcome to wait in our lobby during class. Families watch at the mid-season showcase and the big show at the end of each term, with 2 free tickets per student. See our [shows and events](/events).
 
 ## FAQs: new question, “Do you have summer camps?”
 
@@ -1748,11 +1748,11 @@ Edit: `/admin/content/faqs/will-my-child-perform`
 
 Before:
 
-> Yes! All classes have a mid-semester showcase and end with a big show at the end of the term. Each family receives 2 free tickets per student.
+> Yes! All classes have a mid-season showcase and end with a big show at the end of the term. Each family receives 2 free tickets per student.
 
 After:
 
-> Yes! All classes have a mid-semester showcase and end with a big show at the end of the term. Each family receives 2 free tickets per student. See what’s coming up on our [shows and events](/events) page.
+> Yes! All classes have a mid-season showcase and end with a big show at the end of the term. Each family receives 2 free tickets per student. See what’s coming up on our [shows and events](/events) page.
 
 _Why:_ Links to the events page, where the shows are listed.
 
@@ -1764,11 +1764,11 @@ Edit: `/admin/content/faqs/how-do-camps-work`
 
 Before:
 
-> Camps run about $50 a day, usually 9 am to 1 pm with snacks and materials included (bring a lunch). Summer camp weeks end with a performance for parents and friends. We also run mini camps on CCSD school holidays and weekend workshops 1–2 times a semester.
+> Camps run about $50 a day, usually 9 am to 1 pm with snacks and materials included (bring a lunch). Summer camp weeks end with a performance for parents and friends. We also run mini camps on CCSD school holidays and weekend workshops 1–2 times a season.
 
 After:
 
-> Camps run about $50 a day, usually 9 am to 1 pm with snacks and materials included (bring a lunch). [Summer camp](/programs/summer-camp) weeks end with a performance for parents and friends. We also run [mini camps](/programs/mini-camps-and-workshops) on Clarke County School District (CCSD) school holidays and weekend workshops 1–2 times a semester. See [all our camps](/camps).
+> Camps run about $50 a day, usually 9 am to 1 pm with snacks and materials included (bring a lunch). [Summer camp](/programs/summer-camp) weeks end with a performance for parents and friends. We also run [mini camps](/programs/mini-camps-and-workshops) on Clarke County School District (CCSD) school holidays and weekend workshops 1–2 times a season. See [all our camps](/camps).
 
 _Why:_ Links each kind of camp to its page and spells out the school district, which parents search by name.
 

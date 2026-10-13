@@ -56,7 +56,7 @@ const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', d
 const receipts = [
   ...orders.map((o) => ({
     date: o.paidAt!,
-    label: `${Astro.locals.content.findSession(o.sessionId)?.program.title ?? o.sessionId}${o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (semester)' : o.plan === 'monthly' ? ' (first month + fees)' : ''}`,
+    label: `${Astro.locals.content.findSession(o.sessionId)?.program.title ?? o.sessionId}${o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (full season)' : o.plan === 'monthly' ? ' (first month + fees)' : ''}`,
     amountCents: o.totalCents,
   })),
   ...installments.filter((i) => i.status === 'paid').map((i) => ({ date: i.paidAt!, label: `${i.label}${i.lateFeeCents ? ' + late fee' : ''}`, amountCents: totalDue(i) })),

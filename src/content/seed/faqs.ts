@@ -40,23 +40,23 @@ export const faqs: Faq[] = [
   {
     group: 'Classes',
     q: 'When is tuition due?',
-    a: 'If you sign up for the full semester, the first month’s tuition is due at registration to hold your spot. After that, tuition is due on the 1st of each month; you can choose auto-draft or pay manually. Tuition paid after the 10th has a $15 late fee. Performance fees are one-time and due October 1.',
+    a: 'If you sign up for the full season, the first month’s tuition is due at registration to hold your spot. After that, tuition is due on the 1st of each month; you can choose auto-draft or pay manually. Tuition paid after the 10th has a $15 late fee. Performance fees are one-time and due October 1.',
   },
   {
     group: 'Classes',
     q: 'What if I need to unenroll?',
-    a: 'Let us know at least 5 days before the next billing cycle. We can’t refund tuition for missed classes or for a student who drops mid-semester after paying.',
+    a: 'Let us know at least 5 days before the next billing cycle. We can’t refund tuition for missed classes or for a student who drops mid-season after paying.',
   },
   {
     group: 'Classes',
     q: 'What happens if a class doesn’t fill?',
-    a: 'Classes need 5 students to run. If a class doesn’t have 5 by September 1, it’s cancelled for the semester and students can move to a different class. Students who choose not to move are only charged for the first month.',
+    a: 'Classes need 5 students to run. If a class doesn’t have 5 by September 1, it’s cancelled for the season and students can move to a different class. Students who choose not to move are only charged for the first month.',
   },
   // Payments & discounts
   {
     group: 'Payments & discounts',
     q: 'Do you offer discounts?',
-    a: 'Yes. Pay for the semester in full and get 10% off. We also offer a 15% multi-class or multi-student discount.',
+    a: 'Yes. Pay for the season in full and get 10% off. We also offer a 15% multi-class or multi-student discount.',
   },
   {
     group: 'Payments & discounts',
@@ -72,13 +72,13 @@ export const faqs: Faq[] = [
   {
     group: 'Performances',
     q: 'Will my child perform?',
-    a: 'Yes! All classes have a mid-semester showcase and end with a big show at the end of the term. Each family receives 2 free tickets per student.',
+    a: 'Yes! All classes have a mid-season showcase and end with a big show at the end of the term. Each family receives 2 free tickets per student.',
   },
   // Camps & parties
   {
     group: 'Camps & parties',
     q: 'How do camps work?',
-    a: 'Camps run about $50 a day, usually 9 am to 1 pm with snacks and materials included (bring a lunch). Summer camp weeks end with a performance for parents and friends. We also run mini camps on CCSD school holidays and weekend workshops 1–2 times a semester.',
+    a: 'Camps run about $50 a day, usually 9 am to 1 pm with snacks and materials included (bring a lunch). Summer camp weeks end with a performance for parents and friends. We also run mini camps on CCSD school holidays and weekend workshops 1–2 times a season.',
   },
   {
     group: 'Camps & parties',

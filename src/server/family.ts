@@ -312,7 +312,7 @@ async function sendOrderConfirmation(o: typeof order.$inferSelect) {
   const lines = [
     `${kids.join(' and ')} ${o.plan === 'waitlist' ? (kids.length > 1 ? 'are' : 'is') + ' on the waitlist for' : (kids.length > 1 ? 'are' : 'is') + ' enrolled in'} ${program.title}.`,
     `${dayList(session.days)}, ${timeRange(session.start, session.end)}${o.plan === 'waitlist' ? '' : `, starting ${firstDate}`}${loc ? ` at ${loc.name}, ${loc.address.join(', ')}` : ''}.`,
-    o.plan === 'trial' ? 'Your first class is free. After it, you can continue with monthly tuition or pay for the semester from your family account.' : o.totalCents > 0 ? `Paid today: ${formatCents(o.totalCents)}.` : '',
+    o.plan === 'trial' ? 'Your first class is free. After it, you can continue with monthly tuition or pay for the season from your family account.' : o.totalCents > 0 ? `Paid today: ${formatCents(o.totalCents)}.` : '',
     o.plan === 'monthly' && o.schedule.length ? autopayLine(o.schedule) : '',
     'Wear comfy clothes and closed-toe shoes, and bring a water bottle. Park on Minor St and walk in, or use the drop-off circle after 5 pm.',
     `Your family account: ${config.siteUrl}/account`,

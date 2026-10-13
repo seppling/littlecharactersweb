@@ -34,7 +34,7 @@ const options = await Promise.all(priced.plans.map(async (p) => ({ plan: p, q: (
 const planCopy: Record<Plan, { title: string; body: (total: string) => string }> = {
   trial: { title: 'Try the first class free', body: () => 'Nothing due today. Decide after the class.' },
   monthly: { title: 'Pay monthly', body: (t) => `${t} today, then charged automatically on the 1st of each month.` },
-  full: { title: 'Pay the semester in full', body: (t) => `${t} today, 10% off, and you’re done.` },
+  full: { title: 'Pay for the season in full', body: (t) => `${t} today, 10% off, and you’re done.` },
   once: { title: 'Pay now', body: (t) => `${t} today.` },
   waitlist: { title: 'Join the waitlist', body: () => 'Nothing due now. We’ll email you if a spot opens.' },
 };
