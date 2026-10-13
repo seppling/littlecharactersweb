@@ -1,0 +1,47 @@
+PASS 1280px: menu fits on one row ({"oneRow":true,"gapLogo":165.25,"gapAct":24,"overflow":-40,"h":76})
+PASS 1280px /about/team: no sideways scroll (1280 <= 1280)
+PASS 1280px: About marked current on /about/team
+PASS click outside closes the dropdown
+PASS Tab reaches the About button
+PASS dropdown starts closed
+PASS Enter opens it (aria-expanded=true)
+PASS aria-controls points at the list
+PASS Tab walks the links in order (/about /about/team /about/schools /faq)
+PASS Escape closes it
+PASS Escape returns focus to the button
+PASS Space opens it too
+PASS Enter on the button closes it
+PASS tabbing past the last link closes it (focus on /geode)
+PASS Contact is in the main menu, after Geode
+PASS Enter on “Team” opens /about/team
+PASS Team link marked aria-current=page
+PASS Contact marked current on /contact
+PASS About not marked on /contact
+PASS About marked on /faq (FAQ is in the About menu)
+PASS /about#team goes to /about/team
+PASS /about#schools goes to /about/schools
+PASS 1280px /about: no sideways scroll (1280 <= 1280)
+PASS 1280px /about/team: no sideways scroll (1280 <= 1280)
+PASS 1280px /about/schools: no sideways scroll (1280 <= 1280)
+PASS /about links to both new pages (/about/team /about/schools)
+PASS footer email on one line at 1280px (1 line boxes)
+PASS 1100px: menu fits on one row ({"oneRow":true,"gapLogo":84.734375,"gapAct":16,"overflow":-40,"h":76})
+PASS 1100px /about/team: no sideways scroll (1100 <= 1100)
+PASS 1100px: About marked current on /about/team
+PASS 1024px: menu fits on one row ({"oneRow":true,"gapLogo":16,"gapAct":16,"overflow":-32.734375,"h":76})
+PASS 1024px /about/team: no sideways scroll (1024 <= 1024)
+PASS 1024px: About marked current on /about/team
+PASS 1001px: menu fits on one row ({"oneRow":true,"gapLogo":16,"gapAct":16,"overflow":-9.734375,"h":76})
+PASS 1001px /about/team: no sideways scroll (1001 <= 1001)
+PASS 1001px: About marked current on /about/team
+PASS 999px: phone menu button shown
+PASS 999px /about/team: no sideways scroll (999 <= 999)
+PASS 961px: phone menu button shown
+PASS 961px /about/team: no sideways scroll (961 <= 961)
+PASS phone menu lists the About pages and Contact (Find a class | Classes | Camps | Shows & Events | Our story | Team | Schools & partners | FAQ | GeodeTeens & adults | Contact | Family login)
+PASS phone menu fits the screen (bottom 781px, scrolls inside: false)
+PASS 390px /about: no sideways scroll (390 <= 390)
+PASS 390px /about/team: no sideways scroll (390 <= 390)
+PASS 390px /about/schools: no sideways scroll (390 <= 390)
+PASS a tap opens the dropdown on a touch screen
+PASS a tap elsewhere closes it

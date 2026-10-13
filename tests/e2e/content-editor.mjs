@@ -119,8 +119,8 @@ await page.fill('input[name="image.alt"]', 'A teal test photo');
 await page.locator('[data-focus-picker]').click({ position: { x: 40, y: 30 } });
 check(/^\d+% \d+%$/.test(await page.inputValue('[data-image-position]')), 'focus point set');
 await submit('publish');
-const mediaUrl = (await live('/about')).match(new RegExp(`/media/${src.slice(6)}/\\d+`))?.[0];
-check(mediaUrl, 'About page uses the upload');
+const mediaUrl = (await live('/about/team')).match(new RegExp(`/media/${src.slice(6)}/\\d+`))?.[0];
+check(mediaUrl, 'Team page uses the upload');
 const served = await fetch(BASE + mediaUrl);
 check(served.ok && served.headers.get('content-type') === 'image/webp', 'upload served as WebP');
 const share = await fetch(`${BASE}/media/share/${src.slice(6)}/50.jpg`);
@@ -134,7 +134,7 @@ await page.click('text=History and older versions');
 await shot('editor-3-history');
 await Promise.all([page.waitForNavigation(), page.click('button:has-text("Restore this version")')]);
 await submit('publish');
-check(!(await live('/about')).includes(src.slice(6)), 'older version restored');
+check(!(await live('/about/team')).includes(src.slice(6)), 'older version restored');
 step('Restored an older version');
 
 // 8. Add an event, delete it, bring it back.
@@ -161,6 +161,13 @@ step('Added, deleted and brought back an event');
 await page.goto(`${BASE}/about`);
 await page.waitForSelector('[data-staff-bar]:not([hidden])');
 check((await page.getAttribute('[data-staff-bar] a', 'href')) === '/admin/content/pages/about', 'Edit this page link');
+for (const key of ['team', 'schools']) {
+  await page.goto(`${BASE}/about/${key}`);
+  await page.waitForSelector('[data-staff-bar]:not([hidden])');
+  check((await page.getAttribute('[data-staff-bar] a', 'href')) === `/admin/content/pages/${key}`, `Edit this page link on /about/${key}`);
+}
+await page.goto(`${BASE}/admin/content`);
+check((await page.locator('a[href="/admin/content/pages/team"]').count()) && (await page.locator('a[href="/admin/content/pages/schools"]').count()), 'Team and Schools & partners pages in the editor list');
 step('“Edit this page” shows for staff');
 
 const family = await browser.newContext();
