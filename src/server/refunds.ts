@@ -229,6 +229,13 @@ export async function orderPayments(orderId: string): Promise<Payment[]> {
   return [...(o.totalCents > 0 ? [fromOrder(o, refunds)] : []), ...paid.filter((i) => totalDue(i) > 0).map((i) => fromInstallment(i, o, refunds))];
 }
 
+/** An enrollment's order (null without one), for "Refund part of a payment" after a removal. */
+export async function enrollmentOrder(enrollmentId: string) {
+  const db = await getDb();
+  const [e] = await db.select({ orderId: schema.enrollment.orderId }).from(schema.enrollment).where(eq(schema.enrollment.id, enrollmentId));
+  return e?.orderId ?? null;
+}
+
 /** Refunded so far per order (pending and succeeded, every payment of the order), for lists like a class's drop-ins. */
 export async function refundedByOrder(orderIds: string[]) {
   if (!orderIds.length) return new Map<string, number>();

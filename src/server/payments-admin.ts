@@ -13,6 +13,7 @@ import { getDb, schema } from './db';
 import { addDays, billingOverview, sendPayLinkEmail, totalDue } from './billing';
 import { csvResponse, pdfResponse } from './downloads';
 import { audit } from './records';
+import { refundsMade } from './refunds';
 import { requireFreshStaff } from './staff';
 import { toCsv, type Cell } from '@/lib/csv';
 import { formatCents, todayInAthens } from '@/lib/pricing';
@@ -206,9 +207,12 @@ export type ReceivedPayment = {
   /** "November tuition: Maya, Intro to Theater" or "Sign-up (first month)". */
   what: string;
   amountCents: number;
-  method: 'card' | 'staff';
+  /** A refund (src/server/refunds.ts) is its own line, below $0, on the day it was made. */
+  method: 'card' | 'staff' | 'refund';
   /** Who marked a cash or check payment. */
   markedBy: string | null;
+  /** Refunds: how it went back, and whether Stripe is still working on it. */
+  refund?: { cash: boolean; pending: boolean };
 };
 
 const SIGN_UP: Record<string, string> = { monthly: 'Sign-up (first month)', full: 'Sign-up (paid in full)', once: 'Sign-up', trial: 'Sign-up', waitlist: 'Sign-up', drop_in: 'Drop-in' };
@@ -289,10 +293,38 @@ export async function paymentsReceived(month: string): Promise<ReceivedPayment[]
       method: 'card',
       markedBy: null,
     })),
+    // Refunds made that month, as their own lines, so the month's total is what was kept.
+    ...(await refundsMade(from, until))
+      .filter(({ refund: r }) => inMonth(r.createdAt))
+      .map(({ refund: r, family, payment: p }): ReceivedPayment => ({
+        key: `r-${r.id}`,
+        paidAt: r.createdAt,
+        householdId: r.householdId,
+        family,
+        sessionId: p.sessionId,
+        orderId: p.orderId,
+        what: `Refund: ${p.kind === 'monthly' ? p.label : p.kind === 'drop_in' ? 'Drop-in' : (SIGN_UP[p.plan] ?? 'Sign-up')}`,
+        amountCents: -r.amountCents,
+        method: 'refund',
+        markedBy: null,
+        refund: { cash: p.via === 'cash', pending: r.status === 'pending' },
+      })),
   ].sort((a, b) => b.paidAt.getTime() - a.paidAt.getTime() || a.key.localeCompare(b.key));
 }
 
-export const howPaid = (p: Pick<ReceivedPayment, 'method' | 'markedBy'>) => (p.method === 'card' ? 'Card' : `Cash or check, marked by ${p.markedBy ?? 'staff'}`);
+export const howPaid = (p: Pick<ReceivedPayment, 'method' | 'markedBy' | 'refund'>) =>
+  p.method === 'refund'
+    ? `${p.refund?.cash ? 'Refund by cash or check' : 'Refund to card'}${p.refund?.pending ? ' (pending)' : ''}`
+    : p.method === 'card'
+      ? 'Card'
+      : `Cash or check, marked by ${p.markedBy ?? 'staff'}`;
+/** "$95", or "−$25" for a refund. */
+export const signedCents = (cents: number) => (cents < 0 ? `−${formatCents(-cents)}` : formatCents(cents));
+/** "3 payments, 1 refund" */
+export const receivedCount = (rows: Pick<ReceivedPayment, 'method'>[]) => {
+  const refunds = rows.filter((r) => r.method === 'refund').length;
+  return `${plural(rows.length - refunds, 'payment')}${refunds ? `, ${plural(refunds, 'refund')}` : ''}`;
+};
 export const sumCents = (rows: { amountCents: number }[]) => rows.reduce((a, r) => a + r.amountCents, 0);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -349,7 +381,7 @@ async function paymentsFile(list: PaymentsList, url: URL, classTitle: ClassTitle
   }
   const month = receivedMonth(url.searchParams.get('month'), today);
   const rows = await paymentsReceived(month);
-  return { title: 'Payments List', file: `payments ${month}`, subtitle: `${monthName(month)} · ${plural(rows.length, 'payment')} · ${formatCents(sumCents(rows))}`, table: receivedTable(rows, classTitle), weights: [0.9, 1.3, 1.4, 2.4, 0.8, 1.5] };
+  return { title: 'Payments List', file: `payments ${month}`, subtitle: `${monthName(month)} · ${receivedCount(rows)} · ${signedCents(sumCents(rows))}`, table: receivedTable(rows, classTitle), weights: [0.9, 1.3, 1.4, 2.4, 0.8, 1.5] };
 }
 
 /** The whole download endpoint: a fresh sign-in, the rows, the audit entry, the file. */

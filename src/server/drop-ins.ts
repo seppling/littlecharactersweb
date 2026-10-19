@@ -15,7 +15,7 @@
  *   "Over the limit": a payment already taken is never refused.
  * - Staff add one from the class's page: a pay link (a pending row until the
  *   family pays) or no charge (booked at once, price 0, with a reason). Staff
- *   cancel one with a reason; refunds are made in the Stripe dashboard.
+ *   cancel one with a reason; a paid one is refunded from its Refund button (refunds.ts).
  *
  * Days off and who's expected on a date come from class-day.ts, so the teacher
  * app, the calendar and drop-ins agree.
@@ -44,7 +44,7 @@ const { dropIn, order, student, household, householdMember, enrollment, user } =
 /** The class page offers drop-ins once a class has started, or starts within this many days. */
 export const DROP_IN_LEAD_DAYS = 14;
 /** Why a second payment for the same child and date was cancelled. */
-export const PAID_TWICE = 'Paid twice for the same date. Refund one in the Stripe dashboard.';
+export const PAID_TWICE = 'Paid twice for the same date. Press Refund to give this one back.';
 
 /** A step that can't be taken; the message is safe to show. */
 export class DropInError extends Error {}

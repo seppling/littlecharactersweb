@@ -16,8 +16,12 @@ import { formatCents, todayInAthens } from '@/lib/pricing';
 import { csvResponse, pdfResponse } from './downloads';
 import { paymentsMode } from './env';
 import { familyPayments, firstNames, paymentWhat, type Payment, type Refund } from './refunds';
-import { getDb, schema } from './db';
+import type { APIContext } from 'astro';
 import { eq } from 'drizzle-orm';
+import { getDb, schema } from './db';
+import { householdForUser } from './family';
+import { audit } from './records';
+import { requireFreshStaff } from './staff';
 
 type Content = Pick<SiteContent, 'findSession' | 'locationById' | 'site'>;
 /** The card's last four for a payment, or null. Stripe in production; tests pass their own. */
@@ -156,7 +160,7 @@ export async function statementResponse(format: 'csv' | 'pdf', s: Statement) {
     return csvResponse(name, toCsv(t.headers, [...t.rows, ...from]));
   }
   const subtitle = [
-    `${s.family} · ${s.payments.length} ${s.payments.length === 1 ? 'payment' : 'payments'}${s.refunds.length ? `, ${s.refunds.length} ${s.refunds.length === 1 ? 'refund' : 'refunds'}` : ''} · Total paid less refunds ${formatCents(s.netCents)}`,
+    `${s.payments.length} ${s.payments.length === 1 ? 'payment' : 'payments'}${s.refunds.length ? `, ${s.refunds.length} ${s.refunds.length === 1 ? 'refund' : 'refunds'}` : ''} · Total paid less refunds ${formatCents(s.netCents)}`,
     [s.from.name, ...s.from.address, s.from.email].filter(Boolean).join(' · '),
     s.from.taxId ? `Tax ID: ${s.from.taxId}` : '',
     s.from.note ?? '',
@@ -175,5 +179,31 @@ export async function statementResponse(format: 'csv' | 'pdf', s: Statement) {
     ],
     rows: t.rows.map((r) => [r[0] ? day(String(r[0])) : '', ...r.slice(1)]),
     orientation: 'portrait',
+    madeFor: s.family,
   });
+}
+
+/** Staff: a family's statement, from their page. A fresh sign-in, then an audit entry (`admin.statement.csv|pdf`, the year in `detail`). */
+export async function staffStatementDownload(format: 'csv' | 'pdf', { locals, url, params }: Pick<APIContext, 'locals' | 'url' | 'params'>) {
+  const stop = requireFreshStaff(locals, url);
+  if (stop) return stop;
+  const householdId = params.householdId ?? '';
+  const year = pickYear(url.searchParams.get('year'), await yearsFor(householdId));
+  const s = await familyStatement(householdId, year, locals.content);
+  if (!s) return new Response('Not found', { status: 404 });
+  await audit(locals.user!.id, `admin.statement.${format}`, 'household', householdId, String(year));
+  return statementResponse(format, s);
+}
+
+/** Families: their own statement, from their account. The household always comes from the signed-in person. */
+export async function familyStatementDownload(format: 'csv' | 'pdf', { locals, url }: Pick<APIContext, 'locals' | 'url'>) {
+  const user = locals.user;
+  if (!user) return new Response('Sign in first', { status: 401 });
+  const household = await householdForUser(user.id);
+  if (!household) return new Response('Not found', { status: 404 });
+  const year = pickYear(url.searchParams.get('year'), await yearsFor(household.id));
+  const s = await familyStatement(household.id, year, locals.content);
+  if (!s) return new Response('Not found', { status: 404 });
+  await audit(user.id, `statement.${format}`, 'household', household.id, String(year));
+  return statementResponse(format, s);
 }

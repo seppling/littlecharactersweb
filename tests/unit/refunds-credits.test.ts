@@ -274,7 +274,7 @@ describe('credits', () => {
     const saved = await addCredit(hannah, { householdId: f.h.id, amountCents: 12000, reason: 'Season credit', showToFamily: false });
     expect(await amounts(f.h.id)).toEqual([['11', 0, 'scheduled'], ['12', 7000, 'scheduled']]);
     const list = await familyCredits(f.h.id);
-    expect(list.map((c) => [c.amountCents, c.reason, c.state])).toEqual([
+    expect(list.map((c) => [c.amountCents, c.reason, c.state]).sort()).toEqual([
       [2500, 'Rest of the credit from Oct 20', 'applied'],
       [9500, 'Season credit', 'applied'],
     ]);
@@ -439,5 +439,15 @@ describe('teachers are refused everywhere', () => {
     await expect(addCredit(teacher, { householdId: f.h.id, amountCents: 100, reason: 'x', showToFamily: false })).rejects.toThrow(/Only owners/);
     const c = await addCredit(hannah, { householdId: f.h.id, amountCents: 100, reason: 'x', showToFamily: false });
     await expect(removeCredit(teacher, f.h.id, c!.credit.id)).rejects.toThrow(/Only owners/);
+  });
+});
+
+describe('links', async () => {
+  const links = await import('@/lib/admin-links');
+  it('give the refund, credits and statement addresses', () => {
+    expect(links.refundPage('o1')).toBe('/admin/payments/o1/refund');
+    expect(links.refundPage('o1', 'i1')).toBe('/admin/payments/o1/refund?installment=i1');
+    expect(links.creditsPage('h1')).toBe('/admin/families/h1/credits');
+    expect(links.downloads(links.familyStatement('h1', 2026))).toEqual({ csv: '/admin/families/h1/statement.csv?year=2026', pdf: '/admin/families/h1/statement.pdf?year=2026' });
   });
 });

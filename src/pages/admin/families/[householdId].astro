@@ -9,6 +9,7 @@
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import FamilyMoney from '@/components/admin/FamilyMoney.astro';
 import { classPage, downloads, family, familyEmail, familyLists, paymentsOrder, safeStaffPath, search } from '@/lib/admin-links';
 import { MAX_CONTACTS, formatPhone, smsHref, telHref } from '@/lib/contacts';
 import { formatCents } from '@/lib/pricing';
@@ -329,6 +330,8 @@ const todayIso = todayInAthens();
             </ul>
           )}
         </section>
+
+        <FamilyMoney householdId={data.household.id} />
 
         <section class="admin-section" id="notes" aria-labelledby="notes-h" data-notes>
           <div class="admin-head">

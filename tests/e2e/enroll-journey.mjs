@@ -170,12 +170,12 @@ if ((await page.locator('[data-autopay-item]').count()) !== upcoming - 1) throw 
 await shot('6b-autopay');
 step(`Autopay: ${upcoming} monthly charges scheduled; the ${firstOfNext} run charges one and a receipt appears`);
 
-// 7c. The Payments section: the card on file, the receipts name the child, a statement on request
+// 7c. The Payments section: the card on file, the receipts name the child, the year's statement
 if ((await page.locator('[data-card-label]').textContent()) !== 'Test card') throw new Error('The test stand-in’s card should show as “Test card”');
 await page.waitForSelector('[data-card] >> text=Please don’t send card numbers by email');
 await page.waitForSelector('[data-receipts] >> text=/Maya: Intro to Theater \\(first month \\+ fees\\)/');
-const statement = await page.locator('[data-statement] a').getAttribute('href');
-if (!statement?.startsWith('mailto:')) throw new Error('The statement line should be an email link');
+const statement = await page.locator('[data-statement] a').first().getAttribute('href');
+if (!statement?.startsWith('/account/statement.pdf?year=')) throw new Error('The statement line should link to the year’s statement');
 const plainEmails = await page.evaluate(() => {
   const main = document.querySelector('main') ?? document.body;
   const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT);
@@ -186,7 +186,7 @@ const plainEmails = await page.evaluate(() => {
   return out;
 });
 if (plainEmails.length) throw new Error(`Email addresses on the account page should be links: ${plainEmails}`);
-step('Payments: “Test card” on file, receipts name Maya, statements by email, every email address a link');
+step('Payments: “Test card” on file, receipts name Maya, the year’s statement, every email address a link');
 
 // 7d. "Add to calendar" from the account: Maya's own classes, from her first class, with a reminder
 const ics = await (await page.request.get(new URL((await page.locator('[data-calendar-link]').first().getAttribute('href')) ?? '', BASE).href)).text();

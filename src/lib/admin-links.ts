@@ -36,6 +36,12 @@ export const familyLists = () => ({ children: `${search()}/children`, contacts: 
 /** Payments: everything, or one section. `month` ("2026-10") picks the month of Payments received. */
 export const payments = (show?: 'failed' | 'upcoming', month?: string) => `/admin/payments${query({ show, month })}`;
 export const paymentsOrder = (orderId: string) => `/admin/payments/${seg(orderId)}`;
+/** Refund one payment: the order's sign-up payment, or one of its monthly charges (`installmentId`). Owners, with a fresh sign-in. */
+export const refundPage = (orderId: string, installmentId?: string | null) => `/admin/payments/${seg(orderId)}/refund${query({ installment: installmentId ?? undefined })}`;
+/** A family's credits: add one (it comes off their next payment), or remove one. */
+export const creditsPage = (householdId: string) => `/admin/families/${seg(householdId)}/credits`;
+/** A family's yearly statement: pass to downloads() for the CSV and PDF. */
+export const familyStatement = (householdId: string, year: number) => `/admin/families/${seg(householdId)}/statement${query({ year: String(year) })}`;
 
 /** The calendar: every class, event and day off. `month` ("2026-11"); the page also takes view=week&week=, and filters. */
 export const calendar = (month?: string, params: Record<string, string | undefined> = {}) => `/admin/calendar${query({ month, ...params })}`;

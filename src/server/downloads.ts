@@ -42,6 +42,8 @@ export interface PdfTable {
   orientation?: 'portrait' | 'landscape';
   /** When it was made. Default now. */
   made?: Date;
+  /** Who it's made for, under the title. Default "Little Characters" (staff lists); a family's statement names the family. */
+  madeFor?: string;
 }
 
 const INK = '#1c1826';
@@ -65,7 +67,7 @@ const cellText = (c: Cell) => {
 const madeOn = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
 
 /** The PDF file's bytes. */
-export function buildPdf({ title, subtitle, columns, rows, orientation, made = new Date() }: PdfTable): Promise<Buffer> {
+export function buildPdf({ title, subtitle, columns, rows, orientation, made = new Date(), madeFor = 'Little Characters' }: PdfTable): Promise<Buffer> {
   const layout = orientation ?? (columns.length > 5 ? 'landscape' : 'portrait');
   const doc = new PDFDocument({ size: 'LETTER', layout, margin: MARGIN, bufferPages: true, info: { Title: title, Author: 'Little Characters' } });
   const chunks: Buffer[] = [];
@@ -85,7 +87,7 @@ export function buildPdf({ title, subtitle, columns, rows, orientation, made = n
   // Header: title, filters, when and for whom.
   doc.font('Helvetica-Bold').fontSize(18).fillColor(INK).text(title, left, MARGIN, { width });
   if (subtitle) doc.moveDown(0.15).font('Helvetica').fontSize(10.5).fillColor(INK).text(subtitle, { width });
-  doc.moveDown(0.25).font('Helvetica').fontSize(9).fillColor(MUTE).text(`Made ${madeOn(made)} for Little Characters`, { width });
+  doc.moveDown(0.25).font('Helvetica').fontSize(9).fillColor(MUTE).text(`Made ${madeOn(made)} for ${madeFor}`, { width });
   doc.moveDown(0.8);
 
   const rowHeight = (cells: string[], font: string) => {
