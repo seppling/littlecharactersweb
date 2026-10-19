@@ -24,12 +24,16 @@ import type { Program, Session } from '@/content/types';
 import type { SiteContent } from '@/content/site-content';
 import { childBadges, type Badge } from '@/lib/badges';
 import type { EmergencyContact, PickupPerson } from '@/lib/contacts';
+import { timeRange } from '@/lib/format';
 import { meetings, todayInAthens } from '@/lib/pricing';
 import { athensNow } from '@/lib/session-dates';
 import { classDay, daysOffBetween, dayOffFrom, dayOffOn, dropInsOn, type DayOff } from './class-day';
-import { staffSession } from './classes';
+import { classLine, staffSession } from './classes';
+import type { PdfTable } from './downloads';
 import { getDb, schema } from './db';
 import { ageOn, readStudentNotes } from './family';
+import { emailHtml, sendEmail } from './email';
+import { config } from './env';
 import { audit } from './records';
 import { canTeach, classTeachers, coversFor, meetsOn, teacherClasses, teacherSessions } from './teachers';
 
@@ -554,20 +558,21 @@ export interface ClassAttendance {
   children: { studentId: string; name: string; marks: Record<string, Mark> }[];
 }
 
-/** A class's attendance so far: each date it met up to today, and each child's marks. */
+/** A class's attendance so far: each date it met up to today (and any later date already marked), and each child's marks. */
 export async function classAttendance(session: Session, today = todayInAthens()): Promise<ClassAttendance> {
-  const dates = meetings(session).filter((d) => d <= today);
-  if (!dates.length) return { dates: [], children: [] };
   const db = await getDb();
-  const [rows, reports, off] = await Promise.all([
+  const [rows, reports] = await Promise.all([
     db
       .select({ studentId: attendance.studentId, classDate: attendance.classDate, status: attendance.status, firstName: student.firstName, lastName: student.lastName })
       .from(attendance)
       .innerJoin(student, eq(student.id, attendance.studentId))
       .where(eq(attendance.sessionId, session.id)),
     db.select().from(classReport).where(eq(classReport.sessionId, session.id)),
-    daysOffBetween(dates[0], dates[dates.length - 1]),
   ]);
+  const taken = new Set([...rows.map((r) => r.classDate), ...reports.map((r) => r.classDate)]);
+  const dates = meetings(session).filter((d) => d <= today || taken.has(d));
+  if (!dates.length) return { dates: [], children: [] };
+  const off = await daysOffBetween(dates[0], dates[dates.length - 1]);
   const names = await namesOf(reports.map((r) => r.submittedBy ?? ''));
   const reportOf = new Map(reports.map((r) => [r.classDate, r]));
   const out: AttendanceDate[] = dates.map((date) => {
@@ -603,6 +608,19 @@ export function attendanceTable(a: ClassAttendance) {
       const marks = taken.map((d) => c.marks[d.date]);
       return [c.name, ...marks.map((m) => (m ? SHORT_MARK[m] : '')), marks.filter((m) => wasThere(m)).length, marks.filter((m) => m === 'absent').length];
     }),
+  };
+}
+
+/** "Attendance": the download as a PDF, landscape, with what the letters mean. */
+export async function attendancePdf({ program, session }: { program: Program; session: Session }, location: string | undefined, today = todayInAthens()): Promise<PdfTable> {
+  const a = await classAttendance(session, today);
+  const { headers, rows } = attendanceTable(a);
+  return {
+    title: `Attendance: ${program.title}`,
+    subtitle: `${classLine(session, location)} · P present, A absent, L late, LE left early · Days off left out`,
+    columns: headers.map((header, i) => ({ header, weight: i === 0 ? 3 : 1, align: i === 0 ? 'left' : 'right' })),
+    rows,
+    orientation: 'landscape',
   };
 }
 
@@ -779,4 +797,45 @@ export async function nextTeachingDay(viewer: Viewer, date: string, catalog: Hom
     if (cover?.classDate === d || sessions.some((s) => meetsOn(s, d))) return d;
   }
   return null;
+}
+
+// ───────────── Substitutes ─────────────
+
+/**
+ * A substitute date was added (Settings → Staff): one short email to the
+ * substitute and one to the teacher they cover for (when Hannah said who),
+ * with the class, the date and a link to the teacher app. A failed email
+ * doesn't undo the cover; it's logged without names.
+ */
+export async function sendCoverEmails(cover: { sessionId: string; classDate: string; staffId: string; coveringForStaffId: string | null }, found: { program: Program; session: Session }) {
+  const db = await getDb();
+  const ids = [cover.staffId, cover.coveringForStaffId].filter((v): v is string => !!v);
+  const people = new Map((await db.select({ id: staff.id, name: staff.name, email: staff.email }).from(staff).where(inArray(staff.id, ids))).map((p) => [p.id, p]));
+  const sub = people.get(cover.staffId);
+  const regular = cover.coveringForStaffId ? people.get(cover.coveringForStaffId) : undefined;
+  const day = new Date(`${cover.classDate}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  const time = found.session.start && found.session.end ? `, ${timeRange(found.session.start, found.session.end)}` : '';
+  const link = new URL('/admin/teach', config.siteUrl).toString();
+  const first = (name: string) => (name.includes('@') ? '' : ` ${name.split(' ')[0]}`);
+  const emails: { to: string; subject: string; lines: string[] }[] = [];
+  if (sub)
+    emails.push({
+      to: sub.email,
+      subject: `You’re covering ${found.program.title} on ${day}`,
+      lines: [`Hi${first(sub.name)}, you’re teaching ${found.program.title} on ${day}${time}${regular ? `, covering for ${regular.name}` : ''}.`, `The roster and attendance are in the teacher app on the day: ${link}`],
+    });
+  if (regular && sub)
+    emails.push({
+      to: regular.email,
+      subject: `${sub.name} is covering ${found.program.title} on ${day}`,
+      lines: [`Hi${first(regular.name)}, ${sub.name} is teaching ${found.program.title} for you on ${day}${time}.`, `You can still see the class in the teacher app: ${link}`],
+    });
+  for (const e of emails) {
+    try {
+      await sendEmail({ to: e.to, subject: e.subject, text: e.lines.join('\n\n'), html: emailHtml(e.subject, e.lines) });
+    } catch (err) {
+      console.error(`Cover email failed for class ${cover.sessionId} on ${cover.classDate}: ${(err as Error).message}`);
+    }
+  }
+  return emails.length;
 }

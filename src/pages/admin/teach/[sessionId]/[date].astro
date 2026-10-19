@@ -348,6 +348,7 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
         submitState.textContent = reportWaiting ? 'Saved on this phone, sending…' : root!.dataset.done === '1' ? 'Done ✓ Hannah has it.' : '';
         submitState.dataset.state = reportWaiting ? 'waiting' : root!.dataset.done === '1' ? 'done' : '';
       }
+      count();
     }
 
     let go: () => Promise<void> = async () => {};

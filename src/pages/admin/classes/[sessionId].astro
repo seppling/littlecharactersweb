@@ -16,7 +16,8 @@
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
-import { classEmail, classes, classPage, classPrint, classSignInSheet, downloads, family, paymentsOrder } from '@/lib/admin-links';
+import { classAttendance as attendanceList, classEmail, classes, classPage, classPrint, classSignInSheet, downloads, family, paymentsOrder, teachRoster } from '@/lib/admin-links';
+import { classAttendance } from '@/server/attendance';
 import { formatPhone, smsHref, telHref } from '@/lib/contacts';
 import { formatCents } from '@/lib/pricing';
 import { capacityFor } from '@/server/family';
@@ -164,6 +165,9 @@ const cap = capacityFor(program, session);
 const files = downloads(classPage(session.id));
 const sheet = classSignInSheet(session.id);
 const joined = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
+// The Attendance part: each class date so far, from the teacher app.
+const att = staff ? await classAttendance(session) : { dates: [], children: [] };
+const attFiles = downloads(attendanceList(session.id));
 const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.length) === 1 ? 'place' : 'places'}${cap ? ' filled' : ''}`;
 ---
 
@@ -415,6 +419,33 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
       )}
     </section>
 
+    <section class="roster-section" aria-labelledby="attendance-h" data-attendance>
+      <div class="att-head">
+        <h2 id="attendance-h">Attendance</h2>
+        {att.dates.length > 0 && <DownloadLinks csv={attFiles.csv} pdf={attFiles.pdf} what="the attendance" />}
+      </div>
+      {att.dates.length === 0 ? (
+        <p class="muted">No classes yet. Teachers take attendance in the teacher app on the day.</p>
+      ) : (
+        <ul class="att-dates">
+          {[...att.dates].reverse().map((d) => (
+            <li data-att-date={d.date}>
+              <a class="att-date" href={teachRoster(session.id, d.date)}>
+                <span class="att-date__day">{new Date(`${d.date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })}</span>
+                {d.dayOff ? (
+                  <span class="muted">No class: {d.dayOff}</span>
+                ) : d.by ? (
+                  <span><strong data-att-count>{d.present} of {d.marked}</strong> present <span class="muted">· taken by {d.by}</span></span>
+                ) : (
+                  <span class="warn-line" data-att-missing>Not taken{d.marked ? ` (${d.marked} marked)` : ''}</span>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+
     <section class="roster-section" aria-labelledby="waitlist-h" data-waitlist>
       <h2 id="waitlist-h">Waitlist <span class="muted">({waitlist.length})</span></h2>
       {waitlist.length === 0 ? (
@@ -557,6 +588,11 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
   .warn-box { display: grid; gap: 0.4rem; padding: 0.6rem 0.8rem; border-radius: var(--r-sm); background: var(--yellow-tint); border-left: 5px solid var(--yellow); margin: 0; }
   .warn-box p { margin: 0; }
   .warn-line { color: var(--yellow-ink); font-weight: 650; font-size: var(--step--1); }
+  .att-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+  .att-dates { list-style: none; margin: 0; padding: 0; display: grid; }
+  .att-date { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: 0.2rem 1rem; align-items: center; min-height: 44px; padding: 0.4rem 0; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+  .att-date:hover { background: var(--hall); text-decoration: none; }
+  .att-date__day { font-weight: 700; }
   .check { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; font-weight: 650; }
   .check input { width: 1.25rem; height: 1.25rem; accent-color: var(--purple); }
   .no-charge { margin: 0; font-size: var(--step--1); overflow-wrap: anywhere; }
