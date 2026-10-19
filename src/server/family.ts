@@ -504,7 +504,7 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
       const [e] = await tx
         .insert(enrollment)
         .values({ householdId: o.householdId, studentId, sessionId: o.sessionId, programSlug: found.program.slug, status, orderId: o.id })
-        .onConflictDoUpdate({ target: [enrollment.studentId, enrollment.sessionId], set: { status, orderId: o.id, noChargeReason: null } })
+        .onConflictDoUpdate({ target: [enrollment.studentId, enrollment.sessionId], set: { status, orderId: o.id, noChargeReason: null, cancelledAt: null, dropReason: null } })
         .returning({ id: enrollment.id });
       enrolled.push(e.id);
     }

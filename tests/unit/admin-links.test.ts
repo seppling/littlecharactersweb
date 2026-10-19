@@ -23,6 +23,13 @@ describe('the staff link contract', () => {
     expect(links.content()).toBe('/admin/content');
     expect(links.install()).toBe('/admin/install');
     expect(links.confirm('/admin/leads.csv')).toBe('/admin/confirm?next=%2Fadmin%2Fleads.csv');
+    expect(links.classSignInSheet('intro-f26-tue')).toBe('/admin/classes/intro-f26-tue/sign-in-sheet.pdf');
+    expect(links.familyLists()).toEqual({ children: '/admin/search/children', contacts: '/admin/search/contacts', notes: '/admin/search/notes' });
+    expect(links.downloads(links.familyLists().notes).pdf).toBe('/admin/search/notes.pdf');
+    expect(links.settings()).toBe('/admin/settings');
+    expect(links.settingsStaff()).toBe('/admin/settings/staff');
+    expect(links.settingsStaffMember('s1')).toBe('/admin/settings/staff/s1');
+    expect(links.teachHome()).toBe('/admin/teach');
   });
 
   it('escapes ids', () => {

@@ -4,6 +4,7 @@
  * Publish puts it on the site; Preview shows the site with the draft.
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
+import { requireStaff } from '@/server/staff';
 import FieldInput from '@/components/admin/FieldInput.astro';
 import PhotoPicker from '@/components/admin/PhotoPicker.astro';
 import { collections, isCollectionKey } from '@/content/collections';
@@ -15,6 +16,10 @@ import type { Program } from '@/content/types';
 import { bookingClock, sessionState, stateLabels } from '@/lib/session-dates';
 
 export const prerender = false;
+
+// Owners only: signed-in families and teachers get the "Staff only" panel (404).
+const { response: notStaff } = requireStaff(Astro.locals);
+if (notStaff) return notStaff;
 
 const kind = Astro.params.kind ?? '';
 const id = Astro.params.id ?? '';

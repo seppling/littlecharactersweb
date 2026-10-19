@@ -160,7 +160,7 @@ export async function removeChild(enrollmentId: string, sessionId: string, mode:
   const result = await db.transaction(async (tx) => {
     const [e] = await tx
       .update(enrollment)
-      .set({ status: 'cancelled' })
+      .set({ status: 'cancelled', cancelledAt: new Date() })
       .where(and(eq(enrollment.id, enrollmentId), eq(enrollment.sessionId, sessionId), inArray(enrollment.status, ['active', 'trial'])))
       .returning();
     if (!e) return null;

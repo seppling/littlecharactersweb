@@ -114,7 +114,10 @@ describe('removing a child', () => {
     const r = await removeChild(e.id, INTRO, 'stop', hannah.id);
     expect(r).toEqual({ stopped: 3, familyDiscount: 0 });
     expect(await months(F.h.id, ava.id)).toEqual([['10', 9500, 'cancelled'], ['11', 9500, 'cancelled'], ['12', 9500, 'cancelled']]);
-    expect((await enrollmentOf(e.studentId, INTRO))[0].status).toBe('cancelled');
+    const [dropped] = await enrollmentOf(e.studentId, INTRO);
+    expect(dropped.status).toBe('cancelled');
+    // The drop date, for Phase 2's drop reports.
+    expect(dropped.cancelledAt).toBeInstanceOf(Date);
     // Off the roster; logged.
     const { students } = await classRoster(INTRO, hannah.id);
     expect(students.some((c) => c.enrollmentId === e.id)).toBe(false);

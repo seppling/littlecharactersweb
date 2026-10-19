@@ -460,3 +460,35 @@ The roster changes unit (`claude/bo-roster`) is merged, and Phase 1 of the staff
   4. **Reports (the dashboard and the library), and the rest of Settings.**
 - **Shows:** the performance fee is already charged at sign-up, so casting creates no new charge until Stephen decides otherwise.
 
+
+### Phase 2 foundation merged (October 19)
+
+The foundation unit (`claude/bo2-foundation`) is merged.
+- **Proof on the merged branch:**
+  - type check clean;
+  - 618 unit tests pass;
+  - the site builds;
+  - all 13 browser tests pass on one fresh database (the new `staff-settings` runs last);
+  - December billing after the family journeys charges $80.75 (Ava, family discount) and $55 (Maya, scholarship), as before;
+  - the Render preview's database step migrates from empty.
+- **What's in it:**
+  - **Staff roles.** Owners (the `ADMIN_EMAILS` emails, or added as an owner on the site) and teachers. Every Phase 1 page stays owner-only. A teacher who opens `/admin` lands on `/admin/teach`. Any owner page shows a teacher the Staff only panel.
+  - **Settings → Staff:**
+    - add a teacher or an owner;
+    - choose their classes (teaches or assists) and substitute dates;
+    - change a name or role;
+    - turn someone off.
+
+    Each change asks for a fresh sign-in and is written to the audit log. Owners can't turn themselves off.
+  - **"This is a shared device"** on the staff sign-in: the session ends after an hour without use.
+  - **The data for the rest of Phase 2,** in migration 0011: attendance, attendance done, days off, drop-ins, tags, skills, progress notes, casts, rehearsals, credits, refunds, favorite reports and staff settings.
+  - **Phase 1 cleanups:**
+    - one-off nights aren't "under 5";
+    - link helpers;
+    - the content editor uses the staff check;
+    - `sharp` 0.35.5 (its `npm audit` advisory is gone).
+- **Coordinator additions at the merge:**
+  - **Migration 0012:** a no-charge reason and a cancel reason on drop-ins, a `pending` drop-in status for open checkouts, and "note read" on a teacher's note to Hannah;
+  - **`src/server/class-day.ts`** (with unit tests), so the next three units agree on days off and who's expected on a class date.
+- **Stephen's test teacher account:** added on Settings → Staff once the site is deployed; not in the repository.
+- **Next:** the teacher app, the calendar and days off, and drop-ins ($25 placeholder), in parallel.

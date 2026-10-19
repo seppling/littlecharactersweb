@@ -21,7 +21,6 @@ import { ageOn, listOrders, readStudentNotes, studentDetailsInput } from './fami
 import { listInstallments, totalDue } from './billing';
 import { childBadges, type Badge } from '@/lib/badges';
 import { emergencyContactsInput, formatPhone, pickupPeopleInput, type EmergencyContact, type PickupPerson } from '@/lib/contacts';
-import { search } from '@/lib/admin-links';
 import { todayInAthens } from '@/lib/pricing';
 import type { SiteContent } from '@/content/site-content';
 import type { Program, Session } from '@/content/types';
@@ -30,13 +29,6 @@ const { household, householdMember, user, student, enrollment, householdNote, me
 
 type Catalog = Pick<SiteContent, 'programs' | 'findSession'>;
 type EnrollmentStatus = (typeof enrollment.$inferSelect)['status'];
-
-/** The family downloads besides the Family List (which is the search page's own, downloads(search())). */
-export const FAMILY_LISTS = {
-  children: `${search()}/children`,
-  contacts: `${search()}/contacts`,
-  notes: `${search()}/notes`,
-} as const;
 
 export const FAMILIES_PER_PAGE = 50;
 export const SEARCH_LIMIT = 50;

@@ -88,6 +88,11 @@ export function resetAuthForTests() {
   authPromise = undefined;
 }
 
+/**
+ * An owner from ADMIN_EMAILS. Owners added on the site, and teachers, come from
+ * the staff table: use `Astro.locals.isAdmin` / `staffRole`, or `isOwner` in
+ * src/server/staff.ts.
+ */
 export function isAdmin(user: { email: string; emailVerified: boolean } | null | undefined) {
   return !!user && user.emailVerified && config.adminEmails.includes(user.email.toLowerCase());
 }

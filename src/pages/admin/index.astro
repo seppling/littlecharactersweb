@@ -2,12 +2,14 @@
 /** Staff home: today's classes, the top of "Needs attention", and quick links (src/server/today.ts). */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import AttentionList from '@/components/admin/AttentionList.astro';
-import { attention, classes, install, payments, search } from '@/lib/admin-links';
+import { attention, classes, install, payments, search, teachHome } from '@/lib/admin-links';
 import { isProd } from '@/server/env';
 import { requireStaff } from '@/server/staff';
 import { attentionItems, devDay, longDay, shortDay, todayClasses, todaysAttention } from '@/server/today';
 
 export const prerender = false;
+// Teachers' home is the teacher app (the installed app opens /admin).
+if (Astro.locals.staffRole === 'teacher') return Astro.redirect(teachHome(), 303);
 const { staff, response } = requireStaff(Astro.locals);
 if (response) return response;
 

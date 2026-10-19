@@ -1,0 +1,29 @@
+---
+/** Settings: one tile per settings page. Staff now; later units add email wording and reasons (docs/back-office.md → Settings). */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { settingsStaff } from '@/lib/admin-links';
+import { requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { response } = requireStaff(Astro.locals);
+if (response) return response;
+---
+
+<AdminShell title="Settings" section="settings">
+  <div class="admin-page">
+    <div class="admin-head">
+      <div>
+        <h1>Settings</h1>
+        <p class="admin-intro">How the back office works for you and your team.</p>
+      </div>
+    </div>
+    <ul class="tiles">
+      <li>
+        <a class="tile" href={settingsStaff()} data-settings-staff>
+          <strong>Staff</strong>
+          <span>Who works here, the classes each teacher teaches, and substitutes.</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+</AdminShell>

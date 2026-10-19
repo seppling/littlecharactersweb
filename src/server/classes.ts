@@ -124,7 +124,8 @@ export function classRows(content: ListContent, counts: Counts, clock: BookingCl
         openings: capacity === undefined ? undefined : Math.max(0, capacity - filled),
         waitlist: c.waitlist,
         state: sessionState(program, session, clock),
-        under5: program.kind === 'class' && filled < MIN_TO_RUN,
+        // One-off nights (a single date) run whatever the count, so they're never "under 5".
+        under5: program.kind === 'class' && !isOneOff(session) && filled < MIN_TO_RUN,
       };
     }),
   );
