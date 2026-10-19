@@ -13,9 +13,10 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 | `classes()` | `/admin/classes` | Classes list (the old rosters list) |
 | `classPage(sessionId)` | `/admin/classes/<id>` | A class (the old roster page) |
 | `classPrint(sessionId)` | `/admin/classes/<id>/print` | A class's roster, ready to print (§9) |
-| `classEmail(sessionId)` | `/admin/classes/<id>/email` | (Messages unit) |
+| `classEmail(sessionId)` | `/admin/classes/<id>/email` | Email the class (§11) |
 | `search(q?)` | `/admin/search?q=` | Search (placeholder) |
-| `family(householdId)` | `/admin/families/<id>` | (Search and families unit) |
+| `family(householdId)` | `/admin/families/<id>` | A family's page (§10) |
+| `familyEmail(householdId)` | `/admin/families/<id>/email` | Email this family (§11) |
 | `payments(show?)` | `/admin/payments`, `?show=failed` or `upcoming` | Monthly autopay |
 | `paymentsOrder(orderId)` | `/admin/payments/<id>` | One family's payments for a class |
 | `leads()` | `/admin/leads` | Messages & sign-ups |

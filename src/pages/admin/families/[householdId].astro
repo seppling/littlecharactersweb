@@ -9,7 +9,7 @@
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
-import { classPage, downloads, family, paymentsOrder, safeStaffPath, search } from '@/lib/admin-links';
+import { classPage, downloads, family, familyEmail, paymentsOrder, safeStaffPath, search } from '@/lib/admin-links';
 import { MAX_CONTACTS, formatPhone, smsHref, telHref } from '@/lib/contacts';
 import { formatCents } from '@/lib/pricing';
 import { FAMILY_LISTS, FamilyEditError, addNote, contactRows, deleteNote, editNote, familyPage, staffUpdateCareDetails, staffUpdateContacts, NOTE_MAX } from '@/server/families';
@@ -109,6 +109,7 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
               <ul class="badges"><li class="badge badge--neutral" data-badge="imported">From Studio Director</li></ul>
             )}
           </div>
+          <div class="admin-head__actions"><a class="btn btn--outline btn--sm" href={familyEmail(householdId)} data-email-family>Email this family</a></div>
         </header>
 
         {saved && savedText[saved] && <p class="notice" role="status">{savedText[saved]}</p>}
