@@ -18,7 +18,7 @@ These ten principles come first. If a request conflicts with one, say so and ask
 - AI drafts, people approve. Money, families, deleting data and going live always wait for Stephen's yes. Here that means prices and billing (`src/lib/pricing.ts`, autopay, Stripe), anything sent to families, their data, and database migrations.
 - `main` is what goes live. Render deploys it once CI passes, and runs database migrations first (`render.production.yaml`). Never push to `main`. Work on a branch, run `/review-change`, and open a pull request (a proposed change that waits for Stephen to merge it). Stephen merges only once CI has passed on the pull request.
 - Secrets only in environment settings. Never put them in files, prompts or chat, and never read `.env` files. `.env.example` holds only the settings' names and safe example values, never a real key, so reading it is fine.
-- Family data stays put. Real families' and children's details (Studio Director exports in `imports/`, the local database in `.data/`) never go into commits, chat or other services. Tests use made-up families, such as those in `tests/e2e/fixtures/`.
+- Family data stays put. Real families' and children's details (Studio Director exports in `imports/`, the local database in `.data/`) never go into commits, chat or other services. Claude is blocked from opening those folders; don't work around the block. Tests use made-up families, such as those in `tests/e2e/fixtures/`.
 - Refer to Stephen by name or as "you"; never assume pronouns.
 
 ## Commands
@@ -38,7 +38,7 @@ These ten principles come first. If a request conflicts with one, say so and ask
 - `FOUNDATION.md` and `playbook/`: the rules, copied from SMB-AI.
 - `.claude/skills/`: procedures to run by name: `plan-feature`, `review-change`, `orchestrate-background-sessions`.
 - `.claude/agents/`: the three roles: planner, builder, reviewer.
-- `.claude/settings.json`: guardrails, including blocking secret files.
+- `.claude/settings.json`: guardrails. It blocks Claude from opening secret `.env` files and real family data (`imports/`, `.data/`). If Claude's sandbox is ever turned on, the `.data/` block also stops the site Claude runs from reading its local database.
 
 ## Untrusted content
 
