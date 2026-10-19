@@ -162,6 +162,8 @@
   /* Phones: the header row is for screen readers only; sort with "Sort by" instead. */
   .report-table th a { display: none; }
   .report-table__label { display: inline; }
+  .report-table td a { display: inline-flex; align-items: center; min-height: 44px; }
+  .report-page .admin-crumbs a { display: inline-flex; align-items: center; min-height: 44px; }
   .chart__plot { grid-template-rows: 9rem auto; }
   .chart__x:not(.chart__x--ends) span:nth-child(even) { visibility: hidden; }
 }
