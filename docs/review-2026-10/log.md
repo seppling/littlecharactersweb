@@ -551,3 +551,44 @@ All three units are merged (`claude/bo2-teacher-app`, `claude/bo2-calendar`, `cl
   - a class's last month that ends early is still divided by every week in that month for a day off (consistent with the full-month charge).
 - **At launch:** the first week shows "Attendance not taken" for every class in the week before, since no attendance exists yet. Recommended: accept it, or set a start date.
 - **Next:** wave 3, which is refunds and credits (with a yearly statement), tags and skills (with progress notes), and shows (cast lists, roles, rehearsals).
+
+### Wave 3 merged: refunds and credits, tags and skills, shows (October 19)
+
+All three units are merged (`claude/bo2-refunds-credits`, `claude/bo2-tags-skills`, `claude/bo2-shows`).
+- **Proof on the merged branch:**
+  - type check clean;
+  - 788 unit tests pass;
+  - the site builds;
+  - December billing after the family journeys still charges $80.75 and $55.
+  - **Browser tests:** all 19 pass in order on one fresh database (the second full run).
+  - **One intermittent failure:** in the first full run, `staff-roster.mjs`'s 390 px tap-size check measured the class page's Remove button a fraction under 44 px.
+    - It passed alone, in a run up to it, in the second full run, and in 40 repeated probes of the same steps, all at exactly 44 px.
+    - Nothing on the page scales or zooms it.
+    - Recorded here, and the test is unchanged; a repeat gets looked at again.
+- **Refunds and credits:**
+  - **Refunds:** all or part of a payment, from the family's page, the order page or a cancelled drop-in.
+    - Stripe for card payments: a pending row is written first, the row's id is the idempotency key, and the order is locked while the most that can be refunded is checked. The webhook settles pending ones.
+    - Cash and check refunds are recorded without Stripe.
+    - Test refunds are never possible in production.
+  - **Credits:** they come off the family's next payment through the existing adjustments. A credit with no payment to come off waits; waiting credits are applied at a new sign-up and at the start of each billing run, before anything is charged (the one change to the run).
+  - **Days off:** "Already paid" families can get a credit, once.
+  - **Statements:** families download one for each year they paid in. The tax ID line is empty until Hannah fills it in.
+  - The webhook now needs 6 events (`docs/infrastructure.md`).
+- **Tags, skills and progress notes:**
+  - **Tags:** on children and families, for staff only, never shown to teachers or families. They filter rosters and search, and a tag can be emailed.
+  - **Skills:** per program, ticked on the teacher's phone (the same access rule as attendance; needs signal).
+  - **Progress notes:** emailed to families and shown in their account. Teachers can write drafts for Hannah.
+- **Shows:**
+  - **Cast:** each show's cast comes from its performing classes, with roles, groups, order and photo permission.
+  - **Downloads:** a cast list for the program, and a staff cast sheet.
+  - **Rehearsals:** on the staff calendar, teachers' Today, and families' accounts and calendar files.
+  - No charges.
+- **At the merge:** back-office sections 21 (refunds, credits, statements), 22 (tags, skills, progress notes), 23 (shows).
+  - The email composer's empty text now covers classes, tags and casts.
+  - Cast emails are logged as class emails with `show:<slug>`, and tag emails as `tag`; reports leave both out of class email counts.
+- **Before wave 4:** the coordinator added `src/server/settings-store.ts` (§24), with last season's numbers as its first key.
+- **Wave 4 started:** reports (the dashboard and the library) and the rest of Settings.
+- **For Hannah:**
+  - a tax ID for statements (optional);
+  - whether teachers should see tags such as a cast group (recommended: no);
+  - photo permission "Not asked" for children added through the account.
