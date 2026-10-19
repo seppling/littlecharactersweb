@@ -168,6 +168,7 @@ const hasFilters = def.filters.length > 0;
                           {c.label}
                           {f.sort === i && <span aria-hidden="true">{f.dir === 'desc' ? ' ↓' : ' ↑'}</span>}
                         </a>
+                        <span class="report-table__label">{c.label}</span>
                       </th>
                     ))}
                   </tr>

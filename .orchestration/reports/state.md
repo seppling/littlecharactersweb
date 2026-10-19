@@ -13,7 +13,13 @@ Branch `claude/bo2-reports`, from `claude/blissful-archimedes-enun5m` (27b2e95).
 (see report.md when done)
 
 ## Commits
-- none yet
+- Reports: counting functions, the library and the dashboard's data
+- Reports: dashboard, library, report pages with CSV/PDF, charts, favorites, unit tests
+
+## Done since
+- tests/e2e/staff-reports.mjs, docs §25, README line, menu link (computer + phone).
+- staff-foundation.mjs line 88: top-bar order now includes Reports (my change broke the old check).
+- Phone: report table's header links hidden (sort with "Sort by").
 
 ## Next action
-Write src/server/reports/*.
+Full browser suite run 2 (run 1 stopped at staff-foundation's top-bar check), then screenshots, report.md.
