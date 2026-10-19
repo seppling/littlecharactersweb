@@ -14,14 +14,20 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 | `classPage(sessionId)` | `/admin/classes/<id>` | A class (the old roster page) |
 | `classPrint(sessionId)` | `/admin/classes/<id>/print` | A class's roster, ready to print (§9) |
 | `classEmail(sessionId)` | `/admin/classes/<id>/email` | Email the class (§13) |
+| `classSignInSheet(sessionId)` | `/admin/classes/<id>/sign-in-sheet.pdf` | A class's sign-in sheet (§9) |
 | `search(q?)` | `/admin/search?q=` | Search (placeholder) |
 | `family(householdId)` | `/admin/families/<id>` | A family's page (§10) |
 | `familyEmail(householdId)` | `/admin/families/<id>/email` | Email this family (§13) |
+| `familyLists()` | `{ children, contacts, notes }` | The family downloads' list paths, for `downloads()` (§10) |
 | `payments(show?, month?)` | `/admin/payments`, `?show=failed` or `upcoming`, `?month=2026-10` | Payments (§11) |
 | `paymentsOrder(orderId)` | `/admin/payments/<id>` | One family's payments for a class |
 | `leads()` | `/admin/leads` | Messages & sign-ups |
 | `content()` | `/admin/content` | The website editor |
-| `install()` | `/admin/install` | Put the app on your phone |
+| `install()` | `/admin/install` | Put the app on your phone (teachers too) |
+| `settings()` | `/admin/settings` | Settings: a tile per settings page (§15) |
+| `settingsStaff()` | `/admin/settings/staff` | Settings → Staff (§15) |
+| `settingsStaffMember(staffId)` | `/admin/settings/staff/<id>` | One staff member: role, classes, substitute dates, turn off (§15) |
+| `teachHome()` | `/admin/teach` | The teacher app's home (§15) |
 | `confirm(next)` | `/admin/confirm?next=` | Sign in again, then go on |
 | `downloads(listPath)` | `{ csv, pdf }` | A list's two downloads |
 
@@ -45,13 +51,15 @@ Ids in addresses are database or catalog ids. Children's names and notes never g
 | Prop | What it does |
 |---|---|
 | `title` | The browser tab, and the title in the phone's top bar |
-| `section` | `today`, `classes`, `families`, `payments`, `leads` or `content` (the default): which section is lit on a computer |
+| `section` | `today`, `classes`, `families`, `payments`, `leads`, `content` (the default), `settings` or `teach`: which section is lit on a computer |
 | `back` | `{ href, label }`: a back link in the phone's top bar. Give it to every page below a list: the installed app has no back button |
 | `wide` | More width (the editor) |
 | `signIn` | `{ heading, intro }` for the sign-in shown to signed-out visitors (the confirm page uses it) |
+| `teachers` | The page is part of the teacher app: teachers may open it (with `requireTeacherOrOwner`). Without it, only owners get the shell |
 
-- **Computer:** a dark top bar with the search box (it sends `GET /admin/search?q=`), the staff member's email and Sign out, then the sections: Today, Classes, Families, Payments, Messages & sign-ups, Website. Families goes to Search until there's a families list.
-- **Phone (760 px and narrower):** the page title with the optional back link and a Menu button at the top; a tab bar at the bottom: Today, Classes, Search, Alerts. The current tab follows the address (a family's page lights Search). The menu holds Families, Payments, Messages & sign-ups, Website, "Put the app on your phone" and Sign out.
+- **Computer:** a dark top bar with the search box (it sends `GET /admin/search?q=`), the staff member's email and Sign out, then the sections: Today, Classes, Families, Payments, Messages & sign-ups, Website, Settings. Families goes to Search until there's a families list.
+- **Phone (760 px and narrower):** the page title with the optional back link and a Menu button at the top; a tab bar at the bottom: Today, Classes, Search, Alerts. The current tab follows the address (a family's page lights Search). The menu holds Families, Payments, Messages & sign-ups, Website, Settings, "Put the app on your phone" and Sign out.
+- **Teachers** get a smaller shell: one section, "Your classes" (`teachHome()`), no search and no tab bar; the phone menu holds only "Put the app on your phone" and Sign out.
   - **Why a menu rather than links on Today:** it's on every page, so Payments is two taps away wherever Hannah is, and Today stays about today.
 - **The website editor** shows "The website editor works best on a computer." on phones, and stays usable.
 - The family site's header and footer aren't shown on staff pages (`Base.astro`'s `chrome={false}`).
@@ -103,17 +111,19 @@ Every list downloads as a spreadsheet and a PDF.
 
 ## 6. Signing in, for staff (`src/server/staff.ts`)
 
-- **`requireStaff(locals)`** at the top of every staff page and endpoint:
+- **Roles** are in §15. In short: `requireStaff` means **owner**, and stays on every Phase 1 page; teacher-app pages use `requireTeacherOrOwner`.
+- **`requireStaff(locals)`** at the top of every owner page and endpoint:
   ```ts
   const { staff, response } = requireStaff(Astro.locals);
   if (response) return response; // signed-in non-staff: 404 with the "Staff only" panel
   // staff is null when signed out: AdminShell shows the staff sign-in.
   ```
-- **Signed in, but not staff** (a teacher before teacher logins, a parent): the 404 has no body, so Astro renders `src/pages/404.astro` with the status kept; on an `/admin` address that page shows the shell's panel: "This page is for Little Characters staff. You're signed in as …", Sign out, and a link to the family account. Downloads get an empty 404.
+- **Signed in, but not an owner** (a parent, a teacher, someone turned off): the 404 has no body, so Astro renders `src/pages/404.astro` with the status kept; on an `/admin` address that page shows the shell's panel: "This page is for Little Characters staff. You're signed in as …", Sign out, and a link to the family account (for a teacher: "Go to your classes"). The content editor's pages use `requireStaff` too. Downloads get an empty 404.
 - **Signing out** from a staff page sends `next=/admin` to `/account/sign-out`, so staff land on the staff sign-in and the installed app stays in the app. The route accepts only a `safeStaffPath`; families' forms send nothing and land on the home page as before.
-- **A fresh sign-in.** `signedInRecently(locals, 15)` is true when the session was made in the last 15 minutes. `requireFreshStaff(locals, url)` uses it: downloads now, refunds and staff changes later. Otherwise staff go to `/admin/confirm?next=…`, which says "Confirm it's you before downloading", fills in their email, and runs the normal 6-digit code sign-in (a new session). For a download it then starts the file and offers "Back to the list"; for anything else it goes straight to `next`.
-- **Idle limit.** A staff session not renewed for 30 days counts as signed out, and is deleted. Families keep 90 days. `readSession` (used by `src/middleware.ts`) reads the session without renewing it first, so an idle one is seen as idle, then renews it once a day as before.
-- **Tests** age a session with `POST /dev/age-session` (`minutes` or `days`), which exists only in development, like `/dev/mailbox`.
+- **A fresh sign-in.** `signedInRecently(locals, 15)` is true when the session was made in the last 15 minutes. `requireFreshStaff(locals, url)` uses it: downloads and staff changes now, refunds later. Otherwise staff go to `/admin/confirm?next=…`, which says "Confirm it's you before downloading", fills in their email, and runs the normal 6-digit code sign-in (a new session). For a download it then starts the file and offers "Back to the list"; for anything else it goes straight to `next`.
+- **Idle limit.** A staff session (owner or teacher) not renewed for 30 days counts as signed out, and is deleted. Families keep 90 days.
+- **"This is a shared device"** is a tick box on the staff sign-in and the confirm page (`SignInPanel`'s `sharedDevice`). After signing in, the page posts to `/api/staff/shared-device`, which sets `session.shared_device` on the signed-in person's own session. Such a session ends after 1 hour without use (`SHARED_IDLE_MINUTES`); `readSession` marks it as used every 5 minutes while it's in use. `readSession` (used by `src/middleware.ts`) reads the session without renewing it first, so an idle one is seen as idle, then renews it once a day as before.
+- **Tests** age a session with `POST /dev/age-session` (`minutes` or `days`; `idleMinutes` for the shared-device hour), which exists only in development, like `/dev/mailbox`.
 - **Sign-in inside the installed app** works by typing the code: nothing on staff pages relies on opening a link from an email.
 
 ## 7. The phone app
@@ -138,7 +148,7 @@ A home-screen web app; no app store.
 | `message`, `message_recipient` | Staff emails (`class` or `family`) and each address's `sent` / `failed`; indexed by household for the family page | `Message`, `MessageRecipient` |
 | `waitlist_offer` | A place offered to a waitlisted enrollment: `offered`, `accepted`, `withdrawn`, `expired` | `WaitlistOffer` |
 | `enrollment.no_charge_reason` (migration `0010_roster_changes`) | Why staff added the child without charge (§14); null for everyone else | |
-| `audit_log.detail` (`0010`) | A staff-written reason on the audit entries that need one (a no-charge add). Never care details | |
+| `audit_log.detail` (`0010`) | A staff-written reason on the audit entries that need one (a no-charge add), or the class and date a staff change concerns (`admin.staff.*`). Never care details | |
 
 `src/lib/contacts.ts` has the zod inputs (`emergencyContactsInput`, `pickupPeopleInput`: names up to 80 characters, relationships up to 40), `normalizePhone` (US numbers as 10 digits, others as `+digits`), `formatPhone` ("(706) 555-0142"), `telHref` and `smsHref`. Who sees the new data: `security.md`.
 
@@ -146,7 +156,7 @@ Families fill these in on the details step and at `/account/family` (`portal.md`
 
 ## 9. Classes (`src/server/classes.ts`)
 
-- **The Classes list** (`/admin/classes`): one row per session the site takes sign-ups for, by term: when, teacher, places filled ("8 of 12": enrolled plus trials), openings and the waitlist. Current and upcoming by default; ended ones, past one-off dates included, under "Ended". Filters are links: `?openings=1`, `?waitlist=1`, `?under5=1` (weekly classes short of the 5 they need to run), `?term=Fall 2026`, `?show=ended`. `classFilters(params)` reads them and `filterQuery(f)` writes them. Downloads: `classes.csv.ts`, `classes.pdf.ts` ("Class List"), as filtered.
+- **The Classes list** (`/admin/classes`): one row per session the site takes sign-ups for, by term: when, teacher, places filled ("8 of 12": enrolled plus trials), openings and the waitlist. Current and upcoming by default; ended ones, past one-off dates included, under "Ended". Filters are links: `?openings=1`, `?waitlist=1`, `?under5=1` (weekly classes short of the 5 they need to run; a one-off night of a class never counts), `?term=Fall 2026`, `?show=ended`. `classFilters(params)` reads them and `filterQuery(f)` writes them. Downloads: `classes.csv.ts`, `classes.pdf.ts` ("Class List"), as filtered.
 - **A class's page** (`/admin/classes/<id>`): the roster by last name with badges and the parents' Call, Text and Email links; tapping a child opens their care details in place (allergies and medical notes in red, pickup, emergency contacts, photos); the waitlist in the order families joined, with "Offered <date>, expires <date and time>" for an open offer. Add a child, Remove and Offer the spot are in §14.
 - **Print** (`/admin/classes/<id>/print`): the roster ready to print, landscape.
 - **Downloads**, each needing a fresh sign-in: `/admin/classes/<id>.csv` and `.pdf` ("Class Roster", with care details), and `/admin/classes/<id>/sign-in-sheet.pdf` ("Student Sign-in Sheets": names and the next 8 class dates, no care details).
@@ -165,9 +175,9 @@ Queries in `src/server/families.ts`; pages `src/pages/admin/search.astro` and `s
 | Download | Address | Columns |
 |---|---|---|
 | Family List | `downloads(search())` | Family, Parents, Emails, Phones, ZIP, Heard about us, Children |
-| Student / Class List | `downloads(FAMILY_LISTS.children)` | Child, Age, Family, Current classes |
-| Student Contact List | `downloads(FAMILY_LISTS.contacts)` | Child, Family, Parents, Emails, Phones, Emergency contacts |
-| Family Notes | `downloads(FAMILY_LISTS.notes)` | Family, About, Note, Written by, When |
+| Student / Class List | `downloads(familyLists().children)` | Child, Age, Family, Current classes |
+| Student Contact List | `downloads(familyLists().contacts)` | Child, Family, Parents, Emails, Phones, Emergency contacts |
+| Family Notes | `downloads(familyLists().notes)` | Family, About, Note, Written by, When |
 
 All four go through `familyDownload` (`src/server/family-downloads.ts`): a fresh sign-in, then an audit entry (`admin.download.csv|pdf`, entity `list`, id `families|children|contacts|notes`). The first three are on the Families list; Family Notes is on each family's page.
 
@@ -259,3 +269,62 @@ Three actions on a class's page (`classPage(id)`), in `src/server/roster-changes
 - **When they pay,** `fulfillOrder` turns the waitlist enrollment active (the same row: one enrollment per child and class) and marks the offer `accepted` with the order id (`waitlist_offer.accepted` in the audit log).
 - **Today's "Waitlist openings"** leaves out places with an open offer (`openOfferCounts`).
 
+
+## 15. Staff roles and teachers (Phase 2 foundation)
+
+**Roles** (`src/server/staff.ts`):
+
+| Role | Who | Sees |
+|---|---|---|
+| `owner` | every email in `ADMIN_EMAILS` (always, and can't be changed or turned off on the site), and anyone added as an owner in Settings → Staff | everything |
+| `teacher` | added as a teacher in Settings → Staff, and not turned off | the teacher app (`/admin/teach`) for their own classes and their substitute dates; nothing else |
+| none | families, people turned off, signed-out visitors | the Staff only panel (404) on any staff page, or the sign-in |
+
+- **`Astro.locals`:** `staffRole` (`'owner' | 'teacher' | null`), `staffId` (their `staff` row) and `isAdmin` (still means owner, so every Phase 1 page is unchanged). Set by `readSession` in the middleware: one more query per staff request.
+- **`roleFor(person, row, adminEmails)`** is the pure rule; **`staffMember(person)`** reads the table and gives an `ADMIN_EMAILS` owner a row the first time they're seen (named from their account, else their email; they can change the name in Settings), so owners can be put on classes too. **`isOwner(person)`** is for server functions that change money (`adjustments.ts` uses it, so an owner added on the site can give discounts).
+- **The checks:** `requireStaff` (owners) on every owner page and endpoint; `requireTeacherOrOwner(locals)` → `{ staff: { …user, role, staffId } | null, response }` on teacher-app pages, with `<AdminShell teachers>`. A teacher at `/admin` is sent to `teachHome()`. A teacher at any owner page (a class's page included, even their own class) gets the Staff only panel with "Go to your classes".
+- **What a teacher may see, and the teacher app must enforce:** before showing a class, `canTeach(staffId, sessionId, date)`. For those classes: the roster with badges, care details on tap (log views with `audit`, as `classRoster` does), emergency contacts and pickup people, parents' names with Call and Text. Never payments, other classes, reports, downloads, the editor or search across families. Owners pass every check through their own pages and don't need `canTeach`.
+- **Turning someone off** (`staff.active = false`): their role is gone at their next request; their records stay. They can be turned back on.
+
+**Teachers on classes** (`src/server/teachers.ts`), all by `staff.id`:
+
+| Function | Returns |
+|---|---|
+| `teacherSessions(staffId, date, catalog?)` | `TeachingSession[]`: the classes they teach (`as: 'lead' \| 'assistant'`, if the class meets that date) or cover (`as: 'cover'`, `coveringForStaffId`) on that date, by start time, with `dayOff` (a `closure` reason) or null. Empty for someone turned off |
+| `canTeach(staffId, sessionId, date)` | Their own class on any date, or a class they cover on that date. False when turned off |
+| `classTeachers(sessionId)` | `{ staffId, name, email, role, active }[]`, leads first |
+| `coversFor(sessionId, date?)` | Substitutes for a class (one date, or all), with who they cover for |
+| `teacherClasses(staffId, catalog?)` | Every class they're on, with the content's program and session |
+| `meetsOn(session, date)` | The class meets that date by its days and dates (days off not counted) |
+
+The content's `session.teacher` text stays the public name on the site. Settings → Staff shows it next to each class ("On the site: …").
+
+**Settings → Staff** (`src/server/staff-settings.ts`; pages `src/pages/admin/settings/`): owners only; changes need a fresh sign-in (until then the page shows "Confirm it's you"). The list (name, email, role, number of classes, can sign in); **Add a person** (name, email, Teacher or Owner; nothing is emailed); each person's page: name and role, **Classes they teach** (per current or upcoming class: Not teaching / Teaches / Assists), **Substitute dates** (class, date it meets, optionally who they cover for), **Turn off** / **Turn back on**. Owners can't turn themselves off or drop their own owner role. Audit: `admin.staff.add`, `.update`, `.deactivate`, `.reactivate`, `.class_add`, `.class_role`, `.class_remove`, `.cover_add`, `.cover_remove` (entity `staff`, the class and date in `detail`). Later settings pages go under `/admin/settings/` with a tile on `settings()`.
+
+**The teacher app's home** (`/admin/teach`) is a placeholder: "Hi, <first name>", today's classes (`teacherSessions`, with Assisting / Substitute / Day off), and "Classes you teach". `?on=YYYY-MM-DD` picks the day in development.
+
+## 16. Data for Phase 2 (migration `0011_phase2`)
+
+Every table Phase 2 needs is in this one migration, so later units don't add migrations. Types are exported from `src/server/db/schema.ts` (`Staff`, `Attendance`, `NewAttendance`, …). "By" columns are user ids (`locals.user.id`), as elsewhere; class assignments and favorites use staff ids. Session and show ids are the content's ids (no foreign key, like `enrollment.session_id`).
+
+| Table / column | Holds | Used by | Must respect |
+|---|---|---|---|
+| `staff` | email (lowercase, unique), name, role, active, created by | foundation | Never delete a row; turn it off. `ADMIN_EMAILS` overrides it |
+| `class_teacher` | session, staff, `lead` / `assistant` (primary key session + staff) | foundation, teacher app, calendar (teacher schedules), reports | Removing a person's class deletes the row; turning them off keeps it |
+| `class_cover` | session, date, covering staff, covering for (optional), created by; unique per session, date and staff | foundation, teacher app (substitutes) | Only dates the class meets (`meetsOn`); access that day only |
+| `session.shared_device` | "This is a shared device" | foundation | Set only through `markSharedDevice` |
+| `attendance` | one row per child, class and date: status `present` / `absent` / `late` / `left_early`, `reason` (an absence reason from Settings), `note` (short), enrollment or drop-in, marked by and at (`marked_at` is the phone's tap time); `client_id` unique | teacher app; reports (attendance, absences, missed two in a row) | Upsert on (session, date, student). A replayed tap whose `client_id` exists changes nothing; apply a change only when its `marked_at` is newer than the row's. Refuse dates with a `closure`, and dates the teacher can't teach. Notes are never care details |
+| `class_report` | "attendance done" for a class and date: submitted by and at, an optional note to Hannah; unique per session and date | teacher app; Today / dashboard (attendance taken) | Submitting twice updates the row |
+| `closure` | a day off: date, session (null = every class that day), reason, created by, `adjusted_at` / `adjusted_by`; unique per date and session | calendar; teacher app (blocks attendance) | The charge adjustment is a `billing_adjustment` with `closure_id` set (made through `adjustments.ts`, not a new billing path); set `adjusted_at` when done; deleting a day off should remove those adjustments first |
+| `billing_adjustment.closure_id` | the day off a discount was made for | calendar | Set null if the day off is deleted |
+| `drop_in` | one class date booked for a child: session, date, student, household, price in cents at booking, order (the payment), `booked` / `cancelled`, `cancelled_at`; one booking per child, class and date while booked | drop-ins; teacher app (on the roster that day, `attendance.drop_in_id`); reports | Price from the site setting at booking, stored here; never recomputed. The payment is an `order` (plan `once` today; `order.plan` is plain text, so adding a value needs no migration). Not counted toward the 15% family discount |
+| `tag`, `student_tag`, `household_tag` | a name and kind (`child` / `family`; unique per kind, any case); the joins, with who added them | tags | Staff only; never shown to families or teachers unless the unit decides so |
+| `skill`, `student_skill` | skills per program (slug, name, order, active); a child's `working` / `got_it`, marked by and at | skills | Retire a skill (`active = false`) rather than delete it, so progress stays |
+| `progress_note` | a note to a family about one child: body, class (optional), author, `shared_at` (families see it once set), the email that carried it (`message_id`) | skills (progress notes) | Staff only until shared |
+| `show_cast` | a child's role in a show (event slug), optional group, order, created by; unique per show, child and role | shows | Photo permission comes from `student.photo_consent`, never copied here |
+| `show_rehearsal` | a show's rehearsal: start and end (instants; enter and show them in Athens time), location id, note, the classes that rehearse (`session_ids`, empty = whole cast) | shows, calendar | |
+| `credit` | money a family is owed: amount, reason, show to family, created by; `applied_to_installment_id`, `adjustment_id`, `applied_at` once used; `removed_at` / `removed_by` | refunds and credits | Comes off the next charge through `adjustments.ts` (a `billing_adjustment`, linked by `adjustment_id`), so the billing run is unchanged. Applied once |
+| `refund` | money given back through Stripe: order or installment, amount, reason, `stripe_refund_id` (unique), `pending` / `succeeded` / `failed`, error, created by | refunds | Write `pending` first and use the row id as Stripe's idempotency key; fresh sign-in; never more than was paid less earlier refunds |
+| `report_favorite` | a staff member's starred report keys | reports | |
+| `staff_setting` | key → JSON value, updated by | settings (email wording, drop and absence reasons) | The owning unit documents each key's shape here |
+| `enrollment.cancelled_at`, `enrollment.drop_reason` | when a child dropped (set by Remove), and why | settings (drop reasons), reports (drops) | Cleared when the child signs up again (`fulfillOrder`). Older cancellations have no date |

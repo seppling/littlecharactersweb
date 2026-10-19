@@ -120,7 +120,7 @@ const v = (key: string, fallback = '') => (failed ? (values[key] ?? fallback) : 
             </div>
           </div>
 
-          {saved && savedText[saved] && <p class="notice" role="status">{savedText[saved]}</p>}
+          {!error && saved && savedText[saved] && <p class="notice" role="status">{savedText[saved]}</p>}
           {error && <p class="notice notice--error" role="alert">{error}</p>}
 
           {!fresh && (
@@ -132,18 +132,18 @@ const v = (key: string, fallback = '') => (failed ? (values[key] ?? fallback) : 
             </div>
           )}
 
-          {person.fixed && <p class="notice">This owner is set in the site’s settings, so they can’t be changed or turned off here. They can still be given classes.</p>}
+          {person.fixed && <p class="notice">This owner is set in the site’s settings, so they stay an owner and can’t be turned off here. Their name can change, and they can be given classes.</p>}
 
-          {fresh && !person.fixed && (
+          {fresh && (
             <section class="admin-section staff-card" aria-labelledby="details-title">
-              <h2 id="details-title">Name and role</h2>
+              <h2 id="details-title">{person.fixed ? 'Name' : 'Name and role'}</h2>
               <form method="post" class="stack-form" data-details>
                 <input type="hidden" name="action" value="details" />
                 <div class="field">
                   <label for="name">Name</label>
                   <input id="name" name="name" required maxlength={NAME_MAX} value={v('name', person.name)} />
                 </div>
-                <fieldset class="field roles">
+                {person.fixed ? <input type="hidden" name="role" value="owner" /> : (<fieldset class="field roles">
                   <legend>Role</legend>
                   <label class="choice">
                     <input type="radio" name="role" value="teacher" checked={v('role', person.role) === 'teacher'} />
@@ -159,7 +159,7 @@ const v = (key: string, fallback = '') => (failed ? (values[key] ?? fallback) : 
                       <small>Everything, including payments and these settings</small>
                     </span>
                   </label>
-                </fieldset>
+                </fieldset>)}
                 <button class="btn btn--primary" type="submit">
                   Save
                 </button>
@@ -190,7 +190,7 @@ const v = (key: string, fallback = '') => (failed ? (values[key] ?? fallback) : 
                           <li class="class-choice" data-class-choice={c.sessionId}>
                             <label for={`class-${c.sessionId}`}>
                               <strong>{c.program.title}</strong>
-                              <small>{[c.session.label, c.when].filter(Boolean).join(' · ')}</small>
+                              <small>{[c.extra, c.when].filter(Boolean).join(' · ')}</small>
                               {c.session.teacher && <small>On the site: {c.session.teacher}</small>}
                             </label>
                             <select id={`class-${c.sessionId}`} name={`class:${c.sessionId}`} disabled={!fresh || !person.active}>

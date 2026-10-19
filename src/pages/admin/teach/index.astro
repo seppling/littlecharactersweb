@@ -13,6 +13,7 @@ import { requireTeacherOrOwner } from '@/server/staff';
 import { teacherClasses, teacherSessions } from '@/server/teachers';
 import { devDay, longDay } from '@/server/today';
 import { whenLabel } from '@/server/classes';
+import { staffById } from '@/server/staff-settings';
 
 export const prerender = false;
 const { staff, response } = requireTeacherOrOwner(Astro.locals);
@@ -23,7 +24,9 @@ const { content } = Astro.locals;
 const date = devDay(Astro.url.searchParams, !isProd) ?? todayInAthens();
 const today = staff ? await teacherSessions(staff.staffId, date, content) : [];
 const mine = staff ? (await teacherClasses(staff.staffId, content)).filter((c) => c.session.endDate >= date).sort((a, b) => a.session.startDate.localeCompare(b.session.startDate)) : [];
-const firstName = staff?.name?.split(' ')[0];
+// The name Hannah typed in Settings → Staff (a new sign-in has no name of its own).
+const name = staff ? (await staffById(staff.staffId))?.name : undefined;
+const firstName = name && !name.includes('@') ? name.split(' ')[0] : undefined;
 const asLabel = { lead: '', assistant: 'Assisting', cover: 'Substitute' } as const;
 ---
 

@@ -1,23 +1,16 @@
 # p2-foundation: state
 
-Branch `claude/bo2-foundation`, from `claude/blissful-archimedes-enun5m` at 6a5394d.
-
-## Plan
-1. Schema + migration `0011_phase2` (staff, class_teacher, class_cover, session.shared_device, and every later unit's tables).
-2. Roles: `staff.ts`, middleware, `Astro.locals.staffRole/staffId`, shared-device idle hour.
-3. `src/server/teachers.ts` + unit tests.
-4. Settings → Staff page, shell menu "Settings", teacher placeholder `/admin/teach`, sign-in "shared device".
-5. Phase 1 cleanups (under 5, link functions, badge workarounds, content editor requireStaff, sharp).
-6. Docs, `tests/e2e/staff-settings.mjs`, all checks, screenshots, report.
+Branch `claude/bo2-foundation`, from `claude/blissful-archimedes-enun5m` at 6a5394d. **Done**; report in `report.md`.
 
 ## Commits
-(none yet)
+- f8a6465 Staff roles, teachers on classes, migration 0011_phase2, Settings → Staff, teacher home
+- (next) Tests, docs, cleanups, sharp 0.35.5, report
 
 ## Decisions
-(see report as they're made)
+See report.md → Decisions.
 
 ## Open questions
-(none)
+None blocking. Recommendations in report.md → Open points.
 
 ## Next action
-Write schema + migration.
+None. Waiting for the coordinator to review and merge.

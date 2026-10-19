@@ -87,11 +87,12 @@ export async function addStaff(byUserId: string, raw: z.input<typeof staffInput>
   return row;
 }
 
-/** Change a name or role. ADMIN_EMAILS owners can't be changed, and you can't take away your own owner role. */
+/** Change a name or role. ADMIN_EMAILS owners stay owners (their name can change), and you can't take away your own owner role. */
 export async function updateStaff(byUserId: string, byEmail: string, id: string, raw: { name: string; role: string }) {
   const person = await staffById(id);
   if (!person) throw new StaffSettingsError('That person wasn’t found.');
-  if (person.fixed) throw new StaffSettingsError('This owner is set in the site’s settings and can’t be changed here.');
+  // An ADMIN_EMAILS owner keeps the owner role; only their name can change.
+  if (person.fixed && raw.role !== 'owner') throw new StaffSettingsError('This owner is set in the site’s settings and can’t be changed here.');
   const parsed = staffInput.omit({ email: true }).safeParse(raw);
   if (!parsed.success) throw new StaffSettingsError(firstIssue(parsed.error));
   if (person.email === byEmail.toLowerCase() && parsed.data.role !== 'owner') throw new StaffSettingsError('You can’t remove your own owner role. Ask another owner.');
@@ -117,6 +118,8 @@ export interface ClassChoice {
   session: Session;
   /** "Tue · 4:30–5:30 pm", or a one-off's date */
   when: string;
+  /** The session's label when it adds something to `when` ("Ages 7–10"), else '' */
+  extra: string;
   /** "Intro to Theater, Tue · 4:30–5:30 pm", for a list of every class */
   label: string;
 }
@@ -129,7 +132,9 @@ export function assignableClasses(catalog: Catalog, today = todayInAthens()): Cl
         .filter((s) => staffSession(s) && s.endDate >= today)
         .map((session) => {
           const when = whenLabel(session);
-          return { sessionId: session.id, program, session, when, label: [program.title, session.label, when].filter(Boolean).join(', ') };
+          // A one-off's label is often just its date, already in `when`.
+          const extra = session.label && !when.startsWith(session.label) ? session.label : '';
+          return { sessionId: session.id, program, session, when, extra, label: [program.title, extra, when].filter(Boolean).join(', ') };
         }),
     )
     .sort((a, b) => a.session.startDate.localeCompare(b.session.startDate) || a.program.title.localeCompare(b.program.title));

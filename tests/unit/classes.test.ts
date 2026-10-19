@@ -89,6 +89,15 @@ describe('the Classes list', () => {
     expect(filterRows(rows, { ...none, waitlist: true, under5: true })).toEqual([]);
   });
 
+  it('doesn’t count a one-off night of a class as under 5', () => {
+    const geode = program('geode', 'class', [session('geode-nov', { days: ['Fri'], startDate: '2026-11-20', endDate: '2026-11-20' }), session('geode-weekly', { days: ['Fri'] })]);
+    const r = classRows({ ...content, programs: [geode] }, new Map(), clock);
+    expect(r.map((x) => [x.session.id, x.under5])).toEqual([
+      ['geode-nov', false],
+      ['geode-weekly', true],
+    ]);
+  });
+
   it('groups by term in date order', () => {
     const groups = groupByTerm(filterRows(rows, none));
     expect(groups.map((g) => g.term)).toEqual(['Fall 2026', 'Spring 2027']);
