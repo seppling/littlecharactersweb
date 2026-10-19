@@ -337,3 +337,39 @@ The foundation unit (`claude/bo-foundation`) is merged.
   - a dependency update before launch (`npm audit` lists sharp and http-cache-semantics advisories).
 - **Next:** classes (`claude/bo-classes`), families (`claude/bo-families`) and contacts (`claude/bo-contacts`) started at 03:19Z.
 
+### Classes, families and family details merged (October 19)
+
+Three units are merged: contacts (`claude/bo-contacts`), classes (`claude/bo-classes`) and families (`claude/bo-families`).
+- **Proof on the merged branch:**
+  - type check clean;
+  - 524 unit tests pass;
+  - the site builds;
+  - all eight browser tests pass on one fresh database: the four journeys, then `staff-foundation`, `staff-contacts`, `staff-classes` and `staff-families`.
+- **Family details:**
+  - the details step and the account ask once per family for emergency contacts (at least one), who may pick up, ZIP, and how they heard about us;
+  - families with details confirmed within a year see one summary line;
+  - the Studio Director import brings emergency contacts and ZIP when the export has them;
+  - a Policies wording draft for Hannah names the new details.
+- **Classes:**
+  - the Classes list has filters (openings, waitlist, under 5, term, ended);
+  - a class's page has the roster with badges, care details on tap, Call, Text and Email, the waitlist, a print page, roster and list CSV/PDF, and a sign-in sheet PDF.
+- **Families:**
+  - one search box for families, parents (any phone format), children and classes;
+  - the Families list;
+  - a family's page with everything, notes, and staff edits that don't count as the family's confirmation;
+  - four Studio Director reports as CSV/PDF: Family List, Student / Class List, Student Contact List, Family Notes.
+- **Coordinator fixes at merge:**
+  - `admin.css`: the badge tones come after the base badge rule, because allergy badges showed green; the header's action row no longer stacks;
+  - two journey tests look for the new roster;
+  - the classes and families browser tests expect the new family details.
+- **For Hannah:**
+  - keep one emergency contact required (`EMERGENCY_CONTACT_REQUIRED`);
+  - the "How did you hear about us?" options;
+  - the Policies draft line that teachers see contacts from spring;
+  - teacher names are missing on some sessions in the editor (Homeschool, Geode Acting Studio, Parents' Night Out, the free class).
+- **Follow-ups:**
+  - a `classSignInSheet` and a `familyLists` link function in `admin-links.ts`;
+  - remove the scoped badge workarounds now that `admin.css` is fixed;
+  - search emergency contacts and pickup people by name.
+- **Next:** today (`claude/bo-today`), payments (`claude/bo-payments`) and messages (`claude/bo-messages`) started at 04:40Z. Roster changes come after.
+
