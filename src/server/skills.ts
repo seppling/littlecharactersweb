@@ -131,7 +131,8 @@ export async function setSkillActive(userId: string, id: string, active: boolean
   const row = await skillRow(id);
   if (row.active === active) return false;
   const db = await getDb();
-  const position = active ? (await programSkills(row.programSlug)).length : row.position;
+  const [{ last }] = await db.select({ last: sql<number>`coalesce(max(${skill.position}), -1)::int` }).from(skill).where(eq(skill.programSlug, row.programSlug));
+  const position = active ? last + 1 : row.position;
   await db.update(skill).set({ active, position }).where(eq(skill.id, id));
   await audit(userId, active ? 'admin.skill.reactivate' : 'admin.skill.retire', 'skill', id, row.programSlug);
   return true;
