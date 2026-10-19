@@ -604,3 +604,15 @@ Each show (the content's events of kind `show`) gets a cast list and rehearsals.
 
 **Not built here:** tickets, conflicts, rehearsal attendance, rehearsals in the teacher app's "This week", tags (the tags unit's).
 
+
+## 24. Staff settings (`src/server/settings-store.ts`)
+
+Settings that aren't site content live in `staff_setting`, one JSON value per key. `SETTING_KEYS` lists every key with its shape (zod). Add a key there before using it.
+
+- `getSetting(key)`: the value, or null when it's unsaved or no longer fits its shape (callers fall back to their default).
+- `setSetting(userId, key, value)`: checks the shape, saves, and writes `admin.setting.update` to the audit log. Callers check the person is an owner, and ask for a fresh sign-in where the change matters.
+- `clearSetting(userId, key)`: back to the default (`admin.setting.clear`).
+
+| Key | Shape | Written by | Read by |
+|---|---|---|---|
+| `reports.baseline` | `Baseline`: `season`, optional `children` and `returning`, `classes` (title, enrolled), `monthly` (month, collected in cents) | Settings → Last season (settings unit) | the dashboard's comparisons (reports unit) |
