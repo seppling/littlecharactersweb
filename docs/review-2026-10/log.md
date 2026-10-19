@@ -592,3 +592,48 @@ All three units are merged (`claude/bo2-refunds-credits`, `claude/bo2-tags-skill
   - a tax ID for statements (optional);
   - whether teachers should see tags such as a cast group (recommended: no);
   - photo permission "Not asked" for children added through the account.
+
+### Wave 4 merged; Phase 2 complete (October 19)
+
+The settings unit (`claude/bo2-settings-rest`) and the reports unit (`claude/bo2-reports`) are merged. Every unit of Phase 2 is now on `claude/blissful-archimedes-enun5m`.
+- **Proof on the merged branch:**
+  - type check clean;
+  - 861 unit tests pass;
+  - the site builds;
+  - all 21 browser tests pass in order on one fresh database;
+  - December billing after the family journeys still charges $80.75 (Ava, family discount) and $55 (Maya, scholarship).
+- **The rest of Settings.** Unset settings keep today's behavior.
+  - **Emails:** the subject and opening of six emails, with a preview and a test send. Amounts, dates and links always stay.
+  - **Reasons:** drop reasons on Remove, and absence reasons as one optional tap in the teacher app.
+  - **Attendance:** a start date for "Attendance not taken", and which kinds of class need attendance.
+  - **Last season:** Studio Director totals for the dashboard's comparisons.
+  - **Also:**
+    - today's rehearsals on Today and in the teacher's This week;
+    - two new attention items: a refund that didn't go through, and progress notes to send.
+- **Reports** (`/admin/reports`, owners only, read-only):
+  - **The dashboard:** money, enrollment, growth and safety, each with "how it's counted". Each tile is counted by the same function as the report behind it, and a unit test checks every tile against its report.
+  - **The library:** 28 reports grouped by the question they answer, each with its Studio Director name, filters, sorting, CSV and PDF after a fresh sign-in, and stars.
+  - The allergy and medical list asks for a fresh sign-in and is logged as a roster view.
+- **At the merge:** back-office sections 25 (Settings) and 26 (Reports).
+- **For Hannah:**
+  - which kinds of class need attendance (recommended: weekly classes and camps);
+  - the attendance start date for launch (recommended: the first class day after teachers have the app);
+  - the default drop and absence reasons;
+  - typing in last season's totals (optional).
+  - The earlier lists still stand: the $25 drop-in price, a missed drop-in, a day off in a short last month, a tax ID for statements, and tags for teachers.
+
+**Phase 2 by unit** (all on `claude/blissful-archimedes-enun5m`):
+
+| Unit | What it does |
+|---|---|
+| foundation | Staff roles and teachers, substitutes, Settings → Staff, shared-device sign-in, every Phase 2 table (0011, 0012) |
+| teacher app | Today's classes on a phone, offline attendance, notes to Hannah, substitutes emailed |
+| calendar | Calendar, each class's dates, days off with their effect on monthly payments |
+| drop-ins | One class of a weekly class, booked and paid ($25 placeholder), on the roster |
+| refunds and credits | Stripe and cash refunds, credits on the next payment, day-off credits, yearly statements |
+| tags and skills | Tags for rosters, search and email; skills on the teacher's phone; progress notes |
+| shows | Cast lists, roles, rehearsals, the program download |
+| settings | Email wording, reasons, attendance settings, last season |
+| reports | The dashboard and the library of 28 reports |
+
+**Next:** bring Phase 2 into `main` with a pull request when Stephen says so, after the email setup (Squarespace DNS records) and before the Render Blueprint.
