@@ -1,49 +1,245 @@
 ---
+/**
+ * Staff: one class. The header (when, where, who teaches, places filled), the
+ * roster with badges and parents' contacts, each child's care details on tap,
+ * and the waitlist. Opening it is written to the audit log, once per view:
+ * the care details are in the page, not fetched per tap.
+ * Print: ./print.astro. Downloads: [sessionId].csv.ts, [sessionId].pdf.ts and
+ * the sign-in sheet, all from classRoster (src/server/classes.ts).
+ */
 import AdminShell from '@/components/admin/AdminShell.astro';
-import { roster } from '@/server/admin';
-import { dayList, timeRange } from '@/lib/format';
-import { classes } from '@/lib/admin-links';
+import Badges from '@/components/admin/Badges.astro';
+import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import { classEmail, classes, classPage, classPrint, downloads, family } from '@/lib/admin-links';
+import { formatPhone, smsHref, telHref } from '@/lib/contacts';
+import { capacityFor } from '@/server/family';
+import { classLine, classRoster, type ClassRoster } from '@/server/classes';
 import { requireStaff } from '@/server/staff';
 
 export const prerender = false;
 const { staff, response } = requireStaff(Astro.locals);
 if (response) return response;
-const isAdmin = !!staff;
 const found = Astro.locals.content.findSession(Astro.params.sessionId ?? '');
 if (!found) return new Response('Not found', { status: 404 });
-const people = isAdmin ? await roster(found.session.id, staff!.id) : [];
+const { program, session } = found;
+const location = Astro.locals.content.locationById(session.locationId);
+const { students, waitlist }: ClassRoster = staff ? await classRoster(session.id, staff.id) : { students: [], waitlist: [] };
+const cap = capacityFor(program, session);
+const files = downloads(classPage(session.id));
+const sheet = downloads(`${classPage(session.id)}/sign-in-sheet`).pdf;
+const joined = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
+const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.length) === 1 ? 'place' : 'places'}${cap ? ' filled' : ''}`;
 ---
 
-<AdminShell title={`Roster: ${found.program.title}`} section="classes" back={{ href: classes(), label: 'Classes' }}>
-  <section class="wrap admin">
-    <a href={classes()}>← All rosters</a>
-    <h1>{found.program.title}</h1>
-    <p class="script">{dayList(found.session.days)} · {timeRange(found.session.start, found.session.end)} · {found.session.term}</p>
-    <p class="muted">Includes medical notes. Please don’t print or share outside the teaching team. Views are logged.</p>
-    {people.length === 0 ? <p>No one enrolled yet.</p> : (
-      <table>
-        <thead><tr><th>Student</th><th>Status</th><th>Grown-ups</th><th>Allergies & notes</th><th>Pickup</th><th>Photos</th></tr></thead>
-        <tbody>
-          {people.map((p) => (
-            <tr>
-              <td><strong>{p.student.name}</strong><br /><span class="muted">{p.student.age !== null ? `Age ${p.student.age}` : ''} · {p.family}</span></td>
-              <td>{p.status}</td>
-              <td>{p.guardians.map((g) => <div>{g.name}<br /><span class="muted">{g.phone ?? ''} · {g.email}</span></div>)}</td>
-              <td>{p.student.allergies && <div><strong>Allergies:</strong> {p.student.allergies}</div>}{p.student.medicalNotes && <div>{p.student.medicalNotes}</div>}</td>
-              <td>{p.student.pickup}</td>
-              <td>{p.student.photoConsent === true ? 'Yes' : p.student.photoConsent === false ? 'No' : '—'}</td>
-            </tr>
+<AdminShell title={program.title} section="classes" back={{ href: classes(), label: 'Classes' }}>
+  <div class="admin-page">
+    <div class="admin-head">
+      <div>
+        <h1>{program.title}</h1>
+        <p class="class-line">{classLine(session, location?.name)}</p>
+        <p class="class-counts" data-counts><strong>{places}</strong> · {waitlist.length} on the waitlist</p>
+      </div>
+      <div class="admin-head__actions">
+        <a class="btn btn--outline btn--sm" href={classPrint(session.id)} data-print-link>Print</a>
+        <a class="btn btn--outline btn--sm" href={classEmail(session.id)} data-email-link>Email the class</a>
+        <a class="btn btn--outline btn--sm" href={sheet} data-download="sign-in">Sign-in sheet</a>
+        <DownloadLinks csv={files.csv} pdf={files.pdf} what="the roster" />
+      </div>
+    </div>
+    <p class="safety">Rosters include medical notes. Share them only with the teaching team. Views and downloads are logged.</p>
+    {/* Roster changes (add or remove a child) go here, in a later unit. */}
+    <div class="roster-tools" data-roster-tools hidden></div>
+
+    <section class="roster-section" aria-labelledby="roster-h">
+      <h2 id="roster-h">Roster <span class="muted">({students.length})</span></h2>
+      {students.length === 0 ? (
+        <div class="empty-state">
+          <strong>No one enrolled yet.</strong>
+          <p>Children show up here when a family signs up.</p>
+        </div>
+      ) : (
+        <ul class="roster" data-roster>
+          {students.map((c) => {
+            const medical = !!(c.allergies || c.medicalNotes);
+            return (
+              <li class="kid" data-child={c.studentId}>
+                <details class="kid__care">
+                  <summary>
+                    <span class="kid__who">
+                      <strong class="kid__name">{c.name}</strong>
+                      {c.age !== null && <span class="muted">Age {c.age}</span>}
+                    </span>
+                    <Badges badges={c.badges} />
+                    <span class="kid__more" aria-hidden="true">Care details</span>
+                  </summary>
+                  <div class="care" data-care>
+                    <div class:list={['care__block', medical ? 'care__block--alert' : null]} data-medical={medical ? 'yes' : 'no'}>
+                      <h3>Allergies and medical</h3>
+                      {medical ? (
+                        <>
+                          {c.allergies && <p><strong>Allergies:</strong> {c.allergies}</p>}
+                          {c.medicalNotes && <p><strong>Medical notes:</strong> {c.medicalNotes}</p>}
+                        </>
+                      ) : (
+                        <p class="muted">Nothing on file.</p>
+                      )}
+                    </div>
+                    <div class:list={['care__block', c.pickupNotes ? 'care__block--warning' : null]}>
+                      <h3>Pickup</h3>
+                      {c.pickupNotes && <p><strong>Note:</strong> {c.pickupNotes}</p>}
+                      {c.pickupPeople.length ? (
+                        <ul class="people">
+                          {c.pickupPeople.map((p) => (
+                            <li>
+                              <span>{p.name} <span class="muted">({p.relationship})</span></span>
+                              {p.phone && <a class="btn btn--outline btn--sm" href={telHref(p.phone)}>Call <span class="sr-only">{p.name}</span></a>}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p class="muted">Parents only. No other pickup people on file.</p>
+                      )}
+                    </div>
+                    <div class:list={['care__block', c.emergencyContacts.length ? null : 'care__block--warning']}>
+                      <h3>Emergency contacts</h3>
+                      {c.emergencyContacts.length ? (
+                        <ul class="people">
+                          {c.emergencyContacts.map((p) => (
+                            <li>
+                              <span>{p.name} <span class="muted">({p.relationship}) {formatPhone(p.phone)}</span></span>
+                              <a class="btn btn--outline btn--sm" href={telHref(p.phone)} data-call>Call <span class="sr-only">{p.name}</span></a>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p class="warn" data-no-emergency>No emergency contact on file</p>
+                      )}
+                    </div>
+                    <div class="care__block">
+                      <h3>Photos</h3>
+                      <p>{c.photoConsent === false ? 'No photos, please.' : c.photoConsent === true ? 'Photos are OK.' : 'Not asked yet.'}</p>
+                    </div>
+                  </div>
+                </details>
+                <div class="kid__family">
+                  {c.parents.map((p) => (
+                    <div class="parent">
+                      <span class="parent__name">{p.name}{p.phone && <span class="muted"> {formatPhone(p.phone)}</span>}</span>
+                      <span class="contact-links">
+                        {p.phone && <a class="btn btn--outline btn--sm" href={telHref(p.phone)} data-call>Call <span class="sr-only">{p.name}</span></a>}
+                        {p.phone && <a class="btn btn--outline btn--sm" href={smsHref(p.phone)} data-text>Text <span class="sr-only">{p.name}</span></a>}
+                        <a class="btn btn--outline btn--sm" href={`mailto:${p.email}`} data-email>Email <span class="sr-only">{p.name}</span></a>
+                      </span>
+                    </div>
+                  ))}
+                  <a class="family-link" href={family(c.householdId)}>{c.family} family page</a>
+                </div>
+                {/* Roster changes (remove from class) go here, in a later unit. */}
+                <div class="kid__actions" data-roster-actions hidden></div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+
+    <section class="roster-section" aria-labelledby="waitlist-h" data-waitlist>
+      <h2 id="waitlist-h">Waitlist <span class="muted">({waitlist.length})</span></h2>
+      {waitlist.length === 0 ? (
+        <p class="muted">No one on the waitlist.</p>
+      ) : (
+        <ol class="waitlist">
+          {waitlist.map((c) => (
+            <li class="wait" data-waiting={c.studentId}>
+              <div class="wait__who">
+                <strong>{c.name}</strong>
+                <span class="muted">{c.age !== null ? `Age ${c.age} · ` : ''}Joined {joined(c.joinedAt)}</span>
+                {c.offeredAt && <span class="badges"><span class="badge badge--good" data-offered>Offered {joined(c.offeredAt)}</span></span>}
+              </div>
+              <div class="kid__family">
+                {c.parents.map((p) => (
+                  <div class="parent">
+                    <span class="parent__name">{p.name}{p.phone && <span class="muted"> {formatPhone(p.phone)}</span>}</span>
+                    <span class="contact-links">
+                      {p.phone && <a class="btn btn--outline btn--sm" href={telHref(p.phone)} data-call>Call <span class="sr-only">{p.name}</span></a>}
+                      {p.phone && <a class="btn btn--outline btn--sm" href={smsHref(p.phone)} data-text>Text <span class="sr-only">{p.name}</span></a>}
+                      <a class="btn btn--outline btn--sm" href={`mailto:${p.email}`} data-email>Email <span class="sr-only">{p.name}</span></a>
+                    </span>
+                  </div>
+                ))}
+                <a class="family-link" href={family(c.householdId)}>{c.family} family page</a>
+              </div>
+              {/* "Offer the spot" goes here, in the Roster changes unit. */}
+              <div class="wait__actions" data-waitlist-actions hidden></div>
+            </li>
           ))}
-        </tbody>
-      </table>
-    )}
-  </section>
+        </ol>
+      )}
+    </section>
+  </div>
 </AdminShell>
 
 <style>
-  .admin { padding-block: var(--space-2xl) var(--space-3xl); display: grid; gap: var(--space-m); }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; font-size: var(--step--1); }
-  th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
-  .muted { color: var(--ink-mute); }
+  .class-line { color: var(--ink-soft); }
+  .class-counts { font-size: var(--step--1); color: var(--ink-soft); }
+  .safety { font-size: var(--step--1); color: var(--ink-mute); max-width: var(--measure); }
+  .muted { color: var(--ink-mute); font-weight: 400; }
+  .roster-section { display: grid; gap: var(--space-s); }
+  .roster-section h2 { font-size: var(--step-1); }
+  .roster,
+  .waitlist,
+  .people { list-style: none; margin: 0; padding: 0; }
+  .roster,
+  .waitlist { display: grid; gap: var(--space-s); }
+  .kid,
+  .wait {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.75rem var(--space-l);
+    align-items: start;
+    padding: 0.8rem 1rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: var(--r-md);
+    background: var(--paper);
+    min-width: 0;
+  }
+  .kid__care summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.75rem;
+    min-height: 44px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .kid__care summary::-webkit-details-marker { display: none; }
+  .kid__who,
+  .wait__who { display: grid; gap: 0.1rem; min-width: 0; }
+  .kid__name { font-size: var(--step-0); }
+  .kid__more { font-size: var(--step--1); color: var(--purple); text-decoration: underline; white-space: nowrap; }
+  .kid__more::after { content: ' ▸'; text-decoration: none; display: inline-block; }
+  .kid__care[open] .kid__more::after { content: ' ▾'; }
+  .care { display: grid; gap: 0.6rem; margin-top: 0.75rem; }
+  .care__block { padding: 0.6rem 0.8rem; border-radius: var(--r-sm); background: var(--hall); font-size: var(--step--1); display: grid; gap: 0.3rem; }
+  .care__block h3 { font-family: var(--font-script); font-size: var(--step--2); font-weight: 400; text-transform: uppercase; color: var(--ink-mute); }
+  .care__block p { margin: 0; overflow-wrap: anywhere; }
+  .care__block--alert { background: var(--red-tint); color: var(--red-ink); border-left: 5px solid var(--red); }
+  .care__block--alert h3 { color: var(--red-ink); }
+  .care__block--warning { background: var(--yellow-tint); border-left: 5px solid var(--yellow); }
+  .warn { color: var(--yellow-ink); font-weight: 700; }
+  .people { display: grid; gap: 0.4rem; }
+  .people li,
+  .parent { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.3rem 0.6rem; }
+  .people li > span,
+  .parent__name { min-width: 0; overflow-wrap: anywhere; }
+  .kid__family { display: grid; gap: 0.5rem; font-size: var(--step--1); min-width: 0; }
+  .contact-links { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .family-link { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; }
+  .kid__actions,
+  .wait__actions { grid-column: 1 / -1; }
+  @media (max-width: 760px) {
+    .kid,
+    .wait { grid-template-columns: minmax(0, 1fr); }
+    .parent { display: grid; justify-content: stretch; }
+  }
 </style>
