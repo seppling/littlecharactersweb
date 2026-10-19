@@ -1,0 +1,236 @@
+---
+/**
+ * The reports dashboard (docs/back-office.md → Reports): six numbers across
+ * the top, then panels. Every number is the total of a report in the library,
+ * run with the same filters (src/server/reports/dashboard.ts), and opens that
+ * report. Owners only; teachers get the Staff only panel.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import BarChart from '@/components/admin/reports/BarChart.astro';
+import HowCounted from '@/components/admin/reports/HowCounted.astro';
+import LineChart from '@/components/admin/reports/LineChart.astro';
+import * as links from '@/lib/admin-links';
+import { todayInAthens } from '@/lib/pricing';
+import { cellText } from '@/server/reports/common';
+import { dashboard, type Tile } from '@/server/reports/dashboard';
+import { favorites } from '@/server/reports/favorites';
+import { findReport } from '@/server/reports/library';
+import { requireStaff } from '@/server/staff';
+import '@/styles/reports.css';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const d = staff ? await dashboard({ content: Astro.locals.content, today: todayInAthens(), now: new Date() }, staff.id) : null;
+const starred = staff && Astro.locals.staffId ? (await favorites(Astro.locals.staffId)).map((k) => findReport(k)!) : [];
+const top = <T,>(xs: T[], n = 5) => xs.slice(0, n);
+const num = (v: unknown) => (typeof v === 'number' ? v : null);
+const money = d?.byMonth.result;
+const hasYearBefore = !!money?.rows.some((r) => r.cells[4] !== null);
+const pace = d?.pace.result;
+const heard = d?.heard.result;
+const tileId = (t: Tile) => `tile-${t.key}`;
+---
+
+<AdminShell title="Reports" section="reports">
+  <div class="admin-page reports-dash">
+    <div class="admin-head">
+      <div>
+        <h1>Reports</h1>
+        {
+          d && (
+            <p class="admin-intro" data-season>
+              {d.season ? `This season is ${d.season}.` : 'No season on the site yet.'} {d.lastSeason ? `Compared with ${d.lastSeason}.` : 'No earlier season to compare with yet.'}
+            </p>
+          )
+        }
+      </div>
+      <div class="admin-head__actions">
+        <a class="btn btn--primary btn--sm" href={links.reportsLibrary()} data-library-link>All reports</a>
+      </div>
+    </div>
+
+    {
+      d && (
+        <>
+          <ul class="report-tiles" data-tiles>
+            {d.tiles.map((t) => (
+              <li class="report-tile" data-tile={t.key}>
+                <a href={t.href} aria-describedby={tileId(t)}>
+                  <span class="report-tile__name">{t.name}</span>
+                  <strong class:list={['report-tile__value', { 'report-tile__value--words': t.total.value === null }]} data-tile-value>{t.total.display}</strong>
+                </a>
+                <span class="report-tile__label" id={tileId(t)}>{t.total.label}</span>
+                {t.compare && <span class:list={['report-tile__compare', { 'report-tile__compare--none': !/^[↑↓]/.test(t.compare) }]}>{t.compare}</span>}
+                <HowCounted how={t.how} />
+              </li>
+            ))}
+          </ul>
+
+          {starred.length > 0 && (
+            <nav class="report-starred" aria-label="Starred reports" data-starred>
+              <span class="report-starred__label">Starred</span>
+              {starred.map((r) => (
+                <a class="chip" href={links.report(r.key)}>{r.title}</a>
+              ))}
+            </nav>
+          )}
+
+          <div class="report-panels">
+            <section class="staff-card report-panel" aria-labelledby="p-classes" data-panel="classes">
+              <h2 id="p-classes">Classes at risk and waitlists</h2>
+              <h3>
+                <a href={d.atRisk.href}>Under 5 students</a> <span class="report-panel__count">{d.atRisk.result.total.display}</span>
+              </h3>
+              {d.atRisk.result.rows.length ? (
+                <ul class="report-mini">
+                  {top(d.atRisk.result.rows).map((r) => (
+                    <li>
+                      <a href={r.href}>{r.cells[0]}</a>
+                      <span>
+                        {r.cells[3]} enrolled, starts {cellText(r.cells[2], 'date')}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="muted">{d.atRisk.result.empty}</p>
+              )}
+              <h3>
+                <a href={d.waitlists.href}>Waitlists</a> <span class="report-panel__count">{d.waitlists.result.total.display}</span>
+              </h3>
+              {d.waitlists.result.rows.length ? (
+                <ul class="report-mini">
+                  {top(d.waitlists.result.rows).map((r) => (
+                    <li>
+                      <a href={r.href}>{r.cells[0]}</a>
+                      <span>{r.cells[2]} waiting</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="muted">{d.waitlists.result.empty}</p>
+              )}
+            </section>
+
+            <section class="staff-card report-panel" aria-labelledby="p-owes" data-panel="owes">
+              <h2 id="p-owes">Problem payments</h2>
+              <p class="report-panel__big">
+                <a href={d.owes.href} data-owes-total>{d.owes.result.total.display}</a>
+              </p>
+              <HowCounted how={findReport('who-owes')!.how} />
+              <ul class="report-aging">
+                {d.owes.aging.map((b) => (
+                  <li>
+                    <span>{b.bucket}</span>
+                    <strong>{b.count ? `${b.count} · ${cellText(b.cents, 'money')}` : '—'}</strong>
+                  </li>
+                ))}
+              </ul>
+              <div class="report-small">
+                {d.small.map((t) => (
+                  <div class="report-small__tile" data-tile={t.key}>
+                    <a href={t.href}>
+                      <span class="report-tile__name">{t.name}</span>
+                      <strong class:list={{ 'report-tile__value--words': t.total.value === null }} data-tile-value>{t.total.display}</strong>
+                    </a>
+                    <span class="report-tile__label">{t.total.label}</span>
+                    <HowCounted how={t.how} />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section class="staff-card report-panel report-panel--wide" aria-labelledby="p-money" data-panel="money">
+              <h2 id="p-money">
+                <a href={d.byMonth.href}>Money by month</a>
+              </h2>
+              {money && money.total.value !== null ? (
+                <BarChart
+                  id="chart-money"
+                  title={`Collected each month, less refunds${hasYearBefore ? ', beside a year before' : ''}`}
+                  categories={money.rows.map((r) => String(r.cells[0]).slice(0, 3))}
+                  series={[
+                    { name: 'Collected', values: money.rows.map((r) => num(r.cells[3])) },
+                    ...(hasYearBefore ? [{ name: 'A year before (Studio Director)', values: money.rows.map((r) => num(r.cells[4])) }] : []),
+                  ]}
+                  kind="money"
+                />
+              ) : (
+                <p class="muted">{money?.empty}</p>
+              )}
+              {money?.note && <p class="report-panel__note">{money.note}</p>}
+            </section>
+
+            <section class="staff-card report-panel" aria-labelledby="p-pace" data-panel="pace">
+              <h2 id="p-pace">
+                <a href={d.pace.href}>Sign-up pace</a>
+              </h2>
+              {pace && pace.rows.length ? (
+                <LineChart
+                  id="chart-pace"
+                  title={`Sign-ups each week of ${d.season}${pace.columns[2].label !== 'Last season' ? `, beside ${pace.columns[2].label}` : ''}`}
+                  categories={pace.rows.map((r) => String(r.cells[0]))}
+                  series={[
+                    { name: pace.columns[1].label, values: pace.rows.map((r) => num(r.cells[1])) },
+                    ...(pace.rows.some((r) => r.cells[2] !== null) ? [{ name: pace.columns[2].label, values: pace.rows.map((r) => num(r.cells[2])) }] : []),
+                  ]}
+                  kind="count"
+                />
+              ) : (
+                <p class="muted">{pace?.empty}</p>
+              )}
+              {pace?.note && <p class="report-panel__note">{pace.note}</p>}
+            </section>
+
+            <section class="staff-card report-panel" aria-labelledby="p-heard" data-panel="heard">
+              <h2 id="p-heard">
+                <a href={d.heard.href}>How new families found us</a>
+              </h2>
+              {heard && heard.rows.length ? (
+                <BarChart id="chart-heard" title={`New families in ${d.season} by how they heard about us`} categories={heard.rows.map((r) => String(r.cells[0]))} series={[{ name: 'Families', values: heard.rows.map((r) => num(r.cells[1])) }]} kind="count" orientation="horizontal" />
+              ) : (
+                <p class="muted">{heard?.empty}</p>
+              )}
+              <h3>
+                <a href={d.zips.href}>Top ZIP codes</a>
+              </h3>
+              {d.zips.result.rows.length ? (
+                <ol class="report-mini report-mini--zip">
+                  {top(d.zips.result.rows).map((r) => (
+                    <li>
+                      <span>{r.cells[0]}</span>
+                      <span>{r.cells[1]}</span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p class="muted">{d.zips.result.empty}</p>
+              )}
+            </section>
+
+            <section class="staff-card report-panel report-panel--wide" aria-labelledby="p-safety" data-panel="safety">
+              <h2 id="p-safety">Safety and attendance</h2>
+              <ul class="report-stats">
+                {[
+                  { key: 'care-details', name: 'Care details on file', p: d.care },
+                  { key: 'missed-two', name: 'Missed two in a row', p: d.missed },
+                  { key: 'attendance-taken', name: 'Attendance taken this week', p: d.taken },
+                ].map((s) => (
+                  <li data-tile={s.key}>
+                    <a href={s.p.href}>
+                      <span class="report-tile__name">{s.name}</span>
+                      <strong class:list={{ 'report-tile__value--words': s.p.result.total.value === null }} data-tile-value>{s.p.result.total.display}</strong>
+                    </a>
+                    <HowCounted how={findReport(s.key)!.how} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </>
+      )
+    }
+  </div>
+</AdminShell>

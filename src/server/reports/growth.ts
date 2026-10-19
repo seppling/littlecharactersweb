@@ -72,7 +72,7 @@ export function heardAboutFrom(families: FamilyRow[], enrollments: EnrollRow[], 
   return {
     columns: [{ label: 'How they heard' }, { label: 'Families', kind: 'number' }, { label: 'Share', kind: 'percent' }],
     rows: rows.map(([label, n]) => ({ cells: [label, n, percent(n, list.length)] })),
-    total: { value: season ? list.length : null, display: season ? list.length.toLocaleString('en-US') : 'No season yet', label: whoLabel(f, season) },
+    total: { value: list.length ? list.length : null, display: list.length ? list.length.toLocaleString('en-US') : season ? 'None yet' : 'No season yet', label: whoLabel(f, season) },
     empty: f.who === 'all' ? `No families with a class in ${season ?? 'this season'} yet.` : `No new families in ${season ?? 'this season'} yet.`,
   };
 }
@@ -89,7 +89,7 @@ export function zipFrom(families: FamilyRow[], enrollments: EnrollRow[], content
   return {
     columns: [{ label: 'ZIP code' }, { label: 'Families', kind: 'number' }, { label: 'Share', kind: 'percent' }],
     rows: rows.map(([zip, n]) => ({ cells: [zip, n, percent(n, list.length)] })),
-    total: { value: season ? list.length : null, display: season ? list.length.toLocaleString('en-US') : 'No season yet', label: whoLabel(f, season) },
+    total: { value: list.length ? list.length : null, display: list.length ? list.length.toLocaleString('en-US') : season ? 'None yet' : 'No season yet', label: whoLabel(f, season) },
     empty: f.who === 'all' ? `No families with a class in ${season ?? 'this season'} yet.` : `No new families in ${season ?? 'this season'} yet.`,
   };
 }

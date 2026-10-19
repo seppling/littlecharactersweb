@@ -1,0 +1,91 @@
+---
+/**
+ * A line chart for the reports dashboard (sign-ups per week, this season
+ * beside last season): inline SVG with 2 px lines, HTML words around it, a
+ * tooltip per week and "Show the numbers" for the same data as a table.
+ */
+import { axisLabel, fullLabel, niceMax, SERIES_COLORS } from '@/lib/chart';
+
+interface Props {
+  title: string;
+  id: string;
+  categories: string[];
+  series: { name: string; values: (number | null)[] }[];
+  kind: 'money' | 'count';
+}
+const { title, id, categories, series, kind } = Astro.props;
+const max = niceMax(Math.max(0, ...series.flatMap((s) => s.values.map((v) => v ?? 0))));
+const ticks = [0, 0.5, 1].map((t) => t * max);
+const n = categories.length;
+const W = Math.max(1, n - 1) * 10;
+const x = (i: number) => (n === 1 ? W / 2 : i * 10);
+const y = (v: number) => 100 - (v / max) * 100;
+const path = (values: (number | null)[]) =>
+  values
+    .map((v, i) => (v === null ? null : `${x(i)},${y(v)}`))
+    .filter(Boolean)
+    .join(' ');
+// The axis names the first, middle and last weeks; the table has every one.
+const shown = new Set([0, Math.floor((n - 1) / 2), n - 1]);
+const summary = `${title}. ${categories.map((c, i) => `${c}: ${series.map((s) => `${s.name} ${fullLabel(s.values[i], kind)}`).join(', ')}`).join('; ')}.`;
+---
+
+<figure class="chart" aria-labelledby={`${id}-title`} data-chart={id}>
+  <figcaption id={`${id}-title`} class="chart__title">{title}</figcaption>
+  {
+    series.length > 1 && (
+      <ul class="chart__legend">
+        {series.map((s, i) => (
+          <li>
+            <span class:list={['chart__swatch', 'chart__swatch--line', { 'chart__swatch--dash': i === 1 }]} style={`border-color:${SERIES_COLORS[i]}`} aria-hidden="true" />
+            {s.name}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  <div class="chart__plot">
+    <div class="chart__y" aria-hidden="true">
+      {ticks.map((t) => (
+        <span style={`bottom:${(t / max) * 100}%`}>{axisLabel(t, kind)}</span>
+      ))}
+    </div>
+    <svg class="chart__svg" viewBox={`-2 -2 ${W + 4} 104`} preserveAspectRatio="none" role="img" aria-label={summary}>
+      {ticks.map((t) => (
+        <line x1="-2" x2={W + 2} y1={y(t)} y2={y(t)} class={t === 0 ? 'chart__base' : 'chart__grid'} vector-effect="non-scaling-stroke" />
+      ))}
+      {series.map((s, j) => (
+        <polyline points={path(s.values)} fill="none" stroke={SERIES_COLORS[j]} stroke-width="2" stroke-dasharray={j === 1 ? '5 4' : undefined} stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+      ))}
+      {categories.map((c, i) => (
+        <rect x={x(i) - 5} width="10" y="-2" height="104" fill="transparent" class="chart__hit">
+          <title>{`${c}: ${series.map((s) => `${s.name} ${fullLabel(s.values[i], kind)}`).join(', ')}`}</title>
+        </rect>
+      ))}
+    </svg>
+    <div class="chart__x chart__x--ends" aria-hidden="true">
+      {categories.map((c, i) => (shown.has(i) ? <span style={`left:${n === 1 ? 50 : (i / (n - 1)) * 100}%`}>{c.replace(/ \(.*\)$/, '')}</span> : null))}
+    </div>
+  </div>
+  <details class="chart__table">
+    <summary>Show the numbers</summary>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Week</th>
+          {series.map((s) => <th scope="col" class="num">{s.name}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {categories.map((c, i) => (
+          <tr>
+            <th scope="row">{c}</th>
+            {series.map((s) => (
+              <td class="num" data-label={s.name}>{fullLabel(s.values[i], kind)}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </details>
+</figure>

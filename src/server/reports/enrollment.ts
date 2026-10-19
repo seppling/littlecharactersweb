@@ -125,7 +125,8 @@ export function classesFrom(rows: ClassRow[], season: string | null, f: ReportFi
       cells: [r.label ? `${r.program.title} (${r.label})` : r.program.title, r.when, r.teacher, r.filled, r.capacity ?? null, r.capacity ? percent(r.filled, r.capacity) : null, r.waitlist],
       href: links.classPage(r.session.id),
     })),
-    total: { value: rate, display: rate === null ? 'No places yet' : `${Math.round(rate)}%`, label: rate === null ? 'Fill rate' : `Fill rate: ${filled} of ${places} places` },
+    // Nobody enrolled yet: say so, rather than a 0% that looks like a result.
+    total: filled === 0 ? { value: null, display: places ? 'No one enrolled yet' : 'No places yet', label: places ? `${places} places in ${season}` : 'Fill rate' } : { value: rate, display: `${Math.round(rate!)}%`, label: `Fill rate: ${filled} of ${places} places` },
     empty: season ? `No classes in ${season}.` : 'No classes yet.',
   };
 }
@@ -146,7 +147,7 @@ export function childrenFrom(data: Pick<EnrollData, 'enrollments'>, content: Pic
   return {
     columns: [{ label: 'Child' }, { label: 'Family' }, { label: 'Classes', kind: 'number' }, { label: 'Class names' }],
     rows: rows.map(({ e, classes }) => ({ cells: [nameOf(e), e.family, classes.length, [...new Set(classes)].sort().join(', ')], href: links.family(e.householdId) })),
-    total: { value: season ? rows.length : null, display: season ? rows.length.toLocaleString('en-US') : 'No season yet', label: season ? `Children in ${season}` : 'Children this season' },
+    total: { value: rows.length ? rows.length : null, display: rows.length ? rows.length.toLocaleString('en-US') : season ? 'None yet' : 'No season yet', label: season ? `Children in ${season}` : 'Children this season' },
     empty: season ? `No children enrolled in ${season} yet.` : 'No season on the site yet.',
   };
 }
