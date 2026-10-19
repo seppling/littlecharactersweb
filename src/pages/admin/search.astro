@@ -1,0 +1,20 @@
+---
+/** Staff search. A placeholder until the search unit builds the results; the box in the staff bar already sends people here. */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { classes } from '@/lib/admin-links';
+import { requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { response } = requireStaff(Astro.locals);
+if (response) return response;
+---
+
+<AdminShell title="Search" section="families">
+  <div class="admin-page">
+    <h1>Search</h1>
+    <div class="empty-state">
+      <strong>Search is coming soon</strong>
+      <p>You’ll find families, children and classes here. For now, open a class from <a href={classes()}>Classes</a>.</p>
+    </div>
+  </div>
+</AdminShell>

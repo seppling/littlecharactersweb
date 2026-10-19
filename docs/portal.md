@@ -20,9 +20,9 @@ Enrolling feels like part of the website, not a trip to another app. Families go
 | Account | `/account` | Coming up (next class per child), students and their care-details status, **upcoming autopay charges**, anything that needs paying, receipts, sign out. Signed in for 90 days, renewed on each visit. |
 | Family account | `/account` | Coming up (each class's "Can't make it?" opens the contact form for an absence, and **Add to calendar** gives that child's own file from their first class, with a reminder an hour before), the students and their care details, and Payments: the card on file, upcoming autopay by date with a total per date, receipts naming the child. |
 | Pay now | `/account/pay/<id>` | Linked from a "we couldn't charge your card" email: pay that month with any card, which also becomes the saved card. |
-| Staff | `/admin`, `/admin/<sessionId>` | For `ADMIN_EMAILS` only: counts per class, and rosters with ages, allergies, medical notes, pickup, photo consent and parent contacts. Every view is logged. |
-| Staff billing | `/admin/billing` | Failed charges that need a person, the next autopay date and total, **Paid by cash/check**, **Stop payments** when a family withdraws, and every family on monthly autopay. |
-| Family payments | `/admin/billing/<orderId>` | One family's monthly payments for one class, and **discounts** (staff adjustments) on them. See below and `staff-billing.md`. |
+| Staff | `/admin`, `/admin/classes`, `/admin/classes/<sessionId>` | For `ADMIN_EMAILS` only (see `back-office.md`): counts per class, and rosters with ages, allergies, medical notes, pickup, photo consent and parent contacts. Every view is logged. |
+| Staff billing | `/admin/payments` | Failed charges that need a person, the next autopay date and total, **Paid by cash/check**, **Stop payments** when a family withdraws, and every family on monthly autopay. |
+| Family payments | `/admin/payments/<orderId>` | One family's monthly payments for one class, and **discounts** (staff adjustments) on them. See below and `staff-billing.md`. |
 
 The Enroll buttons on every page go through one switch: `site.portal.mode` in `src/config/site.ts`.
 - `'native'` sends families to this portal.
@@ -46,7 +46,7 @@ Implemented in `src/lib/pricing.ts` (pure functions, unit-tested in `tests/unit/
 - **Price conflicts** on the old site resolved to the monthly price.
 
 **Not built yet** (decide first, see `todo.md`):
-- The "paused from class after the 15th" rule. Staff can see unpaid months on `/admin/billing`.
+- The "paused from class after the 15th" rule. Staff can see unpaid months on `/admin/payments`.
 - A self-serve "update my card" button. Today a family pays a failed month with a new card (which becomes the saved card), or emails us.
 - Payment-method surcharges. We recommend dropping these: Stripe's ACH is 0.8%, and card surcharges carry disclosure rules.
 - Waitlist offer emails.
@@ -69,12 +69,12 @@ Decided Sep 2026: charge monthly tuition automatically on the 1st, retry failed 
 3. Every morning a scheduler (`.github/workflows/billing.yml`, or the host's cron) calls `POST /api/billing/run`. The site charges what's due to the saved card, then emails a receipt.
 4. **A failed charge** emails the family a link to pay with any card, and is retried automatically on the 4th and the 7th.
    - Cards whose bank insists on approval by the cardholder (3-D Secure) aren't retried; only the family can finish those.
-   - After 3 tries it waits for the family and shows on `/admin/billing`.
+   - After 3 tries it waits for the family and shows on `/admin/payments`.
    - The failure email says to pay by the 10th to avoid the late fee.
 5. **Late fee** (decided Sep 2026): a month still unpaid on the **11th** gets a one-time **$15** fee, added by that morning's run.
    - The family is emailed the new total and a pay link. The next charge or payment collects tuition and fee together.
    - A family who opened "pay now" before the 11th and pays the tuition alone isn't charged the fee.
-   - Staff can **Waive late fee** on `/admin/billing`.
+   - Staff can **Waive late fee** on `/admin/payments`.
 6. **Withdrawals:** staff click **Stop payments**, check what changes (including any family discount that ends), then confirm. The remaining months are cancelled. Refunds are issued in the Stripe dashboard.
 
 **Never charges twice.**
@@ -148,7 +148,7 @@ Decided Oct 13, 2026 (Stephen): the published rule, "15% off for multiple studen
 **What people see.**
 - **Review page:** when the enrollment lowers another child's payments, it says so ("Ava’s remaining monthly payments also drop to $80.75.").
 - **Family account, pay-now page, receipts and the card charge:** "Family discount (15%): −$14.25", before any staff discount line. The account also explains when the discount ends.
-- **Staff:** the family's payments page (`/admin/billing/<orderId>`) shows the regular price, the family discount and staff discounts in separate columns. **Stop payments** on `/admin/billing` shows which other payments go back up, and by how much, before staff confirm.
+- **Staff:** the family's payments page (`/admin/payments/<orderId>`) shows the regular price, the family discount and staff discounts in separate columns. **Stop payments** on `/admin/payments` shows which other payments go back up, and by how much, before staff confirm.
 
 Tested in `tests/unit/family-discount.test.ts` and the free-class browser test (`tests/e2e/trial-journey.mjs`).
 

@@ -12,12 +12,15 @@ interface Props {
   intro?: string;
   /** Where to go after signing in. Defaults to reloading the current page. */
   next?: string;
+  /** Fills in the email (staff confirming it's them). */
+  email?: string;
 }
 const {
   heading = 'Sign in or get started',
   level: H = 'h2',
   intro = 'Enter your email and we’ll send you a 6-digit code. No password needed, and this device stays signed in for 90 days.',
   next,
+  email,
 } = Astro.props;
 ---
 
@@ -28,7 +31,7 @@ const {
   <form class="signin__step" data-step="email" novalidate>
     <div class="field">
       <label for="signin-email">Email</label>
-      <input id="signin-email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com" />
+      <input id="signin-email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com" value={email} />
     </div>
     <button class="btn btn--primary btn--block" type="submit">Email me a code <span class="arrow" aria-hidden="true">→</span></button>
     {usesDevMailbox && <p class="signin__preview">Preview site: no real emails are sent. Your code will appear in the <a href="/dev/mailbox" target="_blank">test mailbox</a>.</p>}

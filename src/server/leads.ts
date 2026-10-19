@@ -147,3 +147,44 @@ export async function listLeads(limit = 200) {
   const db = await getDb();
   return db.select().from(schema.lead).orderBy(desc(schema.lead.createdAt)).limit(limit);
 }
+
+export const LEAD_LABELS: Record<string, string> = { contact: 'Message', newsletter: 'Newsletter', notify: 'Notify me', camps: 'Summer camps' };
+/** The staff list shows (and downloads) this many, newest first. */
+export const STAFF_LEADS_LIMIT = 1000;
+
+/**
+ * Messages and sign-ups for staff. The page at /admin/leads and its CSV and
+ * PDF downloads all build from this, so they always agree.
+ * `titleOf` turns a program or event slug into its name.
+ */
+export async function staffLeads(titleOf: (slug: string) => string | undefined) {
+  const rows = await listLeads(STAFF_LEADS_LIMIT);
+  return rows.map((l) => ({
+    id: l.id,
+    createdAt: l.createdAt,
+    kind: l.kind,
+    form: LEAD_LABELS[l.kind] ?? l.kind,
+    name: l.name ?? '',
+    email: l.email,
+    program: l.details.program ? (titleOf(l.details.program) ?? l.details.program) : '',
+    topic: l.details.topic ?? '',
+    ages: l.details.ages ?? '',
+    message: l.message ?? '',
+  }));
+}
+export type StaffLead = Awaited<ReturnType<typeof staffLeads>>[number];
+
+/** When a lead came in, in Athens: "Oct 19, 2:05 PM". */
+export const leadWhen = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
+
+/** "2026-10-19 14:05" in Athens: sorts correctly in a spreadsheet. */
+const stamp = (d: Date) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/New_York', dateStyle: 'short', timeStyle: 'short' }).format(d);
+
+/** The download's columns and cells. */
+export function leadsTable(leads: StaffLead[]) {
+  const about = (l: StaffLead) => [l.program, l.topic && `About: ${l.topic}`, l.ages && `Ages ${l.ages}`].filter(Boolean).join(' · ');
+  return {
+    headers: ['When', 'Form', 'Name', 'Email', 'About', 'Message'],
+    rows: leads.map((l) => [stamp(l.createdAt), l.form, l.name, l.email, about(l), l.message]),
+  };
+}

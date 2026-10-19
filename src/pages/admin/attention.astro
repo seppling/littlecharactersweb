@@ -1,0 +1,20 @@
+---
+/** Everything that needs a person. A placeholder until the Today unit builds "Needs attention". */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { payments } from '@/lib/admin-links';
+import { requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { response } = requireStaff(Astro.locals);
+if (response) return response;
+---
+
+<AdminShell title="Needs attention" section="today">
+  <div class="admin-page">
+    <h1>Needs attention</h1>
+    <div class="empty-state">
+      <strong>Alerts are coming soon</strong>
+      <p>Failed payments, waitlists and missing details will be listed here. For now, failed payments are on <a href={payments('failed')}>Payments</a>.</p>
+    </div>
+  </div>
+</AdminShell>

@@ -3,13 +3,15 @@
 import AdminShell from '@/components/admin/AdminShell.astro';
 import { billingOverview, failureReason, markPaidOutsideStripe, stopRemainingPayments, totalDue, waiveLateFee } from '@/server/billing';
 import { formatCents } from '@/lib/pricing';
+import { payments, paymentsOrder } from '@/lib/admin-links';
+import { requireStaff } from '@/server/staff';
 import { orderBilling, ordersWithUpcomingPayments } from '@/server/adjustments';
 import { previewStopEffect, type FamilyDiscountEffect } from '@/server/family-discount';
 
 export const prerender = false;
-const viewer = Astro.locals.user;
-const isAdmin = Astro.locals.isAdmin && !!viewer;
-if (!isAdmin && viewer) return new Response('Not found', { status: 404 });
+const { staff: viewer, response } = requireStaff(Astro.locals);
+if (response) return response;
+const isAdmin = !!viewer;
 
 const classTitle = (sessionId: string) => Astro.locals.content.findSession(sessionId)?.program.title ?? sessionId;
 const fmt = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
@@ -47,7 +49,7 @@ const families = isAdmin ? await ordersWithUpcomingPayments() : [];
 const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
 ---
 
-<AdminShell title="Billing" section="billing">
+<AdminShell title="Billing" section="payments">
   <section class="wrap admin">
     <h1>Monthly autopay</h1>
     {notice && <p class="notice" role="status">{notice}</p>}
@@ -83,7 +85,7 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
           <input type="hidden" name="id" value={stopCheck.orderId} />
           <div class="stop-check__buttons">
             <button name="action" value="stop" class="btn btn--primary btn--sm">Stop payments</button>
-            <a class="btn btn--outline btn--sm" href="/admin/billing">Cancel</a>
+            <a class="btn btn--outline btn--sm" href={payments()}>Cancel</a>
           </div>
         </form>
       )
@@ -97,7 +99,7 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
           <tbody>
             {needsAttention.map(({ i, family }) => (
               <tr>
-                <td><a href={`/admin/billing/${i.orderId}`}>{family}</a></td>
+                <td><a href={paymentsOrder(i.orderId)}>{family}</a></td>
                 <td>{i.label}<br /><span class="muted">due {fmt(i.dueDate)}</span></td>
                 <td>{formatCents(totalDue(i))}{i.lateFeeCents > 0 && <><br /><span class="muted">incl. {formatCents(i.lateFeeCents)} late fee</span></>}</td>
                 <td>
@@ -128,7 +130,7 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
           <tbody>
             {nextDueRows.map(({ i, family }) => (
               <tr>
-                <td><a href={`/admin/billing/${i.orderId}`}>{family}</a></td>
+                <td><a href={paymentsOrder(i.orderId)}>{family}</a></td>
                 <td>{i.label}</td>
                 <td>{formatCents(i.amountCents)}</td>
                 <td>
@@ -153,7 +155,7 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
                 <td>{f.family}</td>
                 <td>{classTitle(f.sessionId)}</td>
                 <td>{f.remaining}{f.adjusted > 0 && <><br /><span class="muted">{f.adjusted} discounted</span></>}</td>
-                <td><div class="actions"><a class="btn btn--outline btn--sm" href={`/admin/billing/${f.orderId}`}>Payments & discounts</a></div></td>
+                <td><div class="actions"><a class="btn btn--outline btn--sm" href={paymentsOrder(f.orderId)}>Payments & discounts</a></div></td>
               </tr>
             ))}
           </tbody>

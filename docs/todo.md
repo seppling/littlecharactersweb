@@ -60,7 +60,7 @@ Setup (Stephen):
 Decisions (together):
 - [ ] Free first class for classes priced per 8-week session (Stories and Songs, Homeschool)? Today the free trial and its "First class free" tags apply to Little Characters weekly classes with monthly tuition only.
 - [ ] Which email tool to send newsletters from (Mailchimp, Buttondown, Resend Broadcasts…)? Signups are collected on the site; import the CSV from `/admin/leads`.
-- [ ] Keep "paused from class after the 15th" for unpaid balances? (Not automated; staff can see unpaid months on `/admin/billing`.)
+- [ ] Keep "paused from class after the 15th" for unpaid balances? (Not automated; staff can see unpaid months on `/admin/payments`.)
 - [ ] Keep or drop payment-method surcharges? We suggest dropping them.
 - [ ] Refund, transfer and withdrawal wording for the policy checkbox (`POLICY_VERSION` in `src/server/family.ts`).
 - [ ] Should performance/materials fees be charged at registration (current) or on Oct 1?

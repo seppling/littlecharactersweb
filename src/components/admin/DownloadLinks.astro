@@ -1,0 +1,26 @@
+---
+/**
+ * "CSV" and "PDF" buttons for a list (docs/back-office.md → Downloads).
+ * Pass downloads(listPath) from src/lib/admin-links.ts. No `download`
+ * attribute: when staff need to sign in again, the link opens /admin/confirm
+ * instead of saving that page as a file.
+ */
+interface Props {
+  csv: string;
+  pdf: string;
+  /** What's downloaded, for screen readers: "sign-ups". */
+  what?: string;
+}
+const { csv, pdf, what = 'this list' } = Astro.props;
+---
+
+<div class="downloads" role="group" aria-label={`Download ${what}`}>
+  <span class="downloads__label">Download</span>
+  <a class="btn btn--outline btn--sm" href={csv} data-download="csv">CSV <span class="sr-only">spreadsheet of {what}</span></a>
+  <a class="btn btn--outline btn--sm" href={pdf} data-download="pdf">PDF <span class="sr-only">of {what}</span></a>
+</div>
+
+<style>
+  .downloads { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+  .downloads__label { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); margin-right: 0.2rem; }
+</style>
