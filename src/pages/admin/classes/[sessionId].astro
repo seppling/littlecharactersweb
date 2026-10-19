@@ -60,6 +60,7 @@ import {
   type RemovalPreview,
 } from '@/server/roster-changes';
 import { requireFreshStaff, requireStaff } from '@/server/staff';
+import { OTHER_MAX, dropReasonFrom, isOther, reasonList } from '@/server/reasons';
 import {
   DropInError,
   addDropInWithoutCharge,
@@ -92,6 +93,7 @@ const after = (done: Record<string, string | number>, anchor = '') => `${here}?$
 const freshFor = (studentId: string) => requireFreshStaff(Astro.locals, new URL(`${here}?add=${encodeURIComponent(studentId)}`, Astro.url));
 
 let removal: RemovalPreview | null = null;
+let dropReasons: string[] = [];
 let matches: AddCandidate[] | null = null;
 let query = '';
 let pick: (AddCandidate & { full: boolean }) | null = null;
@@ -120,11 +122,14 @@ if (staff && Astro.request.method === 'POST') {
       case 'remove-check':
         removal = await previewRemoval(get('enrollmentId'), session.id, get('mode') === 'only' ? 'only' : 'stop');
         if (!removal) return Astro.redirect(after({ done: 'gone' }), 303);
+        dropReasons = await reasonList('drop');
         break;
       case 'remove': {
         // The child's order, for the notice's "Refund part of a payment" link.
         const removing = { orderId: await enrollmentOrder(get('enrollmentId')) };
-        const r = await removeChild(get('enrollmentId'), session.id, get('mode') === 'only' ? 'only' : 'stop', staff.id);
+        // Why they left (optional; Settings → Reasons).
+        const why = dropReasonFrom(get('dropReason'), get('dropOther'), await reasonList('drop'));
+        const r = await removeChild(get('enrollmentId'), session.id, get('mode') === 'only' ? 'only' : 'stop', staff.id, why);
         return Astro.redirect(after(r ? { done: get('mode') === 'only' ? 'removed-only' : 'removed', n: r.stopped, fd: r.familyDiscount, ...(removing?.orderId ? { order: removing.orderId } : {}) } : { done: 'gone' }), 303);
       }
       // Add: find a child, choose a way, confirm.
@@ -616,6 +621,17 @@ const noteDrafts = staff ? await draftsForClass(session.id, Astro.locals.content
                         <p class="muted">No other payment changes.</p>
                       )}
                       <p class="muted">Nothing already paid is refunded here. To give money back, refund part of a payment afterwards: the next page links to it.</p>
+                      <div class="drop-why" data-drop-reason>
+                        <label for="drop-reason">Why are they leaving? <span class="muted">(optional)</span></label>
+                        <select id="drop-reason" name="dropReason">
+                          <option value="">Don’t say</option>
+                          {dropReasons.map((r) => <option value={r} data-other={isOther(r) ? '1' : undefined}>{r}</option>)}
+                        </select>
+                        <div class="drop-why__other">
+                          <label for="drop-other">In a few words</label>
+                          <input id="drop-other" name="dropOther" maxlength={OTHER_MAX} autocomplete="off" />
+                        </div>
+                      </div>
                       <div class="confirm__actions">
                         <button class="btn btn--danger btn--sm" name="action" value="remove">{removal.mode === 'only' ? 'Remove only' : 'Remove and stop payments'}</button>
                         <a class="btn btn--outline btn--sm" href={here}>Cancel</a>
@@ -662,6 +678,9 @@ const noteDrafts = staff ? await draftsForClass(session.id, Astro.locals.content
                   <span><strong data-att-count>{d.present} of {d.marked}</strong> present <span class="muted">· taken by {d.by}</span></span>
                 ) : (
                   <span class="warn-line" data-att-missing>Not taken{d.marked ? ` (${d.marked} marked)` : ''}</span>
+                )}
+                {d.absent.length > 0 && !d.dayOff && (
+                  <span class="att-absent" data-att-absent>Absent: {d.absent.map((x) => (x.reason ? `${x.name} (${x.reason})` : x.name)).join(', ')}</span>
                 )}
               </a>
             </li>
@@ -905,6 +924,13 @@ const noteDrafts = staff ? await draftsForClass(session.id, Astro.locals.content
   .roster-date label { font-weight: 650; }
   .roster-date select,
   .confirm select { min-height: 44px; max-width: 100%; }
+  /* Remove's reason: "Other" opens a few words. */
+  .att-absent { grid-column: 2; font-size: var(--step--1); color: var(--ink-soft); overflow-wrap: anywhere; }
+  .drop-why { display: grid; gap: 0.3rem; max-width: 26rem; }
+  .drop-why label { font-weight: 650; }
+  .drop-why input { min-height: 44px; min-width: 0; }
+  .drop-why__other { display: none; gap: 0.3rem; }
+  .drop-why:has(option[data-other]:checked) .drop-why__other { display: grid; }
   .section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem 1rem; }
   .sub-h { font-size: var(--step-0); margin-top: var(--space-xs); }
   .cell-link { display: inline-flex; align-items: center; min-height: 44px; }

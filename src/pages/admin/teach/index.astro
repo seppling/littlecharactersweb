@@ -22,7 +22,7 @@ import { requireTeacherOrOwner } from '@/server/staff';
 import { staffById } from '@/server/staff-settings';
 import { teacherClasses } from '@/server/teachers';
 import { devDay, longDay, shortDay } from '@/server/today';
-import { teacherRehearsals, type RehearsalCard } from '@/server/shows';
+import { rehearsalCardsBetween, teacherRehearsals, type RehearsalCard } from '@/server/shows';
 
 export const prerender = false;
 const { staff, response } = requireTeacherOrOwner(Astro.locals);
@@ -35,9 +35,18 @@ const date = on ?? todayInAthens();
 const viewer = staff ? { userId: staff.id, staffId: staff.staffId, role: staff.role } : null;
 const today: TeachCard[] = viewer ? await teachCards(viewer, date, content) : [];
 const rehearsals: RehearsalCard[] = viewer ? await teacherRehearsals(viewer, date, content) : [];
-// The week ahead: their own classes and cover dates (owners too).
+// The week ahead: their own classes and cover dates (owners too), and their classes' rehearsals (read-only).
+const weekRehearsals = viewer ? await rehearsalCardsBetween({ ...viewer, role: 'teacher' }, addDays(date, 1), addDays(date, 7), content) : [];
 const week = viewer
-  ? (await Promise.all([1, 2, 3, 4, 5, 6, 7].map(async (i) => ({ date: addDays(date, i), cards: await teachCards({ ...viewer, role: 'teacher' }, addDays(date, i), content) })))).filter((d) => d.cards.length)
+  ? (
+      await Promise.all(
+        [1, 2, 3, 4, 5, 6, 7].map(async (i) => ({
+          date: addDays(date, i),
+          cards: await teachCards({ ...viewer, role: 'teacher' }, addDays(date, i), content),
+          rehearsals: weekRehearsals.filter((r) => r.date === addDays(date, i)),
+        })),
+      )
+    ).filter((d) => d.cards.length || d.rehearsals.length)
   : [];
 const next = viewer && !today.length ? await nextTeachingDay(viewer, date, content) : null;
 const mine = staff ? (await teacherClasses(staff.staffId, content)).filter((c) => c.session.endDate >= date).sort((a, b) => a.session.startDate.localeCompare(b.session.startDate)) : [];
@@ -151,6 +160,17 @@ else Astro.response.headers.set('X-Teach-Signed-Out', '1');
                           <span class="teach-row__meta">{[c.location, c.dayOff ? `No class: ${c.dayOff}` : kids(c.expected), role(c), c.coveredBy && `${c.coveredBy} is covering`].filter(Boolean).join(' · ')}</span>
                         </span>
                       </a>
+                    </li>
+                  ))}
+                  {d.rehearsals.map((r) => (
+                    <li data-week-rehearsal={r.id}>
+                      <div class="teach-row teach-row--rehearsal">
+                        <span class="teach-row__time">{r.time}</span>
+                        <span>
+                          <strong>Rehearsal: {r.showTitle}</strong>
+                          <span class="teach-row__meta">{[r.place, r.classes, r.note].filter(Boolean).join(' · ')}</span>
+                        </span>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -269,6 +289,7 @@ else Astro.response.headers.set('X-Teach-Signed-Out', '1');
   .teach-row__time { font-size: var(--step--1); font-weight: 650; color: var(--ink-soft); white-space: nowrap; }
   .teach-row__meta { display: block; font-size: var(--step--1); color: var(--ink-mute); }
   .teach-row--off { color: var(--ink-mute); }
+  .teach-row--rehearsal { border-left: 4px solid var(--teal); padding-left: 0.6rem; }
   .teach-mine { display: grid; gap: 0.15rem; padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
   .teach-mine > span { color: var(--ink-soft); font-size: var(--step--1); }
   @media (max-width: 520px) {

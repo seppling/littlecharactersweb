@@ -13,7 +13,7 @@
  * plain data and a date, so Phase 2's dashboard can build on them and the
  * unit tests need no database.
  */
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { EventItem } from '@/content/types';
 import type { SiteContent } from '@/content/site-content';
 import * as links from '@/lib/admin-links';
@@ -30,7 +30,7 @@ import { classRows, MIN_TO_RUN, placesLabel, type ClassRow } from './classes';
 import { getDb, schema } from './db';
 import { LEAD_LABELS, staffLeads } from './leads';
 import { openOfferCounts } from './roster-changes';
-import { attentionAttendance, endedHoursAgo, LATE_DAYS, type AttentionAttendance } from './attendance';
+import { attendanceExpected, attentionAttendance, endedHoursAgo, LATE_DAYS, type AttentionAttendance } from './attendance';
 import { dropInsToday } from './drop-ins';
 
 type Content = Pick<SiteContent, 'programs' | 'events' | 'locationById' | 'site' | 'findSession' | 'programBySlug'>;
@@ -142,7 +142,7 @@ export async function todayClasses(content: Content, now = new Date(), date = to
 
 // ───────────── Needs attention ─────────────
 
-export type AttentionKind = 'payments' | 'waitlist' | 'under5' | 'attendance' | 'missed2' | 'emergency' | 'care' | 'signups' | 'leads' | 'birthdays';
+export type AttentionKind = 'payments' | 'refund' | 'waitlist' | 'under5' | 'attendance' | 'missed2' | 'emergency' | 'care' | 'notes' | 'signups' | 'leads' | 'birthdays';
 export type AttentionTone = 'alert' | 'warning' | 'neutral' | 'good';
 
 export interface AttentionItem {
@@ -157,12 +157,14 @@ export interface AttentionItem {
 /** The kinds, most urgent first, with their heading on the full list. */
 export const ATTENTION_KINDS: { kind: AttentionKind; tone: AttentionTone; heading: string }[] = [
   { kind: 'payments', tone: 'alert', heading: 'Payments that need a look' },
+  { kind: 'refund', tone: 'alert', heading: 'Refunds that didn’t go through' },
   { kind: 'waitlist', tone: 'warning', heading: 'Waitlist openings' },
   { kind: 'under5', tone: 'warning', heading: `Classes under ${MIN_TO_RUN}` },
   { kind: 'attendance', tone: 'warning', heading: 'Attendance not taken' },
   { kind: 'missed2', tone: 'warning', heading: 'Missed the last two classes' },
   { kind: 'emergency', tone: 'warning', heading: 'No emergency contact' },
   { kind: 'care', tone: 'neutral', heading: 'Care details to confirm' },
+  { kind: 'notes', tone: 'neutral', heading: 'Progress notes to send' },
   { kind: 'signups', tone: 'good', heading: 'New sign-ups this week' },
   { kind: 'leads', tone: 'neutral', heading: 'New messages and sign-ups' },
   { kind: 'birthdays', tone: 'good', heading: 'Birthdays this week' },
@@ -206,6 +208,28 @@ export interface EnrolledChild {
   emergencyContacts: number;
 }
 
+/** A refund that failed, or is still pending (src/server/refunds.ts). */
+export interface AttentionRefund {
+  id: string;
+  family: string;
+  householdId: string;
+  /** The order it refunds (from its monthly charge when it refunds one), or null. */
+  orderId: string | null;
+  amountCents: number;
+  status: 'pending' | 'failed' | string;
+  createdAt: Date;
+  error: string | null;
+}
+
+/** Draft progress notes waiting to be sent, per class (src/server/progress-notes.ts). */
+export interface AttentionNotes {
+  sessionId: string;
+  count: number;
+}
+
+/** A refund still pending after this long shows on Needs attention. */
+export const REFUND_PENDING_HOURS = 24;
+
 export interface AttentionLead {
   createdAt: Date;
   kind: string;
@@ -221,6 +245,10 @@ export interface AttentionInput {
   offers?: Record<string, number>;
   /** Attendance done, days off and drop-ins over the last 7 days, and children who missed their last two (attendance.ts). */
   attendance?: AttentionAttendance;
+  /** Failed refunds, and pending ones (shown after REFUND_PENDING_HOURS). */
+  refunds?: AttentionRefund[];
+  /** Draft progress notes waiting, per class. */
+  notes?: AttentionNotes[];
 }
 
 const STAFF_REASON: Record<string, string> = {
@@ -272,6 +300,19 @@ export function attentionFrom(input: AttentionInput, content: Pick<Content, 'fin
     items.push({ kind: 'payments', tone: 'alert', title, detail: `${formatCents(p.amountCents)} · ${p.label} · ${why}`, action: { label: 'See payments', href: links.payments('failed') } });
   }
 
+  // 1b. Refunds that failed, or are still pending after a day.
+  for (const r of input.refunds ?? []) {
+    const stuck = r.status === 'pending' && now.getTime() - r.createdAt.getTime() >= REFUND_PENDING_HOURS * 3_600_000;
+    if (r.status !== 'failed' && !stuck) continue;
+    items.push({
+      kind: 'refund',
+      tone: 'alert',
+      title: `A refund didn’t go through: ${r.family}`,
+      detail: `${formatCents(r.amountCents)} · ${r.status === 'failed' ? (r.error ?? 'Stripe couldn’t complete it') : `still pending since ${shortDay(todayInAthens(r.createdAt))}`}`,
+      action: r.orderId ? { label: 'Open the payments', href: links.paymentsOrder(r.orderId) } : { label: 'Open family', href: links.family(r.householdId) },
+    });
+  }
+
   // 2. Waitlist openings: a class with a waitlist and a place open, not counting places already offered.
   for (const r of input.classes) {
     const openings = r.openings === undefined ? undefined : r.openings - (input.offers?.[r.session.id] ?? 0);
@@ -311,6 +352,8 @@ export function attentionFrom(input: AttentionInput, content: Pick<Content, 'fin
         const key = `${r.session.id} ${d}`;
         if (!meetings(r.session).includes(d) || a.reports.has(key) || (r.filled === 0 && !a.dropIns.has(key))) continue;
         if (dayOffFrom(a.daysOff, r.session.id, d) || !(d < today || endedHoursAgo(d, r.session.end, now))) continue;
+        // Settings → Attendance: only from the start date, and only the kinds that need it.
+        if (!attendanceExpected(a, r.program.kind, d)) continue;
         items.push({
           kind: 'attendance',
           tone: 'warning',
@@ -363,6 +406,18 @@ export function attentionFrom(input: AttentionInput, content: Pick<Content, 'fin
       title: `Care details to confirm: ${kids[0].family}`,
       detail: `${firstNames(children)}: not confirmed by a parent in the past year`,
       action: { label: 'Open family', href: links.family(householdId) },
+    });
+  }
+
+  // 5b. Progress notes teachers wrote, waiting to be sent: one item per class.
+  for (const n of input.notes ?? []) {
+    if (n.count <= 0) continue;
+    items.push({
+      kind: 'notes',
+      tone: 'neutral',
+      title: `Progress notes to send: ${titleOf(n.sessionId)}`,
+      detail: `${plural(n.count, 'draft')} waiting`,
+      action: { label: 'Open class', href: `${links.classPage(n.sessionId)}#skills-h` },
     });
   }
 
@@ -462,6 +517,41 @@ async function enrolledChildren(): Promise<EnrolledChild[]> {
   return rows.map((r) => ({ ...r, status: r.status as EnrolledChild['status'], emergencyContacts: r.emergencyContacts.length }));
 }
 
+/** Refunds that failed or are still pending, with the family and the order. One query. */
+async function refundsToCheck(): Promise<AttentionRefund[]> {
+  const db = await getDb();
+  const { refund, household, installment } = schema;
+  const rows = await db
+    .select({
+      id: refund.id,
+      family: household.name,
+      householdId: household.id,
+      orderId: refund.orderId,
+      installmentOrderId: installment.orderId,
+      amountCents: refund.amountCents,
+      status: refund.status,
+      createdAt: refund.createdAt,
+      error: refund.error,
+    })
+    .from(refund)
+    .innerJoin(household, eq(household.id, refund.householdId))
+    .leftJoin(installment, eq(installment.id, refund.installmentId))
+    .where(inArray(refund.status, ['pending', 'failed']));
+  return rows.map(({ installmentOrderId, ...r }) => ({ ...r, orderId: r.orderId ?? installmentOrderId ?? null }));
+}
+
+/** Draft progress notes (not shared yet) per class. One query. */
+async function draftNoteCounts(): Promise<AttentionNotes[]> {
+  const db = await getDb();
+  const { progressNote } = schema;
+  const rows = await db
+    .select({ sessionId: progressNote.sessionId, count: sql<number>`count(*)::int` })
+    .from(progressNote)
+    .where(and(isNull(progressNote.sharedAt), isNotNull(progressNote.sessionId)))
+    .groupBy(progressNote.sessionId);
+  return rows.flatMap((r) => (r.sessionId ? [{ sessionId: r.sessionId, count: r.count }] : []));
+}
+
 type Core = Omit<AttentionInput, 'leads'>;
 
 /** The three queries behind the list (payments, class counts, enrollments), shared within one request by `key`. */
@@ -470,7 +560,15 @@ function loadCore(content: Content, now: Date, key?: object): Promise<Core> {
   const hit = key && cache.get(key);
   if (hit) return hit;
   const load = (async () => {
-    const [overview, classes, enrolled, offers, attendance] = await Promise.all([billingOverview(todayInAthens(now)), allRows(content, now), enrolledChildren(), openOfferCounts(now), attentionAttendance(todayInAthens(now))]);
+    const [overview, classes, enrolled, offers, attendance, refunds, notes] = await Promise.all([
+      billingOverview(todayInAthens(now)),
+      allRows(content, now),
+      enrolledChildren(),
+      openOfferCounts(now),
+      attentionAttendance(todayInAthens(now)),
+      refundsToCheck(),
+      draftNoteCounts(),
+    ]);
     const payments = overview.needsAttention.map(({ i, family }) => ({
       id: i.id,
       family,
@@ -482,7 +580,7 @@ function loadCore(content: Content, now: Date, key?: object): Promise<Core> {
       retryOn: i.retryOn,
       payNowOpenedAt: i.payNowOpenedAt,
     }));
-    return { payments, classes, enrolled, offers, attendance };
+    return { payments, classes, enrolled, offers, attendance, refunds, notes };
   })();
   if (key) cache.set(key, load);
   return load;

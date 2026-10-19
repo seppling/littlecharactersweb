@@ -38,6 +38,8 @@ import { POLICY_VERSION, ageOn, capacityFor, getStudent, readStudentNotes, taken
 import { familyAudience, footerFor, sendMessage } from './messages';
 import { audit, householdGuardians } from './records';
 import { checkReason } from './roster-changes';
+import { emailWording, worded, type EmailParts } from './email-wording';
+import type { Wording } from './settings-store';
 
 const { dropIn, order, student, household, householdMember, enrollment, user } = schema;
 
@@ -334,17 +336,31 @@ export async function dropInDetails(dropInId: string, catalog?: Pick<SiteContent
 export async function sendDropInConfirmation(dropInId: string) {
   const d = await dropInDetails(dropInId);
   if (!d) return;
+  const email = dropInEmail({ firstName: d.firstName, classTitle: d.program.title, day: d.day, time: d.time, location: d.location, priceCents: d.dropIn.priceCents, arrival: d.arrival }, await emailWording('dropIn'));
+  for (const g of await householdGuardians(d.dropIn.householdId)) {
+    await sendEmail({ to: g.email, subject: email.subject, text: `${email.heading}\n\n${email.lines.join('\n\n')}`, html: emailHtml(email.heading, email.lines) });
+  }
+}
+
+/**
+ * Pure: the drop-in confirmation. Hannah's wording (Settings → Emails,
+ * `dropIn`) changes the subject and the first line; who, when and where, what
+ * was paid, how to arrive and the account link are always in it.
+ */
+export function dropInEmail(
+  d: { firstName: string; classTitle: string; day: string; time: string; location: { name: string; address: string } | null; priceCents: number; arrival: string[] },
+  wording: Wording | null,
+): EmailParts & { lines: string[] } {
   const heading = 'Drop-in booked';
   const lines = [
-    `${d.firstName} is booked to drop in to ${d.program.title}.`,
+    `${d.firstName} is booked to drop in to ${d.classTitle}.`,
     `${d.day}${d.time ? `, ${d.time}` : ''}${d.location ? ` at ${d.location.name}, ${d.location.address}` : ''}.`,
-    d.dropIn.priceCents > 0 ? `Paid today: ${formatCents(d.dropIn.priceCents)}.` : '',
+    d.priceCents > 0 ? `Paid today: ${formatCents(d.priceCents)}.` : '',
     ...d.arrival,
     `Your family account: ${config.siteUrl}/account`,
   ].filter(Boolean);
-  for (const g of await householdGuardians(d.dropIn.householdId)) {
-    await sendEmail({ to: g.email, subject: `${heading}: ${d.program.title} · Little Characters`, text: `${heading}\n\n${lines.join('\n\n')}`, html: emailHtml(heading, lines) });
-  }
+  const e = worded({ subject: `${heading}: ${d.classTitle} · Little Characters`, heading, lines }, wording, { child: d.firstName, class: d.classTitle, date: d.day }, [`Booked: ${d.firstName}, drop-in to ${d.classTitle}.`]);
+  return { ...e, lines: e.lines as string[] };
 }
 
 /** A family's drop-ins (booked or cancelled; not unpaid ones), by date, for their account and their staff page. */

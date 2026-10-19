@@ -32,12 +32,41 @@ export const baselineSchema = z.object({
 });
 export type Baseline = z.infer<typeof baselineSchema>;
 
+/** An email's wording from Settings → Emails: the subject and the opening paragraph, with {placeholders} (src/server/email-wording.ts). */
+export const wordingSchema = z.object({
+  subject: z.string().trim().min(1).max(200),
+  /** The opening paragraph (for the progress note: the line at the end). */
+  intro: z.string().trim().min(1).max(1000),
+});
+export type Wording = z.infer<typeof wordingSchema>;
+
+/** A short list Hannah edits in Settings → Reasons: why a child dropped, why a child was absent. */
+export const reasonListSchema = z.array(z.string().trim().min(1).max(40)).max(20);
+
+/** The program kinds (src/content/types.ts ProgramKind), for Settings → Attendance. */
+export const programKindSchema = z.enum(['class', 'camp', 'workshop', 'lesson', 'inclusive', 'party']);
+
 /**
  * Every key, with its shape. Add a key here before using it.
  * - `reports.baseline`: written by Settings → Last season (settings unit), read by the dashboard (reports unit).
+ * - `email.<name>`: Settings → Emails; read by each email's own code (src/server/email-wording.ts).
+ * - `reasons.drop`, `reasons.absence`: Settings → Reasons; read by the class page's Remove and the teacher app (src/server/reasons.ts).
+ * - `attendance.startDate`, `attendance.kinds`: Settings → Attendance; read by attentionAttendance (src/server/attendance.ts).
  */
 export const SETTING_KEYS = {
   'reports.baseline': baselineSchema,
+  'email.welcome': wordingSchema,
+  'email.payNow': wordingSchema,
+  'email.waitlistOffer': wordingSchema,
+  'email.dropIn': wordingSchema,
+  'email.refund': wordingSchema,
+  'email.progressNote': wordingSchema,
+  'reasons.drop': reasonListSchema,
+  'reasons.absence': reasonListSchema,
+  /** "Attendance not taken" only for class dates on or after this date (YYYY-MM-DD). */
+  'attendance.startDate': z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  /** The program kinds that raise "Attendance not taken". */
+  'attendance.kinds': z.array(programKindSchema).max(6),
 } as const;
 
 export type SettingKey = keyof typeof SETTING_KEYS;

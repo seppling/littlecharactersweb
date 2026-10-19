@@ -37,6 +37,8 @@ import { logFamilyDiscount, previewRemovalEffect, refreshFamilyDiscount, type Fa
 import { searchStaff } from './families';
 import { familyAudience, footerFor, sendMessage } from './messages';
 import { audit } from './records';
+import { emailWording, worded, type EmailParts } from './email-wording';
+import type { Wording } from './settings-store';
 
 const { enrollment, student, household, installment, waitlistOffer } = schema;
 
@@ -153,14 +155,15 @@ export async function previewRemoval(enrollmentId: string, sessionId: string, mo
  * cancelled too, unless another child on the order stays in the class. Either
  * way the family discount is refreshed, in the same transaction.
  */
-export async function removeChild(enrollmentId: string, sessionId: string, mode: RemoveMode, staffId: string) {
+export async function removeChild(enrollmentId: string, sessionId: string, mode: RemoveMode, staffId: string, dropReason: string | null = null) {
   const db = await getDb();
   // Read before the transaction: the embedded database has a single connection.
   const catalog = await getCatalog();
   const result = await db.transaction(async (tx) => {
     const [e] = await tx
       .update(enrollment)
-      .set({ status: 'cancelled', cancelledAt: new Date() })
+      // Why they left (Settings → Reasons), when Hannah picked one; saved as worded then.
+      .set({ status: 'cancelled', cancelledAt: new Date(), dropReason })
       .where(and(eq(enrollment.id, enrollmentId), eq(enrollment.sessionId, sessionId), inArray(enrollment.status, ['active', 'trial'])))
       .returning();
     if (!e) return null;
@@ -423,20 +426,33 @@ export async function offerSpot(input: { enrollmentId: string; sessionId: string
     .returning();
   await audit(input.staffId, 'admin.waitlist.offer', 'waitlist_offer', offer.id);
   const url = new URL(`/enroll/${encodeURIComponent(input.sessionId)}?offer=${offer.id}`, config.siteUrl).toString();
+  const email = offerEmail({ classTitle: program.title, deadline: offerDeadline(expiresAt), url, firstName: row.firstName }, await emailWording('waitlistOffer'));
   await sendMessage({
     token: crypto.randomUUID(),
     kind: 'family',
-    subject: `A place opened in ${program.title}`,
-    body: [
-      `A place opened in ${program.title}. Sign up by ${offerDeadline(expiresAt)} to take it.`,
-      url,
-      `The place goes to the first family to sign up. If you don’t sign up by then, ${row.firstName} stays on the waitlist.`,
-    ].join('\n\n'),
+    subject: email.subject,
+    body: email.lines.join('\n\n'),
     footer: footerFor(),
     families: [fam],
     staffId: input.staffId,
   });
   return offer;
+}
+
+/**
+ * Pure: the waitlist offer's subject and paragraphs. Hannah's wording
+ * (Settings → Emails, `waitlistOffer`) changes the subject and the opening;
+ * the sign-up date, the link and the first-come rule are always in it.
+ */
+export function offerEmail(d: { classTitle: string; deadline: string; url: string; firstName: string }, wording: Wording | null): EmailParts & { lines: string[] } {
+  const subject = `A place opened in ${d.classTitle}`;
+  const lines = [
+    `A place opened in ${d.classTitle}. Sign up by ${d.deadline} to take it.`,
+    d.url,
+    `The place goes to the first family to sign up. If you don’t sign up by then, ${d.firstName} stays on the waitlist.`,
+  ];
+  const e = worded({ subject, heading: subject, lines }, wording, { child: d.firstName, class: d.classTitle, deadline: d.deadline }, [`Sign up by ${d.deadline} to take the place.`]);
+  return { ...e, lines: e.lines as string[] };
 }
 
 /** Withdraw an open offer; the child stays on the waitlist. False when it wasn't open. */

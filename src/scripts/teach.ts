@@ -13,7 +13,7 @@
  *   cleared on sign-out, when another person signs in, and the next day.
  *   Unsent taps stay until they're sent (up to the 7-day late window).
  *
- * Stored here: ids (class, date, child), the mark, the teacher's short note.
+ * Stored here: ids (class, date, child), the mark, the absence reason, the teacher's short note.
  * Never names or care details, and nothing about signing in.
  */
 
@@ -33,6 +33,8 @@ export interface QueuedTap {
   studentId: string;
   status: Mark;
   note: string;
+  /** Why absent (Settings → Reasons); taps queued before reasons have none. */
+  reason?: string;
   markedAt: string;
 }
 export interface QueuedReport {
@@ -53,6 +55,7 @@ export interface KnownMark {
   by: string;
   status: Mark;
   note: string;
+  reason?: string;
   markedAt: string;
   /** Athens day it was saved here: cleared the next day. */
   day: string;
@@ -103,7 +106,7 @@ const getMeta = (key: string) => run<unknown>('meta', 'readonly', (s) => s.get(k
 export async function enqueue(item: Queued) {
   await put('queue', item);
   if (item.kind === 'tap') {
-    await put('marks', { key: markKey(item.sessionId, item.date, item.studentId), by: item.by, status: item.status, note: item.note, markedAt: item.markedAt, day: athensDay() } satisfies KnownMark);
+    await put('marks', { key: markKey(item.sessionId, item.date, item.studentId), by: item.by, status: item.status, note: item.note, reason: item.reason ?? '', markedAt: item.markedAt, day: athensDay() } satisfies KnownMark);
   }
   // Android: the browser sends it even if the app is closed first.
   try {
@@ -192,7 +195,7 @@ async function send(by: string): Promise<SyncOutcome> {
   const batch = mine.filter((q) => q.on === on);
   const body = {
     by,
-    taps: batch.filter((q): q is QueuedTap => q.kind === 'tap').map(({ clientId, sessionId, date, studentId, status, note, markedAt }) => ({ clientId, sessionId, date, studentId, status, note, markedAt })),
+    taps: batch.filter((q): q is QueuedTap => q.kind === 'tap').map(({ clientId, sessionId, date, studentId, status, note, reason, markedAt }) => ({ clientId, sessionId, date, studentId, status, note, reason: reason ?? '', markedAt })),
     reports: batch.filter((q): q is QueuedReport => q.kind === 'report').map(({ clientId, sessionId, date, note, at }) => ({ clientId, sessionId, date, note, at })),
   };
   let res: Response;
