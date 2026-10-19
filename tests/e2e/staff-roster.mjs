@@ -50,7 +50,7 @@ const tooWide = () =>
 const brokenButtons = () =>
   page.evaluate(() =>
     [...document.querySelectorAll('.admin-page .btn')]
-      .filter((el) => el.getClientRects().length)
+      .filter((el) => el.getClientRects().length && !hiddenInDetails(el))
       .filter((el) => {
         const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
         const tops = new Set();
@@ -68,10 +68,17 @@ const brokenButtons = () =>
 const smallTargets = () =>
   page.evaluate(() =>
     [...document.querySelectorAll('.admin-page a, .admin-page button, .admin-page input:not([type="hidden"], [type="checkbox"], [type="radio"]), .admin-page summary')]
-      .filter((el) => el.getClientRects().length && !el.closest('.sr-only'))
+      .filter((el) => el.getClientRects().length && !el.closest('.sr-only') && !hiddenInDetails(el))
       .filter((el) => el.getBoundingClientRect().height < 44)
       .map((el) => `${el.tagName.toLowerCase()} “${(el.textContent || el.getAttribute('name') || '').trim().slice(0, 30)}” ${Math.round(el.getBoundingClientRect().height)}px`),
   );
+// Inside a closed <details> (not its summary), Chromium keeps boxes it doesn't show: leave those out of the checks.
+await ctx.addInitScript(() => {
+  window.hiddenInDetails = (el) => {
+    const d = el.closest('details:not([open])');
+    return !!d && !el.closest('details:not([open]) > summary');
+  };
+});
 const phone = () => page.setViewportSize({ width: 390, height: 844 });
 const desktop = () => page.setViewportSize({ width: 1280, height: 900 });
 
@@ -244,6 +251,7 @@ check((await page.locator('[data-families] tr', { hasText: 'Lane' }).count()) ==
 await page.goto(`${BASE}/admin/classes/${INTRO}`);
 const ivy = page.locator('.kid', { hasText: 'Ivy Lane' });
 await ivy.locator('summary:has-text("Remove")').click();
+await phoneCheck('the Remove choices', 'roster-remove-choices-390');
 await ivy.locator('button[value="stop"]').click();
 await page.waitForSelector('[data-remove-check="stop"]');
 const preview = await page.textContent('[data-remove-check]');
@@ -293,10 +301,11 @@ await waitRow('Olive').locator('summary:has-text("Offer the spot")').click();
 await Promise.all([page.waitForURL(/done=offered/), waitRow('Olive').locator('button[value="offer"]').click()]);
 check(await waitRow('Olive').locator('[data-offered]').isVisible(), 'Olive’s row shows the open offer');
 await shot(page, 'roster-waitlist-offered');
-await phoneCheck('the class page with the waitlist', 'roster-class-390');
-const offerMail = await mailTo(marshEmail, 'A place opened in Stories & Songs');
+await waitRow('Pip').locator('summary:has-text("Offer the spot")').click();
+await phoneCheck('the class page with the waitlist, Offer the spot open', 'roster-class-390');
+const offerMail = await mailTo(marshEmail, 'A place opened in Stories and Songs');
 const offerLink = offerMail.match(/https?:\/\/\S+\?offer=[0-9a-f-]{36}/)?.[0];
-check(/A place opened in Stories & Songs\. Sign up by \w{3}, \w{3} \d+ at \d+:\d\d [ap]m to take it\./.test(offerMail) && !!offerLink, 'the family gets “A place opened in Stories & Songs. Sign up by … to take it.” with a link');
+check(/A place opened in Stories and Songs\. Sign up by \w{3}, \w{3} \d+ at \d+:\d\d [ap]m to take it\./.test(offerMail) && !!offerLink, 'the family gets “A place opened in Stories and Songs. Sign up by … to take it.” with a link');
 
 // The family follows the link and signs Olive up, though the class is waitlist-only.
 await marsh.p.goto(offerLink.replace(/^https?:\/\/[^/]+/, BASE));
