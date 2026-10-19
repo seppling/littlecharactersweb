@@ -9,6 +9,9 @@
  *     "claims" the account. Nothing is ever sent to them by this import.
  *   - students, with allergy/medical notes encrypted. Details are marked
  *     unconfirmed, so each family re-checks them on their first enrollment.
+ *   - the family's emergency contacts and ZIP code, when the export has them,
+ *     also unconfirmed (contacts_confirmed_at stays empty) so the family is
+ *     asked to check them.
  *
  * Header names vary by report, so columns are matched loosely (see FIELDS) and
  * can be overridden with --map. Safe to re-run: existing emails and students
@@ -17,6 +20,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { getDb, schema } from './db';
 import { encrypt } from './crypto';
+import { MAX_CONTACTS, normalizePhone, type EmergencyContact } from '@/lib/contacts';
 
 // ───────────── CSV ─────────────
 
@@ -66,6 +70,13 @@ export const FIELDS = {
   studentName: ['studentname', 'childname', 'student', 'dancername', 'dancer', 'child'],
   birthdate: ['birthdate', 'birthday', 'dateofbirth', 'dob', 'studentbirthdate', 'studentdob', 'studentbirthday', 'bday'],
   allergies: ['allergies', 'allergy', 'studentallergies', 'foodallergies'],
+  emergencyName: ['emergencycontact', 'emergencycontactname', 'emergencyname', 'emergencycontact1', 'emergencycontact1name', 'emergency1name', 'emergencycontactfullname'],
+  emergencyPhone: ['emergencyphone', 'emergencycontactphone', 'emergencycontactnumber', 'emergencyphonenumber', 'emergencynumber', 'emergencycell', 'emergencycontactcell', 'emergencycontact1phone', 'emergency1phone'],
+  emergencyRelationship: ['emergencyrelationship', 'emergencycontactrelationship', 'emergencycontactrelation', 'emergencyrelation', 'emergencycontact1relationship', 'emergency1relationship'],
+  emergency2Name: ['emergencycontact2', 'emergencycontact2name', 'emergency2name', 'secondemergencycontact'],
+  emergency2Phone: ['emergencycontact2phone', 'emergency2phone', 'emergencyphone2', 'secondemergencyphone'],
+  emergency2Relationship: ['emergencycontact2relationship', 'emergency2relationship', 'emergencyrelationship2'],
+  zip: ['zip', 'zipcode', 'postalcode', 'postcode', 'zippostalcode', 'zippostal', 'postal', 'homezip', 'mailingzip', 'billingzip', 'familyzip'],
   medical: ['medical', 'medicalnotes', 'medicalconditions', 'medicalinfo', 'medicalinformation', 'medications', 'healthnotes', 'specialneeds', 'medicalallergies', 'allergiesmedical'],
 } as const;
 
@@ -104,7 +115,17 @@ export function matchColumns(headers: string[], overrides: Partial<Record<Field,
 
 export type ImportGuardian = { name: string; email: string; phone: string | null };
 export type ImportStudent = { firstName: string; lastName: string; birthdate: string | null; allergies: string; medical: string; where: string };
-export type ImportFamily = { key: string; label: string; where: string; name: string | null; guardians: ImportGuardian[]; students: ImportStudent[] };
+export type ImportFamily = {
+  key: string;
+  label: string;
+  where: string;
+  name: string | null;
+  guardians: ImportGuardian[];
+  students: ImportStudent[];
+  /** Emergency contacts and ZIP, when the export has them. */
+  emergencyContacts?: EmergencyContact[];
+  zip?: string | null;
+};
 export type Problem = { where: string; reason: string };
 export type SourceFile = { name: string; text: string };
 
@@ -133,6 +154,11 @@ export function parseBirthdate(raw: string, today = new Date()): string | null {
 }
 
 const clean = (s: string | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
+
+/** "30601" from "30601" or "30601-1234"; null otherwise. */
+export function parseZip(raw: string) {
+  return raw.trim().match(/^(\d{5})(?:-?\d{4})?$/)?.[1] ?? null;
+}
 
 /** "Smith, Jane" → "Jane Smith"; "Jane Smith" stays. */
 function personName(first: string, last: string, full: string) {
@@ -184,9 +210,33 @@ export function readFamilies(files: SourceFile[], overrides: Partial<Record<Fiel
         return;
       }
 
-      const fam = byKey.get(key) ?? { key, label: key.slice(key.indexOf(':') + 1), where, name: null, guardians: [], students: [] };
+      const fam = byKey.get(key) ?? { key, label: key.slice(key.indexOf(':') + 1), where, name: null, guardians: [], students: [], emergencyContacts: [], zip: null };
       byKey.set(key, fam);
       fam.name ??= get('familyName') || null;
+
+      const rawZip = get('zip');
+      if (rawZip && !fam.zip) {
+        fam.zip = parseZip(rawZip);
+        if (!fam.zip) problems.push({ where, reason: `ZIP code "${rawZip}" not understood; left blank` });
+      }
+      // Emergency contacts are the family's (often repeated on each child's row): one per phone number, up to 4.
+      for (const [n, ph, rel] of [
+        ['emergencyName', 'emergencyPhone', 'emergencyRelationship'],
+        ['emergency2Name', 'emergency2Phone', 'emergency2Relationship'],
+      ] as const) {
+        const name = personName('', '', get(n));
+        const rawPhone = get(ph);
+        if (!name && !rawPhone) continue;
+        const phone = normalizePhone(rawPhone);
+        // Counts and row numbers only: the report never prints the person's name or number.
+        if (!name || !phone) {
+          problems.push({ where, reason: !name ? 'emergency contact phone with no name; skipped' : rawPhone ? 'emergency contact phone not understood; skipped that contact' : 'emergency contact with no phone; skipped' });
+          continue;
+        }
+        const list = (fam.emergencyContacts ??= []);
+        if (list.some((c) => c.phone === phone) || list.length >= MAX_CONTACTS) continue;
+        list.push({ name: name.slice(0, 80), relationship: get(rel).slice(0, 40), phone });
+      }
       for (const g of guardians) {
         const had = fam.guardians.find((x) => x.email === g.email);
         if (!had) fam.guardians.push(g);
@@ -216,6 +266,9 @@ export function readFamilies(files: SourceFile[], overrides: Partial<Record<Fiel
     if (!into) continue;
     for (const g of f.guardians) if (!into.guardians.some((x) => x.email === g.email)) into.guardians.push(g);
     into.students.push(...f.students);
+    into.zip ??= f.zip;
+    const list = (into.emergencyContacts ??= []);
+    for (const c of f.emergencyContacts ?? []) if (!list.some((x) => x.phone === c.phone) && list.length < MAX_CONTACTS) list.push(c);
     byKey.delete(f.key);
   }
 
@@ -284,12 +337,19 @@ export async function importFamilies(families: ImportFamily[], { dryRun = true }
         }
 
         let householdId = households[0];
-        if (householdId) report.households.matched++;
-        else {
+        const contacts = fam.emergencyContacts ?? [];
+        if (householdId) {
+          report.households.matched++;
+          // Fill in what the family hasn't given the new site yet; never overwrite what they entered.
+          const [h] = await tx.select({ emergencyContacts: household.emergencyContacts, zip: household.zip }).from(household).where(eq(household.id, householdId));
+          const fill = { ...(contacts.length && !h?.emergencyContacts.length ? { emergencyContacts: contacts } : {}), ...(fam.zip && !h?.zip ? { zip: fam.zip } : {}) };
+          if (Object.keys(fill).length) await tx.update(household).set(fill).where(eq(household.id, householdId));
+        } else {
           const last = fam.guardians.find((g) => g.name)?.name.split(' ').at(-1);
           const [h] = await tx
             .insert(household)
-            .values({ name: fam.name ?? (last ? `${last} family` : `${emails[0].split('@')[0]}’s family`), source: 'studio-director' })
+            // Not confirmed: contacts_confirmed_at stays empty, so the family is asked to check them.
+            .values({ name: fam.name ?? (last ? `${last} family` : `${emails[0].split('@')[0]}’s family`), source: 'studio-director', emergencyContacts: contacts, zip: fam.zip ?? null })
             .returning({ id: household.id });
           householdId = h.id;
           report.households.created++;

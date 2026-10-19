@@ -97,6 +97,13 @@ await page.click('#students button[type="submit"]');
 await page.waitForURL(/\/enroll\/details/);
 await page.fill('input[name^="allergies-"]', 'Peanuts');
 await page.check('input[name^="photo-"][value="yes"]');
+// The family's part (October 2026): a first-time family adds an emergency contact and their ZIP code.
+// Who may pick up and "How did you hear about us?" are optional; this family answers the question.
+await page.fill('#ec-0-name', 'Rosa Rivera');
+await page.fill('#ec-0-relationship', 'Grandma');
+await page.fill('#ec-0-phone', '706-555-0123');
+await page.fill('#zip', '30601');
+await page.selectOption('#heard', 'friend');
 await page.check('input[name="policies"]');
 await shot('3-details');
 await page.click('button:has-text("Review & pay")');

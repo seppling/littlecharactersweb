@@ -69,7 +69,7 @@ describe('upcoming autopay by date', () => {
 
 describe('Studio Director welcome', () => {
   it('leaves the date out until Hannah sets it', () => {
-    expect(studioDirectorWelcome()).toBe('Your fall classes and payments stay in Studio Director until the term ends. Spring sign-up happens here. Please check each child’s details below.');
+    expect(studioDirectorWelcome()).toBe('Your fall classes and payments stay in Studio Director until the term ends. Spring sign-up happens here. Please check your family details and each child’s details below.');
     expect(studioDirectorWelcome('2026-12-18')).toContain('until the term ends on December 18.');
   });
   it('is a site setting, empty by default', () => {
