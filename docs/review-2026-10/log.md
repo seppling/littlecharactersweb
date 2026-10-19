@@ -506,3 +506,13 @@ Stephen approved it. [Pull request #15](https://github.com/seppling/littlecharac
 6. Delete the two duplicate Render services.
 
 **Optional:** last season's totals from Studio Director, as a starting point for the dashboard's comparisons. Totals only, no family names; needed by the reports unit.
+
+### Resend set up (October 19)
+
+Stephen connected Resend to Claude and chose a subdomain.
+- **The domain:** `mail.littlecharacters.org`, US East, sending only, with open and click tracking off.
+- **The site's sender** is now `Little Characters <hello@mail.littlecharacters.org>`, in the code's default, `.env.example` and `render.production.yaml`. Replies still go to the studio's Gmail.
+- **DNS:** littlecharacters.org's DNS is at Squarespace Domains, which supports Resend's one-click setup. The main domain already has Google mail and a DMARC record (`p=none`); neither changes.
+- **Waiting on Stephen:**
+  - **Auto configure** in Resend, then verification;
+  - a sending-only key, limited to the subdomain, pasted straight into Render when the Blueprint is set up. It isn't created here, so it never passes through chat.

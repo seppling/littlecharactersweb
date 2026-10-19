@@ -104,9 +104,11 @@ The app **fails closed**: unless it's explicitly told it's in development, it re
 ### Setting it up (about 30 minutes, in this order)
 
 1. **Resend (email):**
-   - Create an account at resend.com, then add the domain `littlecharacters.org`.
-   - Add the DNS records it shows wherever the domain is managed. They only allow sending email; the current website doesn't change.
-   - Create an API key with sending access.
+   - **Done October 19:** the account, and the sending domain `mail.littlecharacters.org` (US East). Its DNS records go in Squarespace Domains, which manages littlecharacters.org: Resend → Domains → `mail.littlecharacters.org` → **Auto configure**.
+     - A subdomain keeps the site's email separate from the main domain and its Google mail; the website doesn't change.
+     - Open and click tracking are off.
+     - The site sends as `Little Characters <hello@mail.littlecharacters.org>` (`EMAIL_FROM`), and replies go to the studio's Gmail (`EMAIL_REPLY_TO`).
+   - **Still to do,** when setting up Render: in Resend → **API Keys**, create a key with **Sending access**, limited to `mail.littlecharacters.org`, and paste it straight into Render as `RESEND_API_KEY`.
 2. **Stripe (test mode):** copy the two test keys (Developers → API keys).
 3. **Render:**
    - Choose **New → Blueprint**, then pick this repository and the branch `main`.
