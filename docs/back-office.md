@@ -15,6 +15,7 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 | `classPrint(sessionId)` | `/admin/classes/<id>/print` | A class's roster, ready to print (§9) |
 | `classEmail(sessionId)` | `/admin/classes/<id>/email` | Email the class (§13) |
 | `classSignInSheet(sessionId)` | `/admin/classes/<id>/sign-in-sheet.pdf` | A class's sign-in sheet (§9) |
+| `classDropIns(sessionId)` | `/admin/classes/<id>/drop-ins` | A class's Drop-ins list (on its page; the address redirects there). Pass to `downloads()` for `drop-ins.csv` and `.pdf` (§18) |
 | `search(q?)` | `/admin/search?q=` | Search (placeholder) |
 | `family(householdId)` | `/admin/families/<id>` | A family's page (§10) |
 | `familyEmail(householdId)` | `/admin/families/<id>/email` | Email this family (§13) |
@@ -94,9 +95,10 @@ Use these instead of page-level styles.
 | `no-photos` | No photos | neutral | the parent said no to photos |
 | `new` | New | good | first enrollment created in the last 30 days |
 | `trial` | Trial | neutral | this enrollment is a free trial |
+| `drop-in` | Drop-in | neutral | here for that one date: a booked drop-in (§18) |
 | `birthday` | Birthday | good | birthday within 3 days either side of today (Feb 29 counts as Feb 28 in other years) |
 
-`drop-in` is reserved for Phase 2. The input is yes/no facts (`hasAllergies`, `hasMedicalNotes`, `hasPickupNote`, `restrictedPickup`, `photoConsent`, `firstEnrolledAt`, `trial`, `birthdate`), so the notes never reach the HTML. Decrypt with `readStudentNotes`, turn into booleans on the server, and pass only those.
+The input is yes/no facts (`hasAllergies`, `hasMedicalNotes`, `hasPickupNote`, `restrictedPickup`, `photoConsent`, `firstEnrolledAt`, `trial`, `dropIn`, `birthdate`), so the notes never reach the HTML. Decrypt with `readStudentNotes`, turn into booleans on the server, and pass only those.
 
 ## 5. Downloads: CSV and PDF
 
@@ -345,3 +347,47 @@ Shared by the teacher app, the calendar and drop-ins, so all three agree on days
 | `classDayFrom(input)` | Pure half of `classDay` |
 
 `teacherSessions` (§15) takes its `dayOff` from `dayOffFrom`.
+
+## 18. Drop-ins (`src/server/drop-ins.ts`)
+
+A child comes to one class of a weekly class and pays for that date. Hannah's guide is in `staff-billing.md` → Drop-ins. Not the same as Geode's "drop-in nights" (one-date sessions with their own price).
+
+**Which classes and what price.**
+- `dropInPrice(site, program, session)` → cents, or null when the class takes none: weekly classes only (`isWeeklyTuitionClass`: not camps, workshops, parties, Parents' Night Out, Ovation or one-date sessions), not registration elsewhere (`externalUrl`), not `coming-soon` or `closed`, and not when the site setting is off or the session's `dropIn.off` is ticked.
+- **The price** is the session's own (`session.dropIn.price`, dollars) or the site's (`site.dropIns`: **$25, a placeholder Hannah will confirm**). In the content, both are dollars like every other price (`SiteSettings.dropIns = { price, open }`, a money field and a tick box in Site settings → Drop-ins, with the help line "The price of one class for a drop-in. Families see it on weekly classes."; the session's group sits beside its price in the editor). `SiteInfo.dropIns` turns it into `{ priceCents, open }` (`dropInSetting`; a price that isn't a sensible amount closes drop-ins).
+- **No discounts:** no 15% family discount, no pay-in-full discount, no late fee. A drop-in isn't an enrollment, so it never counts toward the family discount (`countingEnrollments` reads enrollments only; unit-tested).
+
+**Where families see it.**
+- **The class's page:** "Drop in for one class · $25", a quiet link under the sign-up button, for the date picked above it; one per class past its sign-up cut-off but still running. Shown when `dropInsOffered`: the class takes drop-ins, has started or starts within 14 days (`DROP_IN_LEAD_DAYS`), and has a class ahead.
+- **The family account:** upcoming drop-ins under "Coming up" (`[data-drop-ins]`), and "Drop in for one class" (`dropInClasses`): the weekly classes taking drop-ins that not every child of theirs is in. Paid drop-ins appear in Payments as their order line.
+
+**The flow** (one child and one date per checkout; "Book another date" after paying):
+
+| Step | Address | What happens |
+|---|---|---|
+| 1 | `/drop-in/<sessionId>` | Sign in or make an account and add a child, as enrollment does. Pick a date (`dropInDates`: the class's meetings ahead, today's only until it starts; a day off says "No class that day", a full date "Full") and a child (one already enrolled or on a trial in the class is greyed out; outside the ages as enrollment). `startDropIn` checks again and makes the order (`plan: 'drop_in'`, `draft`, one line "Drop-in: Intro to Theater, Tue, Oct 20 (Ava)", total = price, no discount) and a **`pending`** `drop_in` row with the price and the order. It holds no place |
+| 2 | `/enroll/details?order=` | The enrollment's details step: care details and the family's part when not on file, and the drop-in policies. Then step 3 |
+| 3 | `/drop-in/pay?order=` | `readyDropIn` checks the date (ahead, not a day off, not full) and the child again and sets the order `pending_payment`; then the existing embedded checkout (`createEmbeddedCheckout`, `saveCardForMonthly: false`). Signed out (a staff pay link), it shows the sign-in first. Without Stripe keys, the test-payment button |
+| 4 | `/drop-in/confirmation?order=` | Stripe returns to `/enroll/confirmation`, which sends drop-in orders here. The class, date and time, place, how to arrive (`arrivalLines` with the site's parking), "Book another date" |
+
+- **Paying:** `fulfillOrder` hands a `drop_in` order to `fulfillDropIn` after its usual amount check. Whoever claims the order first (webhook or confirmation page) marks it paid and the row **`booked`**, once (`drop_in.booked` in the audit log), and sends the email "Drop-in booked: <class>" to the parents. A date that filled up meanwhile is **booked anyway** and shows to staff as **Over the limit**. A pay link staff cancelled but the family paid anyway is booked too. A second payment for a child already booked that date is kept `cancelled` with `PAID_TWICE` for a refund.
+- **Abandoned checkouts** leave their row `pending`, which everything ignores (class-day helpers, rosters, counts, the family's lists). Unpaid `draft` orders are never shown.
+- `/enroll/review` and `/enroll/pay` send a drop-in order to `/drop-in/pay`.
+
+**On the class's page** (`classPage`), owners only:
+- **The roster for a date:** "Drop-ins on <date>" (`?date=YYYY-MM-DD`, any of the class's dates; the next class by default, `rosterDate`) adds that day's drop-ins to the roster with the **Drop-in** badge and their care details (`dropInRoster`, logged as `admin.roster.drop_ins` with the date). They have no Remove; they're cancelled under Drop-ins. The heading counts them: "Roster (8 + 1 drop-in)".
+- **Drop-ins** (`[data-drop-ins]`, `classDropIns`): "Coming up" and "Past", each with date, child (and **Over the limit**), family (to their page) and **Paid** (`dropInStatus`: "Paid $25", "No charge: <reason>", "Pay link sent, $25 not paid yet", "Cancelled: <reason>"). A family's unfinished checkout isn't listed; a staff pay link is (a pending row made by someone outside the family). **Cancel** asks for a reason (`cancelDropIn`: `cancelled`, `cancelled_at`, `cancel_reason`; `admin.drop_in.cancel` with the date and reason) and says "Refund it in the Stripe dashboard for now" until the refunds unit. Downloads `drop-ins.csv` / `.pdf` (a fresh sign-in; `admin.download.csv|pdf`, entity `list`, id `drop-ins:<sessionId>`): Date, Child, Family, Status, Paid ($), Over the limit. No care details.
+- **Add a drop-in** (`[data-drop-in-tool]`), as Add a child (§14): find a child by form post (`findChildren`), then
+  - **Send a pay link** (`sendDropInPayLink`): pick a date (not a day off, not full); the order and a `pending` row are made and the parents get "Drop-in: <class>, <date>" with `/drop-in/pay?order=<id>`, sent and logged through `sendMessage` (kind `family`, one-time token) plus `admin.drop_in.pay_link`. It holds no place until they pay.
+  - **No charge** (`addDropInWithoutCharge`): a fresh sign-in (back to `?dropAdd=<studentId>`), a date and a reason (up to 300 characters): `booked` at once, price 0, `no_charge_reason`, no order, never a Stripe call; `admin.drop_in.add_no_charge` with the date and reason. A full date needs "If the date is full, add anyway".
+  - A child in the class (enrolled or trial), or already booked that date, is refused.
+- **The family's page** lists each child's drop-ins (booked and cancelled) under **Drop-ins**.
+- **Today** counts the day's booked drop-ins in a class's "8 of 12" (`classesOn`'s optional `dropIns`, from `dropInsToday`).
+
+**For later units.**
+- **Reports:** `drop_in.price_cents` is what was charged (0 for no charge) and equals the order's one line and total; a paid order has `plan = 'drop_in'`, `paid_at`, and `student_ids` = the child. Count `booked` rows (and `cancelled` ones whose order is paid, for refunds). Payments received already lists paid drop-in orders ("Drop-in").
+- **The teacher app:** `dropInsOn(sessionId, date)` (§17) for who drops in; `dropInRoster` returns them as `RosterChild` with `dropInId` set and `enrollmentId` empty; `attendance.drop_in_id` links a mark to the booking.
+- **The calendar:** a day off added on a date with booked drop-ins isn't handled here; list them with `dropInsOn`.
+- **Refunds:** a cancelled drop-in with a paid order is the one to refund (`dropInStatus` says "(paid $25)").
+- **Test-only:** `POST /dev/drop-in-day-off` (`session`, `date`; staff, development only) adds a day off for `tests/e2e/staff-drop-ins.mjs`.
+
