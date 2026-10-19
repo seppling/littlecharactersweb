@@ -17,10 +17,10 @@ Branch `claude/bo2-calendar`, from `claude/blissful-archimedes-enun5m` (acfb1b2)
 - Booked drop-ins are listed, not cancelled (drop-ins unit owns cancelling).
 - Emails only for dates today or later.
 
+- Calendar page, days-off page, class Dates, Today, account, public page, .ics, docs, e2e — all done; see report.md.
+
 ## Next
-- Calendar server + `/admin/calendar` (month, week, agenda), CSV/PDF, menu, links.
-- `/admin/settings/days-off` pages; class page Dates; Today; account; public class page; ics EXDATE.
-- e2e `staff-calendar.mjs`, docs, README, report.
+- Nothing; unit complete. Report in `.orchestration/calendar/report.md`.
 
 ## Open questions
-- None yet.
+- See report.md → Open points (none blocking).
