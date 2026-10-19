@@ -49,9 +49,10 @@ const day = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'n
   }
   {
     grid.skills.length === 0 ? (
-      <p class="muted">
-        No skills for this class yet. <a href={settingsSkills(programSlug)}>Add them in Settings → Skills</a>; teachers then tick them in the teacher app.
-      </p>
+      <div class="class-skills__none">
+        <p class="muted">No skills for this class yet. Add them in Settings; teachers then tick them in the teacher app.</p>
+        <a class="btn btn--outline btn--sm" href={settingsSkills(programSlug)} data-add-skills>Add skills</a>
+      </div>
     ) : grid.children.length === 0 ? (
       <p class="muted">No one enrolled yet.</p>
     ) : (
@@ -91,6 +92,8 @@ const day = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'n
 <style>
   .class-skills { display: grid; gap: var(--space-s); }
   .class-skills h2 { font-size: var(--step-1); }
+  .class-skills__none { display: grid; gap: 0.4rem; justify-items: start; }
+  .class-skills__none p { margin: 0; }
   .class-skills__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
   .class-skills__drafts { display: grid; gap: 0.4rem; padding: 0.7rem 0.9rem; border-left: 5px solid var(--purple); border-radius: var(--r-sm); background: var(--purple-tint); }
   .class-skills__drafts h3 { margin: 0; font-size: var(--step-0); }

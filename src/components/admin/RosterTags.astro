@@ -53,7 +53,7 @@ const notice =
       </form>
     )
   }
-  {filterTag && <p class="roster-tags__shown" data-tag-shown>{shown ? `${plural(shown, 'child', 'children')} of ${total} tagged ${filterTag.name}.` : `No one on this roster is tagged ${filterTag.name}.`} <a href={`${classPage(sessionId)}${date ? `?date=${encodeURIComponent(date)}` : ''}#roster-h`}>Show everyone</a></p>}
+  {filterTag && <p class="roster-tags__shown" data-tag-shown>{shown ? `${plural(shown, 'child', 'children')} of ${total} tagged ${filterTag.name}.` : `No one on this roster is tagged ${filterTag.name}.`} <a class="roster-tags__link" href={`${classPage(sessionId)}${date ? `?date=${encodeURIComponent(date)}` : ''}#roster-h`}>Show everyone</a></p>}
   {
     total > 0 && (
       <details class="roster-tags__tool" data-tag-tool>
@@ -61,7 +61,7 @@ const notice =
         <form method="post" action={classTags(sessionId)} id="tag-selected" class="roster-tags__form">
           {date && <input type="hidden" name="date" value={date} />}
           {filter && <input type="hidden" name="tag" value={filter} />}
-          <p class="muted">Tick children on the roster below, then pick a tag or type a new one. Tags are for staff: families and teachers don’t see them. <a href={settingsTags()}>All tags</a></p>
+          <p class="muted">Tick children on the roster below, then pick a tag or type a new one. Tags are for staff: families and teachers don’t see them. <a class="roster-tags__link" href={settingsTags()}>All tags</a></p>
           <button type="button" class="btn btn--outline btn--sm" data-tick-all>Tick everyone shown</button>
           <label for="tag-selected-name">Tag</label>
           <div class="roster-tags__row">
@@ -113,6 +113,7 @@ const notice =
   .roster-tags__filter label { font-weight: 650; }
   .roster-tags__filter select { min-height: 44px; max-width: 100%; }
   .roster-tags__shown { margin: 0; font-size: var(--step--1); }
+  .roster-tags__link { display: inline-flex; align-items: center; min-height: 44px; }
   .roster-tags__tool > summary { list-style: none; cursor: pointer; }
   .roster-tags__tool > summary::-webkit-details-marker { display: none; }
   .roster-tags__tool[open] > summary { background: var(--hall); }
