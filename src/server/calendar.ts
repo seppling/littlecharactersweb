@@ -12,6 +12,9 @@
  *
  * Teachers come from Settings → Staff (class_teacher), leads first; a class
  * with none there shows the content's teacher name.
+ *
+ * Rehearsals (src/server/shows.ts) show in their own color, linking to the
+ * show's staff page.
  */
 import { asc, eq } from 'drizzle-orm';
 import type { EventItem } from '@/content/types';
@@ -24,6 +27,7 @@ import { sessionCounts } from './admin';
 import { dayOffFrom, daysOffBetween, type DayOff } from './class-day';
 import { classRows, type ClassRow } from './classes';
 import { getDb, schema } from './db';
+import { athensParts, findShow, rehearsalsBetween, rehearsingLabel, rehearsingSessions } from './shows';
 
 type Content = Pick<SiteContent, 'programs' | 'events' | 'locationById' | 'site' | 'findSession'>;
 
@@ -95,7 +99,7 @@ export function filtersLabel(f: CalendarFilters, content: Pick<Content, 'program
 // ───────────── The days ─────────────
 
 export interface CalendarEntry {
-  kind: 'class' | 'event';
+  kind: 'class' | 'event' | 'rehearsal';
   /** "16:30", for sorting; empty when an event has no time. */
   start: string;
   /** "4:30–5:30 pm" */
@@ -109,7 +113,7 @@ export interface CalendarEntry {
   /** "8/12": enrolled and trials, of the places. Empty for an event. */
   places: string;
   sessionId: string | null;
-  /** The class's staff page, or the event's page on the site. */
+  /** The class's staff page, the event's page on the site, or a rehearsal's show (staff). */
   href: string;
   /** That date's attendance roster (the teacher app); classes only. */
   rosterHref: string | null;
@@ -124,12 +128,30 @@ export interface CalendarDay {
   entries: CalendarEntry[];
 }
 
+/** A show's rehearsal, as the calendar shows it (times in Athens). */
+export interface CalendarRehearsal {
+  id: string;
+  showSlug: string;
+  showTitle: string;
+  date: string;
+  /** "10:00" */
+  start: string;
+  end: string;
+  locationId: string | null;
+  location: string;
+  /** The classes that rehearse (for the whole cast: the performing classes' current sessions). */
+  sessionIds: string[];
+  /** "Stories and Songs", or "Whole cast". */
+  classes: string;
+}
+
 export interface CalendarData {
   rows: ClassRow[];
   events: EventItem[];
   daysOff: DayOff[];
   /** Session id → teacher names, leads first (Settings → Staff). */
   teachers: Map<string, string[]>;
+  rehearsals?: CalendarRehearsal[];
 }
 
 const teacherOf = (r: ClassRow, teachers: Map<string, string[]>) => teachers.get(r.session.id)?.join(', ') || r.teacher;
@@ -187,6 +209,28 @@ export function calendarDays(data: CalendarData, dates: string[], f: CalendarFil
         }
       }
     }
+    // Rehearsals: by a rehearsing class's program, the rehearsal's place, or a rehearsing class's teacher.
+    for (const r of data.rehearsals ?? []) {
+      if (r.date !== date) continue;
+      const classes = data.rows.filter((row) => r.sessionIds.includes(row.session.id));
+      if (f.program && !classes.some((c) => c.program.slug === f.program)) continue;
+      if (f.location && r.locationId !== f.location) continue;
+      if (f.teacher && !classes.some((c) => (data.teachers.get(c.session.id) ?? [c.teacher]).includes(f.teacher!))) continue;
+      entries.push({
+        kind: 'rehearsal',
+        start: r.start,
+        time: timeRange(r.start, r.end),
+        title: `Rehearsal: ${r.showTitle}`,
+        label: r.classes,
+        location: r.location,
+        teacher: '',
+        places: '',
+        sessionId: null,
+        href: links.show(r.showSlug),
+        rosterHref: null,
+        dayOff: null,
+      });
+    }
     entries.sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
     return { date, dayOff: data.daysOff.find((d) => d.date === date && d.sessionId === null) ?? null, entries };
   });
@@ -205,11 +249,31 @@ export async function teachersBySession(): Promise<Map<string, string[]>> {
   return out;
 }
 
+/** The rehearsals starting on these dates, for the calendar. */
+export async function calendarRehearsals(content: Content, from: string, to: string): Promise<CalendarRehearsal[]> {
+  return (await rehearsalsBetween(from, to)).map((r) => {
+    const show = findShow(content, r.showSlug);
+    const a = athensParts(r.startsAt);
+    return {
+      id: r.id,
+      showSlug: r.showSlug,
+      showTitle: show?.title ?? r.showSlug,
+      date: a.date,
+      start: a.time,
+      end: athensParts(r.endsAt).time,
+      locationId: r.locationId,
+      location: r.locationId ? (content.locationById(r.locationId)?.shortName ?? '') : '',
+      sessionIds: rehearsingSessions(r, show, content),
+      classes: rehearsingLabel(r, content),
+    };
+  });
+}
+
 /** Everything the calendar page needs for these dates. */
 export async function calendarRange(content: Content, from: string, to: string, f: CalendarFilters, now = new Date()) {
-  const [counts, daysOff, teachers] = await Promise.all([sessionCounts(), daysOffBetween(from, to), teachersBySession()]);
+  const [counts, daysOff, teachers, rehearsals] = await Promise.all([sessionCounts(), daysOffBetween(from, to), teachersBySession(), calendarRehearsals(content, from, to)]);
   const rows = classRows(content, counts, bookingClock(content.site.lateJoinWeeks, now));
-  const data: CalendarData = { rows, events: content.events, daysOff, teachers };
+  const data: CalendarData = { rows, events: content.events, daysOff, teachers, rehearsals };
   return { days: calendarDays(data, datesFromTo(from, to), f, content), options: filterOptions(rows, teachers, content) };
 }
 

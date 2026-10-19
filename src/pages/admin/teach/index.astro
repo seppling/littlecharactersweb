@@ -8,6 +8,8 @@
  * Kept on the phone for the day (the X-Teach-Cache header, read by
  * public/admin/teach-sw.js) with today's rosters, so it opens with no signal.
  * The status chips add what's saved on the phone and not sent yet.
+ * Rehearsals today for the teacher's classes show as read-only cards
+ * (src/server/shows.ts): time, place and note, never the cast.
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import { teachRoster } from '@/lib/admin-links';
@@ -20,6 +22,7 @@ import { requireTeacherOrOwner } from '@/server/staff';
 import { staffById } from '@/server/staff-settings';
 import { teacherClasses } from '@/server/teachers';
 import { devDay, longDay, shortDay } from '@/server/today';
+import { teacherRehearsals, type RehearsalCard } from '@/server/shows';
 
 export const prerender = false;
 const { staff, response } = requireTeacherOrOwner(Astro.locals);
@@ -31,6 +34,7 @@ const on = devDay(Astro.url.searchParams, !isProd);
 const date = on ?? todayInAthens();
 const viewer = staff ? { userId: staff.id, staffId: staff.staffId, role: staff.role } : null;
 const today: TeachCard[] = viewer ? await teachCards(viewer, date, content) : [];
+const rehearsals: RehearsalCard[] = viewer ? await teacherRehearsals(viewer, date, content) : [];
 // The week ahead: their own classes and cover dates (owners too).
 const week = viewer
   ? (await Promise.all([1, 2, 3, 4, 5, 6, 7].map(async (i) => ({ date: addDays(date, i), cards: await teachCards({ ...viewer, role: 'teacher' }, addDays(date, i), content) })))).filter((d) => d.cards.length)
@@ -105,6 +109,25 @@ else Astro.response.headers.set('X-Teach-Signed-Out', '1');
                 </li>
               );
             })}
+          </ul>
+        )
+      }
+      {
+        rehearsals.length > 0 && (
+          <ul class="teach-list" data-teach-rehearsals>
+            {rehearsals.map((r) => (
+              <li data-teach-rehearsal={r.id}>
+                <div class="teach-card teach-card--rehearsal">
+                  <span class="teach-card__time">{r.time}</span>
+                  <span class="teach-card__what">
+                    <strong>Rehearsal: {r.showTitle}</strong>
+                    <span class="teach-card__meta">{[r.place, r.classes].filter(Boolean).join(' · ')}</span>
+                    {r.note && <span class="teach-card__note" data-rehearsal-note>{r.note}</span>}
+                  </span>
+                  <span class="badge badge--rehearsal">Rehearsal</span>
+                </div>
+              </li>
+            ))}
           </ul>
         )
       }
@@ -226,6 +249,10 @@ else Astro.response.headers.set('X-Teach-Signed-Out', '1');
   }
   a.teach-card:hover { border-color: var(--ink); text-decoration: none; }
   .teach-card--off { background: var(--hall); color: var(--ink-mute); border-style: dashed; }
+  .teach-card--rehearsal { border-left: 6px solid var(--teal); }
+  .teach-card__note { font-size: var(--step--1); color: var(--ink); white-space: pre-line; }
+  .badge--rehearsal { background: var(--teal-tint); color: var(--ink); }
+  [data-teach-rehearsals] { margin-top: var(--space-s); }
   .teach-card__time { font-weight: 700; white-space: nowrap; }
   .teach-card__what { display: grid; gap: 0.25rem; min-width: 0; overflow-wrap: anywhere; }
   .teach-card__what strong { font-family: var(--font-display); font-size: var(--step-1); font-stretch: 92%; line-height: 1.15; }

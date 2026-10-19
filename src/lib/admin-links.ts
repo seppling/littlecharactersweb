@@ -46,6 +46,13 @@ export const familyStatement = (householdId: string, year: number) => `/admin/fa
 /** The calendar: every class, event and day off. `month` ("2026-11"); the page also takes view=week&week=, and filters. */
 export const calendar = (month?: string, params: Record<string, string | undefined> = {}) => `/admin/calendar${query({ month, ...params })}`;
 
+/** Shows: each show's cast list and rehearsals (docs/back-office.md → Shows). */
+export const shows = () => '/admin/shows';
+/** One show: the cast, roles, rehearsals. Pass `${show(slug)}/program` or `/cast-sheet` to downloads(). */
+export const show = (slug: string) => `/admin/shows/${seg(slug)}`;
+/** Email the cast's families (the staff composer). */
+export const showEmail = (slug: string) => `/admin/shows/${seg(slug)}/email`;
+
 /** Messages & sign-ups from the site's forms. */
 export const leads = () => '/admin/leads';
 /** The website editor. */
