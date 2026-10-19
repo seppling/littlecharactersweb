@@ -39,8 +39,8 @@ const session = (id: string, over: Partial<Session> = {}): Session => ({
 const program = (slug: string, kind: Program['kind'], sessions: Session[]) => ({ slug, title: slug, kind, sessions }) as unknown as Program;
 
 const programs = [
-  program('intro', 'class', [session('intro-tue', { capacity: 12 }), session('intro-spring', { term: 'Spring 2027', startDate: '2027-01-12', endDate: '2027-05-11' })]),
-  program('night-out', 'workshop', [session('pno-sep', { days: ['Fri'], startDate: '2026-09-12', endDate: '2026-09-12' }), session('pno-nov', { days: ['Fri'], startDate: '2026-11-13', endDate: '2026-11-13', capacity: 2 })]),
+  program('intro', 'class', [session('intro-tue', { capacity: 12, label: 'Ages 7–10' }), session('intro-spring', { term: 'Spring 2027', startDate: '2027-01-12', endDate: '2027-05-11' })]),
+  program('night-out', 'workshop', [session('pno-sep', { days: ['Fri'], startDate: '2026-09-12', endDate: '2026-09-12' }), session('pno-nov', { label: 'Fri, Nov 13', days: ['Fri'], startDate: '2026-11-13', endDate: '2026-11-13', capacity: 2 })]),
   program('partner', 'class', [session('school', { externalUrl: 'https://school.example/register' })]),
 ];
 const content = { programs, locationById: (id: string | undefined) => (id === 'hq' ? ({ id: 'hq', shortName: 'Studio', name: 'The Studio' } as never) : undefined) };
@@ -69,6 +69,9 @@ describe('the Classes list', () => {
     expect(row('pno-sep')).toMatchObject({ filled: 0, capacity: undefined, openings: undefined, waitlist: 0 });
     expect(placesLabel(row('pno-sep'))).toBe('0');
     expect(row('pno-nov').when).toBe('Fri, Nov 13 · 4:30–5:30 pm');
+    // A label that only repeats the date isn't shown twice; any other label is kept.
+    expect(row('pno-nov').label).toBe('');
+    expect(row('intro-tue').label).toBe('Ages 7–10');
   });
 
   it('hides ended sessions, past one-off dates included, unless “Ended” is chosen', () => {
@@ -147,7 +150,7 @@ describe('a class’s roster', () => {
     const leo = await createStudent(A.id, { firstName: 'Leo', lastName: 'Rivera', birthdate: '2016-01-02' }, ana.id);
     const kai = await createStudent(B.id, { firstName: 'Kai', lastName: 'Chen', birthdate: '2017-05-05' }, bo.id);
     const zoe = await createStudent(B.id, { firstName: 'Zoe', lastName: 'Adams', birthdate: '2017-03-03' }, bo.id);
-    const ivy = await createStudent(B.id, { firstName: 'Ivy', lastName: 'Brooks', birthdate: null }, bo.id);
+    const ivy = await createStudent(B.id, { firstName: 'Ivy', lastName: 'Brooks', birthdate: '2017-07-07' }, bo.id);
     await updateStudentDetails(A.id, maya.id, { allergies: 'Peanuts', medicalNotes: '', pickupNotes: '', photoConsent: false }, ana.id);
     const base = { sessionId: SESSION, programSlug: 'intro-to-theater' };
     const old = new Date('2026-08-01T12:00:00Z');
@@ -180,7 +183,7 @@ describe('a class’s roster', () => {
   it('lists the waitlist in the order families joined, with an open offer', async () => {
     const { waitlist } = await classRoster(SESSION, hannah.id, 'view', '2026-10-19');
     expect(waitlist.map((s) => s.name)).toEqual(['Ivy Brooks', 'Zoe Adams']);
-    expect(waitlist[0]).toMatchObject({ offeredAt: null, age: null, emergencyContacts: [] });
+    expect(waitlist[0]).toMatchObject({ offeredAt: null, age: 9, emergencyContacts: [] });
     expect(waitlist[1].offeredAt?.toISOString()).toBe('2026-10-15T14:00:00.000Z');
   });
 

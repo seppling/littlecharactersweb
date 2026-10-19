@@ -39,7 +39,7 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
         <p class="class-line">{classLine(session, location?.name)}</p>
         <p class="class-counts" data-counts><strong>{places}</strong> · {waitlist.length} on the waitlist</p>
       </div>
-      <div class="admin-head__actions">
+      <div class="admin-head__actions class-actions">
         <a class="btn btn--outline btn--sm" href={classPrint(session.id)} data-print-link>Print</a>
         <a class="btn btn--outline btn--sm" href={classEmail(session.id)} data-email-link>Email the class</a>
         <a class="btn btn--outline btn--sm" href={sheet} data-download="sign-in">Sign-in sheet</a>
@@ -132,7 +132,7 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
                       </span>
                     </div>
                   ))}
-                  <a class="family-link" href={family(c.householdId)}>{c.family} family page</a>
+                  <a class="family-link" href={family(c.householdId)}>Family page<span class="sr-only">: {c.family}</span></a>
                 </div>
                 {/* Roster changes (remove from class) go here, in a later unit. */}
                 <div class="kid__actions" data-roster-actions hidden></div>
@@ -167,7 +167,7 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
                     </span>
                   </div>
                 ))}
-                <a class="family-link" href={family(c.householdId)}>{c.family} family page</a>
+                <a class="family-link" href={family(c.householdId)}>Family page<span class="sr-only">: {c.family}</span></a>
               </div>
               {/* "Offer the spot" goes here, in the Roster changes unit. */}
               <div class="wait__actions" data-waitlist-actions hidden></div>
@@ -180,6 +180,13 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
 </AdminShell>
 
 <style>
+  /* admin.css's base .badge rule comes after its tone rules and wins; until that's fixed there, keep the tones here (report: open points). */
+  .admin-page :global(.badge--neutral) { background: var(--line); color: var(--ink-soft); }
+  .admin-page :global(.badge--good) { background: var(--ok-tint); color: #1c6b3e; }
+  .admin-page :global(.badge--warning) { background: var(--yellow-tint); color: var(--yellow-ink); }
+  .admin-page :global(.badge--alert) { background: var(--red-tint); color: var(--red-ink); }
+  /* admin.css's `.admin-head > div { display: grid }` outranks .admin-head__actions' flex row. */
+  .admin-head > .class-actions { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
   .class-line { color: var(--ink-soft); }
   .class-counts { font-size: var(--step--1); color: var(--ink-soft); }
   .safety { font-size: var(--step--1); color: var(--ink-mute); max-width: var(--measure); }

@@ -77,7 +77,7 @@ const filtered = f.openings || f.waitlist || f.under5 || !!f.term;
                 <a class="class-row" href={classPage(r.session.id)} data-session={r.session.id}>
                   <span class="class-row__name">
                     <strong>{r.program.title}</strong>
-                    <span class="muted">{[r.session.label, r.when].filter(Boolean).join(' · ')}</span>
+                    <span class="muted">{[r.label, r.when].filter(Boolean).join(' · ')}</span>
                     {(r.under5 && r.state !== 'ended') || r.openings === 0 ? (
                       <span class="badges">
                         {r.openings === 0 && <span class="badge badge--neutral">Full</span>}
@@ -100,6 +100,11 @@ const filtered = f.openings || f.waitlist || f.under5 || !!f.term;
 </AdminShell>
 
 <style>
+  /* admin.css's base .badge rule comes after its tone rules and wins; until that's fixed there, keep the tones here (report: open points). */
+  .admin-page :global(.badge--neutral) { background: var(--line); color: var(--ink-soft); }
+  .admin-page :global(.badge--good) { background: var(--ok-tint); color: #1c6b3e; }
+  .admin-page :global(.badge--warning) { background: var(--yellow-tint); color: var(--yellow-ink); }
+  .admin-page :global(.badge--alert) { background: var(--red-tint); color: var(--red-ink); }
   .filters { display: grid; gap: 0.6rem; }
   .filters__label { align-self: center; font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); margin-right: 0.2rem; }
   .filters .chip { min-height: 44px; }

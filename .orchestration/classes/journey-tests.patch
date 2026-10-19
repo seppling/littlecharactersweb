@@ -1,0 +1,27 @@
+diff --git a/tests/e2e/enroll-journey.mjs b/tests/e2e/enroll-journey.mjs
+index dbebdd7..0223075 100644
+--- a/tests/e2e/enroll-journey.mjs
++++ b/tests/e2e/enroll-journey.mjs
+@@ -216,7 +216,8 @@ await page.fill('#p-phone', '281-798-2623');
+ await page.click('button[type="submit"]');
+ await page.goto(`${BASE}/admin/intro-f26-tue`);
+ await page.waitForSelector('text=Maya Rivera');
+-await page.waitForSelector('text=Peanuts');
++await page.click('[data-child]:has-text("Maya Rivera") summary');
++await page.waitForSelector('[data-care] >> text=Peanuts');
+ await shot('7-roster');
+ step('Hannah sees Maya on the roster, with allergies decrypted for staff');
+ 
+diff --git a/tests/e2e/trial-journey.mjs b/tests/e2e/trial-journey.mjs
+index 41674fd..0fe7d08 100644
+--- a/tests/e2e/trial-journey.mjs
++++ b/tests/e2e/trial-journey.mjs
+@@ -216,7 +216,7 @@ if (await hannah.locator('#p-name').count()) {
+   await hannah.click('button[type="submit"]');
+ }
+ await hannah.goto(`${BASE}/admin/intro-f26-tue`);
+-for (const k of ['Ava', 'Ben']) await hannah.locator('tr', { hasText: `${k} Lee` }).filter({ hasText: email }).locator('td', { hasText: /^trial$/ }).waitFor();
++for (const k of ['Ava', 'Ben']) await hannah.locator('[data-child]', { hasText: `${k} Lee` }).filter({ has: hannah.locator(`a[href="mailto:${email}"]`) }).locator('[data-badge="trial"]').waitFor();
+ step('Hannah’s roster lists Ava and Ben as “trial”');
+ 
+ // ───────────── 3. No second free class ─────────────

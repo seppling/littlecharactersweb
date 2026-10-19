@@ -69,6 +69,8 @@ export interface ClassRow {
   program: Program;
   session: Session;
   term: string;
+  /** The session's own label ("Ages 4–6"), left out when it only repeats the date. */
+  label: string;
   /** "Tuesdays · 4:30–5:30 pm", or the date for a one-off. */
   when: string;
   teacher: string;
@@ -106,11 +108,13 @@ export function classRows(content: ListContent, counts: Counts, clock: BookingCl
       const c = counts.get(session.id) ?? { active: 0, trial: 0, waitlist: 0 };
       const filled = c.active + c.trial;
       const capacity = capacityFor(program, session);
+      const when = whenLabel(session);
       return {
         program,
         session,
         term: session.term,
-        when: whenLabel(session),
+        label: session.label && !when.startsWith(session.label) ? session.label : '',
+        when,
         teacher: session.teacher ?? '',
         location: content.locationById(session.locationId)?.shortName ?? '',
         filled,
@@ -168,7 +172,7 @@ export const placesLabel = (r: Pick<ClassRow, 'filled' | 'capacity'>) => (r.capa
 export function classListTable(rows: ClassRow[]) {
   return {
     headers: ['Term', 'Class', 'When', 'Teacher', 'Location', 'Places filled', 'Openings', 'Waitlist'],
-    rows: rows.map((r) => [r.term, r.session.label ? `${r.program.title} (${r.session.label})` : r.program.title, r.when, r.teacher, r.location, placesLabel(r), r.openings ?? '', r.waitlist]),
+    rows: rows.map((r) => [r.term, r.label ? `${r.program.title} (${r.label})` : r.program.title, r.when, r.teacher, r.location, placesLabel(r), r.openings ?? '', r.waitlist]),
   };
 }
 
@@ -331,7 +335,7 @@ type Found = { program: Program; session: Session };
 export async function rosterPdf({ program, session }: Found, location: string | undefined, viewerId: string): Promise<PdfTable> {
   const { students } = await classRoster(session.id, viewerId, 'pdf');
   const { headers, rows } = rosterTable(students);
-  const weights = [1.2, 0.4, 0.7, 1.7, 1.2, 1.4, 1.4, 1.6, 0.6];
+  const weights = [1.2, 0.4, 0.7, 2, 1.2, 1.3, 1.3, 1.7, 0.6];
   return {
     title: `Class Roster: ${program.title}`,
     subtitle: `${classLine(session, location)} · ${students.length} ${students.length === 1 ? 'child' : 'children'} · Includes allergies and medical notes. Share only with the teaching team.`,

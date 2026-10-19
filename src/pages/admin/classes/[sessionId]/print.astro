@@ -33,13 +33,13 @@ const person = (p: { name: string; relationship: string; phone?: string }) => [`
         <p>{classLine(session, location?.name)}</p>
         <p class="muted">Class roster · {students.length} {students.length === 1 ? 'child' : 'children'} · Printed {made}</p>
       </div>
-      <div class="admin-head__actions no-print">
+      <div class="admin-head__actions class-actions no-print">
         <button type="button" class="btn btn--primary btn--sm" data-print>Print</button>
         <a class="btn btn--outline btn--sm" href={pdf} data-download="pdf">Download PDF</a>
         <a class="btn btn--outline btn--sm" href={sheet} data-download="sign-in">Sign-in sheet</a>
       </div>
     </div>
-    <p class="safety">Includes allergies and medical notes. Share only with the teaching team, and shred it when the class ends.</p>
+    <p class="safety">Includes allergies and medical notes. Share only with the teaching team. Views and downloads are logged.</p>
     {students.length === 0 ? (
       <div class="empty-state"><strong>No one enrolled yet.</strong></div>
     ) : (
@@ -83,6 +83,8 @@ const person = (p: { name: string; relationship: string; phone?: string }) => [`
 </script>
 
 <style>
+  /* admin.css's `.admin-head > div { display: grid }` outranks .admin-head__actions' flex row. */
+  .admin-head > .class-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
   .muted { color: var(--ink-mute); }
   .safety { font-size: var(--step--1); color: var(--ink-mute); }
   .print-table td.alert { color: var(--red-ink); background: var(--red-tint); }
