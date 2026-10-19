@@ -190,6 +190,16 @@ export const site: PageDef = {
       ],
     },
     {
+      key: 'statements',
+      label: 'Payment statements',
+      type: 'group',
+      help: 'Families can download a statement of each year’s payments from their account. It shows our name, address and email, and these if you fill them in.',
+      fields: [
+        { key: 'taxId', label: 'Tax ID', type: 'text', max: 40, half: true, help: 'Optional. Printed as “Tax ID: …”. Leave it empty and the line is left out.' },
+        { key: 'note', label: 'Note', type: 'textarea', rows: 2, max: 300, help: 'Optional. A line at the top of every statement. Leave it empty and nothing is shown.' },
+      ],
+    },
+    {
       key: 'parking',
       label: 'Parking & drop-off at HQ',
       type: 'group',

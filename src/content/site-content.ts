@@ -40,6 +40,8 @@ export type SiteInfo = typeof siteConfig & {
   lateJoinWeeks: number;
   /** Drop-ins to one class of a weekly class (src/server/drop-ins.ts): the price in cents, and whether families can book. */
   dropIns: { priceCents: number; open: boolean };
+  /** Families' yearly statements: Hannah's tax ID and note, both optional (empty: left out). */
+  statements: { taxId?: string; note?: string };
 };
 
 export interface SiteContent {
@@ -147,6 +149,7 @@ export function buildSiteContent(rows: ContentRow[], uploads = new Map<string, U
     parking: settings.parking,
     lateJoinWeeks: lateJoinWeeksOr(settings.signups?.lateJoinWeeks),
     dropIns: dropInSetting(settings.dropIns),
+    statements: { taxId: settings.statements?.taxId?.trim() || undefined, note: settings.statements?.note?.trim() || undefined },
   };
 
   const programBySlug = (slug: string) => programs.find((p) => p.slug === slug);

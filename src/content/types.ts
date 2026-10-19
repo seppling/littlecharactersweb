@@ -211,6 +211,8 @@ export interface SiteSettings {
   signups: { lateJoinWeeks: number };
   /** Drop-ins to one class of a weekly class: the price in dollars (Hannah to confirm), and whether families can book them. */
   dropIns?: { price: number; open?: boolean };
+  /** Families' yearly payment statements (src/server/statements.ts): an optional tax ID line and note. Empty leaves them out. */
+  statements?: { taxId?: string; note?: string };
   parking: { walkIn: string; dropOff: string; staffOnly: string; late: string; walkInMap?: ImageRef; dropOffMap?: ImageRef };
   description: string;
   previewBanner?: boolean;

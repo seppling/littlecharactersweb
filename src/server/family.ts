@@ -20,6 +20,7 @@ import { bookingClock, bookingProblem } from '@/lib/session-dates';
 import { PRICING, availablePlans, defaultPlan, formatCents, isWeeklyTuitionClass, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
 import { countingEnrollments, effects, logFamilyDiscount, previewEnrollmentEffect, refreshFamilyDiscount, type FamilyDiscountChange } from './family-discount';
 import { detailsOnFile } from '@/lib/student-details';
+import { applyWaitingCredits } from './credits';
 import type { FamilyDetails, FamilyDetailsInput } from '@/lib/family-details';
 import { isAdult, isOneOff, oneOffWhen } from '@/lib/program-fit';
 
@@ -546,6 +547,8 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
   await audit(userId, o.totalCents > 0 ? 'order.paid' : 'order.confirmed', 'order', o.id);
   for (const a of result.accepted) await audit(userId, 'waitlist_offer.accepted', 'waitlist_offer', a.id);
   if (result.family) await logFamilyDiscount(userId, o.householdId, result.family);
+  // Credits waiting for a payment come off the new monthly payments (src/server/credits.ts).
+  if (o.plan === 'monthly' && o.schedule.length) await applyWaitingCredits(o.householdId).catch((e) => console.error('Applying waiting credits failed', e));
   const lowered = result.family?.changes.filter((c) => c.orderId !== o.id && c.afterCents < c.beforeCents) ?? [];
   await sendOrderConfirmation(done, lowered).catch((e) => console.error('Confirmation email failed', e));
   return done;
