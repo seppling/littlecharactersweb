@@ -141,7 +141,7 @@ if (Astro.request.method === 'POST') {
           <fieldset class="kid" data-family-form>
             <input type="hidden" name="family-details" value="1" />
             <legend>Your family</legend>
-            <p class="hint">
+            <p class="who">
               {editing === 'family' ? '✓ On file from before. Update anything that’s changed. ' : 'Asked once for the whole family. '}
               Little Characters staff see these, and from spring, the teachers of your children’s classes.
             </p>
@@ -191,6 +191,7 @@ if (Astro.request.method === 'POST') {
   .kid--on-file a { font-weight: 650; flex: none; }
   .opt { font-weight: 400; color: var(--ink-mute); }
   .hint { font-size: var(--step--2); color: var(--ink-mute); }
+  .who { margin: 0; font-size: var(--step--1); color: var(--ink-soft); }
   .label { font-weight: 650; font-size: var(--step--1); }
   .choices { display: grid; gap: 0.4rem; }
   .choices label { display: flex; gap: 0.5rem; align-items: center; font-weight: 400; }

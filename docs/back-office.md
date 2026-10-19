@@ -135,3 +135,5 @@ A home-screen web app; no app store.
 | `waitlist_offer` | A place offered to a waitlisted enrollment: `offered`, `accepted`, `withdrawn`, `expired` | `WaitlistOffer` |
 
 `src/lib/contacts.ts` has the zod inputs (`emergencyContactsInput`, `pickupPeopleInput`: names up to 80 characters, relationships up to 40), `normalizePhone` (US numbers as 10 digits, others as `+digits`), `formatPhone` ("(706) 555-0142"), `telHref` and `smsHref`. Who sees the new data: `security.md`.
+
+Families fill these in on the details step and at `/account/family` (`portal.md`). Read them with `getFamilyDetails(householdId)` (`src/server/family.ts`); `familySummary` and `personLine` (`src/lib/family-details.ts`) write them out, and `heardAboutLabel` turns the stored `heard_about` key (`friend`, `search`, `social`, `school`, `event`, `flyer`, or `other: …`) into words. `EMERGENCY_CONTACT_REQUIRED` there switches the required emergency contact off.

@@ -12,8 +12,8 @@ We hold parents' contact details, children's names and birthdays, and sometimes 
 | Child first/last name, birthday | Rosters, age fit | Same |
 | Allergies, medical notes | Safety in class | **Encrypted per field** (AES-256-GCM); decrypted only for your family and on staff rosters; every roster view logged |
 | Pickup notes, photo consent | Safety, marketing permission | Household-scoped |
-| Emergency contacts and pickup people (name, relationship, phone; up to 4 each) | Reaching someone when parents can't be reached; knowing who may collect a child | Household-scoped: the family and staff. **Not encrypted** (like parents' phones), but never put in URLs, logs or the audit log |
-| ZIP code, how the family heard about us | Knowing where families come from | Household-scoped; staff see it on the family's page |
+| Emergency contacts and pickup people (name, relationship, phone; up to 4 each) | Reaching someone when parents can't be reached; knowing who may collect a child | Household-scoped: the family and staff (the forms tell families that, from spring, the teachers of their children's classes will see them too). Saves and "Looks right" are audit-logged as `household.details.update` / `household.details.confirm`, without the details. **Not encrypted** (like parents' phones), but never put in URLs, logs or the audit log |
+| ZIP code, how the family heard about us | Knowing where families come from (two of Studio Director's reports) | Household-scoped; staff see it on the family's page. The family sees and edits their ZIP; "How did you hear about us?" is asked once and stored as a short key (`friend`, `search`, …) or `other: <their words>` |
 | Staff notes about a family or a child | Staff remembering what matters | **Staff only**; families never see them. Never in URLs or logs |
 | Staff emails sent from the site, and to whom | The log on each family's page | Staff only |
 | Waitlist offers | Offering a place to a waitlisted child | The family and staff |
