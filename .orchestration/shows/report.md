@@ -38,7 +38,11 @@ Each show now has a cast list with roles, groups, order and photo permission, a 
 - `npm test`: 37 files, **732 tests pass** (710 before, plus the 22 new ones in `shows.test.ts`).
 - `npm run build`: complete.
 - Browser tests, baseline on the starting branch: all 16 pass, in the README's order.
-- Browser tests on this branch: see "Full run" below. Every test in the README's order on one fresh database, `staff-shows.mjs` last.
+- Browser tests on this branch, every test in the README's order on one fresh database, `staff-shows.mjs` last: **all 17 pass** (second full run).
+  - **The first full run** had 3 failures:
+    - `staff-foundation.mjs` checks the exact list of top-bar sections. I added "Shows" to that one line, the only check of the old menu.
+    - My own `staff-shows.mjs` assumed Juniper was the only Stories and Songs child, but earlier tests add others. The check now says the Penwicks are ticked and Zara's family isn't.
+    - `staff-families.mjs` timed out waiting for the Family Notes download after a fresh sign-in. That code is untouched by this unit, and the test passed in the baseline and in the second run, so I take it as a timing flake. Untouched.
 - `staff-shows.mjs` covers:
   - Shows in the top bar and the phone menu;
   - Add everyone from Stories and Songs, finding a child by name (a form post), roles and groups, a second role, photo permission, up and down;

@@ -22,4 +22,4 @@ Branch `claude/bo2-shows`, from `claude/blissful-archimedes-enun5m` (3ab1c0a).
 - Unit tests (`tests/unit/shows.test.ts`, 22), browser test `tests/e2e/staff-shows.mjs` (in README), docs §21 and security row, report.
 
 ## Next
-- Full browser run in README order; copy screenshots to `shots/`; final commit. Then the unit is finished (see report.md).
+- Nothing: the unit is finished. All checks pass (check, 732 unit tests, build, all 17 browser tests in order). See report.md.
