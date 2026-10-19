@@ -78,7 +78,8 @@ All with the Stripe keys blanked.
   - the confirm page: `confirm-desktop.png`, `confirm-phone.png`;
   - the leads PDF: `leads.pdf`, with page 1 rendered as `leads-pdf-page-1.png`. It's landscape, with the title, "All forms, newest first · 3 entries", "Made Oct 18, 2026 for Little Characters", a table with a ruled header row, and "Page 1 of 1".
   - In full-page phone shots the fixed tab bar shows mid-image; that's how the screenshot tool draws fixed bars, not a layout fault.
-- **Not checked:** CI on this push (I'll see it only after pushing). Installing on a real iPhone or Android phone is also unchecked: there's no device here. Chrome's install prompt can't fire on `http://localhost` in headless tests, so the Install button was checked only in its hidden state.
+- **CI:** green on the first two pushes (runs 163 and 164). The last run (report, a CSS wrapping fix, screenshots) was still queued when I ended the turn.
+- **Not checked:** Installing on a real iPhone or Android phone is also unchecked: there's no device here. Chrome's install prompt can't fire on `http://localhost` in headless tests, so the Install button was checked only in its hidden state.
 
 ## Decisions
 
