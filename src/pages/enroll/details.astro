@@ -1,14 +1,17 @@
 ---
 /**
- * Enrollment step 2: care details for each student (asked once, then confirmed
- * yearly) and one policy checkbox. A student whose details were confirmed within
- * the year gets a one-line summary with "Edit" instead of the form.
+ * Enrollment step 2: care details for each student, the family's part
+ * (emergency contacts, who may pick up, ZIP, how they heard about us), and one
+ * policy checkbox. Each is asked once, then confirmed yearly: details confirmed
+ * within the year get a one-line summary with "Edit" instead of the form.
  */
 import { eq } from 'drizzle-orm';
 import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
 import { getDb, schema } from '@/server/db';
-import { getOrder, householdForUser, listStudents, readStudentNotes, studentDetailsInput, updateStudentDetails } from '@/server/family';
+import { getFamilyDetails, getOrder, householdForUser, listStudents, readStudentNotes, studentDetailsInput, updateFamilyDetails, updateStudentDetails } from '@/server/family';
+import FamilyDetailsFields from '@/components/portal/FamilyDetailsFields.astro';
+import { familyDetailsOnFile, familySummary, readFamilyForm } from '@/lib/family-details';
 import { detailsSummary, needsDetailsForm } from '@/lib/student-details';
 
 import { bookingClock, bookingProblem } from '@/lib/session-dates';
@@ -39,6 +42,12 @@ const policies = isOneOff(found.session)
 const students = (await listStudents(household.id)).filter((s) => o.studentIds.includes(s.id));
 const errors: Record<string, string> = {};
 const editing = Astro.url.searchParams.get('edit');
+const family = await getFamilyDetails(household.id);
+// The family's part, like each child's: a summary when a parent confirmed it this year, unless they tap Edit.
+const askFamily = !family || !familyDetailsOnFile(family) || editing === 'family';
+const askHeard = !family?.heardAbout;
+let familyErrors: Record<string, string> = {};
+let familyValues: Record<string, string> | null = null;
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
@@ -55,9 +64,16 @@ if (Astro.request.method === 'POST') {
     }),
   }));
   for (const { s, parsed } of parsedAll) if (!parsed.success) errors[s.id] = 'Choose a photo preference.';
+  const familyForm = askFamily || form.get('family-details') === '1' ? readFamilyForm(form, { askHeard }) : null;
+  if (familyForm && !familyForm.data) {
+    familyErrors = familyForm.errors;
+    familyValues = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+    errors.family = 'Check the family details.';
+  }
 
   if (!Object.keys(errors).length) {
     for (const { s, parsed } of parsedAll) if (parsed.success) await updateStudentDetails(household.id, s.id, parsed.data, user.id);
+    if (familyForm?.data) await updateFamilyDetails(household.id, familyForm.data, user.id);
     const db = await getDb();
     await db.update(schema.order).set({ policyAcceptedAt: new Date() }).where(eq(schema.order.id, o.id));
     return Astro.redirect(`/enroll/review?order=${o.id}`, 303);
@@ -70,7 +86,7 @@ if (Astro.request.method === 'POST') {
     <form method="post" class="form">
       <h1>A few details</h1>
       <p class="lede">
-        {students.every((s) => !needsDetailsForm(s, editing))
+        {students.every((s) => !needsDetailsForm(s, editing)) && !askFamily
           ? 'We have these on file from this year. Edit anything that’s changed, then agree to the policies.'
           : 'So teachers can take good care of everyone. You only fill this in once; we’ll ask you to confirm it each year.'}
       </p>
@@ -104,8 +120,8 @@ if (Astro.request.method === 'POST') {
                 <p class="hint">Stored encrypted and only visible to teaching staff.</p>
               </div>
               <div class="field">
-                <label for={`pickup-${s.id}`}>Who else may pick up? <span class="opt">optional</span></label>
-                <input id={`pickup-${s.id}`} name={`pickup-${s.id}`} value={s.pickupNotes ?? ''} placeholder="Name and relationship" />
+                <label for={`pickup-${s.id}`}>Pickup notes for {s.firstName} <span class="opt">optional</span></label>
+                <input id={`pickup-${s.id}`} name={`pickup-${s.id}`} value={s.pickupNotes ?? ''} placeholder="Anything just for this child, like “only Dad on Tuesdays”" />
               </div>
               <div class="field">
                 <span class="label">Photos</span>
@@ -118,6 +134,28 @@ if (Astro.request.method === 'POST') {
             </fieldset>
           );
         })
+      }
+
+      {
+        askFamily ? (
+          <fieldset class="kid" data-family-form>
+            <input type="hidden" name="family-details" value="1" />
+            <legend>Your family</legend>
+            <p class="hint">
+              {editing === 'family' ? '✓ On file from before. Update anything that’s changed. ' : 'Asked once for the whole family. '}
+              Little Characters staff see these, and from spring, the teachers of your children’s classes.
+            </p>
+            <FamilyDetailsFields details={family} values={familyValues} errors={familyErrors} askHeard={askHeard} />
+          </fieldset>
+        ) : (
+          <div class="kid kid--on-file" data-family-on-file>
+            <p>
+              <strong>Your family</strong> <span class="fresh">✓ On file</span>
+              <span class="summary">{familySummary(family!)}</span>
+            </p>
+            <a href={`/enroll/details?order=${o.id}&edit=family`}>Edit<span class="sr-only"> your family details</span></a>
+          </div>
+        )
       }
 
       <div class="policies">

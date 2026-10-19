@@ -20,6 +20,7 @@ import { bookingClock, bookingProblem } from '@/lib/session-dates';
 import { PRICING, availablePlans, defaultPlan, formatCents, isWeeklyTuitionClass, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
 import { countingEnrollments, effects, logFamilyDiscount, previewEnrollmentEffect, refreshFamilyDiscount, type FamilyDiscountChange } from './family-discount';
 import { detailsOnFile } from '@/lib/student-details';
+import type { FamilyDetails, FamilyDetailsInput } from '@/lib/family-details';
 import { isAdult, isOneOff, oneOffWhen } from '@/lib/program-fit';
 
 const { household, householdMember, student, order, enrollment, installment } = schema;
@@ -77,6 +78,54 @@ export async function householdAccount(householdId: string) {
     .from(household)
     .where(eq(household.id, householdId));
   return h ?? null;
+}
+
+// ───────────── Family details ─────────────
+
+/** Emergency contacts, pickup people, ZIP and how they heard about us (src/lib/family-details.ts). */
+export async function getFamilyDetails(householdId: string): Promise<FamilyDetails | null> {
+  const db = await getDb();
+  const [h] = await db
+    .select({
+      emergencyContacts: household.emergencyContacts,
+      pickupPeople: household.pickupPeople,
+      zip: household.zip,
+      heardAbout: household.heardAbout,
+      contactsConfirmedAt: household.contactsConfirmedAt,
+    })
+    .from(household)
+    .where(eq(household.id, householdId));
+  return h ?? null;
+}
+
+/**
+ * Saves the family's part of the form and records it as confirmed. "How did
+ * you hear about us?" is only written when it was asked and answered. The audit
+ * log says that it changed, never what it says.
+ */
+export async function updateFamilyDetails(householdId: string, input: FamilyDetailsInput, userId: string) {
+  const db = await getDb();
+  const [h] = await db
+    .update(household)
+    .set({
+      emergencyContacts: input.emergencyContacts,
+      pickupPeople: input.pickupPeople,
+      zip: input.zip,
+      ...(input.heardAbout ? { heardAbout: input.heardAbout } : {}),
+      contactsConfirmedAt: new Date(),
+    })
+    .where(eq(household.id, householdId))
+    .returning({ id: household.id });
+  if (h) await audit(userId, 'household.details.update', 'household', h.id);
+  return !!h;
+}
+
+/** "Looks right": a parent checked the family details and nothing changed. */
+export async function confirmFamilyDetails(householdId: string, userId: string) {
+  const db = await getDb();
+  const [h] = await db.update(household).set({ contactsConfirmedAt: new Date() }).where(eq(household.id, householdId)).returning({ id: household.id });
+  if (h) await audit(userId, 'household.details.confirm', 'household', h.id);
+  return !!h;
 }
 
 // ───────────── Students ─────────────

@@ -82,5 +82,5 @@ export function studioDirectorWelcome(billingEnds?: string) {
   const ends = billingEnds && /^\d{4}-\d{2}-\d{2}$/.test(billingEnds)
     ? ` on ${new Date(`${billingEnds}T12:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' })}`
     : '';
-  return `Your fall classes and payments stay in Studio Director until the term ends${ends}. Spring sign-up happens here. Please check each child’s details below.`;
+  return `Your fall classes and payments stay in Studio Director until the term ends${ends}. Spring sign-up happens here. Please check your family details and each child’s details below.`;
 }

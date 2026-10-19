@@ -136,3 +136,47 @@ describe('importing', () => {
     expect(report.students.matched).toBe(3);
   });
 });
+
+describe('emergency contacts and ZIP codes', () => {
+  it('recognizes the columns', () => {
+    expect(matchColumns(['Family ID', 'Email', 'Zip Code', 'Emergency Contact', 'Emergency Phone', 'Emergency Contact Relationship'])).toMatchObject({
+      zip: 2,
+      emergencyName: 3,
+      emergencyPhone: 4,
+      emergencyRelationship: 5,
+    });
+    expect(matchColumns(['Email', 'Postal Code', 'Emergency Contact Name', 'Emergency Contact Phone'])).toMatchObject({ zip: 1, emergencyName: 2, emergencyPhone: 3 });
+  });
+
+  it('keeps one of each contact per family, with the phone stored as 10 digits', () => {
+    const { families, problems } = readFamilies([
+      { name: 'families.csv', text: 'Family ID,Email,Zip,Emergency Contact,Emergency Phone,Emergency Relationship\n8,pat@example.com,30605-1234,Jordan Quill,(706) 555-0188,Aunt' },
+      { name: 'students.csv', text: 'Family ID,First Name,Last Name,Birth Date,Emergency Contact,Emergency Phone\n8,Juno,Quill,5/5/2017,Jordan Quill,706-555-0188\n8,Remy,Quill,6/6/2019,Sam Quill,not a number' },
+    ]);
+    expect(families[0].zip).toBe('30605');
+    expect(families[0].emergencyContacts).toEqual([{ name: 'Jordan Quill', relationship: 'Aunt', phone: '7065550188' }]);
+    // The report names the row, never the person or the number.
+    expect(problems).toEqual([{ where: 'students.csv:3', reason: 'emergency contact phone not understood; skipped that contact' }]);
+  });
+
+  it('flags a ZIP code it can’t read', () => {
+    const { families, problems } = readFamilies([{ name: 'f.csv', text: 'Email,Postal Code\nkit@example.com,3060' }]);
+    expect(families[0].zip).toBeNull();
+    expect(problems).toEqual([{ where: 'f.csv:2', reason: 'ZIP code "3060" not understood; left blank' }]);
+  });
+
+  it('stores them on the household, unconfirmed, and never overwrites what a family entered', async () => {
+    const db = await getDb();
+    const files = [{ name: 'f.csv', text: 'Family ID,Email,Zip,Emergency Contact,Emergency Phone\n9,wren@example.com,30601,Ola Wren,706-555-0177\n10,ash@example.com,30606,Bo Ash,706-555-0166' }];
+    // The Ash family already gave the new site their own contact.
+    await db.insert(schema.user).values({ id: 'u-ash', name: 'Lee Ash', email: 'ash@example.com', emailVerified: true });
+    const [ash] = await db.insert(schema.household).values({ name: 'Ash family', emergencyContacts: [{ name: 'Cy Ash', relationship: 'Uncle', phone: '7065550155' }] }).returning();
+    await db.insert(schema.householdMember).values({ householdId: ash.id, userId: 'u-ash' });
+
+    await importFamilies(readFamilies(files).families, { dryRun: false });
+    const [wren] = await db.select().from(schema.household).where(eq(schema.household.name, 'wren’s family'));
+    expect(wren).toMatchObject({ zip: '30601', emergencyContacts: [{ name: 'Ola Wren', relationship: '', phone: '7065550177' }], contactsConfirmedAt: null });
+    const [after] = await db.select().from(schema.household).where(eq(schema.household.id, ash.id));
+    expect(after).toMatchObject({ zip: '30606', emergencyContacts: [{ name: 'Cy Ash', relationship: 'Uncle', phone: '7065550155' }], contactsConfirmedAt: null });
+  });
+});

@@ -6,7 +6,9 @@ import Base from '@/layouts/Base.astro';
 import Character from '@/components/Character.astro';
 import SignInPanel from '@/components/portal/SignInPanel.astro';
 import { getDb, schema } from '@/server/db';
-import { ageOn, createStudent, detailsFresh, ensureHousehold, householdAccount, listEnrollments, listOrders, listStudents, studentInput } from '@/server/family';
+import { ageOn, confirmFamilyDetails, createStudent, detailsFresh, ensureHousehold, getFamilyDetails, householdAccount, listEnrollments, listOrders, listStudents, studentInput } from '@/server/family';
+import { familyDetailsComplete, familyDetailsOnFile, personLine } from '@/lib/family-details';
+import { today as staffToday } from '@/lib/admin-links';
 import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
 import { bookingClock, canBook, sessionState } from '@/lib/session-dates';
@@ -46,6 +48,12 @@ if (user && Astro.request.method === 'POST') {
     }
     for (const i of parsed.error.issues) errors[String(i.path[0])] = i.message;
   }
+  // "Looks right" on the family details: nothing changes but the date they were last checked.
+  if (values.action === 'confirm-family') {
+    const h = await ensureHousehold(user);
+    await confirmFamilyDetails(h.id, user.id);
+    return Astro.redirect('/account?saved=family#family', 303);
+  }
 }
 
 const needsProfile = !!user && !user.name?.trim();
@@ -55,6 +63,10 @@ const enrollments = household ? await listEnrollments(household.id) : [];
 const orders = household ? await listOrders(household.id) : [];
 const installments = household ? await listInstallments(household.id) : [];
 const account = household ? await householdAccount(household.id) : null;
+const family = household ? await getFamilyDetails(household.id) : null;
+const familyFresh = !!family && familyDetailsOnFile(family);
+const familyStarted = !!family && (family.emergencyContacts.length > 0 || family.pickupPeople.length > 0 || !!family.zip);
+const familyCheckedOn = family?.contactsConfirmedAt?.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
 const needsAttention = installments.filter((i) => i.status === 'failed');
 const autopay = installments.filter((i) => i.status === 'scheduled' || i.status === 'processing');
 // Who each order (and so each monthly payment) is for, by first name.
@@ -68,6 +80,7 @@ const fromStudioDirector = account?.source === 'studio-director' && !enrollments
 // Back from a child's page after saving or "Looks right".
 const savedId = Astro.url.searchParams.get('saved');
 const saved = savedId ? students.find((s) => s.id === savedId) : undefined;
+const savedFamily = savedId === 'family';
 // The 15% family discount on monthly payments to come, or a note that it ended (src/server/family-discount.ts).
 const withFamilyDiscount = (i: (typeof installments)[number]) => i.baseAmountCents < i.regularAmountCents;
 const familyNote = [...needsAttention, ...autopay].some(withFamilyDiscount)
@@ -144,7 +157,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                 <h1>Hi, {user.name.split(' ')[0]}!</h1>
               </div>
               <div class="dash__actions">
-                {Astro.locals.isAdmin && <a class="btn btn--outline btn--sm" href="/admin">Rosters</a>}
+                {Astro.locals.isAdmin && <a class="btn btn--outline btn--sm" href={staffToday()}>Staff</a>}
                 {!fromStudioDirector && <a class="btn btn--primary btn--sm" href="/programs">Find a class</a>}
                 <form method="post" action="/account/sign-out">
                   <button class="btn btn--outline btn--sm" type="submit">Sign out</button>
@@ -235,6 +248,53 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                   <button class="btn btn--outline btn--sm" type="submit">Save student</button>
                 </form>
               </details>
+            </section>
+
+            <section class="panel" id="family" aria-labelledby="fam-title" data-family>
+              <div class="panel__head">
+                <h2 id="fam-title">Family details</h2>
+                <a href="/account/family" data-family-edit>{familyStarted ? 'Edit' : 'Add'}<span class="sr-only"> family details</span></a>
+              </div>
+              {savedFamily && <p class="saved" role="status" data-saved>Saved. Your family details are up to date.</p>}
+              {family && !familyFresh && (
+                familyDetailsComplete(family) ? (
+                  <form method="post" class="confirm" data-family-confirm>
+                    <input type="hidden" name="action" value="confirm-family" />
+                    <p>
+                      <strong>Are these still right?</strong>
+                      {familyCheckedOn ? ` Last checked ${familyCheckedOn}.` : ' Please check them.'} If nothing has changed, tell us here.
+                    </p>
+                    <button class="btn btn--primary btn--sm" type="submit">Looks right</button>
+                  </form>
+                ) : (
+                  <p class="confirm" data-family-todo>
+                    <span><strong>Please add {familyStarted ? 'what’s missing' : 'your family details'}.</strong> We ask for an emergency contact and your ZIP code before your next sign-up.</span>
+                    <a class="btn btn--primary btn--sm" href="/account/family">{familyStarted ? 'Finish' : 'Add details'}</a>
+                  </p>
+                )
+              )}
+              {familyStarted && (
+                <dl class="facts">
+                  <div>
+                    <dt>Emergency contacts</dt>
+                    <dd>{family!.emergencyContacts.length ? <ul>{family!.emergencyContacts.map((c) => <li>{personLine(c)}</li>)}</ul> : 'None yet'}</dd>
+                  </div>
+                  <div>
+                    <dt>Who may pick up</dt>
+                    <dd>
+                      <ul>
+                        <li>Parents</li>
+                        {family!.pickupPeople.map((p) => <li>{personLine(p)}</li>)}
+                      </ul>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>ZIP code</dt>
+                    <dd>{family!.zip ?? 'Not yet'}</dd>
+                  </div>
+                </dl>
+              )}
+              <p class="fine">Little Characters staff see these, and from spring, the teachers of your children’s classes.</p>
             </section>
 
             {!fromStudioDirector && (
@@ -338,6 +398,15 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
   .badge--link:hover, .badge--link:focus-visible { background: var(--orange); color: var(--paper); }
   .panel--welcome { border: 2px solid var(--ink); box-shadow: 6px 6px 0 var(--yellow); }
   .panel--welcome p { max-width: 60ch; }
+  .panel__head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+  .panel__head a { font-weight: 650; min-height: 44px; display: inline-flex; align-items: center; }
+  .confirm { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: center; justify-content: space-between; margin: 0; padding: 0.9rem 1.1rem; border-radius: var(--r-md); background: var(--yellow-tint); color: var(--ink); }
+  .confirm p, .confirm > span { margin: 0; flex: 1 1 20rem; }
+  .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-m); margin: 0; }
+  .facts dt { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+  .facts dd { margin: 0.2rem 0 0; overflow-wrap: anywhere; }
+  .facts ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.2rem; }
+  @media (max-width: 640px) { .facts { grid-template-columns: 1fr; } .confirm .btn { min-height: 44px; } }
   .saved { margin: 0; padding: 0.7rem 1rem; border-radius: var(--r-md); background: var(--ok-tint); color: var(--ok); font-weight: 600; }
   .card-on-file { display: grid; gap: 0.25rem; }
   .card-on-file p { margin: 0; }

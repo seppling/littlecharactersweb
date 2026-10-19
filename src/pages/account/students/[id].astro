@@ -67,7 +67,7 @@ const confirmedOn = s.detailsConfirmedAt?.toLocaleDateString('en-US', { month: '
         {(errors.firstName || errors.lastName || errors.birthdate) && <p class="error">{errors.firstName || errors.lastName || errors.birthdate}</p>}
         <div class="field"><label for="a">Allergies</label><input id="a" name="allergies" value={notes.allergies} /></div>
         <div class="field"><label for="m">Medical notes or support needs</label><textarea id="m" name="medicalNotes" rows="3">{notes.medicalNotes}</textarea></div>
-        <div class="field"><label for="p">Who else may pick up?</label><input id="p" name="pickupNotes" value={s.pickupNotes ?? ''} /></div>
+        <div class="field"><label for="p">Pickup notes for {s.firstName}</label><input id="p" name="pickupNotes" value={s.pickupNotes ?? ''} placeholder="Anything just for this child, like “only Dad on Tuesdays”" /><p class="hint">Who else may pick up is in your <a href="/account/family">family details</a>.</p></div>
         <fieldset class="field">
           <legend>Photos</legend>
           <label><input type="radio" name="photo" value="yes" checked={s.photoConsent === true} /> OK to share photos online</label>
@@ -89,6 +89,7 @@ const confirmedOn = s.detailsConfirmedAt?.toLocaleDateString('en-US', { month: '
   .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-m); }
   fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 0.4rem; }
   legend { font-weight: 650; font-size: var(--step--1); }
+  .hint { margin: 0; font-size: var(--step--1); color: var(--ink-soft); }
   .error { color: var(--red-ink); font-weight: 600; font-size: var(--step--1); }
   @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
 </style>
