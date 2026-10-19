@@ -1,0 +1,264 @@
+---
+/**
+ * The teacher app's Skills view for one class date, beside its attendance
+ * (docs/back-office.md → Skills): per child, each active skill of the
+ * class's program as Not yet · Working on it · Got it, and a draft progress
+ * note for Hannah ("Note for Hannah"; she reads it first and sends it).
+ *
+ * Who: as attendance (skillAccess in src/server/skills.ts): a teacher of the
+ * class, a substitute on their date, an owner. Ticks are saved one at a time
+ * to /api/teach/skills and need signal: offline, the page says "Needs signal
+ * to save", keeps the ticks on screen, and sends them when signal returns.
+ * Never cached on the phone. No tags and no care details here.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { classPage, teachHome, teachRoster, teachSkills } from '@/lib/admin-links';
+import { timeRange } from '@/lib/format';
+import { todayInAthens } from '@/lib/pricing';
+import { isProd } from '@/server/env';
+import { PROGRESS_NOTE_MAX, ProgressNoteError, saveTeacherDraft, teacherDraft } from '@/server/progress-notes';
+import { SKILL_LABELS, SKILL_STATUSES, skillDateFor, skillRoster } from '@/server/skills';
+import { requireTeacherOrOwner } from '@/server/staff';
+import { canTeach } from '@/server/teachers';
+import { devDay, longDay } from '@/server/today';
+
+export const prerender = false;
+const { staff, response } = requireTeacherOrOwner(Astro.locals);
+if (response) return response;
+
+const { content } = Astro.locals;
+const on = devDay(Astro.url.searchParams, !isProd);
+const today = on ?? todayInAthens();
+const sessionId = Astro.params.sessionId ?? '';
+const date = Astro.params.date ?? '';
+const viewer = staff ? { userId: staff.id, staffId: staff.staffId, role: staff.role } : null;
+const cd = viewer ? await skillDateFor(viewer, sessionId, date, content, today) : null;
+if (viewer && (!cd || !cd.access.view)) return new Response(null, { status: 404 });
+if (!staff) Astro.response.headers.set('X-Teach-Signed-Out', '1');
+const here = teachSkills(sessionId, date, on);
+
+let draftError = '';
+let draftFor = '';
+if (viewer && cd && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  draftFor = String(form.get('studentId') ?? '');
+  try {
+    await saveTeacherDraft(viewer, { sessionId, date, studentId: draftFor, body: String(form.get('body') ?? '') }, content, today);
+    return Astro.redirect(`${here}${here.includes('?') ? '&' : '?'}draft=saved#kid-${encodeURIComponent(draftFor)}`, 303);
+  } catch (e) {
+    if (!(e instanceof ProgressNoteError)) throw e;
+    draftError = e.message;
+  }
+}
+
+const { skills, children } = viewer && cd ? await skillRoster(cd.program, sessionId, date, viewer.userId) : { skills: [], children: [] };
+const drafts = viewer ? await teacherDraft(viewer.userId, sessionId, children.map((c) => c.studentId)) : new Map<string, string>();
+const edit = !!cd?.access.edit;
+const location = cd ? content.locationById(cd.session.locationId) : undefined;
+const time = cd && cd.session.start && cd.session.end ? timeRange(cd.session.start, cd.session.end) : '';
+const assigned = viewer && cd ? viewer.role === 'teacher' || (await canTeach(viewer.staffId, sessionId, date)) : false;
+const back = staff?.role === 'owner' && !assigned ? { href: classPage(sessionId), label: cd?.program.title ?? 'Class' } : { href: teachHome() + (on ? `?on=${on}` : ''), label: 'Today' };
+const notice = !cd ? null : cd.access.why === 'future' ? `This class is on ${longDay(date)}. You can tick skills on the day.` : cd.access.why === 'day-off' ? `No class on this date: ${cd.dayOff?.reason}.` : null;
+const summary = (st: Record<string, string>) => {
+  const got = skills.filter((s) => st[s.id] === 'got_it').length;
+  const working = skills.filter((s) => st[s.id] === 'working').length;
+  return [got && `${got} got it`, working && `${working} working on it`].filter(Boolean).join(' · ') || 'Not started';
+};
+---
+
+<AdminShell title={cd ? `Skills: ${cd.program.title}` : 'Skills'} section="teach" teachers back={back}>
+  {
+    cd && (
+      <div class="admin-page skills-page" data-teach-skills data-session={sessionId} data-date={date} data-by={staff?.id} data-on={on ?? ''} data-edit={edit ? '1' : '0'}>
+        <header class="skills-head">
+          <h1>{cd.program.title}</h1>
+          <p class="skills-head__when">{[longDay(date), time, location?.shortName].filter(Boolean).join(' · ')}</p>
+          <nav class="teach-views" aria-label="This class">
+            <a href={teachRoster(sessionId, date, on)} data-view="attendance">Attendance</a>
+            <a href={here} aria-current="page" data-view="skills">Skills</a>
+          </nav>
+        </header>
+        {notice && <p class="notice" data-skills-notice>{notice}</p>}
+        {Astro.url.searchParams.get('draft') === 'saved' && <p class="notice" role="status" data-draft-saved>Note saved for Hannah. She reads it before it goes to the family.</p>}
+        {draftError && <p class="notice notice--error" role="alert">{draftError}</p>}
+        <p class="save-line" data-save-status role="status" hidden></p>
+
+        {skills.length === 0 ? (
+          <div class="empty-state">
+            <strong>No skills for this class yet</strong>
+            <span>Hannah adds them in Settings. Take attendance as usual.</span>
+          </div>
+        ) : children.length === 0 ? (
+          <div class="empty-state">
+            <strong>No children on this class yet</strong>
+            <span>Children show here when a family signs up or books a drop-in.</span>
+          </div>
+        ) : (
+          <ul class="skill-kids" data-skill-kids>
+            {children.map((c) => (
+              <li class="skill-kid" id={`kid-${c.studentId}`} data-kid={c.studentId}>
+                <details open={draftFor === c.studentId || undefined}>
+                  <summary>
+                    <span class="initials" aria-hidden="true">{c.initials}</span>
+                    <span class="skill-kid__name">
+                      <strong>{c.shortName}</strong>
+                      <span class="muted" data-kid-summary>{summary(c.statuses)}</span>
+                    </span>
+                  </summary>
+                  <ul class="skill-rows">
+                    {skills.map((s) => {
+                      const st = c.statuses[s.id] ?? 'not_yet';
+                      return (
+                        <li class="skill-row" data-skill={s.id} data-status={st}>
+                          <span class="skill-row__name">{s.name}</span>
+                          {edit ? (
+                            <div class="steps" role="group" aria-label={`${c.shortName}: ${s.name}`}>
+                              {SKILL_STATUSES.map((v) => (
+                                <button type="button" class={`steps__btn steps__btn--${v}`} data-set={v} aria-pressed={st === v ? 'true' : 'false'}>
+                                  {SKILL_LABELS[v]}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <span class={`skill-mark skill-mark--${st}`}>{SKILL_LABELS[st]}</span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {edit && (
+                    <form method="post" class="draft" data-draft-form>
+                      <input type="hidden" name="studentId" value={c.studentId} />
+                      <label for={`draft-${c.studentId}`}>Note for Hannah about {c.firstName} (optional)</label>
+                      <textarea id={`draft-${c.studentId}`} name="body" rows="3" maxlength={PROGRESS_NOTE_MAX} required placeholder="What went well, what's next">{drafts.get(c.studentId) ?? ''}</textarea>
+                      <p class="muted">Hannah reads it first and sends it to the family with {c.firstName}’s skills. Leave out medical details.</p>
+                      <button class="btn btn--outline btn--sm" type="submit" data-save-draft>{drafts.has(c.studentId) ? 'Save changes' : 'Save the note'}</button>
+                      <p class="muted" data-draft-offline hidden>Needs signal to save.</p>
+                    </form>
+                  )}
+                </details>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    )
+  }
+</AdminShell>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-teach-skills]');
+  if (root && root.dataset.edit === '1') {
+    const { session: sessionId = '', date = '', by = '', on = '' } = root.dataset;
+    const status = root.querySelector<HTMLElement>('[data-save-status]')!;
+    const labels: Record<string, string> = { not_yet: 'Not yet', working: 'Working on it', got_it: 'Got it' };
+    /** Ticks not saved yet, by child and skill: the newest wins. */
+    const waiting = new Map<string, { row: HTMLElement; studentId: string; skillId: string; status: string; before: string }>();
+    const say = (text: string, state: 'waiting' | 'sent' | 'error') => {
+      status.hidden = false;
+      status.textContent = text;
+      status.dataset.state = state;
+    };
+    const show = (row: HTMLElement, st: string) => {
+      row.dataset.status = st;
+      for (const b of row.querySelectorAll<HTMLButtonElement>('[data-set]')) b.setAttribute('aria-pressed', String(b.dataset.set === st));
+      const kid = row.closest<HTMLElement>('[data-kid]')!;
+      const rows = [...kid.querySelectorAll<HTMLElement>('[data-skill]')];
+      const got = rows.filter((r) => r.dataset.status === 'got_it').length;
+      const working = rows.filter((r) => r.dataset.status === 'working').length;
+      kid.querySelector('[data-kid-summary]')!.textContent = [got && `${got} got it`, working && `${working} working on it`].filter(Boolean).join(' · ') || 'Not started';
+    };
+    const why: Record<string, string> = { 'no-access': 'this class isn’t yours on this date', future: 'it’s a future date', 'day-off': 'there’s no class on this date', 'not-on-roster': 'that child isn’t on this date’s roster', retired: 'Hannah retired that skill', 'not-found': 'that skill isn’t on this class' };
+    async function send() {
+      if (!waiting.size) return;
+      if (!navigator.onLine) return say('Needs signal to save. Your ticks stay here and save when you’re back online.', 'waiting');
+      for (const [key, w] of [...waiting]) {
+        let res: Response;
+        try {
+          res = await fetch(`/api/teach/skills${on ? `?on=${encodeURIComponent(on)}` : ''}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ by, sessionId, date, studentId: w.studentId, skillId: w.skillId, status: w.status }),
+          });
+        } catch {
+          return say('Needs signal to save. Your ticks stay here and save when you’re back online.', 'waiting');
+        }
+        if (waiting.get(key) !== w) continue; // ticked again meanwhile: that one goes next
+        if (res.status === 401) return say('Signed out. Sign in again to save these ticks.', 'error');
+        const body = await res.json().catch(() => ({}));
+        waiting.delete(key);
+        if (!res.ok || !body.ok) {
+          show(w.row, w.before);
+          say(`Not saved: ${why[body.why] ?? 'something went wrong'}. Ask Hannah.`, 'error');
+          continue;
+        }
+      }
+      if (!waiting.size && status.dataset.state !== 'error') say('Saved ✓', 'sent');
+    }
+    for (const row of root.querySelectorAll<HTMLElement>('[data-skill]')) {
+      for (const b of row.querySelectorAll<HTMLButtonElement>('[data-set]')) {
+        b.addEventListener('click', () => {
+          const st = b.dataset.set!;
+          if (row.dataset.status === st) return;
+          const studentId = row.closest<HTMLElement>('[data-kid]')!.dataset.kid!;
+          const skillId = row.dataset.skill!;
+          const key = `${studentId} ${skillId}`;
+          const before = waiting.get(key)?.before ?? row.dataset.status ?? 'not_yet';
+          show(row, st);
+          status.dataset.state = '';
+          waiting.set(key, { row, studentId, skillId, status: st, before });
+          say(`Saving ${labels[st]}…`, 'waiting');
+          send();
+        });
+      }
+    }
+    window.addEventListener('online', () => send());
+    setInterval(() => waiting.size && send(), 20_000);
+    // Notes are sent as a normal form, so they need signal too.
+    for (const form of root.querySelectorAll<HTMLFormElement>('[data-draft-form]')) {
+      form.addEventListener('submit', (e) => {
+        if (navigator.onLine) return;
+        e.preventDefault();
+        form.querySelector<HTMLElement>('[data-draft-offline]')!.hidden = false;
+      });
+    }
+    window.addEventListener('beforeunload', (e) => {
+      if (waiting.size) e.preventDefault();
+    });
+  }
+</script>
+
+<style>
+  .skills-page { display: grid; gap: var(--space-m); }
+  .skills-head { display: grid; gap: 0.35rem; }
+  .skills-head h1 { margin: 0; }
+  .skills-head__when { margin: 0; color: var(--ink-soft); font-size: var(--step--1); }
+  .save-line { margin: 0; padding: 0.6rem 0.9rem; border-radius: var(--r-sm); font-weight: 650; font-size: var(--step--1); background: var(--yellow-tint); }
+  .save-line[data-state='sent'] { background: var(--ok-tint); color: #1c6b3e; }
+  .save-line[data-state='error'] { background: var(--red-tint); color: var(--red-ink); }
+  .skill-kids, .skill-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  .skill-kid { border: 1.5px solid var(--line-strong); border-radius: var(--r-md); background: var(--paper); }
+  .skill-kid summary { display: flex; align-items: center; gap: 0.7rem; min-height: 56px; padding: 0.4rem 0.75rem; cursor: pointer; list-style: none; }
+  .skill-kid summary::-webkit-details-marker { display: none; }
+  .skill-kid summary::after { content: ''; flex: none; width: 0.55rem; height: 0.55rem; margin-left: auto; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+  .skill-kid details[open] summary::after { transform: rotate(-135deg); }
+  .skill-kid details[open] summary { border-bottom: 1px solid var(--line); }
+  .skill-kid__name { display: grid; gap: 0.1rem; min-width: 0; overflow-wrap: anywhere; }
+  .skill-kid__name .muted { font-size: var(--step--1); }
+  .initials { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--purple-tint); color: var(--purple-ink); font-weight: 800; font-size: 0.95rem; }
+  .skill-rows { padding: 0.6rem 0.75rem; gap: 0.7rem; }
+  .skill-row { display: grid; gap: 0.35rem; }
+  .skill-row__name { font-weight: 700; overflow-wrap: anywhere; }
+  .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 2px solid var(--ink); border-radius: var(--r-md); overflow: hidden; }
+  .steps__btn { min-height: 48px; padding: 0 0.3rem; border: 0; background: var(--paper); color: var(--ink); font: inherit; font-size: var(--step--1); font-weight: 750; cursor: pointer; }
+  .steps__btn + .steps__btn { border-left: 2px solid var(--ink); }
+  .steps__btn--not_yet[aria-pressed='true'] { background: var(--line); }
+  .steps__btn--working[aria-pressed='true'] { background: var(--yellow); color: var(--ink); }
+  .steps__btn--got_it[aria-pressed='true'] { background: #1c6b3e; color: #fff; }
+  .draft { display: grid; gap: 0.35rem; padding: 0 0.75rem 0.75rem; justify-items: start; }
+  .draft label { font-weight: 650; font-size: var(--step--1); }
+  .draft textarea { width: 100%; font: inherit; }
+  .draft .muted { margin: 0; font-size: var(--step--1); }
+  .muted { color: var(--ink-mute); font-weight: 400; }
+</style>

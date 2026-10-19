@@ -641,3 +641,19 @@ form.is-dirty .actions__state::before { content: 'Unsaved changes · '; color: v
 .version small { color: var(--ink-mute); }
 .version details { grid-column: 1 / -1; font-size: var(--step--1); }
 .version pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--hall); padding: 0.75rem; border-radius: var(--r-sm); max-height: 22rem; overflow: auto; }
+
+/* Tags (src/server/tags.ts): staff labels, not alerts, so square outlines rather than the badges' tinted pills. */
+.tag-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; list-style: none; margin: 0; padding: 0; }
+.tag-chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.1rem 0.5rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-sm); background: var(--paper); color: var(--ink-soft); font-size: 0.8rem; font-weight: 650; overflow-wrap: anywhere; }
+.tag-chip__x { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; margin: -0.6rem -0.5rem -0.6rem -0.3rem; border: 0; background: none; color: var(--ink-mute); font: inherit; font-size: 1rem; cursor: pointer; }
+.tag-chip__x:hover { color: var(--red-ink); }
+.tag-chip form { display: contents; }
+/* Skills (src/server/skills.ts): the three steps. */
+.skill-mark { font-size: var(--step--1); font-weight: 650; white-space: nowrap; }
+.skill-mark--got_it { color: #1c6b3e; }
+.skill-mark--working { color: var(--yellow-ink); }
+.skill-mark--not_yet { color: var(--ink-mute); font-weight: 400; }
+/* The teacher app's switch between a class date's Attendance and Skills. */
+.teach-views { display: flex; gap: 0.4rem; margin-top: var(--space-xs); }
+.teach-views a { display: inline-grid; place-items: center; min-height: 44px; padding: 0 1rem; border: 2px solid var(--ink); border-radius: 999px; color: var(--ink); font-weight: 750; text-decoration: none; }
+.teach-views a[aria-current='page'] { background: var(--ink); color: var(--paper); }

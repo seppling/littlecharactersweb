@@ -1,0 +1,74 @@
+---
+/**
+ * The progress note's form: the note, then the child's "Got it" and
+ * "Working on it" skills in the note's class, each ticked (untick to leave
+ * one out). Save draft, or Preview (src/server/progress-notes.ts).
+ */
+import { PROGRESS_NOTE_MAX } from '@/server/progress-notes';
+import type { ChildSkill } from '@/server/skills';
+
+interface Props {
+  firstName: string;
+  body: string;
+  choices: { gotIt: ChildSkill[]; working: ChildSkill[] };
+  /** Skill ids ticked; null means all of them. */
+  ticked?: Set<string> | null;
+  cancel: string;
+  /** A saved draft can be deleted. */
+  canDelete?: boolean;
+}
+const { firstName, body, choices, ticked = null, cancel, canDelete = false } = Astro.props;
+const on = (id: string) => !ticked || ticked.has(id);
+---
+
+<form method="post" class="note-form" data-note-form>
+  <div class="cf">
+    <label for="note-body">Note to {firstName}’s parents</label>
+    <textarea id="note-body" name="body" rows="7" maxlength={PROGRESS_NOTE_MAX} required data-note-body>{body}</textarea>
+    <p class="cf__help">Families read this. Leave out medical details: they belong in the family’s care details.</p>
+  </div>
+  {
+    choices.gotIt.length + choices.working.length > 0 ? (
+      <fieldset class="note-form__skills">
+        <legend>Skills listed under the note</legend>
+        {choices.gotIt.length > 0 && (
+          <div class="note-form__group" data-got-it>
+            <p class="note-form__label">Got it</p>
+            {choices.gotIt.map((s) => (
+              <label class="note-form__pick"><input type="checkbox" name="got" value={s.id} checked={on(s.id)} /> {s.name}</label>
+            ))}
+          </div>
+        )}
+        {choices.working.length > 0 && (
+          <div class="note-form__group" data-working>
+            <p class="note-form__label">Working on it</p>
+            {choices.working.map((s) => (
+              <label class="note-form__pick"><input type="checkbox" name="work" value={s.id} checked={on(s.id)} /> {s.name}</label>
+            ))}
+          </div>
+        )}
+        <p class="cf__help">Untick a skill to leave it out.</p>
+      </fieldset>
+    ) : (
+      <p class="cf__help">No skills marked for {firstName} in this class yet, so the note goes on its own.</p>
+    )
+  }
+  <div class="note-form__buttons">
+    <button class="btn btn--primary" type="submit" name="action" value="preview" data-preview>Preview</button>
+    <button class="btn btn--outline" type="submit" name="action" value="save" data-save-draft>Save draft</button>
+    <a class="btn btn--outline" href={cancel}>Cancel</a>
+    {canDelete && <button class="btn btn--danger btn--sm" type="submit" name="action" value="delete" formnovalidate data-delete-draft>Delete draft</button>}
+  </div>
+</form>
+
+<style>
+  .note-form { display: grid; gap: var(--space-m); max-width: 40rem; }
+  .note-form textarea { width: 100%; font: inherit; }
+  .note-form__skills { border: 0; padding: 0; margin: 0; display: grid; gap: 0.6rem; min-width: 0; }
+  .note-form__skills legend { font-weight: 700; margin-bottom: 0.4rem; }
+  .note-form__group { display: grid; gap: 0.1rem; }
+  .note-form__label { margin: 0; font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+  .note-form__pick { display: flex; align-items: center; gap: 0.6rem; min-height: 44px; overflow-wrap: anywhere; }
+  .note-form__pick input { width: 1.25rem; height: 1.25rem; flex: none; accent-color: var(--purple); }
+  .note-form__buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+</style>

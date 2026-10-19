@@ -55,6 +55,7 @@ node tests/e2e/staff-teach.mjs          # the teacher app: attendance on a phone
 node tests/e2e/staff-calendar.mjs       # calendar month/week/phone list, a day off lowering December, billing on a copy, removing it; 390 px (after staff-payments' marks)
 node tests/e2e/staff-drop-ins.mjs       # drop-ins: a family books and pays, the roster's Drop-in badge, no charge, cancel, full date, day off; 390 px
 node tests/e2e/staff-refunds.mjs        # refunds (part, too much, cash), credits on the next payment, day-off credits, statements; 390 px
+node tests/e2e/staff-tags-skills.mjs    # tags on rosters, families and search, email a tag; skills on a teacher's phone (offline too); a progress note to a family; 390 px
 ```
 
 ## Where things live

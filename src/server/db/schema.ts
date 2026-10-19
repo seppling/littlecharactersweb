@@ -347,11 +347,11 @@ export const householdNote = pgTable(
   (t) => [index('household_note_household_idx').on(t.householdId)],
 );
 
-/** An email staff sent from the site: to a whole class, or to one family. */
+/** An email staff sent from the site: to a whole class, to one family, or to the families with a tag. */
 export const message = pgTable('message', {
   id: id(),
-  kind: text('kind', { enum: ['class', 'family'] }).notNull(),
-  /** The class it went to (kind 'class'). */
+  kind: text('kind', { enum: ['class', 'family', 'tag'] }).notNull(),
+  /** The class it went to (kind 'class'), or the tag's id (kind 'tag'). */
   sessionId: text('session_id'),
   subject: text('subject').notNull(),
   body: text('body').notNull(),

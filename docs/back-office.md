@@ -522,3 +522,52 @@ Hannah refunds and gives credits on the site instead of the Stripe dashboard; fa
 **Families see:** **Credits** in their account ("Credit: −$19, Day off Dec 8 · comes off your Dec 1 payment"), the credit on the payment as discounts show, "Partly refunded" on receipts, and **Statements** with each year they paid in.
 
 **Test:** `tests/e2e/staff-refunds.mjs`, after every other browser test.
+
+## 22. Tags, skills and progress notes
+
+Studio Director's tags, "Class Skills Worksheet", "Student Skills" and "Report Card". Server code in `src/server/tags.ts`, `src/server/skills.ts` and `src/server/progress-notes.ts`; tests in `tests/unit/tags-skills.test.ts` and `tests/e2e/staff-tags-skills.mjs`. Tables as in §16; no migration.
+
+**Links** (`src/lib/admin-links.ts`):
+
+| Function | Address | Page |
+|---|---|---|
+| `settingsTags()` | `/admin/settings/tags` | Settings → Tags (a tile on Settings) |
+| `tagList(tagId)` | `/admin/settings/tags/<id>` | Pass to `downloads()` for the tag's CSV and PDF; the address itself redirects to `searchTag` |
+| `tagEmail(tagId)` | `/admin/settings/tags/<id>/email` | Email a tag |
+| `searchTag(tagId)` | `/admin/search?tag=<id>` | Search by tag |
+| `familyTags(householdId)` | `/admin/families/<id>/tags` | Where the family page's tag forms post |
+| `classTags(sessionId)` | `/admin/classes/<id>/tags` | Where a roster's "Tag selected" posts |
+| `settingsSkills(programSlug?)` | `/admin/settings/skills?program=` | Settings → Skills (a tile on Settings) |
+| `classSkills(sessionId)` | `/admin/classes/<id>/skills` | Pass to `downloads()` for the Class Skills Worksheet; the address redirects to the class page's Skills part |
+| `teachSkills(sessionId, date, on?)` | `/admin/teach/<id>/<date>/skills` | The teacher app's Skills view |
+| `progressNote(noteId)` | `/admin/progress-notes/<id>` | A note: edit, preview, send, or see what was sent |
+| `newProgressNote(studentId, sessionId?, back?)` | `/admin/progress-notes/new?student=&class=&back=` | Write a note |
+
+**Tags** (owners only; never shown to families or teachers).
+
+- **Kinds:** `child` and `family`. A name is 1 to 40 characters, unique per kind in any case (the table's `tag_kind_name_idx`; `createTag` and `renameTag` say so in words first). `findOrCreateTag` is "pick or type a new one": an existing name in other capitals is the same tag.
+- **Settings → Tags:** each kind's tags A to Z with how many carry each (`listTags`), Add, Rename, Delete (asks first; the joins cascade, so it comes off everyone). Each row has See who, Email and the CSV/PDF.
+- **Tagging:** the family page has the family's tags and each child's (`TagEditor.astro`: ✕ to remove, "Add a tag" with the kind's tags in a `datalist`). A class roster has **Tag children**: tick children (each row's checkbox belongs to the form `tag-selected`), pick or type a tag, **Tag selected** (`tagStudents`; only children of that class count). Redirects carry `?tags=` / `?tagged=` or `?tagError=<code>` (`TAG_ERRORS`), never a name.
+- **Showing:** `TagChips.astro` (outlined `.tag-chip`, apart from the badges) on the class roster, the family page and search results. `tagsForStudents(ids)`, `tagsForHouseholds(ids)` → `Map<id, { id, name }[]>`.
+- **Filtering:** the roster's **Show** `?tag=<id>` (`withTag`, pure); search by tag (`tagMembers(tag, catalog)` → children with family and current classes, or families with parents, children and classes); **Email a tag** (`tagAudience(tag)` → `AudienceFamily[]`, the families of tagged children or the tagged families).
+- **Email a tag** uses the composer (§13) with `kind: 'tag'`: `message.kind` gained `'tag'` (a TypeScript enum on a text column, so no migration) and `message.session_id` holds the tag's id for those rows; `earlierMessages({ tagId })` lists them. Families see these emails in "Emails sent".
+- **Downloads** (fresh sign-in; `admin.download.csv|pdf`, entity `list`, id `tag:<id>`): child tag: Child, Age, Family, Current classes; family tag: Family, Parents, Emails, Phones, Children, Current classes (`tagTable`).
+- **Audit:** `admin.tag.create`, `.rename`, `.delete` (entity `tag`), `admin.tag.add` / `.remove` (entity `student` or `household`, the tag id in `detail`).
+
+**Skills.**
+
+- **Settings → Skills** (owners): programs (weekly classes first) with their counts; one program (`?program=`): its skills in order (`programSkills(slug, { retired })`), Add (`addSkill`, at the end; names don't repeat in a program, any case), Rename, ↑ ↓ (`moveSkill`, renumbers the active list 0, 1, 2…), Retire (`setSkillActive(…, false)`: progress stays, the teacher's list and the class grid drop it) and Bring back (at the end). Audit `admin.skill.*` (entity `skill`, the program in `detail`).
+- **Statuses:** `not_yet` (no `student_skill` row), `working`, `got_it`; `SKILL_LABELS` Not yet · Working on it · Got it.
+- **Who ticks** (`skillAccess`, pure; `skillDateFor(viewer, sessionId, date, catalog, today)` reads it): the people of `teachAccess` (§18). A teacher who `canTeach` that class on that date (a substitute only on their cover date; turned off: never) ticks on any date it meets up to today, not a day off; future dates are read-only. Owners open any date the class meets and tick at any time. Being covered or having submitted attendance doesn't matter: skills aren't per date.
+- **The Skills view** (`teachSkills`, `src/pages/admin/teach/[sessionId]/[date]/skills.astro`; an **Attendance · Skills** switch, `.teach-views`, sits on both pages): the children expected that date (`expectedOn`, as attendance) by first name, each a card with "1 got it · 1 working on it", and per active skill a three-step control (48 px). No tags and no care details (`skillRoster`, logged `teach.skills.view` with the date). Not cached by the service worker.
+- **Saving** needs signal: each tap posts `{ by, sessionId, date, studentId, skillId, status }` to `POST /api/teach/skills` (`setSkill`: access, the class's own active skill, the child on that date's roster; 401/403/409 as `/api/teach/sync`). Offline, the page says "Needs signal to save", keeps the tick on screen and sends it on `online` or every 20 s. A change writes `teach.skill.change` (entity `student`, `detail` "<class> <date> <skill id>: working → got_it").
+- **Hannah sees:** the class page's **Skills** part (`ClassSkills.astro`): the grid of enrolled and trial children × active skills (`classSkillGrid`), "Write a progress note" per child, and the downloads `skills.csv` / `.pdf` ("Class Skills Worksheet: <class>", `skillGridTable`, `skillGridPdf`; fresh sign-in; `admin.download.csv|pdf`, id `skills:<sessionId>`). The family page: each child's **Skills and progress notes** (`ChildSkills.astro`, `childSkills(ids, catalog)`): every program they're signed up for that has skills, each skill's status with when and by whom (the name in Settings → Staff first), retired skills only where there's progress.
+
+**Progress notes** (`progress_note`).
+
+- **Drafts** (`shared_at` empty) hold only the note's words. A teacher writes one per child and class from the Skills view ("Note for Hannah", `saveTeacherDraft`, same access as ticking; saving again changes it; `teach.progress_note.draft`). Hannah writes one from the family page or the class grid (`saveDraft`, `admin.progress_note.draft|edit`), or deletes a draft (`admin.progress_note.delete`). The class page lists **Progress notes to send** (`draftsForClass`).
+- **Sending** (owners, `src/pages/admin/progress-notes/[noteId].astro`): the note, then the child's Got it and Working on it skills in the note's class (`skillChoices`), each ticked; **Preview** (`?preview=1&got=&work=`, skill ids only) shows the email (`previewNote`: subject "Mila's progress in Intro to Theater", the note with "Got it:" and "Working on it:" lists, the class's footer) and the parents' addresses; **Send** (`sendProgressNote`, the review form's one-time token) sends through `sendMessage` (kind `family`, so it's on "Emails sent"), writes the composed text into `body` and sets `shared_at` and `message_id`. A sent note can't be changed or sent again. Audit `admin.progress_note.send`.
+- **Families** see shared notes in their account under the child ("Mila's progress notes", `ProgressNotes.astro`, `sharedNotesFor(householdId)`: their own household, shared only).
+- The note box says "Families read this. Leave out medical details".
+
+**For later units:** reports can count `student_skill` by status and program, and `progress_note` with `shared_at` by month. Shows don't use tags (a show's cast is `show_cast`).

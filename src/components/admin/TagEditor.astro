@@ -1,0 +1,80 @@
+---
+/**
+ * A family's or a child's tags with Remove (✕) on each, and "Add a tag":
+ * pick one of that kind or type a new one. Used on the family page; the forms
+ * post to familyTags() (src/pages/admin/families/[householdId]/tags.ts).
+ */
+import type { TagChip, TagKind, TagRow } from '@/server/tags';
+import { TAG_NAME_MAX } from '@/server/tags';
+
+interface Props {
+  action: string;
+  kind: TagKind;
+  /** The child, for a child tag. */
+  studentId?: string;
+  /** "Maya" or "the family", for screen readers and the field's label. */
+  who: string;
+  tags: TagChip[];
+  /** Every tag of this kind, for the list to pick from. */
+  options: TagRow[];
+}
+const { action, kind, studentId, who, tags, options } = Astro.props;
+const listId = `tag-options-${studentId ?? 'family'}`;
+const fieldId = `tag-add-${studentId ?? 'family'}`;
+const have = new Set(tags.map((t) => t.id));
+---
+
+<div class="tag-editor" data-tag-editor={studentId ?? 'family'}>
+  {
+    tags.length > 0 ? (
+      <ul class="tag-chips tag-chips--edit" data-tags>
+        {tags.map((t) => (
+          <li class="tag-chip" data-tag={t.id}>
+            <span class="sr-only">Tag: </span>
+            {t.name}
+            <form method="post" action={action}>
+              <input type="hidden" name="action" value="remove" />
+              <input type="hidden" name="kind" value={kind} />
+              {studentId && <input type="hidden" name="studentId" value={studentId} />}
+              <input type="hidden" name="tagId" value={t.id} />
+              <button class="tag-chip__x" type="submit" aria-label={`Remove the tag ${t.name} from ${who}`} data-remove-tag>
+                ✕
+              </button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="tag-editor__none">No tags yet.</p>
+    )
+  }
+  <details class="tag-editor__add">
+    <summary class="btn btn--outline btn--sm">Add a tag<span class="sr-only"> to {who}</span></summary>
+    <form method="post" action={action} class="tag-editor__form" data-add-tag>
+      <input type="hidden" name="action" value="add" />
+      <input type="hidden" name="kind" value={kind} />
+      {studentId && <input type="hidden" name="studentId" value={studentId} />}
+      <label for={fieldId}>Pick a tag or type a new one</label>
+      <div class="tag-editor__row">
+        <input id={fieldId} name="name" list={listId} required maxlength={TAG_NAME_MAX} autocomplete="off" />
+        <button class="btn btn--primary btn--sm" type="submit">Add</button>
+      </div>
+      <datalist id={listId}>
+        {options.filter((o) => !have.has(o.id)).map((o) => <option value={o.name} />)}
+      </datalist>
+    </form>
+  </details>
+</div>
+
+<style>
+  .tag-editor { display: grid; gap: 0.4rem; justify-items: start; min-width: 0; }
+  .tag-chips--edit { gap: 0.5rem 0.9rem; }
+  .tag-editor__none { margin: 0; font-size: var(--step--1); color: var(--ink-mute); }
+  .tag-editor__add > summary { list-style: none; cursor: pointer; }
+  .tag-editor__add > summary::-webkit-details-marker { display: none; }
+  .tag-editor__add[open] > summary { background: var(--hall); }
+  .tag-editor__form { display: grid; gap: 0.3rem; margin-top: 0.5rem; max-width: 26rem; }
+  .tag-editor__form label { font-weight: 650; font-size: var(--step--1); }
+  .tag-editor__row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .tag-editor__row input { flex: 1 1 12rem; min-width: 0; min-height: 44px; }
+</style>

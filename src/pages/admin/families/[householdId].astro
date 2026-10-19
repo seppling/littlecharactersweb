@@ -5,11 +5,21 @@
  * classes; a payments summary; staff notes; emails sent from the site.
  * Staff can change care details, contacts and notes here; every change and
  * every view is logged.
+ *
+ * Tags and skills: the family's tags and each child's (added and removed
+ * through ./[householdId]/tags.ts), and each child's skills by class with
+ * their progress notes (src/server/skills.ts, progress-notes.ts).
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
 import FamilyMoney from '@/components/admin/FamilyMoney.astro';
+import ChildSkills from '@/components/admin/ChildSkills.astro';
+import TagEditor from '@/components/admin/TagEditor.astro';
+import { familyTags } from '@/lib/admin-links';
+import { notesForStudents } from '@/server/progress-notes';
+import { childSkills } from '@/server/skills';
+import { TAG_ERRORS, listTags, tagsForHouseholds, tagsForStudents, type TagErrorCode } from '@/server/tags';
 import { classPage, downloads, family, familyEmail, familyLists, paymentsOrder, safeStaffPath, search } from '@/lib/admin-links';
 import { MAX_CONTACTS, formatPhone, smsHref, telHref } from '@/lib/contacts';
 import { formatCents } from '@/lib/pricing';
@@ -98,6 +108,19 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
 // Drop-ins (src/server/drop-ins.ts): each child's, booked or cancelled, by date.
 const dropIns = data ? await familyDropIns(data.household.id) : [];
 const todayIso = todayInAthens();
+// Tags, skills and progress notes, for the family and each child.
+const childIds = data?.children.map((c) => c.id) ?? [];
+const [allTags, famTags, kidTags, kidSkills, kidNotes] = data
+  ? await Promise.all([listTags(), tagsForHouseholds([data.household.id]), tagsForStudents(childIds), childSkills(childIds, Astro.locals.content), notesForStudents(childIds, Astro.locals.content)])
+  : [[], new Map(), new Map(), new Map(), new Map()];
+const tagsAction = familyTags(householdId);
+const tagNotice = (() => {
+  const t = Astro.url.searchParams.get('tags');
+  const e = Astro.url.searchParams.get('tagError') as TagErrorCode | null;
+  if (e && TAG_ERRORS[e]) return { ok: false, text: TAG_ERRORS[e] };
+  return t === 'created' ? { ok: true, text: 'New tag made and added.' } : t === 'added' ? { ok: true, text: 'Tag added.' } : t === 'removed' ? { ok: true, text: 'Tag removed.' } : null;
+})();
+const noteDone = Astro.url.searchParams.get('note');
 ---
 
 <AdminShell title={data?.household.name ?? 'Family'} section="families" back={back}>
@@ -121,6 +144,16 @@ const todayIso = todayInAthens();
 
         {saved && savedText[saved] && <p class="notice" role="status">{savedText[saved]}</p>}
         {error && <p class="notice notice--error" role="alert">{error}</p>}
+        {tagNotice && <p class:list={['notice', { 'notice--error': !tagNotice.ok }]} role="status" data-tag-notice>{tagNotice.text}</p>}
+        {noteDone === 'sent' && <p class="notice" role="status" data-note-notice>Progress note sent. The family sees it in their account.</p>}
+        {noteDone === 'saved' && <p class="notice" role="status" data-note-notice>Draft saved.</p>}
+        {noteDone === 'deleted' && <p class="notice" role="status" data-note-notice>Draft deleted.</p>}
+
+        <section class="admin-section" id="family-tags" aria-labelledby="family-tags-h" data-family-tags>
+          <h2 id="family-tags-h">Tags</h2>
+          <p class="muted">For staff: families and teachers don’t see tags.</p>
+          <TagEditor action={tagsAction} kind="family" who="the family" tags={famTags.get(data.household.id) ?? []} options={allTags.filter((t) => t.kind === 'family')} />
+        </section>
 
         <section class="admin-section" aria-labelledby="parents-h" data-parents>
           <h2 id="parents-h">Parents</h2>
@@ -154,7 +187,9 @@ const todayIso = todayInAthens();
                     <span class="muted">{[c.age !== null && `Age ${c.age}`, c.birthdate && `Birthday ${isoDay(c.birthdate)}`].filter(Boolean).join(' · ')}</span>
                     <Badges badges={c.badges} />
                     {c.missedThisSeason > 0 && <span class="muted" data-missed>Missed {c.missedThisSeason} {c.missedThisSeason === 1 ? 'class' : 'classes'} this season</span>}
+                    <TagEditor action={tagsAction} kind="child" studentId={c.id} who={c.firstName} tags={kidTags.get(c.id) ?? []} options={allTags.filter((t) => t.kind === 'child')} />
                   </div>
+                  <ChildSkills studentId={c.id} firstName={c.firstName} classes={kidSkills.get(c.id) ?? []} notes={kidNotes.get(c.id) ?? []} back={`${here}#child-${c.id}`} />
                   <details class="care" data-care open={open}>
                     <summary>Care details</summary>
                     <dl class:list={['care__list', { 'care__list--alert': medical }]}>
