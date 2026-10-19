@@ -516,3 +516,38 @@ Stephen connected Resend to Claude and chose a subdomain.
 - **Waiting on Stephen:**
   - **Auto configure** in Resend, then verification;
   - a sending-only key, limited to the subdomain, pasted straight into Render when the Blueprint is set up. It isn't created here, so it never passes through chat.
+
+### Wave 2 merged: the teacher app, the calendar and days off, drop-ins (October 19)
+
+All three units are merged (`claude/bo2-teacher-app`, `claude/bo2-calendar`, `claude/bo2-drop-ins`).
+- **Proof on the merged branch:**
+  - type check clean;
+  - 710 unit tests pass;
+  - the site builds;
+  - all 16 browser tests pass in order on one fresh database;
+  - December billing after the family journeys still charges $80.75 and $55.
+- **The teacher app** (`/admin/teach`, on a phone):
+  - Today's classes. Mark all present, then the exceptions: absent, late, left early.
+  - It works with no signal: taps wait on the phone, are sent once, and never overwrite a newer mark.
+  - A note to Hannah, and substitutes emailed when a cover is added.
+  - **Hannah sees:**
+    - "Attendance done ✓" or "Not taken" on Today, and teachers' notes until she marks them read;
+    - two new alerts: attendance not taken, and a child who missed the last two;
+    - each class's attendance, with downloads.
+- **The calendar** (`/admin/calendar`): every class, event and day off, by month, week or as a phone list, with downloads.
+  - **Days off** (Settings → Days off): for each day off, Hannah chooses to lower that month's payments by one class or leave them as they are. She sees a preview before anything changes, and families are emailed.
+  - **One class's worth:** that month's payment before Hannah's own discounts, divided by the times the class meets that calendar month, rounded in the family's favor.
+  - Months already paid are listed as "Already paid: give a credit" for the credits unit.
+  - Removing a day off restores exactly the payments it lowered that aren't paid yet.
+- **Drop-ins:**
+  - **Families:** they book and pay for one date of a weekly class, $25 (a placeholder, in Site settings → Drop-ins). There's no discount or late fee, and it never counts toward the 15%.
+  - **Hannah** can add one by pay link or at no charge, and cancel one.
+  - **On rosters:** a "Drop-in" badge on the roster and the teacher app.
+- **At the merge:** one roster link helper for the calendar and the teacher app; back-office sections 18 (teacher app), 19 (calendar), 20 (drop-ins).
+- **For Hannah to confirm:**
+  - the $25 drop-in price;
+  - whether a missed drop-in is refunded (the policy line now reuses "Missed classes aren't refunded");
+  - which one-off nights need attendance taken (workshops and parties raise "Attendance not taken" today; recommended: classes and camps only);
+  - a class's last month that ends early is still divided by every week in that month for a day off (consistent with the full-month charge).
+- **At launch:** the first week shows "Attendance not taken" for every class in the week before, since no attendance exists yet. Recommended: accept it, or set a start date.
+- **Next:** wave 3, which is refunds and credits (with a yearly statement), tags and skills (with progress notes), and shows (cast lists, roles, rehearsals).
