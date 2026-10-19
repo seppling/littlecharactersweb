@@ -14,6 +14,7 @@ The new website for [Little Characters Theater Troupe](https://www.littlecharact
   - [`docs/security.md`](docs/security.md): OWASP Top 10 mapping, PCI, children's data, retention, secrets.
   - [`docs/research.md`](docs/research.md): exemplar sites and the patterns we took from them.
   - [`docs/content-inventory.md`](docs/content-inventory.md): what was migrated and what still needs Hannah's input.
+  - [`CLAUDE.md`](CLAUDE.md), [`FOUNDATION.md`](FOUNDATION.md) and [`playbook/`](playbook/README.md): the rules for building this site with Claude, copied from Stephen's SMB-AI repo. New features start with `/plan-feature` and end with `/review-change`.
 
 ## Run it
 
