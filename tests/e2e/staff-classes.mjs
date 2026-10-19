@@ -106,6 +106,11 @@ await parent.click('form:has(input[value="add-student"]) button[type="submit"]')
 await parent.waitForSelector('text=Juniper Okoro');
 await parent.click('#students button[type="submit"]');
 await parent.waitForURL(/\/enroll\/details/);
+// A new family gives one emergency contact and a ZIP code (the family details step).
+await parent.fill('#ec-0-name', 'Robin Okoro');
+await parent.fill('#ec-0-relationship', 'Grandparent');
+await parent.fill('#ec-0-phone', '706-555-0178');
+await parent.fill('#zip', '30605');
 await parent.check('input[name^="photo-"][value="yes"]');
 await parent.check('input[name="policies"]');
 await parent.click('button:has-text("Review & pay")');
@@ -157,7 +162,8 @@ await maya.locator('summary').click();
 check(await maya.locator('[data-care] >> text=Peanuts').isVisible(), 'tapping Maya opens her care details in place: Peanuts');
 const red = await maya.locator('[data-medical="yes"]').evaluate((el) => getComputedStyle(el).backgroundColor);
 check(red === 'rgb(253, 227, 223)', `allergies are shown in red (${red})`);
-check(await maya.locator('[data-no-emergency]', { hasText: 'No emergency contact on file' }).isVisible(), 'a family with no emergency contact says so');
+// The enrollment journey gives Maya's family an emergency contact (Rosa Rivera, the family details step).
+check(await maya.locator('[data-care]', { hasText: 'Rosa Rivera' }).isVisible() && !(await maya.locator('[data-no-emergency]').count()), 'her family’s emergency contact shows in her care details');
 // The trial journey ends with Ava continuing after her free class, so she's no longer a trial by now.
 const lee = await page.locator('[data-child]').filter({ has: page.locator('.kid__name', { hasText: /^(Ava|Ben) Lee$/ }) }).count();
 check(lee >= 1, `the trial journey’s Lee children are on the roster (${lee})`);

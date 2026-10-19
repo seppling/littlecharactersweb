@@ -145,3 +145,22 @@ Families fill these in on the details step and at `/account/family` (`portal.md`
 - **Print** (`/admin/classes/<id>/print`): the roster ready to print, landscape.
 - **Downloads**, each needing a fresh sign-in: `/admin/classes/<id>.csv` and `.pdf` ("Class Roster", with care details), and `/admin/classes/<id>/sign-in-sheet.pdf` ("Student Sign-in Sheets": names and the next 8 class dates, no care details).
 - **One query:** `classRoster(sessionId, staffId, action)` feeds the page, print, CSV and both PDFs. Each call writes `admin.roster.<action>` to the audit log (`view`, `print`, `csv`, `pdf`, `sign-in-pdf`); the list's downloads write `admin.classes.csv` / `.pdf`.
+
+## 10. Search and a family's page
+
+Queries in `src/server/families.ts`; pages `src/pages/admin/search.astro` and `src/pages/admin/families/[householdId].astro`.
+
+- **Search (`search(q)`):** one box. Plain SQL `ILIKE` ("contains, any case") on family names, parents' names and emails, children's first, last and full names; phone numbers compare digits only (`706.555.0101`, `+1 706 555 0101` and `(706) 555-0101` all match). Class titles come from the content. No index: about 300 families scan in milliseconds. Results are grouped Families, Children, Classes, 50 of each at most, and never show allergies or medical notes.
+- **Families (`search()` with no words):** every family A to Z, 50 a page (`?page=2`), with parents, the number of children and their current classes (enrollments not cancelled, in a class that hasn't ended).
+- **A family's page (`family(id)`):** parents with Email, Call and Text; each child's badges and care details (open on a computer, a tap on a phone, red when there's something medical to know); emergency contacts and pickup people; every class, current first; a payments summary (card, next charge, failed or overdue payments, paid this season, each order linking to `paymentsOrder`); staff notes; emails sent (`message_recipient`). The phone back link returns to the search results when staff came from them, else to Families. Viewing the page is logged (`admin.family.view`), like a roster.
+- **Staff edits on the page,** each logged: care details (`admin.student.update`; the same encryption; `detailsConfirmedAt` unchanged, so a parent still confirms), contacts (`admin.household.contacts`; the shared rules in `src/lib/contacts.ts`; `contactsConfirmedAt` unchanged), notes (`admin.note.add|edit|delete`; only the author edits or deletes their own).
+- **"This season"** is the term of the weekly class running today, else the next to start (`currentTerm`).
+
+| Download | Address | Columns |
+|---|---|---|
+| Family List | `downloads(search())` | Family, Parents, Emails, Phones, ZIP, Heard about us, Children |
+| Student / Class List | `downloads(FAMILY_LISTS.children)` | Child, Age, Family, Current classes |
+| Student Contact List | `downloads(FAMILY_LISTS.contacts)` | Child, Family, Parents, Emails, Phones, Emergency contacts |
+| Family Notes | `downloads(FAMILY_LISTS.notes)` | Family, About, Note, Written by, When |
+
+All four go through `familyDownload` (`src/server/family-downloads.ts`): a fresh sign-in, then an audit entry (`admin.download.csv|pdf`, entity `list`, id `families|children|contacts|notes`). The first three are on the Families list; Family Notes is on each family's page.
