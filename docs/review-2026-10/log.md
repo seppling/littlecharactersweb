@@ -51,6 +51,7 @@ Stephen asked for a wider plan for the staff back office, designed around how Ha
 - **Switching over:** fall classes finish in Studio Director (no new data typed into it after launch). New sign-ups and spring are on the new site. Studio Director is cancelled in February, after a clean month of spring billing and a full export.
 - **Hannah's input:** a short online form asks how often she uses each Studio Director screen, plus 8 questions. The back-office pieces are designed from her answers.
 - **Staff discounts:** continue now. Their admin screen moves into the new payments area later.
+- **Revised October 19** from Hannah's answers: see "Studio Director answers" at the end of this log.
 
 ### Wave 1 merged (October 13)
 
@@ -246,3 +247,39 @@ On the merged branch: type check clean, 438 unit tests pass, the site builds, an
   - **Stories and Songs runs 9 Tuesdays (Oct 20 – Dec 15), but its text says 8 weeks.** Is a week off (which one), or is it 9 weeks? Once she answers, add "no class" dates or update the wording.
   - The donation link, the tax note, and the Studio Director billing end date (Site settings).
 - **For Stephen:** should a last month that ends mid-month also be charged only for its classes? Today it's a full month.
+
+### Studio Director answers (October 19)
+
+Hannah's check-in form is complete. No family names were given.
+
+- **Used weekly:** home, class calendar, classes list, the enrollment tab, attendance, each class's instructors and dates, emailing a class, communications, search.
+- **Monthly:** waitlist, adding a student, tags, skills, instructors, charges, reports, settings.
+- **Rarely:** families, students (she finds people through search), print, clone. **Never:** none.
+- **Her answers:**
+  - **Attendance:** teachers take it on their phones and send Hannah a note. She wants teachers to see their rosters and take attendance in a phone app.
+  - **Make-ups:** none. **Drop-ins:** yes, a child can drop in to one class and pay for it; tracked through payments.
+  - **"Performing":** she doesn't know it. Dropped.
+  - **Tags and skills:** not used yet, but they will be.
+  - **Reports:** everything Studio Director has. We need the list of its reports.
+  - **Messages:** weekly, by Gmail and group texts.
+  - **Charges besides tuition:** the performance fee. Refunds and credits would be nice to have in the portal.
+  - **Who signs in:** teachers.
+  - **Cost:** $120 a month.
+  - **Keep:** the layout built around performance businesses.
+  - **Fix:** easy screens for her and the teachers, so they actually use them, and a phone app.
+  - **Asked:** whether Claude can connect to Studio Director to see it. It has no public API or connector that we could find, so we asked for screenshots of its Reports page instead (no family data on it).
+- **The plan, revised:**
+  - **By launch:** unchanged, plus one search box for families, students and classes, and email the class (used weekly, so it's needed at launch). Built phone-first.
+  - **By the first spring class,** in this order:
+    1. teacher logins with a phone screen for today's class: the roster, and attendance in one tap; instructors on each class;
+    2. the class calendar, with each class's dates and days off;
+    3. paid drop-ins to a single class;
+    4. refunds and credits;
+    5. tags and skills;
+    6. reports matching Studio Director's;
+    7. staff settings.
+  - **Dropped:** make-ups, "Performing", cloning classes.
+  - **Later:** group texts need a paid texting service; families keep the current group texts for now.
+- **Open:**
+  - **For Stephen:** the phone app: an app that installs from the website to the phone's home screen (recommended), or one in the app stores.
+  - **For Hannah:** the drop-in price for a single class, and screenshots of the Reports page.
