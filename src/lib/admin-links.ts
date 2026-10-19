@@ -136,3 +136,15 @@ export const progressNote = (noteId: string) => `/admin/progress-notes/${seg(not
 /** Write a new progress note about a child (and a class). `back` is where Cancel and Send return to. */
 export const newProgressNote = (studentId: string, sessionId?: string, back?: string) =>
   `/admin/progress-notes/new${query({ student: studentId, class: sessionId, back: back ? (safeStaffPath(back) ?? undefined) : undefined })}`;
+
+// ───────────── Reports (docs/back-office.md → Reports) ─────────────
+
+/** The reports dashboard: the most important numbers, each opening its report. Owners only. */
+export const reports = () => '/admin/reports';
+/** Every report, grouped by the question it answers, starred ones first. */
+export const reportsLibrary = () => '/admin/reports/library';
+/** One report, with its filters (season, month, program, location, class, show, week, who). Pass to downloads() for its CSV and PDF. */
+export const report = (key: string, params: Record<string, string | number | undefined> = {}) =>
+  `/admin/reports/${seg(key)}${query(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, v === undefined ? undefined : String(v)])))}`;
+/** Where a report's star posts (on or off). */
+export const reportFavorite = () => '/admin/reports/favorite';
