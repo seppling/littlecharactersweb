@@ -212,6 +212,8 @@ export interface RosterChild {
   offer: OfferState | null;
   /** Added by staff without charge: why (roster-changes.ts). */
   noChargeReason: string | null;
+  /** Here for one date only: the drop-in's id (drop-ins.ts). Such a child has no enrollment (`enrollmentId` is empty). */
+  dropInId?: string;
 }
 
 export type RosterAction = 'view' | 'print' | 'csv' | 'pdf' | 'sign-in-pdf';

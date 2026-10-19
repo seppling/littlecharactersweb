@@ -8,7 +8,8 @@ import { rich } from '@/content/rich';
 import { ageLabel, feeLabel, priceLabel, spotsLabel } from '@/lib/format';
 import { cardParts, performanceLabel, sessionLines, sessionPrice, whenSummary } from '@/lib/class-summary';
 import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
-import { hasFreeFirstClass, joiningNow, sessionPriceParts, todayInAthens } from '@/lib/pricing';
+import { formatCents, hasFreeFirstClass, joiningNow, sessionPriceParts, todayInAthens } from '@/lib/pricing';
+import { dropInPrice, dropInsOffered } from '@/server/drop-ins';
 import { bookingClock, offeredSessions, sessionState } from '@/lib/session-dates';
 import { breadcrumbLd, courseLd, isCourse } from '@/lib/seo';
 import { faqsFor, highlightsHeading, isAdult, kindTag, moneyLines, perChild } from '@/lib/program-fit';
@@ -45,6 +46,10 @@ const sessionParts = sessionPriceParts(fromPrice, priceSession);
 const today = todayInAthens();
 const joining = new Map(bookable.filter((s) => s.status !== 'coming-soon' && !partnerOnly).map((s) => [s.id, joiningNow(program, s, today)] as const));
 const freeTrial = hasFreeFirstClass(program) && !partnerOnly;
+
+// "Drop in for one class": weekly classes that have started or start within 14 days (src/server/drop-ins.ts).
+// One under the button for the date picked above; one each for a class past its sign-up cut-off.
+const dropIns = program.sessions.filter((s) => dropInsOffered(site, program, s)).map((s) => ({ s, label: `Drop in for one class · ${formatCents(dropInPrice(site, program, s)!)}`, listed: bookable.includes(s) }));
 
 // What fits this kind of program: its pricing lines, FAQs and the heading over its highlights.
 const money = moneyLines(program);
@@ -196,6 +201,11 @@ const structuredData = [
                     <span class="arrow" aria-hidden="true">→</span>
                   </a>
                 )}
+                {dropIns.filter((d) => d.listed).map((d) => (
+                  <p class="enroll__drop-in" data-drop-in-for={d.s.id} hidden={d.s.id !== firstOpen?.id}>
+                    <a href={`/drop-in/${d.s.id}`} data-drop-in-link>{d.label}</a>
+                  </p>
+                ))}
                 <p class="enroll__note">
                   {partnerOnly
                     ? 'Registration for this program is handled by the school.'
@@ -230,6 +240,12 @@ const structuredData = [
               </div>
             )
           }
+          {dropIns.filter((d) => !d.listed).map((d) => (
+            <p class="enroll__drop-in">
+              <a href={`/drop-in/${d.s.id}`} data-drop-in-link>{d.label}</a>
+              {dropIns.length > 1 && <span class="enroll__drop-in-when">{sessionLines(d.s, parts, locationById(d.s.locationId)?.shortName).title}</span>}
+            </p>
+          ))}
           {(comingSoon || datesSoon) && (
             <form
               class="notify"
@@ -332,6 +348,7 @@ const structuredData = [
       const picked = form.querySelector<HTMLInputElement>('input[name="session"]:checked');
       if (!picked) return;
       form.querySelectorAll<HTMLElement>('[data-joining-for]').forEach((el) => (el.hidden = el.dataset.joiningFor !== picked.value));
+      form.querySelectorAll<HTMLElement>('[data-drop-in-for]').forEach((el) => (el.hidden = el.dataset.dropInFor !== picked.value));
       cta.href = picked.dataset.href ?? '#';
       const text = picked.dataset.label ?? 'Enroll';
       label.textContent = text === 'Enroll' ? 'Continue to enrollment' : text;
@@ -432,6 +449,9 @@ const structuredData = [
   .joining[hidden] { display: none; }
   .joining__title { font-weight: 700; color: var(--ink); }
   .joining ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; color: var(--ink-soft); }
+  .enroll__drop-in { margin: 0; text-align: center; font-size: var(--step--1); }
+  .enroll__drop-in a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink-soft); }
+  .enroll__drop-in-when { display: block; color: var(--ink-mute); }
   .enroll__note, .enroll__help { font-size: var(--step--1); color: var(--ink-soft); }
   .enroll__help { padding-top: var(--space-s); border-top: 1.5px dashed var(--line-strong); }
   .notify { display: grid; gap: 0.5rem; padding-top: var(--space-s); border-top: 1.5px dashed var(--line-strong); }

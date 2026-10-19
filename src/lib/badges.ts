@@ -1,6 +1,6 @@
 /**
  * The small labels beside a child's name on staff pages: allergy, pickup note,
- * no photos, new, trial, birthday (docs/back-office.md). Always in the same
+ * no photos, new, trial, drop-in, birthday (docs/back-office.md). Always in the same
  * order, so staff learn where to look.
  *
  * The input is yes/no facts only. The notes themselves never reach a badge,
@@ -9,7 +9,6 @@
 import { todayInAthens } from './pricing';
 
 export type BadgeTone = 'neutral' | 'good' | 'warning' | 'alert';
-/** `drop-in` is reserved for paid drop-ins (Phase 2). */
 export type BadgeKey = 'medical' | 'pickup' | 'no-photos' | 'new' | 'trial' | 'birthday' | 'drop-in';
 export type Badge = { key: BadgeKey; label: string; tone: BadgeTone };
 
@@ -24,6 +23,8 @@ export interface BadgeInput {
   firstEnrolledAt: Date | null;
   /** This enrollment is a free trial class. */
   trial: boolean;
+  /** Here for one class only: a drop-in booked for that date (src/server/drop-ins.ts). */
+  dropIn?: boolean;
   /** YYYY-MM-DD */
   birthdate: string | null;
 }
@@ -63,6 +64,7 @@ export function childBadges(input: BadgeInput, today: string = todayInAthens()):
     if (age >= 0 && age <= NEW_DAYS) out.push({ key: 'new', label: 'New', tone: 'good' });
   }
   if (input.trial) out.push({ key: 'trial', label: 'Trial', tone: 'neutral' });
+  if (input.dropIn) out.push({ key: 'drop-in', label: 'Drop-in', tone: 'neutral' });
   if (input.birthdate && Math.abs(daysToBirthday(input.birthdate, today)) <= BIRTHDAY_DAYS) out.push({ key: 'birthday', label: 'Birthday', tone: 'good' });
   return out;
 }

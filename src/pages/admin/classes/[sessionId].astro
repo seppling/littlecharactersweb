@@ -12,13 +12,18 @@
  * change), and Offer the spot / Withdraw offer on the waitlist. Buttons post
  * back here; changes redirect with ?done= so a reload doesn't repeat them.
  * Children's names are searched by POST, never put in the address.
+ *
+ * Drop-ins (src/server/drop-ins.ts): the roster for one date (?date=, the next
+ * class by default) adds that day's drop-ins with the Drop-in badge; the
+ * Drop-ins part lists them all with Cancel; "Add a drop-in" sends a pay link,
+ * or books one with no charge after a fresh sign-in.
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
-import { classEmail, classes, classPage, classPrint, classSignInSheet, downloads, family, paymentsOrder } from '@/lib/admin-links';
+import { classDropIns as classDropInsLink, classEmail, classes, classPage, classPrint, classSignInSheet, downloads, family, paymentsOrder } from '@/lib/admin-links';
 import { formatPhone, smsHref, telHref } from '@/lib/contacts';
-import { formatCents } from '@/lib/pricing';
+import { formatCents, isWeeklyTuitionClass, meetings, todayInAthens } from '@/lib/pricing';
 import { capacityFor } from '@/server/family';
 import { classLine, classRoster, type ClassRoster } from '@/server/classes';
 import { newSendToken } from '@/server/messages';
@@ -42,6 +47,20 @@ import {
   type RemovalPreview,
 } from '@/server/roster-changes';
 import { requireFreshStaff, requireStaff } from '@/server/staff';
+import {
+  DropInError,
+  addDropInWithoutCharge,
+  cancelDropIn,
+  classDropIns,
+  dropInDates,
+  dropInDay,
+  dropInPrice,
+  dropInRoster,
+  dropInStatus,
+  rosterDate,
+  sendDropInPayLink,
+  type DropInDate,
+} from '@/server/drop-ins';
 
 export const prerender = false;
 const { staff, response } = requireStaff(Astro.locals);
@@ -67,6 +86,17 @@ let way: AddWay = 'link';
 let reason = '';
 let addError = '';
 let actionError = '';
+// Add a drop-in: find, choose a way and a date, confirm.
+let dropMatches: AddCandidate[] | null = null;
+let dropQuery = '';
+let dropPick: AddCandidate | null = null;
+let dropWay: AddWay = 'link';
+let dropDate = '';
+let dropReason = '';
+let dropError = '';
+let cancelError = '';
+/** A no-charge drop-in needs a fresh sign-in too; staff come back to this child's confirm step. */
+const freshForDrop = (studentId: string) => requireFreshStaff(Astro.locals, new URL(`${here}?dropAdd=${encodeURIComponent(studentId)}#drop-ins-h`, Astro.url));
 if (staff && Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const get = (k: string) => String(form.get(k) ?? '');
@@ -127,11 +157,62 @@ if (staff && Astro.request.method === 'POST') {
         return Astro.redirect(after({ done: 'offered' }, '#waitlist-h'), 303);
       case 'withdraw':
         return Astro.redirect(after({ done: (await withdrawOffer(get('offerId'), session.id, staff.id)) ? 'withdrawn' : 'gone' }, '#waitlist-h'), 303);
+      // Drop-ins.
+      case 'drop-find':
+        dropQuery = get('q').trim();
+        dropMatches = dropQuery ? await findChildren(dropQuery, session.id, Astro.locals.content) : [];
+        break;
+      case 'drop-check':
+        dropWay = get('way') === 'free' ? 'free' : 'link';
+        if (dropWay === 'free') {
+          const stop = freshForDrop(get('studentId'));
+          if (stop) return stop;
+        }
+        dropPick = await addCandidate(get('studentId'), session.id, Astro.locals.content);
+        break;
+      case 'drop-link':
+      case 'drop-free': {
+        dropWay = get('action') === 'drop-free' ? 'free' : 'link';
+        if (dropWay === 'free') {
+          const stop = freshForDrop(get('studentId'));
+          if (stop) return stop;
+        }
+        dropDate = get('date');
+        dropReason = get('reason');
+        try {
+          if (dropWay === 'free') {
+            await addDropInWithoutCharge({ sessionId: session.id, studentId: get('studentId'), date: dropDate, staffId: staff.id, reason: dropReason, overFull });
+            return Astro.redirect(after({ done: 'drop-added', date: dropDate }, '#drop-ins-h'), 303);
+          }
+          const r = await sendDropInPayLink({ sessionId: session.id, studentId: get('studentId'), date: dropDate, staffId: staff.id, token: get('token') });
+          return Astro.redirect(after({ done: r.duplicate ? 'link-again' : 'drop-link', n: r.parents }, '#drop-ins-h'), 303);
+        } catch (e) {
+          if (!(e instanceof DropInError)) throw e;
+          dropError = e.message;
+          dropPick = await addCandidate(get('studentId'), session.id, Astro.locals.content);
+        }
+        break;
+      }
+      case 'drop-cancel':
+        try {
+          const ok = await cancelDropIn({ dropInId: get('dropInId'), sessionId: session.id, staffId: staff.id, reason: get('reason') });
+          return Astro.redirect(after({ done: ok ? 'drop-cancelled' : 'gone' }, '#drop-ins-h'), 303);
+        } catch (e) {
+          if (!(e instanceof DropInError)) throw e;
+          cancelError = `${get('dropInId')}:${e.message}`;
+        }
+        break;
     }
   } catch (e) {
     if (!(e instanceof RosterError)) throw e;
     actionError = e.message;
   }
+}
+// Back from a fresh sign-in: straight to that child's "Drop-in, no charge" step.
+const dropAddParam = Astro.url.searchParams.get('dropAdd');
+if (staff && !dropPick && dropAddParam && Astro.request.method === 'GET') {
+  dropWay = 'free';
+  dropPick = await addCandidate(dropAddParam, session.id, Astro.locals.content);
 }
 // Back from a fresh sign-in: straight to that child's "Add without charge" step.
 const addParam = Astro.url.searchParams.get('add');
@@ -155,6 +236,9 @@ const notice = actionError
         case 'link-again': return { ok: true, text: 'That link was already sent.' };
         case 'offered': return { ok: true, text: `Offer sent. The family has ${OFFER_HOURS} hours to sign up.` };
         case 'withdrawn': return { ok: true, text: 'Offer withdrawn. They’re still on the waitlist.' };
+        case 'drop-link': return { ok: true, text: `Pay link sent to ${plural(n, 'parent')}. The drop-in is booked once they pay.` };
+        case 'drop-added': return { ok: true, text: 'Drop-in added, with no charge.' };
+        case 'drop-cancelled': return { ok: true, text: 'Drop-in cancelled. If it was paid, refund it in the Stripe dashboard for now.' };
         case 'gone': return { ok: false, text: 'That changed in the meantime. Nothing was done.' };
         default: return null;
       }
@@ -165,6 +249,21 @@ const files = downloads(classPage(session.id));
 const sheet = classSignInSheet(session.id);
 const joined = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
 const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.length) === 1 ? 'place' : 'places'}${cap ? ' filled' : ''}`;
+
+// The roster's date: drop-ins are for one date. ?date= picks a class date; the next class by default.
+const classDays = meetings(session);
+const dateParam = Astro.url.searchParams.get('date');
+const onDate = dateParam && classDays.includes(dateParam) ? dateParam : rosterDate(session);
+const dropKids = staff && onDate ? await dropInRoster(session.id, onDate, staff.id) : [];
+const rosterKids = [...students, ...dropKids].sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
+const isWeekly = isWeeklyTuitionClass(program, session);
+const dropPrice = dropInPrice(Astro.locals.content.site, program, session);
+const allDropIns = staff ? await classDropIns(program, session) : [];
+const today = todayInAthens();
+const upcomingDropIns = allDropIns.filter((d) => d.date >= today);
+const pastDropIns = allDropIns.filter((d) => d.date < today).reverse();
+const dropDates: DropInDate[] = dropPick ? await dropInDates(program, session) : [];
+const dropFiles = downloads(classDropInsLink(session.id));
 ---
 
 <AdminShell title={program.title} section="classes" back={{ href: classes(), label: 'Classes' }}>
@@ -173,7 +272,7 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
       <div>
         <h1>{program.title}</h1>
         <p class="class-line">{classLine(session, location?.name)}</p>
-        <p class="class-counts" data-counts><strong>{places}</strong> · {waitlist.length} on the waitlist</p>
+        <p class="class-counts" data-counts><strong>{places}</strong> · {waitlist.length} on the waitlist{upcomingDropIns.some((d) => d.status === 'booked') && ` · ${upcomingDropIns.filter((d) => d.status === 'booked').length} drop-ins ahead`}</p>
       </div>
       <div class="admin-head__actions class-actions">
         <a class="btn btn--outline btn--sm" href={classPrint(session.id)} data-print-link>Print</a>
@@ -261,18 +360,110 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
           </div>
         </form>
       )}
+
+      {isWeekly && (
+        <details class="tool" open={dropMatches !== null || undefined} data-drop-in-tool>
+          <summary class="btn btn--outline btn--sm">Add a drop-in</summary>
+          <div class="tool__body">
+            {dropPrice === null && <p class="muted">Families can’t book drop-ins for this class right now (Site settings → Drop-ins, or the class’s own setting). You can still add one with no charge.</p>}
+            <form method="post" class="find" data-drop-find>
+              <label for="drop-q">Child’s name</label>
+              <div class="find__row">
+                <input id="drop-q" name="q" value={dropQuery} autocomplete="off" required maxlength="100" />
+                <button class="btn btn--primary btn--sm" name="action" value="drop-find">Find</button>
+              </div>
+            </form>
+            {dropMatches !== null && (dropMatches.length === 0 ? (
+              <p class="muted" data-no-match>No child matches “{dropQuery}”. A new family books a drop-in from the class’s page on the website.</p>
+            ) : (
+              <ul class="picks" data-drop-results>
+                {dropMatches.map((c) => {
+                  const inClass = c.status === 'active' || c.status === 'trial';
+                  return (
+                    <li class="pick" data-drop-child={c.studentId}>
+                      <div class="pick__who">
+                        <strong>{c.name}</strong>
+                        <span class="muted">{c.age !== null ? `Age ${c.age} · ` : ''}{c.family}</span>
+                        {c.ageNote && <span class="warn-line">{c.ageNote}</span>}
+                        {inClass && <span class="muted">{c.firstName} is already in this class.</span>}
+                      </div>
+                      {!inClass && (
+                        <div class="pick__actions">
+                          {dropPrice !== null && (
+                            <form method="post"><input type="hidden" name="studentId" value={c.studentId} /><input type="hidden" name="way" value="link" /><button class="btn btn--outline btn--sm" name="action" value="drop-check">Send a pay link</button></form>
+                          )}
+                          <form method="post"><input type="hidden" name="studentId" value={c.studentId} /><input type="hidden" name="way" value="free" /><button class="btn btn--outline btn--sm" name="action" value="drop-check">No charge</button></form>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ))}
+          </div>
+        </details>
+      )}
+
+      {dropPick && (
+        <form method="post" class="confirm" data-drop-confirm={dropWay}>
+          <input type="hidden" name="studentId" value={dropPick.studentId} />
+          <input type="hidden" name="token" value={token} />
+          <h2>{dropWay === 'free' ? `Add ${dropPick.name} as a drop-in, with no charge?` : `Send the ${dropPick.family} a pay link for a drop-in?`}</h2>
+          {dropWay === 'free' ? (
+            <p>{dropPick.firstName} is on the roster for that date only. No payment, and nothing else the family pays changes.</p>
+          ) : (
+            <p>The parents get an email with a link to pay {dropPrice !== null ? formatCents(dropPrice) : ''} for that date. {dropPick.firstName} is booked once they pay; until then the place isn’t held.</p>
+          )}
+          {(dropPick.status === 'active' || dropPick.status === 'trial') && <p class="notice notice--error">{dropPick.firstName} is already in this class.</p>}
+          {dropPick.ageNote && <p class="warn-box">{dropPick.ageNote} You can still go ahead.</p>}
+          <div class="field">
+            <label for="drop-date">Date</label>
+            <select id="drop-date" name="date" required data-drop-date>
+              {dropDates.map((d) => (
+                <option value={d.date} selected={d.date === dropDate} disabled={d.problem === 'day-off' || (d.problem === 'full' && dropWay === 'link')}>
+                  {d.label}{d.problem === 'day-off' ? ' (no class)' : d.problem === 'full' ? ' (full)' : d.placesLeft !== undefined ? ` (${plural(d.placesLeft, 'place')} left)` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          {dropWay === 'free' && dropDates.some((d) => d.problem === 'full') && (
+            <label class="check"><input type="checkbox" name="overFull" value="yes" /> If the date is full, add anyway</label>
+          )}
+          {dropWay === 'free' && (
+            <div class="field">
+              <label for="drop-reason">Reason</label>
+              <input id="drop-reason" name="reason" value={dropReason} required maxlength={REASON_MAX} placeholder="Make-up for a missed class, trade…" />
+              <p class="muted">Shown in the Drop-ins list as “No charge: …”, and kept in the record. Leave out medical details.</p>
+            </div>
+          )}
+          {dropError && <p class="notice notice--error" role="alert" data-drop-error>{dropError}</p>}
+          <div class="confirm__actions">
+            <button class="btn btn--primary btn--sm" name="action" value={dropWay === 'free' ? 'drop-free' : 'drop-link'} disabled={dropPick.status === 'active' || dropPick.status === 'trial' || !dropDates.length}>{dropWay === 'free' ? 'Add the drop-in' : 'Send the link'}</button>
+            <a class="btn btn--outline btn--sm" href={here}>Cancel</a>
+          </div>
+        </form>
+      )}
     </div>
 
     <section class="roster-section" aria-labelledby="roster-h">
-      <h2 id="roster-h">Roster <span class="muted">({students.length})</span></h2>
-      {students.length === 0 ? (
+      <h2 id="roster-h">Roster <span class="muted">({students.length}{dropKids.length > 0 && ` + ${dropKids.length} drop-in${dropKids.length === 1 ? '' : 's'}`})</span></h2>
+      {onDate && classDays.length > 1 && (
+        <form method="get" class="roster-date" data-roster-date>
+          <label for="roster-date">Drop-ins on</label>
+          <select id="roster-date" name="date">
+            {classDays.map((d) => <option value={d} selected={d === onDate}>{dropInDay(d)}{d === today ? ' (today)' : ''}</option>)}
+          </select>
+          <button class="btn btn--outline btn--sm">Show</button>
+        </form>
+      )}
+      {rosterKids.length === 0 ? (
         <div class="empty-state">
           <strong>No one enrolled yet.</strong>
           <p>Children show up here when a family signs up.</p>
         </div>
       ) : (
         <ul class="roster" data-roster>
-          {students.map((c) => {
+          {rosterKids.map((c) => {
             const medical = !!(c.allergies || c.medicalNotes);
             return (
               <li class="kid" data-child={c.studentId}>
@@ -348,8 +539,10 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
                   <a class="family-link" href={family(c.householdId)}>Family page<span class="sr-only">: {c.family}</span></a>
                 </div>
                 <div class="kid__actions" data-roster-actions>
-                  {c.noChargeReason && <p class="muted no-charge" data-no-charge>{noChargeLabel(c.noChargeReason)}</p>}
-                  {removal?.enrollmentId === c.enrollmentId ? (
+                  {c.dropInId ? (
+                    <p class="muted no-charge" data-drop-in-note>Drop-in on {dropInDay(onDate!)} only{c.noChargeReason ? `. No charge: ${c.noChargeReason}` : ''}. Cancel it under Drop-ins.</p>
+                  ) : c.noChargeReason && <p class="muted no-charge" data-no-charge>{noChargeLabel(c.noChargeReason)}</p>}
+                  {c.dropInId ? null : removal?.enrollmentId === c.enrollmentId ? (
                     <form method="post" class="confirm" data-remove-check={removal.mode} id="remove-check">
                       <input type="hidden" name="enrollmentId" value={c.enrollmentId} />
                       <input type="hidden" name="mode" value={removal.mode} />
@@ -466,6 +659,54 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
         </ol>
       )}
     </section>
+
+    {(isWeekly || allDropIns.length > 0) && (
+      <section class="roster-section" aria-labelledby="drop-ins-h" data-drop-ins>
+        <div class="section-head">
+          <h2 id="drop-ins-h">Drop-ins <span class="muted">({upcomingDropIns.filter((d) => d.status === 'booked').length} ahead)</span></h2>
+          <DownloadLinks csv={dropFiles.csv} pdf={dropFiles.pdf} what="the drop-ins" />
+        </div>
+        {allDropIns.length === 0 ? (
+          <p class="muted">No drop-ins yet.{dropPrice !== null && ` Families book them from the class’s page on the website (${formatCents(dropPrice)} a class).`}</p>
+        ) : (
+          [{ title: 'Coming up', rows: upcomingDropIns, key: 'upcoming' }, { title: 'Past', rows: pastDropIns, key: 'past' }].filter((g) => g.rows.length).map((g) => (
+            <>
+              <h3 class="sub-h">{g.title}</h3>
+              <table class="data-table" data-drop-in-list={g.key}>
+                <thead><tr><th>Date</th><th>Child</th><th>Family</th><th>Paid</th><th><span class="sr-only">Actions</span></th></tr></thead>
+                <tbody>
+                  {g.rows.map((d) => (
+                    <tr data-drop-in-row={d.id} data-status={d.status}>
+                      <td data-label="Date">{dropInDay(d.date)}</td>
+                      <td data-label="Child"><span><strong>{d.child}</strong>{d.overLimit && <span class="badges"><span class="badge badge--warning" data-over-limit>Over the limit</span></span>}</span></td>
+                      <td data-label="Family"><a href={family(d.householdId)}>{d.family}</a></td>
+                      <td data-label="Paid"><span>{dropInStatus(d)}{d.orderId && d.paid && <> · <a href={paymentsOrder(d.orderId)}>Payment</a></>}</span></td>
+                      <td data-label="">
+                        {d.status !== 'cancelled' && (
+                          <details class="tool">
+                            <summary class="btn btn--outline btn--sm">Cancel<span class="sr-only"> {d.child}’s drop-in on {dropInDay(d.date)}</span></summary>
+                            <form method="post" class="tool__body">
+                              <input type="hidden" name="dropInId" value={d.id} />
+                              <div class="field">
+                                <label for={`cancel-${d.id}`}>Reason</label>
+                                <input id={`cancel-${d.id}`} name="reason" required maxlength={REASON_MAX} placeholder="Sick, booked by mistake…" />
+                              </div>
+                              {d.paid && <p class="muted">Nothing is refunded here. Refund it in the Stripe dashboard for now.</p>}
+                              {cancelError.startsWith(`${d.id}:`) && <p class="notice notice--error" role="alert">{cancelError.slice(d.id.length + 1)}</p>}
+                              <button class="btn btn--danger btn--sm" name="action" value="drop-cancel">Cancel the drop-in</button>
+                            </form>
+                          </details>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ))
+        )}
+      </section>
+    )}
   </div>
 </AdminShell>
 
@@ -560,6 +801,12 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
   .check { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; font-weight: 650; }
   .check input { width: 1.25rem; height: 1.25rem; accent-color: var(--purple); }
   .no-charge { margin: 0; font-size: var(--step--1); overflow-wrap: anywhere; }
+  .roster-date { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: var(--step--1); }
+  .roster-date label { font-weight: 650; }
+  .roster-date select,
+  .confirm select { min-height: 44px; max-width: 100%; }
+  .section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem 1rem; }
+  .sub-h { font-size: var(--step-0); margin-top: var(--space-xs); }
   @media (max-width: 760px) {
     .kid,
     .wait { grid-template-columns: minmax(0, 1fr); }

@@ -484,6 +484,8 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
     console.error(`Order ${o.id}: Stripe checkout ${payment.checkoutSessionId} paid ${payment.amountCents}¢ but the order is ${o.totalCents}¢. Not enrolling; reconcile in Stripe.`);
     return o;
   }
+  // One class of a weekly class: a booking, not an enrollment (src/server/drop-ins.ts).
+  if (o.plan === 'drop_in') return (await import('./drop-ins')).fulfillDropIn(o, userId, payment);
   const found = await findSession(o.sessionId);
   if (!found) throw new Error('Unknown session');
 
