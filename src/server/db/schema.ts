@@ -214,6 +214,13 @@ export const enrollment = pgTable(
     programSlug: text('program_slug').notNull(),
     status: text('status', { enum: ['active', 'trial', 'waitlist', 'cancelled'] }).notNull(),
     orderId: text('order_id').references(() => order.id, { onDelete: 'set null' }),
+    /**
+     * Set when staff added the child without charge (a scholarship, a staff
+     * child, a trade): why, in staff's words. No order and no payments, and it
+     * never counts toward the 15% family discount. Cleared if the family later
+     * signs up and pays for the class.
+     */
+    noChargeReason: text('no_charge_reason'),
     createdAt: created(),
     updatedAt: updated(),
   },
@@ -499,6 +506,8 @@ export const auditLog = pgTable(
     action: text('action').notNull(),
     entity: text('entity'),
     entityId: text('entity_id'),
+    /** A staff-written reason, where the action needs one (adding a child without charge). Never children's care details. */
+    detail: text('detail'),
     createdAt: created(),
   },
   (t) => [index('audit_created_idx').on(t.createdAt)],

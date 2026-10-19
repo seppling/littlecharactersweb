@@ -11,7 +11,9 @@
  * in a weekly class with tuition priced by the month or by the session
  * (isWeeklyTuitionClass; decided Oct 13: Stories and Songs and the Homeschool
  * Class count too, drop-in nights like Geode Adult Improv don't), whose class
- * hasn't ended, and whose payments staff haven't stopped. A season paid in full
+ * hasn't ended, whose payments staff haven't stopped, and that staff didn't add
+ * without charge (noChargeReason: a no-charge place never changes what anyone
+ * else pays; see roster-changes.ts). A season paid in full
  * or a class priced per session counts, but has no monthly payments to change.
  * Camps, workshops, parties, Parents' Night Out and Ovation never count.
  *
@@ -101,7 +103,9 @@ export async function countingEnrollments(q: Q, householdId: string, opts: { cat
     .from(enrollment)
     .where(and(eq(enrollment.householdId, householdId), eq(enrollment.status, 'active')));
   const stopped = await stoppedOrders(q, householdId);
-  return rows.filter((e) => isCurrentWeeklyClass(opts.catalog, e.sessionId, opts.today) && !(e.orderId && stopped.has(e.orderId)) && !opts.skip?.(e));
+  return rows.filter(
+    (e) => isCurrentWeeklyClass(opts.catalog, e.sessionId, opts.today) && !(e.orderId && stopped.has(e.orderId)) && !e.noChargeReason && !opts.skip?.(e),
+  );
 }
 
 /**
@@ -109,10 +113,15 @@ export async function countingEnrollments(q: Q, householdId: string, opts: { cat
  * used to refresh (with the rows locked) and to preview.
  *  - `adding`: enrollments about to start (the review page's preview);
  *  - `stopping`: an order whose payments are about to be stopped. It no longer
- *    counts, and its own payments are left alone (they're being cancelled).
+ *    counts, and its own payments are left alone (they're being cancelled);
+ *  - `removing`: an enrollment staff are about to cancel (roster-changes.ts).
  */
-async function plan(q: Q, householdId: string, opts: Required<FamilyDiscountOptions> & { adding?: number; stopping?: string; lock?: boolean }) {
-  const counted = await countingEnrollments(q, householdId, { catalog: opts.catalog, today: opts.today, skip: (e) => !!opts.stopping && e.orderId === opts.stopping });
+async function plan(q: Q, householdId: string, opts: Required<FamilyDiscountOptions> & { adding?: number; stopping?: string; removing?: string; lock?: boolean }) {
+  const counted = await countingEnrollments(q, householdId, {
+    catalog: opts.catalog,
+    today: opts.today,
+    skip: (e) => (!!opts.stopping && e.orderId === opts.stopping) || e.id === opts.removing,
+  });
   const count = counted.length + (opts.adding ?? 0);
   const qualifies = count >= FAMILY_DISCOUNT.minEnrollments;
 
@@ -303,4 +312,14 @@ export async function previewStopEffect(orderId: string, opts: Partial<FamilyDis
   const d = withDefaults({ ...opts, catalog: opts.catalog ?? (await getCatalog()) });
   const { changes } = await plan(db, o.householdId, { ...d, stopping: orderId });
   return effects(o.householdId, changes);
+}
+
+/**
+ * Staff, before removing a child from a class: which of the family's payments
+ * change. `stopping` is the child's order when its payments stop too.
+ */
+export async function previewRemovalEffect(householdId: string, enrollmentId: string, stopping?: string, opts: Partial<FamilyDiscountOptions> = {}) {
+  const d = withDefaults({ ...opts, catalog: opts.catalog ?? (await getCatalog()) });
+  const { changes } = await plan(await getDb(), householdId, { ...d, removing: enrollmentId, stopping });
+  return effects(householdId, changes);
 }

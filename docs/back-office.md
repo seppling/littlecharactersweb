@@ -137,6 +137,8 @@ A home-screen web app; no app store.
 | `household_note` | Staff notes about a family or one child (`student_id`) | `HouseholdNote` |
 | `message`, `message_recipient` | Staff emails (`class` or `family`) and each address's `sent` / `failed`; indexed by household for the family page | `Message`, `MessageRecipient` |
 | `waitlist_offer` | A place offered to a waitlisted enrollment: `offered`, `accepted`, `withdrawn`, `expired` | `WaitlistOffer` |
+| `enrollment.no_charge_reason` (migration `0010_roster_changes`) | Why staff added the child without charge (§14); null for everyone else | |
+| `audit_log.detail` (`0010`) | A staff-written reason on the audit entries that need one (a no-charge add). Never care details | |
 
 `src/lib/contacts.ts` has the zod inputs (`emergencyContactsInput`, `pickupPeopleInput`: names up to 80 characters, relationships up to 40), `normalizePhone` (US numbers as 10 digits, others as `+digits`), `formatPhone` ("(706) 555-0142"), `telHref` and `smsHref`. Who sees the new data: `security.md`.
 
@@ -145,7 +147,7 @@ Families fill these in on the details step and at `/account/family` (`portal.md`
 ## 9. Classes (`src/server/classes.ts`)
 
 - **The Classes list** (`/admin/classes`): one row per session the site takes sign-ups for, by term: when, teacher, places filled ("8 of 12": enrolled plus trials), openings and the waitlist. Current and upcoming by default; ended ones, past one-off dates included, under "Ended". Filters are links: `?openings=1`, `?waitlist=1`, `?under5=1` (weekly classes short of the 5 they need to run), `?term=Fall 2026`, `?show=ended`. `classFilters(params)` reads them and `filterQuery(f)` writes them. Downloads: `classes.csv.ts`, `classes.pdf.ts` ("Class List"), as filtered.
-- **A class's page** (`/admin/classes/<id>`): the roster by last name with badges and the parents' Call, Text and Email links; tapping a child opens their care details in place (allergies and medical notes in red, pickup, emergency contacts, photos); the waitlist in the order families joined, with "Offered <date>" for an open offer. Empty `data-roster-tools`, `data-roster-actions` and `data-waitlist-actions` elements mark where the Roster changes unit's buttons go.
+- **A class's page** (`/admin/classes/<id>`): the roster by last name with badges and the parents' Call, Text and Email links; tapping a child opens their care details in place (allergies and medical notes in red, pickup, emergency contacts, photos); the waitlist in the order families joined, with "Offered <date>, expires <date and time>" for an open offer. Add a child, Remove and Offer the spot are in §14.
 - **Print** (`/admin/classes/<id>/print`): the roster ready to print, landscape.
 - **Downloads**, each needing a fresh sign-in: `/admin/classes/<id>.csv` and `.pdf` ("Class Roster", with care details), and `/admin/classes/<id>/sign-in-sheet.pdf` ("Student Sign-in Sheets": names and the next 8 class dates, no care details).
 - **One query:** `classRoster(sessionId, staffId, action)` feeds the page, print, CSV and both PDFs. Each call writes `admin.roster.<action>` to the audit log (`view`, `print`, `csv`, `pdf`, `sign-in-pdf`); the list's downloads write `admin.classes.csv` / `.pdf`.
@@ -198,7 +200,7 @@ All three go through `paymentsDownload` (`payments.csv.ts`, `payments.pdf.ts`): 
 | Kind | Tone | When | Link |
 |---|---|---|---|
 | `payments` | alert | `billingOverview().needsAttention`: failed (or on hold: the family is paying it themselves) and processing | `payments('failed')` |
-| `waitlist` | warning | a current class with a waitlist and a place open | `classPage` |
+| `waitlist` | warning | a current class with a waitlist and a place open, not counting places with an open offer (§14) | `classPage` |
 | `under5` | warning | weekly classes (kind `class`, not one-off) short of 5, from 14 days before their first class to 14 days after; one item for all | `classes()?under5=1` |
 | `emergency` | warning | families with an active or trial enrollment in a class that hasn't ended, and no emergency contact | `family` |
 | `care` | neutral | the same children, care details not confirmed by a parent within a year (`detailsOnFile`), one item per family | `family` |
@@ -225,3 +227,35 @@ Hannah emails a class, or one family, from the site instead of Gmail. Sending an
 - **Copy buttons:** "Copy emails" (the ticked families' parent emails, comma-separated, for Gmail's BCC) and "Copy phone numbers" (for a group text). If the browser won't allow copying, a box with the text appears to select and copy.
 - **`sendEmail`** (`src/server/email.ts`) now takes `to` as one address or a list, and `emailHtml` takes `{ html }` paragraphs that the caller has made safe (`paragraphHtml` escapes the text first). The dev mailbox stores a list as "a, b" and its log line shows the reply-to when one is given.
 - **Not in Phase 1:** attachments, scheduling, texting from the site.
+
+## 14. Roster changes: add, remove, offer the spot
+
+Three actions on a class's page (`classPage(id)`), in `src/server/roster-changes.ts`. Buttons post back to the page; each change redirects with `?done=` so a reload doesn't repeat it. Children's names are searched by form post, never put in the address.
+
+**Remove** (on each child, `[data-roster-actions]`): two steps, a preview (`previewRemoval(enrollmentId, sessionId, mode)`) then the change (`removeChild(…, staffId)`).
+
+| Choice | The enrollment | The child's order | When to use it |
+|---|---|---|---|
+| **Remove and stop payments** (`stop`) | cancelled | its scheduled and failed charges are cancelled, unless another child on the same order stays in the class: then they continue, and the preview says "Payments for this order continue, because Ava is still in the class. To lower them, add a discount on the order page" | a family withdraws |
+| **Remove only** (`only`) | cancelled | unchanged | a child moved to another class and Hannah handles the payments herself |
+
+- Both refresh the 15% family discount in the same transaction (a removal can end it for the family's other classes); the preview shows that change in the Payments page's stop-preview words, and the family gets the usual "Your family discount has ended" email.
+- Stopping uses `cancelRemainingInstallments(tx, orderId)` in `billing.ts`, the query **Stop payments** runs (`stopRemainingPayments` now calls it too).
+- No refunds and no proration of the last month: the preview says "Nothing already paid is refunded here. To give money back, refund it in the Stripe dashboard."
+- The child leaves the roster; the family page shows the class as Cancelled. Audit: `admin.roster.remove_stop` or `admin.roster.remove` (entity `enrollment`), plus `installment.stop` when charges stopped.
+
+**Add a child** (under the header, `[data-roster-tools]`): find a child by name (`findChildren(q, sessionId, catalog)`, the staff search's children), then one of:
+
+- **Send a sign-up link** (`sendSignUpLink`): emails the parents "Sign up for <class>" with `/enroll/<sessionId>`. The family pays through the normal checkout, so prices and discounts apply as usual (a phone sign-up). Sent and logged through `sendMessage` (kind `family`, so it's on the family page's "Emails sent"), plus `admin.roster.signup_link`. The form's one-time token means a double click sends once.
+- **Add without charge** (`addWithoutCharge`): a scholarship, a staff child, a trade. Needs a fresh sign-in (`requireFreshStaff`; staff come back to the child's confirm step at `?add=<studentId>`), a reason (up to 300 characters) and a confirm. The child is an active enrollment with no order and no payments; `enrollment.no_charge_reason` holds the reason, and the audit entry `admin.roster.add_no_charge` keeps it in `detail`. It shows as "No charge, added by staff: <reason>" on the roster, on the family page and in Payments' **No charge** list (`noChargePlaces`); the roster CSV says "Enrolled (no charge)".
+- **The rule:** a no-charge enrollment never counts toward the 15% family discount (`countingEnrollments`), so adding one changes nothing anyone else pays. If the child later signs up and pays, the enrollment becomes an ordinary one (the reason is cleared).
+- **Both ways:** a child already in the class (enrolled or trial) is refused; a waitlisted child gets Offer the spot instead of a link (Add without charge takes them off the waitlist). A full class shows a warning and needs "Add anyway" / "Send anyway" ticked; with a link, the family can only join the waitlist until a place opens, because the checkout's capacity check still applies. A child outside the class's ages is a warning ("Ages 7–10. Maya is 5."), not a block.
+
+**Offer the spot** (on each waitlisted child, `[data-waitlist-actions]`):
+
+- `offerSpot` creates a `waitlist_offer` that ends after `OFFER_HOURS` (48) and emails the parents: "A place opened in <class>. Sign up by Wed, Oct 21 at 3:15 pm to take it.", with `/enroll/<sessionId>?offer=<offerId>`. Logged like a staff email (kind `family`), plus `admin.waitlist.offer`. One open offer per child at a time.
+- The waitlist shows "Offered Oct 19, 2026, expires Wed, Oct 21 at 3:15 pm" and **Withdraw offer** (`withdrawOffer`, `admin.waitlist.withdraw`). An offer past its time is marked `expired` when anything reads it (`expireOffers`; no scheduled job) and shows "Expired: offer to the next family"; the child can be offered again.
+- **The family's side:** while the offer is open and a place is free, the family can pick that child on `/enroll/<sessionId>`, even when the class shows as full or waitlist-only (`offeredStudents` and `placesFree` in `family.ts`, checked by `checkPicks` and `priceOrder`). The open offer is the permission; the `?offer=` link only adds the note ("A place is held for Olive until …", or "This offer has ended… Olive is still on the waitlist", or "Sorry, the place … has been taken"). The first family to pay gets the place: offers don't hold places at checkout.
+- **When they pay,** `fulfillOrder` turns the waitlist enrollment active (the same row: one enrollment per child and class) and marks the offer `accepted` with the order id (`waitlist_offer.accepted` in the audit log).
+- **Today's "Waitlist openings"** leaves out places with an open offer (`openOfferCounts`).
+

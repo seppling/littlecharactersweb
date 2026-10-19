@@ -6,7 +6,7 @@
  * we prevent one family from reading or changing another family's data
  * (OWASP A01: broken access control).
  */
-import { and, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb, schema } from './db';
 import { decrypt, encrypt } from './crypto';
@@ -23,7 +23,7 @@ import { detailsOnFile } from '@/lib/student-details';
 import type { FamilyDetails, FamilyDetailsInput } from '@/lib/family-details';
 import { isAdult, isOneOff, oneOffWhen } from '@/lib/program-fit';
 
-const { household, householdMember, student, order, enrollment, installment } = schema;
+const { household, householdMember, student, order, enrollment, installment, waitlistOffer } = schema;
 
 export type SessionUser = { id: string; name: string; email: string; emailVerified: boolean };
 
@@ -240,14 +240,60 @@ export function pickProblem(program: Program, s: { firstName: string; birthdate:
 /** A student the family can't sign up for this class; the message is safe to show them. */
 export class PickError extends Error {}
 
-/** Throws a PickError if any of these students can't be signed up for the session. */
-async function checkPicks(householdId: string, program: Program, sessionId: string, students: { id: string; firstName: string; birthdate: string | null }[]) {
-  const here = new Map((await listEnrollments(householdId)).filter((r) => r.enrollment.sessionId === sessionId).map((r) => [r.student.id, r.enrollment.status]));
+/**
+ * Throws a PickError if any of these students can't be signed up for the
+ * session. A waitlisted child whose family staff offered a place can sign up
+ * while the offer is open and a place is free (the first family to pay gets it).
+ */
+async function checkPicks(householdId: string, program: Program, session: Session, students: { id: string; firstName: string; birthdate: string | null }[]) {
+  const here = new Map((await listEnrollments(householdId)).filter((r) => r.enrollment.sessionId === session.id).map((r) => [r.student.id, r.enrollment.status]));
+  const offered = await offeredStudents(householdId, session.id);
+  const taking = students.filter((s) => here.get(s.id) === 'waitlist' && offered.has(s.id));
+  if (taking.length) {
+    const free = await placesFree(program, session);
+    if (free !== undefined && free < taking.length) throw new PickError(placeTakenNote(program, taking[0].firstName));
+  }
   for (const s of students) {
-    const problem = pickProblem(program, s, here.get(s.id));
+    const status = here.get(s.id);
+    const problem = pickProblem(program, s, status === 'waitlist' && offered.has(s.id) ? undefined : status);
     if (problem) throw new PickError(problem);
   }
 }
+
+// ───────────── Waitlist offers ─────────────
+
+/**
+ * This family's children with an open offer of a place in this class (staff's
+ * "Offer the spot", src/server/roster-changes.ts): the offer id and when it
+ * ends. An offer past its time doesn't count, even before it's marked expired.
+ */
+export async function offeredStudents(householdId: string, sessionId: string, now = new Date()) {
+  const db = await getDb();
+  const rows = await db
+    .select({ studentId: enrollment.studentId, offerId: waitlistOffer.id, expiresAt: waitlistOffer.expiresAt })
+    .from(waitlistOffer)
+    .innerJoin(enrollment, eq(enrollment.id, waitlistOffer.enrollmentId))
+    .where(
+      and(
+        eq(waitlistOffer.householdId, householdId),
+        eq(waitlistOffer.sessionId, sessionId),
+        eq(waitlistOffer.status, 'offered'),
+        eq(enrollment.status, 'waitlist'),
+        or(isNull(waitlistOffer.expiresAt), gt(waitlistOffer.expiresAt, now)),
+      ),
+    );
+  return new Map(rows.map((r) => [r.studentId, { offerId: r.offerId, expiresAt: r.expiresAt }]));
+}
+
+/** Places left in the class (enrolled and trial children take one each), or undefined when there's no limit. */
+export async function placesFree(program: Program, session: Session) {
+  const cap = capacityFor(program, session);
+  return cap === undefined ? undefined : Math.max(0, cap - (await takenSpots(session.id)));
+}
+
+/** Shown when a family with an offer finds the place already taken. */
+export const placeTakenNote = (program: Program, firstName: string) =>
+  `Sorry, the place in ${program.title} has been taken. ${firstName} is still on the waitlist, and we’ll email you if another place opens.`;
 
 /**
  * Throws a PickError when the session can't be booked right now: its date has
@@ -330,7 +376,7 @@ export async function createDraftOrder(householdId: string, userId: string, sess
   if (!ids.length) throw new Error('Pick at least one student');
   await checkBookable(found.program, found.session);
   // The picker greys these out; this catches a stale page or a hand-made request.
-  await checkPicks(householdId, found.program, sessionId, ids.map((id) => mine.get(id)!));
+  await checkPicks(householdId, found.program, found.session, ids.map((id) => mine.get(id)!));
   const db = await getDb();
   const [o] = await db.insert(order).values({ householdId, sessionId, studentIds: ids, createdByUserId: userId }).returning();
   return o;
@@ -351,8 +397,11 @@ export async function priceOrder(householdId: string, o: typeof order.$inferSele
   // A student converting from a free trial already holds their spot.
   const holding = new Set(history.filter((r) => r.enrollment.sessionId === o.sessionId && r.enrollment.status === 'trial').map((r) => r.student.id));
   const cap = capacityFor(program, session);
-  // Staff can mark a session "waitlist only" in the editor before it's technically at capacity.
-  const full = session.status === 'waitlist' || (cap !== undefined && (await takenSpots(o.sessionId)) + students.filter((s) => !holding.has(s.id)).length > cap);
+  // Staff can mark a session "waitlist only" in the editor before it's technically at capacity;
+  // a family staff offered a place to can still take it while one is free.
+  const offered = await offeredStudents(householdId, o.sessionId);
+  const byOffer = students.length > 0 && students.every((s) => offered.has(s.id));
+  const full = (session.status === 'waitlist' && !byOffer) || (cap !== undefined && (await takenSpots(o.sessionId)) + students.filter((s) => !holding.has(s.id)).length > cap);
   const plans = availablePlans(program, session, { newStudents, full });
   // New students start on the free first class where it's offered; everyone else on monthly.
   const plan = requestedPlan && plans.includes(requestedPlan) ? requestedPlan : defaultPlan(plans);
@@ -393,7 +442,7 @@ export async function confirmOrder(householdId: string, orderId: string, plan: P
   // already handed to payment is honoured (fulfillOrder doesn't check dates).
   await checkBookable(priced.program, priced.session);
   // Checked again here: a child may have been enrolled by another order since this one was started.
-  await checkPicks(householdId, priced.program, o.sessionId, priced.students);
+  await checkPicks(householdId, priced.program, priced.session, priced.students);
   const db = await getDb();
   const [updated] = await db
     .update(order)
@@ -449,12 +498,25 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
       .where(and(eq(order.id, o.id), ne(order.status, 'paid')))
       .returning({ id: order.id });
     if (!claimed) return null;
+    // One enrollment per child and class: a waitlisted (or removed) child's row becomes this one.
+    const enrolled: string[] = [];
     for (const studentId of o.studentIds) {
-      await tx
+      const [e] = await tx
         .insert(enrollment)
         .values({ householdId: o.householdId, studentId, sessionId: o.sessionId, programSlug: found.program.slug, status, orderId: o.id })
-        .onConflictDoUpdate({ target: [enrollment.studentId, enrollment.sessionId], set: { status, orderId: o.id } });
+        .onConflictDoUpdate({ target: [enrollment.studentId, enrollment.sessionId], set: { status, orderId: o.id, noChargeReason: null } })
+        .returning({ id: enrollment.id });
+      enrolled.push(e.id);
     }
+    // A place staff offered from the waitlist is taken (an offer that ran out while the family was paying still counts).
+    const accepted =
+      status === 'waitlist'
+        ? []
+        : await tx
+            .update(waitlistOffer)
+            .set({ status: 'accepted', orderId: o.id })
+            .where(and(inArray(waitlistOffer.enrollmentId, enrolled), inArray(waitlistOffer.status, ['offered', 'expired'])))
+            .returning({ id: waitlistOffer.id });
     // Monthly plan: the rest of the term, charged automatically on the 1st (src/server/billing.ts).
     if (o.plan === 'monthly' && o.schedule.length) {
       await tx
@@ -475,11 +537,12 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
         .onConflictDoNothing();
     }
     // A new active class can start the family discount on the family's other payments.
-    return { family: status === 'active' ? await refreshFamilyDiscount(tx, o.householdId, { catalog }) : null };
+    return { accepted, family: status === 'active' ? await refreshFamilyDiscount(tx, o.householdId, { catalog }) : null };
   });
   const [done] = await db.select().from(order).where(eq(order.id, orderId));
   if (!result) return done;
   await audit(userId, o.totalCents > 0 ? 'order.paid' : 'order.confirmed', 'order', o.id);
+  for (const a of result.accepted) await audit(userId, 'waitlist_offer.accepted', 'waitlist_offer', a.id);
   if (result.family) await logFamilyDiscount(userId, o.householdId, result.family);
   const lowered = result.family?.changes.filter((c) => c.orderId !== o.id && c.afterCents < c.beforeCents) ?? [];
   await sendOrderConfirmation(done, lowered).catch((e) => console.error('Confirmation email failed', e));

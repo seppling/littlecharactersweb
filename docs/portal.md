@@ -43,13 +43,13 @@ Implemented in `src/lib/pricing.ts` (pure functions, unit-tested in `tests/unit/
 - **Free first class** for new students in Little Characters weekly classes, monthly or priced per session (since Oct 13, 2026, Stories and Songs too; not Geode, not drop-in nights). The review page **starts on it** for new students (`defaultPlan`); monthly and the season stay one tap away, and students who already had their free class start on monthly. Nothing is due, and "Continue after the trial" on the account page leads to paid tuition in the same spot. One free class per student. A brother or sister already in the same class counts for the multi-student discount, so siblings who continue one at a time still get it, and the first one's later months drop too.
 - **Per-child pricing:** Parents' Night Out is $30 for the first child and $10 for each additional.
 - **Capacity:** default 20 per class (override per session). When full, the only option is the waitlist, with nothing due.
+- **Waitlist offers** (October 2026, `back-office.md` §14): staff offer a waitlisted child a place, and the family gets an email with `/enroll/<sessionId>?offer=<offerId>`. For 48 hours (`OFFER_HOURS`), while a place is free, that child can be picked and signed up as usual, even when the class shows as full or "waitlist only"; the review page offers the paid plans. The open offer is what allows it (checked again when the order is started and confirmed), so the family can sign in first and still use it; the link adds a note: when the place is held until, or that the offer ended and the child is still on the waitlist, or that the place was taken. The first family to pay gets the place. Paying turns the child's waitlist enrollment into the active one (no second enrollment) and marks the offer accepted.
 - **Price conflicts** on the old site resolved to the monthly price.
 
 **Not built yet** (decide first, see `todo.md`):
 - The "paused from class after the 15th" rule. Staff can see unpaid months on `/admin/payments`.
 - A self-serve "update my card" button. Today a family pays a failed month with a new card (which becomes the saved card), or emails us.
 - Payment-method surcharges. We recommend dropping these: Stripe's ACH is 0.8%, and card surcharges carry disclosure rules.
-- Waitlist offer emails.
 - Reminders before the first class.
 - Refunds and transfers. Use the Stripe dashboard for now.
 

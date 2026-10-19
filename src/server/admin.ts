@@ -52,6 +52,7 @@ export async function roster(sessionId: string, viewerId: string, action = 'admi
     enrollmentId: r.enrollment.id,
     status: r.enrollment.status,
     enrolledAt: r.enrollment.createdAt,
+    noChargeReason: r.enrollment.noChargeReason,
     student: {
       id: r.student.id,
       name: `${r.student.firstName} ${r.student.lastName}`,

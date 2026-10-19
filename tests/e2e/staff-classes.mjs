@@ -158,7 +158,7 @@ const text = await maya.locator('.kid__family [data-text]').first().getAttribute
 check(call === 'tel:+17065550142' && text === 'sms:+17065550142', `her parent’s Call and Text links (${call}, ${text})`);
 check((await maya.locator('[data-email]').first().getAttribute('href')).startsWith('mailto:parent+'), 'and Email');
 check(/^\/admin\/families\/[\w-]+$/.test(await maya.locator('.family-link').getAttribute('href')), 'a link to the family’s page');
-await maya.locator('summary').click();
+await maya.locator('.kid__care > summary').click();
 check(await maya.locator('[data-care] >> text=Peanuts').isVisible(), 'tapping Maya opens her care details in place: Peanuts');
 const red = await maya.locator('[data-medical="yes"]').evaluate((el) => getComputedStyle(el).backgroundColor);
 check(red === 'rgb(253, 227, 223)', `allergies are shown in red (${red})`);
@@ -226,7 +226,7 @@ check(box.x >= 0 && box.x + box.width <= 390, 'each class card fits the screen')
 await Promise.all([page.waitForURL(new RegExp(`/admin/classes/${INTRO}$`)), card.locator('[data-label="Waitlist"]').click()]);
 step('tapping anywhere on the card opens the class');
 const phoneMaya = page.locator('[data-child]', { hasText: 'Maya Rivera' }).first();
-await phoneMaya.locator('summary').click();
+await phoneMaya.locator('.kid__care > summary').click();
 check((await sideways()) <= 0, 'a class’s page, details open: nothing wider than the screen');
 const taps = await page.$$eval('[data-roster] .btn, [data-roster] summary, [data-roster] .family-link', (els) => els.filter((e) => e.offsetParent).map((e) => e.getBoundingClientRect().height));
 check(taps.every((h) => h >= 44), `Call, Text, Email and the rest are at least 44 px tall (${Math.min(...taps)} px)`);

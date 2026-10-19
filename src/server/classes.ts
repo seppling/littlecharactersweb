@@ -23,6 +23,7 @@ import { roster, sessionCounts } from './admin';
 import { getDb, schema } from './db';
 import type { PdfTable } from './downloads';
 import { capacityFor } from './family';
+import { expireOffers, offerStates, type OfferState } from './roster-changes';
 
 /** Classes need 5 students to run (the FAQ). */
 export const MIN_TO_RUN = 5;
@@ -206,6 +207,10 @@ export interface RosterChild {
   joinedAt: Date;
   /** An open offer of a place, for a waitlisted child. */
   offeredAt: Date | null;
+  /** The latest offer for a waitlisted child, open or ran out (roster-changes.ts). */
+  offer: OfferState | null;
+  /** Added by staff without charge: why (roster-changes.ts). */
+  noChargeReason: string | null;
 }
 
 export type RosterAction = 'view' | 'print' | 'csv' | 'pdf' | 'sign-in-pdf';
@@ -229,14 +234,9 @@ export async function classRoster(sessionId: string, viewerId: string, action: R
     : [];
   const firstOf = new Map(firsts.map((f) => [f.studentId, new Date(f.first)]));
   const waitIds = people.filter((p) => p.status === 'waitlist').map((p) => p.enrollmentId);
-  const offers = waitIds.length
-    ? await db
-        .select({ enrollmentId: schema.waitlistOffer.enrollmentId, offeredAt: schema.waitlistOffer.offeredAt })
-        .from(schema.waitlistOffer)
-        .where(and(inArray(schema.waitlistOffer.enrollmentId, waitIds), eq(schema.waitlistOffer.status, 'offered')))
-    : [];
-  const offerOf = new Map<string, Date>();
-  for (const o of offers) if (!offerOf.has(o.enrollmentId) || o.offeredAt > offerOf.get(o.enrollmentId)!) offerOf.set(o.enrollmentId, o.offeredAt);
+  // Offers past their time are marked expired as they're read.
+  if (waitIds.length) await expireOffers(new Date(), sessionId);
+  const offerOf = await offerStates(waitIds);
 
   const children: RosterChild[] = people.map((p) => {
     const s = p.student;
@@ -271,7 +271,9 @@ export async function classRoster(sessionId: string, viewerId: string, action: R
       emergencyContacts: p.emergencyContacts,
       photoConsent: s.photoConsent,
       joinedAt: p.enrolledAt,
-      offeredAt: offerOf.get(p.enrollmentId) ?? null,
+      offeredAt: offerOf.get(p.enrollmentId)?.status === 'offered' ? offerOf.get(p.enrollmentId)!.offeredAt : null,
+      offer: offerOf.get(p.enrollmentId) ?? null,
+      noChargeReason: p.noChargeReason,
     };
   });
   return {
@@ -295,7 +297,7 @@ export function rosterTable(students: RosterChild[]) {
     rows: students.map((c) => [
       c.name,
       ageLabel(c.age),
-      c.status === 'trial' ? 'Trial' : 'Enrolled',
+      c.status === 'trial' ? 'Trial' : c.noChargeReason ? 'Enrolled (no charge)' : 'Enrolled',
       c.parents.map(parentLine).join('\n'),
       c.allergies,
       c.medicalNotes,
