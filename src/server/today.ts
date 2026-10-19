@@ -31,6 +31,7 @@ import { getDb, schema } from './db';
 import { LEAD_LABELS, staffLeads } from './leads';
 import { openOfferCounts } from './roster-changes';
 import { attentionAttendance, endedHoursAgo, LATE_DAYS, type AttentionAttendance } from './attendance';
+import { dropInsToday } from './drop-ins';
 
 type Content = Pick<SiteContent, 'programs' | 'events' | 'locationById' | 'site' | 'findSession' | 'programBySlug'>;
 
@@ -75,7 +76,7 @@ const eventLocation = (e: EventItem, content: Pick<Content, 'locationById'>) => 
  * day, and the site's events that day that aren't booked through one of those
  * sessions (a show, a community event). By start time.
  */
-export function classesOn(rows: ClassRow[], events: EventItem[], date: string, content: Pick<Content, 'locationById'>): TodayClass[] {
+export function classesOn(rows: ClassRow[], events: EventItem[], date: string, content: Pick<Content, 'locationById'>, dropIns?: Map<string, number>): TodayClass[] {
   const meeting = rows.filter((r) => meetings(r.session).includes(date));
   const out: TodayClass[] = meeting.map((r) => ({
     start: r.session.start,
@@ -84,7 +85,8 @@ export function classesOn(rows: ClassRow[], events: EventItem[], date: string, c
     label: r.label,
     location: r.location,
     teacher: r.teacher,
-    places: placesLabel(r),
+    // Drop-ins booked for that date count too (src/server/drop-ins.ts).
+    places: placesLabel({ ...r, filled: r.filled + (dropIns?.get(r.session.id) ?? 0) }),
     href: links.classPage(r.session.id),
     kind: 'class',
     sessionId: r.session.id,
@@ -131,8 +133,8 @@ async function allRows(content: Content, now: Date) {
 
 /** Today's classes in Athens, and the next day with classes when there are none. `date` overrides the day (development only). */
 export async function todayClasses(content: Content, now = new Date(), date = todayInAthens(now)) {
-  const [rows, daysOff] = await Promise.all([allRows(content, now), daysOffBetween(date, date)]);
-  const classes = classesOn(rows, content.events, date, content).map((c) => (c.sessionId ? { ...c, dayOff: dayOffFrom(daysOff, c.sessionId, date)?.reason ?? null } : c));
+  const [rows, daysOff, dropIns] = await Promise.all([allRows(content, now), daysOffBetween(date, date), dropInsToday(date)]);
+  const classes = classesOn(rows, content.events, date, content, dropIns).map((c) => (c.sessionId ? { ...c, dayOff: dayOffFrom(daysOff, c.sessionId, date)?.reason ?? null } : c));
   // A day off for every class today: "No classes today: Thanksgiving".
   const closed = daysOff.find((d) => d.sessionId === null) ?? null;
   return { date, classes, closed, next: classes.length && !closed ? null : nextClassDay(rows, content.events, date, content) };

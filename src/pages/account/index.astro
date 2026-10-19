@@ -17,6 +17,7 @@ import { dayOffFrom, daysOffBetween } from '@/server/class-day';
 import { noClassLine } from '@/server/days-off';
 import { adjustmentLine, discountLines } from '@/lib/adjustments';
 import { cardLabel, groupAutopay, namesList, studioDirectorWelcome } from '@/lib/account';
+import { dropInClasses, dropInDay, familyDropIns } from '@/server/drop-ins';
 
 export const prerender = false;
 const { locationById, site } = Astro.locals.content;
@@ -94,7 +95,10 @@ const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', d
 const receipts: { date: Date; label: string; amountCents: number; discounts?: ReturnType<typeof discountLines> }[] = [
   ...orders.map((o) => ({
     date: o.paidAt!,
-    label: `${namesList(orderKids.get(o.id) ?? [])}${orderKids.get(o.id)?.length ? ': ' : ''}${Astro.locals.content.findSession(o.sessionId)?.program.title ?? o.sessionId}${o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (full season)' : o.plan === 'monthly' ? ' (first month + fees)' : ''}`,
+    label:
+      o.plan === 'drop_in' && o.lines[0]
+        ? o.lines[0].label
+        : `${namesList(orderKids.get(o.id) ?? [])}${orderKids.get(o.id)?.length ? ': ' : ''}${Astro.locals.content.findSession(o.sessionId)?.program.title ?? o.sessionId}${o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (full season)' : o.plan === 'monthly' ? ' (first month + fees)' : ''}`,
     amountCents: o.totalCents,
   })),
   ...installments
@@ -120,6 +124,11 @@ const upcoming = enrollments
   // A waitlist place shows until the class has ended.
   .filter((x): x is NonNullable<typeof x> => !!x && (!!x.next || (x.enrollment.status === 'waitlist' && sessionState(x.program, x.session, clock) !== 'ended')))
   .sort((a, b) => (a.next ?? '9999').localeCompare(b.next ?? '9999'));
+
+// Drop-ins (src/server/drop-ins.ts): the ones booked ahead, and the weekly classes a child of theirs could drop in to.
+const dropInsAhead = household ? (await familyDropIns(household.id, { from: today })).filter((d) => d.status === 'booked') : [];
+const inClass = (sessionId: string, studentId: string) => enrollments.some((e) => e.enrollment.sessionId === sessionId && e.student.id === studentId && (e.enrollment.status === 'active' || e.enrollment.status === 'trial'));
+const dropInOffers = students.length ? dropInClasses(Astro.locals.content).filter((c) => students.some((s) => !inClass(c.session.id, s.id))) : [];
 
 const statusLabel = { active: 'Enrolled', trial: 'Free trial class', waitlist: 'Waitlist', cancelled: 'Cancelled' } as const;
 const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
@@ -205,8 +214,42 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                     </li>
                   ))}
                 </ul>
-              ) : (
+              ) : dropInsAhead.length ? null : (
                 <p class="empty">No classes yet. <a href="/programs">Find one for your crew</a>.</p>
+              )}
+              {dropInsAhead.length > 0 && (
+                <ul class="classes" data-drop-ins>
+                  {dropInsAhead.map((d) => {
+                    const f = Astro.locals.content.findSession(d.sessionId);
+                    return f && (
+                      <li data-gel={f.program.gel} data-drop-in={d.id}>
+                        <div>
+                          <span class="classes__who">{d.firstName}</span>
+                          <strong>{f.program.title}</strong>
+                          <span class="script">{dropInDay(d.date)} · {timeRange(f.session.start, f.session.end)} · {locationById(f.session.locationId)?.shortName}</span>
+                        </div>
+                        <div class="classes__side">
+                          <span class="badge badge--trial">Drop-in</span>
+                          <span class="classes__next">{dropInDay(d.date)}</span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {dropInOffers.length > 0 && (
+                <details class="drop-ins" data-drop-in-offers>
+                  <summary>Drop in for one class</summary>
+                  <p class="fine">Try a weekly class for one date, or come along with a brother or sister.</p>
+                  <ul>
+                    {dropInOffers.map((c) => (
+                      <li>
+                        <span><strong>{c.program.title}</strong> <span class="script">{dayList(c.session.days)} · {timeRange(c.session.start, c.session.end)}</span></span>
+                        <a href={`/drop-in/${c.session.id}`} data-drop-in-link>Drop in · {formatCents(c.priceCents)}</a>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               )}
             </section>
             )}
@@ -388,6 +431,13 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
   .dash__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .panel { display: grid; gap: var(--space-m); padding: var(--space-xl); background: var(--paper); border-radius: var(--r-lg); border: 1.5px solid var(--line); }
   .panel h2 { font-size: var(--step-2); }
+  .classes + .classes { margin-top: 0.6rem; }
+  .drop-ins { margin-top: var(--space-m); border-top: 1.5px dashed var(--line-strong); padding-top: var(--space-s); }
+  .drop-ins summary { cursor: pointer; font-family: var(--font-display); font-weight: 700; color: var(--purple); min-height: 44px; display: flex; align-items: center; }
+  .drop-ins ul { list-style: none; margin: 0.4rem 0 0; padding: 0; display: grid; gap: 0.3rem; }
+  .drop-ins li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.2rem 1rem; }
+  .drop-ins li a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 650; }
+  .drop-ins .script { font-size: var(--step--1); color: var(--ink-soft); }
   .classes, .kids { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
   .classes li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem; padding: 0.9rem 1.1rem; border-left: 6px solid var(--gel); background: var(--gel-tint); border-radius: var(--r-sm) var(--r-md) var(--r-md) var(--r-sm); }
   .classes li > div:first-child { display: grid; gap: 0.1rem; }

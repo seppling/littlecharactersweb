@@ -22,6 +22,8 @@ export const classes = () => '/admin/classes';
 export const classPage = (sessionId: string) => `/admin/classes/${seg(sessionId)}`;
 export const classPrint = (sessionId: string) => `/admin/classes/${seg(sessionId)}/print`;
 export const classEmail = (sessionId: string) => `/admin/classes/${seg(sessionId)}/email`;
+/** A class's drop-ins: the Drop-ins part of its page; pass to downloads() for the CSV and PDF (docs/back-office.md → Drop-ins). */
+export const classDropIns = (sessionId: string) => `/admin/classes/${seg(sessionId)}/drop-ins`;
 /** A class's printable sign-in sheet (a PDF download: names and the next class dates, no care details). */
 export const classSignInSheet = (sessionId: string) => `/admin/classes/${seg(sessionId)}/sign-in-sheet.pdf`;
 

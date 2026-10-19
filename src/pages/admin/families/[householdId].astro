@@ -14,6 +14,8 @@ import { MAX_CONTACTS, formatPhone, smsHref, telHref } from '@/lib/contacts';
 import { formatCents } from '@/lib/pricing';
 import { FamilyEditError, addNote, contactRows, deleteNote, editNote, familyPage, staffUpdateCareDetails, staffUpdateContacts, NOTE_MAX } from '@/server/families';
 import { noChargeLabel } from '@/server/roster-changes';
+import { dropInDay, dropInStatus, familyDropIns } from '@/server/drop-ins';
+import { todayInAthens } from '@/lib/pricing';
 import { requireStaff } from '@/server/staff';
 
 export const prerender = false;
@@ -86,12 +88,15 @@ const when = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'nume
 const isoDay = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 const statusLabel = { active: 'Enrolled', trial: 'Trial', waitlist: 'Waitlist', cancelled: 'Cancelled' } as const;
 const statusTone = { active: 'good', trial: 'neutral', waitlist: 'warning', cancelled: 'neutral' } as const;
-const planLabel = { monthly: 'Monthly autopay', full: 'Paid in full', trial: 'Free trial', once: 'One payment', waitlist: 'Waitlist' } as const;
+const planLabel = { monthly: 'Monthly autopay', full: 'Paid in full', trial: 'Free trial', once: 'One payment', waitlist: 'Waitlist', drop_in: 'Drop-in' } as const;
 const photoText = (v: boolean | null) => (v === true ? 'OK to share photos' : v === false ? 'No photos, please' : 'Not asked yet');
 const rows = <T,>(list: T[]) => Array.from({ length: MAX_CONTACTS }, (_, i) => list[i]);
 const childName = new Map(data?.children.map((c) => [c.id, c.firstName]) ?? []);
 const notesFiles = downloads(familyLists().notes);
 const editing = (id: string) => failed === 'note-edit' && values.id === id;
+// Drop-ins (src/server/drop-ins.ts): each child's, booked or cancelled, by date.
+const dropIns = data ? await familyDropIns(data.household.id) : [];
+const todayIso = todayInAthens();
 ---
 
 <AdminShell title={data?.household.name ?? 'Family'} section="families" back={back}>
@@ -273,6 +278,25 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
             </table>
           )}
         </section>
+
+        {dropIns.length > 0 && (
+          <section class="admin-section" aria-labelledby="family-drop-ins-h" data-family-drop-ins>
+            <h2 id="family-drop-ins-h">Drop-ins</h2>
+            <table class="data-table">
+              <thead><tr><th>Date</th><th>Class</th><th>Child</th><th>Status</th></tr></thead>
+              <tbody>
+                {dropIns.map((d) => (
+                  <tr class:list={{ past: d.date < todayIso }}>
+                    <td data-label="Date">{dropInDay(d.date)}</td>
+                    <td data-label="Class"><a href={classPage(d.sessionId)}>{Astro.locals.content.findSession(d.sessionId)?.program.title ?? 'A class'}</a></td>
+                    <td data-label="Child"><span>{d.firstName}</span></td>
+                    <td data-label="Status"><span>{dropInStatus(d)}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
 
         <section class="admin-section" aria-labelledby="pay-h" data-payments>
           <h2 id="pay-h">Payments</h2>

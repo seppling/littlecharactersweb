@@ -91,6 +91,16 @@ const sessionFields: Field[] = [
     fields: priceFields(),
     help: 'Leave empty to show “Pricing TBA”. Changing a price only affects new enrollments: families already enrolled keep the charges they agreed to.',
   },
+  {
+    key: 'dropIn',
+    label: 'Drop-ins',
+    type: 'group',
+    fields: [
+      { key: 'price', label: 'Drop-in price for this class ($)', type: 'money', half: true, help: 'Optional. Leave empty to use the price in Site settings.' },
+      { key: 'off', label: 'No drop-ins for this class', type: 'toggle', half: true },
+    ],
+    help: 'Weekly classes only.',
+  },
   { key: 'capacity', label: 'Class size limit', type: 'number', integer: true, min: 1, max: 500, half: true, help: 'Weekly classes default to 20.' },
   { key: 'spotsLeft', label: 'Spots left to show', type: 'number', integer: true, min: 0, max: 500, half: true, help: 'Optional. Shows “3 spots left”.' },
   { key: 'teacher', label: 'Teacher', type: 'text' },

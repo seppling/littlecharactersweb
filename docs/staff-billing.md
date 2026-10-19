@@ -116,6 +116,15 @@ For a holiday, a snow day or a week's break. Go to **Settings → Days off** (or
 
 The days off and their effect on each class are on the **Calendar** too (in the top bar), and on Today: "No classes today: Thanksgiving".
 
+## Drop-ins
+
+A child can come to one class of a weekly class and pay for that date. **$25 a class** for now: a placeholder until you confirm the price. Change it in the website editor under **Announcement & site settings → Drop-ins** (untick **Families can book drop-ins** to stop them). A class can have its own price, or none, under its dates (**Drop-ins**). Camps, workshops, nights out, parties and Ovation don't take drop-ins. A drop-in gets no discounts and doesn't count toward the 15% family discount.
+
+- **Families** book from the class's page ("Drop in for one class · $25") once the class has started or starts within two weeks, or from their account. They pick a date and a child, agree to the policies and pay by card. A full date or a day off can't be picked. They get a confirmation email.
+- **On the class's page:** pick a date under **Roster** ("Drop-ins on …") to see who's coming that day; drop-ins have a **Drop-in** label. The **Drop-ins** list shows every drop-in with what was paid. **Over the limit** means a family paid after the date filled up: the payment is kept, so decide whether they come.
+- **Add a drop-in:** find the child, then **Send a pay link** (the family gets an email to pay for the date you pick; nothing is held until they pay) or **No charge** (confirm it's you, pick a date, type a reason).
+- **Cancel** a drop-in with a reason. Nothing is refunded here: refund it in the Stripe dashboard for now.
+
 ## The record
 
-Every discount shows who added it and when, and every add and remove is written to the site's audit log. So is every child added, removed or offered a place from a class's page, with the reason for a no-charge place. Each time the family discount changes a family's payments, that's logged too. So is every day off added or removed, each payment it lowered, each family it emailed, and each family listed as "Already paid: give a credit".
+Every discount shows who added it and when, and every add and remove is written to the site's audit log. So is every child added, removed or offered a place from a class's page, with the reason for a no-charge place, and every drop-in added, paid or cancelled, with its reason. Each time the family discount changes a family's payments, that's logged too. So is every day off added or removed, each payment it lowered, each family it emailed, and each family listed as "Already paid: give a credit".

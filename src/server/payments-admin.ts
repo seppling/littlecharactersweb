@@ -211,7 +211,7 @@ export type ReceivedPayment = {
   markedBy: string | null;
 };
 
-const SIGN_UP: Record<string, string> = { monthly: 'Sign-up (first month)', full: 'Sign-up (paid in full)', once: 'Sign-up', trial: 'Sign-up', waitlist: 'Sign-up' };
+const SIGN_UP: Record<string, string> = { monthly: 'Sign-up (first month)', full: 'Sign-up (paid in full)', once: 'Sign-up', trial: 'Sign-up', waitlist: 'Sign-up', drop_in: 'Drop-in' };
 
 /** "2026-10" from ?month=, or this month. */
 export function receivedMonth(param: string | null | undefined, today = todayInAthens()) {

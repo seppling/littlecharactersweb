@@ -69,7 +69,7 @@ const statusText = { scheduled: 'Scheduled', processing: 'Charging now', paid: '
 const changeable = data ? data.installments.filter((i) => !lockedReason(i)) : [];
 const active = data ? data.adjustments.filter((a) => !a.removedAt) : [];
 const removed = data ? data.adjustments.filter((a) => a.removedAt) : [];
-const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', trial: 'Free trial', once: 'One payment', waitlist: 'Waitlist' } as const)[data.order.plan] : '';
+const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', trial: 'Free trial', once: 'One payment', waitlist: 'Waitlist', drop_in: 'Drop-in (one class)' } as const)[data.order.plan] : '';
 ---
 
 <AdminShell title={data ? `${data.family}: ${title}` : 'Payments'} section="payments" back={{ href: payments(), label: 'Payments' }}>

@@ -17,6 +17,8 @@ const orderId = Astro.url.searchParams.get('order') ?? '';
 const o = household ? await getOrder(household.id, orderId) : null;
 if (!household || !o) return Astro.redirect('/account');
 if (o.status === 'paid') return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
+// A drop-in has one price and its own pay step (src/server/drop-ins.ts).
+if (o.plan === 'drop_in') return Astro.redirect(`/drop-in/pay?order=${o.id}`);
 if (!o.policyAcceptedAt) return Astro.redirect(`/enroll/details?order=${o.id}`);
 const found = Astro.locals.content.findSession(o.sessionId);
 if (!found) return Astro.redirect('/account');

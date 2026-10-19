@@ -1,6 +1,6 @@
 /**
  * The small labels beside a child's name on staff pages: allergy, pickup note,
- * no photos, new, trial, birthday (docs/back-office.md). Always in the same
+ * no photos, new, trial, drop-in, birthday (docs/back-office.md). Always in the same
  * order, so staff learn where to look.
  *
  * The input is yes/no facts only. The notes themselves never reach a badge,

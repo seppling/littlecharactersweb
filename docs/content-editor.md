@@ -46,6 +46,7 @@ What stays with Stephen: the layout and design, new kinds of pages, prices and d
 
 - A one-night date (Parents' Night Out, a workshop, the free class) closes when it starts, and leaves the site after that day.
 - A camp week closes when the week starts.
+- **Drop-ins** (one class of a weekly class): **Announcement & site settings → Drop-ins** holds the price of one class ($25 for now, a placeholder) and whether families can book them. A session can have its own drop-in price, or tick **No drop-ins for this class**, beside its price.
 - A weekly class takes late joiners (their first month is prorated) until the late-joining cut-off: **Announcement & site settings → Class sign-ups**, 4 weeks before the last class by default.
 - In the editor, those sessions are marked **Sign-ups closed** (still running) or **Ended** (after the last day), so you can see why a date isn't on the site. Families who signed up still see them in their account.
 - The rule is in `src/lib/session-dates.ts`.

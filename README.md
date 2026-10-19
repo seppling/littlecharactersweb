@@ -53,6 +53,7 @@ node tests/e2e/staff-roster.mjs         # add, remove, offer the spot on a class
 node tests/e2e/staff-settings.mjs       # Settings → Staff, a teacher's sign-in and home, shared device, turning off; 390 px
 node tests/e2e/staff-teach.mjs          # the teacher app: attendance on a phone, offline and back, the note to Hannah, substitutes; 390 px
 node tests/e2e/staff-calendar.mjs       # calendar month/week/phone list, a day off lowering December, billing on a copy, removing it; 390 px (after staff-payments' marks)
+node tests/e2e/staff-drop-ins.mjs       # drop-ins: a family books and pays, the roster's Drop-in badge, no charge, cancel, full date, day off; 390 px
 ```
 
 ## Where things live

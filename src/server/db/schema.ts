@@ -187,7 +187,8 @@ export const order = pgTable(
     /** Catalog session id (a session of a program in the site content). */
     sessionId: text('session_id').notNull(),
     status: text('status', { enum: ['draft', 'pending_payment', 'paid', 'cancelled'] }).notNull().default('draft'),
-    plan: text('plan', { enum: ['monthly', 'full', 'trial', 'once', 'waitlist'] }).notNull().default('monthly'),
+    /** drop_in: one class of a weekly class (src/server/drop-ins.ts); plain text in the database, so no migration. */
+    plan: text('plan', { enum: ['monthly', 'full', 'trial', 'once', 'waitlist', 'drop_in'] }).notNull().default('monthly'),
     studentIds: jsonb('student_ids').$type<string[]>().notNull().default([]),
     lines: jsonb('lines').$type<OrderLine[]>().notNull().default([]),
     subtotalCents: integer('subtotal_cents').notNull().default(0),

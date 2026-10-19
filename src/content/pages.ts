@@ -179,6 +179,17 @@ export const site: PageDef = {
       ],
     },
     {
+      key: 'dropIns',
+      label: 'Drop-ins',
+      type: 'group',
+      required: true,
+      help: 'A child can drop in to one class of a weekly class and pay for it. A class can have its own price, or none, under its dates.',
+      fields: [
+        { key: 'price', label: 'Price of one class ($)', type: 'money', required: true, half: true, help: 'The price of one class for a drop-in. Families see it on weekly classes.' },
+        { key: 'open', label: 'Families can book drop-ins', type: 'toggle', half: true },
+      ],
+    },
+    {
       key: 'parking',
       label: 'Parking & drop-off at HQ',
       type: 'group',
