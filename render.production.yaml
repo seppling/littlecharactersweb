@@ -1,0 +1,65 @@
+# PRODUCTION: the real site and family portal on Render, with its database.
+# Render dashboard → New → Blueprint → this repository, branch main,
+# Blueprint Path: render.production.yaml. Steps and costs: docs/infrastructure.md.
+#
+# Render makes the secrets marked generateValue (they never pass through chat
+# or email) and connects the database itself. You paste the Stripe and Resend
+# keys when it asks. Until the domain moves, the site answers at its
+# ….onrender.com address, which search engines are told not to index.
+databases:
+  - name: littlecharacters-db
+    # 0.5 CPU, 1 GB memory (about $19 a month), plus storage.
+    plan: 0.5c-1g
+    region: virginia
+    diskSizeGB: 5
+    # Only the website can reach the database; nothing on the internet can.
+    ipAllowList: []
+
+services:
+  - type: web
+    name: littlecharacters-site
+    runtime: node
+    # 1 CPU, 2 GB memory (about $25 a month). Always on; never sleeps.
+    plan: 1c-2g
+    region: virginia
+    branch: main
+    # Deploys only after GitHub's checks pass on main.
+    autoDeployTrigger: checksPass
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run db:migrate
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: littlecharacters-db
+          property: connectionString
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      # Encrypts allergy and medical notes. Copy it into the password manager:
+      # losing it makes those notes unreadable.
+      - key: DATA_ENCRYPTION_KEY
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      - key: MALLOC_ARENA_MAX
+        value: "2"
+      # Staff who see rosters and the editor, comma-separated.
+      - key: ADMIN_EMAILS
+        sync: false
+      # Stripe TEST keys (sk_test_…, pk_test_…) until launch day.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: PUBLIC_STRIPE_PUBLISHABLE_KEY
+        sync: false
+      # Made by Stripe when you add the webhook (docs/infrastructure.md).
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      # SITE_URL is added on launch day (https://www.littlecharacters.org).
+      # Until then the site uses its Render address.

@@ -16,6 +16,8 @@ Goal: a setup one part-time maintainer can run safely for years. That means no s
 
 **Expected total: $0–60/month** plus Stripe's per-payment fees, depending on how many free tiers you stay within. Prices change, so check each vendor's pricing page when you sign up.
 
+**Chosen (October 2026):** Render hosts the site and its Postgres database, set up from `render.production.yaml` (see [Production on Render](#production-on-render)). About $45 a month: the website $25, the database $19, storage about $1.50. Resend, Stripe and GitHub are as in the table. The table above is the original comparison.
+
 ### Why not Vercel's free plan?
 Vercel's Hobby plan is for non-commercial use only; a business needs Pro ($20/user/month). Netlify's free and personal plans allow commercial sites. Otherwise they're equivalent for us, so either is fine.
 
@@ -66,8 +68,8 @@ Everything families read (classes and their sessions, events, FAQs, the team, te
 
 | What | How | Recovery |
 |---|---|---|
-| Database | Neon point-in-time restore (free tier keeps a short window; paid keeps 7–30 days) | Restore to any second in the window, or branch the database to inspect it first |
-| Extra safety | Once a month: `pg_dump "$DATABASE_URL" > lc-YYYY-MM.sql`, stored encrypted (e.g. in 1Password or an encrypted drive) | `psql` it into a new Neon project |
+| Database | Render point-in-time recovery: any moment in the past 3 days on the Hobby workspace, 7 on Pro. The database's **Recovery** page | Restore to a new database from the Recovery page, check it, then point the site at it |
+| Extra safety | Once a month: on the database's **Recovery** page, **Create export** and download it (Render keeps exports 7 days). Store it encrypted, e.g. in 1Password or on an encrypted drive | Restore the export into a new database |
 | Payments | Stripe is the system of record for money | Nothing to back up; the dashboard has everything |
 | Code | GitHub | Every version, with one-click rollback on the host |
 | Site content and photos | In the database, so covered by the backups above. Every published version is also kept, so staff can restore past versions themselves | History → Restore in the editor |
@@ -91,7 +93,46 @@ Set these in the host's dashboard (never in git). `.env.example` has the full li
 
 The app **fails closed**: unless it's explicitly told it's in development, it refuses to start without the database, secrets, Stripe and email settings. Test payments and the dev mailbox can't be switched on in production.
 
-## Setting it up (about an afternoon)
+## Production on Render
+
+`render.production.yaml` describes the real site: an always-on website (1 CPU, 2 GB) and a Postgres database (0.5 CPU, 1 GB, 5 GB of storage), both in Virginia, the region closest to Athens.
+- **Secrets:** Render generates `BETTER_AUTH_SECRET`, `DATA_ENCRYPTION_KEY` and `CRON_SECRET` itself, so they never pass through chat or email.
+- **Database:** connected over Render's private network. It accepts no connections from the internet.
+- **Deploys:** each merge to `main` deploys once GitHub's checks pass. Database migrations run before each new version starts (`npm run db:migrate`).
+- **Search engines:** until the domain moves, the site answers at its `….onrender.com` address and sends `X-Robots-Tag: noindex`, so search results never show that copy. Only `littlecharacters.org` and `www.littlecharacters.org` are indexed (`isLiveHost` in `src/lib/seo.ts`).
+
+### Setting it up (about 30 minutes, in this order)
+
+1. **Resend (email):**
+   - Create an account at resend.com, then add the domain `littlecharacters.org`.
+   - Add the DNS records it shows wherever the domain is managed. They only allow sending email; the current website doesn't change.
+   - Create an API key with sending access.
+2. **Stripe (test mode):** copy the two test keys (Developers → API keys).
+3. **Render:**
+   - Choose **New → Blueprint**, then pick this repository and the branch `main`.
+   - **Blueprint Path:** `render.production.yaml`.
+   - When it asks, enter:
+     - `ADMIN_EMAILS`: the staff emails, comma-separated;
+     - the two Stripe test keys;
+     - the Resend key.
+   - Leave `STRIPE_WEBHOOK_SECRET` empty for now, then apply.
+   - The first start stops with `Missing required production settings: STRIPE_WEBHOOK_SECRET`. That's expected: the site refuses to run without every setting.
+4. **Stripe webhook:** follow [The Stripe webhook](#the-stripe-webhook) with the address Render shows (`https://littlecharacters-site….onrender.com/api/stripe/webhook`). Then paste the signing secret into Render → littlecharacters-site → **Environment** as `STRIPE_WEBHOOK_SECRET`, and save. Render redeploys.
+5. **Back up the secrets:** in Render → **Environment**, reveal `DATA_ENCRYPTION_KEY` and copy it into the password manager entry "Little Characters production". Losing it makes allergy and medical notes unreadable.
+6. **Wording drafts:** once the site is up, open Render → littlecharacters-site → **Shell** and run `npm run seo:load-drafts -- --commit` once. It loads Hannah's drafts as unpublished changes, as described in `docs/seo/drafts.md`.
+7. **Try it:** sign in with an `ADMIN_EMAILS` address (the code arrives by email), then enroll a test child with Stripe's card `4242 4242 4242 4242`.
+
+**Running a script against production** (for example the Studio Director import): use Render's **Shell** tab, which already has the settings. To run one from a laptop instead, add your IP address under the database's **Networking** settings for the session, and remove it afterwards.
+
+**Launch day:**
+- Add `SITE_URL` = `https://www.littlecharacters.org`, and add the domain under the service's **Custom Domains**.
+- Switch Stripe to live keys and a live webhook.
+- Set up the daily autopay run ([The daily autopay run](#the-daily-autopay-run)) with `BILLING_URL` on the real domain.
+
+## Setting it up elsewhere (about an afternoon)
+
+The original steps for Netlify and Neon, if the site ever moves:
+
 
 1. **Neon:** create a project (region: US East). Copy the pooled connection string. From a laptop, run `DATABASE_URL=… npm run db:migrate` once.
 2. **Resend:** add `littlecharacters.org`, then add the DNS records it shows (SPF, DKIM) where the domain is managed. Create an API key.
@@ -191,6 +232,6 @@ To run it by hand against production: `DATABASE_URL=… STRIPE_SECRET_KEY=… np
 |---|---|---|
 | Automatically | GitHub CI runs type checks, unit tests and a build on every push. Dependabot opens a pull request when a dependency has an update or a security fix. | — |
 | Weekly | Merge green Dependabot pull requests (the host deploys them). | 5 min |
-| Monthly (the 2nd) | Check `/admin/billing` for charges that need a person, and the Stripe dashboard for disputes. Glance at the host's error log and the audit log. Take the extra database dump. | 20 min |
+| Monthly (the 2nd) | Check `/admin/billing` for charges that need a person, and the Stripe dashboard for disputes. Glance at the host's error log and the audit log. Download the monthly database export. | 20 min |
 | Each term | Hannah adds the new sessions in the editor (copy last term's, change the dates) and closes the old ones. Run one test enrollment. | 30 min |
 | Yearly | Review `ADMIN_EMAILS`. Rotate `BETTER_AUTH_SECRET` (signs everyone out once). Delete families with no activity in 3 years (see `security.md`). Renew the domain. | 1 hr |

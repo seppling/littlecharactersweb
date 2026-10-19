@@ -13,6 +13,7 @@ import { assertProductionConfig } from '@/server/env';
 import { getContent } from '@/server/content';
 import { PREVIEW_COOKIE } from '@/lib/editor';
 import { oldSiteRedirect } from '@/lib/redirects';
+import { isLiveHost } from '@/lib/seo';
 import { hasShowPage } from '@/lib/events';
 
 /** A readable, non-sensitive hint so public pages know to ask /api/me who's signed in. */
@@ -47,6 +48,7 @@ const permanentRedirect = (location: string) =>
 export const onRequest = defineMiddleware(async (ctx, next) => {
   if (ctx.isPrerendered) return next();
   const path = ctx.url.pathname;
+  const indexable = isLiveHost(ctx.url.hostname);
   // Addresses from the old site (Squarespace) go to their new pages, for good.
   // Event addresses wait for the content, which says which shows have a page.
   const eventPath = path.startsWith('/events/');
@@ -56,6 +58,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   if (path.startsWith('/media/')) {
     const response = await next();
     response.headers.set('X-Content-Type-Options', 'nosniff');
+    if (!indexable) response.headers.set('X-Robots-Tag', 'noindex');
     return response;
   }
   assertProductionConfig();
@@ -91,6 +94,8 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   const response = await next();
   const out = new Response(response.body, response);
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) out.headers.set(k, v);
+  // Previews and the private address before launch stay out of search results.
+  if (!indexable) out.headers.set('X-Robots-Tag', 'noindex, nofollow');
   if (portal || ctx.locals.preview) {
     // Portal pages show family data, and previews show unpublished edits: never let shared caches keep them.
     out.headers.set('Cache-Control', 'private, no-store');

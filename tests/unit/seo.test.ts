@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import sharp from 'sharp';
-import { athensDateTime, breadcrumbLd, courseLd, eventLd, isCourse, jsonLd, offerPrice, organizationLd, pageTitle, postalAddress } from '@/lib/seo';
+import { athensDateTime, breadcrumbLd, courseLd, eventLd, isCourse, isLiveHost, jsonLd, offerPrice, organizationLd, pageTitle, postalAddress } from '@/lib/seo';
 import { focusPoint, shareImage, shareStop, type UploadInfo } from '@/lib/media';
 import { oldSiteRedirect } from '@/lib/redirects';
 import { makeShareImage } from '@/server/share-image';
@@ -234,6 +234,19 @@ describe('redirects from the old site', () => {
   it('leaves new pages alone', () => {
     for (const path of ['/', '/programs', '/programs/yes-and-improv', '/camps', '/about', '/faq', '/give', '/contact', '/geode', '/media/share/abc/50.jpg']) {
       expect(oldSiteRedirect(path)).toBeUndefined();
+    }
+  });
+});
+
+describe('which addresses search engines index', () => {
+  it('indexes only the real domain', () => {
+    expect(isLiveHost('www.littlecharacters.org')).toBe(true);
+    expect(isLiveHost('littlecharacters.org')).toBe(true);
+    expect(isLiveHost('WWW.LittleCharacters.org')).toBe(true);
+  });
+  it('keeps previews, the private address and laptops out', () => {
+    for (const host of ['littlecharacters-site.onrender.com', 'littlecharacters-preview.onrender.com', 'localhost', 'littlecharacters.org.example.com']) {
+      expect(isLiveHost(host)).toBe(false);
     }
   });
 });

@@ -5,6 +5,14 @@
  */
 import type { EventItem, Location, Program } from '@/content/types';
 
+/**
+ * The addresses search engines should index. Every other host (the Render
+ * previews, the private production address before the domain moves, a laptop)
+ * is sent "noindex", so search results never show a copy of the site.
+ */
+const LIVE_HOSTS = new Set(['littlecharacters.org', 'www.littlecharacters.org']);
+export const isLiveHost = (hostname: string) => LIVE_HOSTS.has(hostname.toLowerCase());
+
 /** How every page title is built: the page's own title, then the company name, unless the title already says it. */
 export function pageTitle(title: string | undefined, names: { name: string; shortName: string }) {
   if (!title?.trim()) return `${names.name} · Athens, GA`;
