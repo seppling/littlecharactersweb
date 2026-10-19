@@ -3,8 +3,8 @@
  * → Signing in).
  *
  * - requireStaff: the one check at the top of every staff page and endpoint.
- *   Signed-in families get "Not found"; signed-out visitors get the staff
- *   sign-in (AdminShell shows it).
+ *   Signed-in people who aren't staff get a 404 with the "Staff only" panel;
+ *   signed-out visitors get the staff sign-in (AdminShell shows both).
  * - requireFreshStaff: downloads, and later refunds and staff changes, need a
  *   sign-in from the last 15 minutes. Otherwise staff confirm with an emailed
  *   code at /admin/confirm and come back.
@@ -58,7 +58,11 @@ export async function readSession(headers: Headers, now = new Date()) {
   return result ?? null;
 }
 
-const notFound = () => new Response('Not found', { status: 404 });
+/**
+ * No body, so Astro shows src/pages/404.astro with the 404 status kept. For a
+ * staff address, that page shows the shell's "Staff only" panel with Sign out.
+ */
+const notFound = () => new Response(null, { status: 404 });
 
 /**
  * The check at the top of every staff page and endpoint:

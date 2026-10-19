@@ -16,6 +16,23 @@
   padding-top: env(safe-area-inset-top);
 }
 .staff-top a { color: inherit; }
+/* The site's teal focus ring is too faint on the ink bar: yellow there, as on the search box. */
+.staff-top { --focus: var(--yellow); }
+.staff-top :focus-visible { outline-offset: 2px; }
+/* The count of urgent items, on Today in the top bar and on the Alerts tab. */
+.staff-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--red-ink);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
 .staff-top__row {
   display: flex;
   align-items: center;
@@ -90,6 +107,8 @@
   white-space: nowrap;
 }
 .staff-sections a:hover { color: var(--paper); }
+.staff-sections li { display: flex; align-items: center; }
+.staff-sections .staff-count { margin-left: -0.5rem; margin-right: 0.5rem; pointer-events: none; }
 .staff-sections a[aria-current='page'] { color: var(--paper); border-bottom-color: var(--yellow); }
 
 /* Phone parts: hidden on computers. */
@@ -189,6 +208,8 @@
   }
   .staff-tabs a[aria-current='page'] { color: var(--purple); }
   .staff-tabs a[aria-current='page'] svg { stroke-width: 2.6; }
+  .staff-tabs li { position: relative; }
+  .staff-tabs .staff-count { position: absolute; top: 6px; left: calc(50% + 6px); margin: 0; pointer-events: none; }
   .admin-shell { padding-bottom: calc(var(--staff-tabs) + env(safe-area-inset-bottom)); }
   /* The editor's save bar sits above the tab bar. */
   .admin-shell .actions { bottom: calc(var(--staff-tabs) + env(safe-area-inset-bottom)); }
@@ -286,6 +307,7 @@
 .attention-item--alert { --attention: var(--red); }
 .attention-item--warning { --attention: var(--yellow); }
 .attention-item--neutral { --attention: var(--line-strong); }
+.attention-item--good { --attention: var(--ok); }
 .attention-item__title { font-weight: 700; color: var(--ink); }
 .attention-item__detail { grid-column: 1; font-size: var(--step--1); color: var(--ink-mute); }
 .attention-item__action { grid-row: 1 / span 2; grid-column: 2; }

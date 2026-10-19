@@ -12,6 +12,7 @@
 import Base from '@/layouts/Base.astro';
 import SignInPanel from '@/components/portal/SignInPanel.astro';
 import * as links from '@/lib/admin-links';
+import { attentionCount } from '@/server/today';
 import '@/styles/admin.css';
 
 export type StaffSection = 'today' | 'classes' | 'families' | 'payments' | 'leads' | 'content';
@@ -32,6 +33,9 @@ const { user, isAdmin } = Astro.locals;
 const path = Astro.url.pathname;
 const here = path + Astro.url.search;
 const q = path.startsWith('/admin/search') ? (Astro.url.searchParams.get('q') ?? '') : '';
+// Alert and warning items from "Needs attention": three quick queries, shared with the page's own (src/server/today.ts).
+const urgent = isAdmin ? await attentionCount(Astro.locals.content, new Date(), Astro.locals) : 0;
+const countLabel = `${urgent} need${urgent === 1 ? 's' : ''} attention`;
 
 const sections: { key: StaffSection; label: string; href: string }[] = [
   { key: 'today', label: 'Today', href: links.today() },
@@ -89,12 +93,19 @@ const more = [
           {user ? (
             <div class="stack">
               <h1>Staff only</h1>
-              <p>You’re signed in as {user.email}, which isn’t a staff account. Sign out, then sign in with your staff email.</p>
-              <form method="post" action="/account/sign-out">
-                <button class="btn btn--outline" type="submit">
-                  Sign out
-                </button>
-              </form>
+              <p data-staff-only>
+                This page is for Little Characters staff. You’re signed in as <strong>{user.email}</strong>.
+              </p>
+              <p>If you work here, sign out and sign in with your staff email.</p>
+              <div class="gate__actions">
+                <form method="post" action="/account/sign-out">
+                  <input type="hidden" name="next" value={here} />
+                  <button class="btn btn--outline" type="submit">
+                    Sign out
+                  </button>
+                </form>
+                <a class="btn btn--primary" href="/account">Go to your family account</a>
+              </div>
             </div>
           ) : (
             <SignInPanel heading={signIn.heading} intro={signIn.intro} next={here} />
@@ -117,6 +128,7 @@ const more = [
             <div class="staff-account">
               <span class="staff-account__email">{user!.email}</span>
               <form method="post" action="/account/sign-out">
+                <input type="hidden" name="next" value={links.today()} />
                 <button type="submit" class="staff-signout">Sign out</button>
               </form>
             </div>
@@ -128,6 +140,12 @@ const more = [
                   <a href={s.href} aria-current={s.key === section ? 'page' : undefined}>
                     {s.label}
                   </a>
+                  {s.key === 'today' && urgent > 0 && (
+                    <span class="staff-count" data-staff-count>
+                      <span aria-hidden="true">{urgent}</span>
+                      <span class="sr-only">{countLabel}</span>
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -159,6 +177,7 @@ const more = [
                 </ul>
                 <p class="staff-menu__who">Signed in as {user!.email}</p>
                 <form method="post" action="/account/sign-out">
+                  <input type="hidden" name="next" value={links.today()} />
                   <button type="submit" class="btn btn--outline btn--block">Sign out</button>
                 </form>
               </div>
@@ -177,6 +196,12 @@ const more = [
                   </svg>
                   <span>{t.label}</span>
                 </a>
+                {t.key === 'alerts' && urgent > 0 && (
+                  <span class="staff-count" data-staff-count>
+                    <span aria-hidden="true">{urgent}</span>
+                    <span class="sr-only">{countLabel}</span>
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -203,6 +228,7 @@ const more = [
 
 <style>
   .gate { padding-block: var(--space-2xl) var(--space-3xl); }
+  .gate__actions { display: flex; flex-wrap: wrap; gap: var(--space-s); }
   .admin-shell { --admin-max: 1100px; }
   .admin-shell--wide { --admin-max: 1280px; }
 </style>

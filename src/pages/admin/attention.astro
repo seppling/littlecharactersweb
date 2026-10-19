@@ -1,20 +1,75 @@
 ---
-/** Everything that needs a person. A placeholder until the Today unit builds "Needs attention". */
+/** Everything that needs a person, grouped by kind with counts: the phone's Alerts tab (src/server/today.ts). */
 import AdminShell from '@/components/admin/AdminShell.astro';
-import { payments } from '@/lib/admin-links';
+import AttentionList from '@/components/admin/AttentionList.astro';
+import { today } from '@/lib/admin-links';
+import { isProd } from '@/server/env';
 import { requireStaff } from '@/server/staff';
+import { attentionGroups, attentionItems, devDay } from '@/server/today';
 
 export const prerender = false;
-const { response } = requireStaff(Astro.locals);
+const { staff, response } = requireStaff(Astro.locals);
 if (response) return response;
+
+const on = devDay(Astro.url.searchParams, !isProd);
+const items = staff ? await attentionItems(Astro.locals.content, new Date(), Astro.locals, on ?? undefined) : [];
+const groups = attentionGroups(items);
 ---
 
-<AdminShell title="Needs attention" section="today">
-  <div class="admin-page">
-    <h1>Needs attention</h1>
-    <div class="empty-state">
-      <strong>Alerts are coming soon</strong>
-      <p>Failed payments, waitlists and missing details will be listed here. For now, failed payments are on <a href={payments('failed')}>Payments</a>.</p>
+<AdminShell title="Needs attention" section="today" back={{ href: today(), label: 'Today' }}>
+  <div class="admin-page attention">
+    <div class="admin-head">
+      <div>
+        <h1>Needs attention</h1>
+        <p class="admin-intro">Most urgent first. Each item goes away once it’s dealt with.</p>
+      </div>
     </div>
+    {
+      groups.length ? (
+        <>
+          <nav class="chip-row attention__jump" aria-label="Kinds">
+            {groups.map((g) => (
+              <a class:list={['chip', g.tone === 'alert' && 'chip--alert', g.tone === 'warning' && 'chip--warning', g.tone === 'good' && 'chip--good']} href={`#${g.kind}`}>
+                {g.heading} <span class="attention__n">{g.items.length}</span>
+              </a>
+            ))}
+          </nav>
+          {groups.map((g) => (
+            <section class="attention__group" id={g.kind} aria-labelledby={`${g.kind}-h`} data-group={g.kind}>
+              <h2 id={`${g.kind}-h`}>
+                {g.heading} <span class="attention__n" data-count>{g.items.length}</span>
+              </h2>
+              <AttentionList items={g.items} />
+            </section>
+          ))}
+        </>
+      ) : (
+        <div class="empty-state">
+          <strong>All clear</strong>
+          <p>No failed payments, waitlist openings or missing details right now.</p>
+        </div>
+      )
+    }
   </div>
 </AdminShell>
+
+<style>
+  .attention { display: grid; gap: var(--space-l); }
+  .attention .admin-head { margin-bottom: 0; }
+  .attention__jump .chip { min-height: 44px; text-decoration: none; color: var(--ink); }
+  .attention__group { display: grid; gap: var(--space-s); scroll-margin-top: 8rem; }
+  .attention__group h2 { font-size: var(--step-1); margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+  .attention__n {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.6rem;
+    height: 1.6rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: var(--line);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: var(--step--1);
+    font-weight: 700;
+  }
+</style>

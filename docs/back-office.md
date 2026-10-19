@@ -8,8 +8,8 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 
 | Function | Address | Page |
 |---|---|---|
-| `today()` | `/admin` | Today (a placeholder until the Today unit) |
-| `attention()` | `/admin/attention` | Needs attention (placeholder) |
+| `today()` | `/admin` | Today (§11) |
+| `attention()` | `/admin/attention` | Needs attention, the phone's Alerts tab (§11) |
 | `classes()` | `/admin/classes` | Classes list (the old rosters list) |
 | `classPage(sessionId)` | `/admin/classes/<id>` | A class (the old roster page) |
 | `classPrint(sessionId)` | `/admin/classes/<id>/print` | A class's roster, ready to print (§9) |
@@ -69,9 +69,10 @@ Use these instead of page-level styles.
 | `.chip` (site-wide) + `.chip-row`, `.chip--good`, `--warning`, `--alert` | Filter buttons, with `aria-pressed` |
 | `.btn` (site-wide), `.btn--primary`, `--outline`, `--sm`, `.btn--danger` | Buttons. On phones `.btn--sm` grows to 44 px |
 | `.empty-state` | "Nothing here yet": a `strong` title and a line |
-| `.attention-list`, `.attention-item` (+ `--alert`, `--warning`, `--neutral`), `__title`, `__detail`, `__action` | A "Needs attention" row with its next step |
+| `.attention-list`, `.attention-item` (+ `--alert`, `--warning`, `--neutral`, `--good`), `__title`, `__detail`, `__action` | A "Needs attention" row with its next step |
 | `.notice`, `.notice--error` | Saved / error messages |
-| `.tiles`, `.tile` | Big links (Today's placeholder) |
+| `.tiles`, `.tile` | Big links (Today's quick links) |
+| `.staff-count` | The count of urgent items on Today and the Alerts tab |
 
 ## 4. Badges
 
@@ -104,9 +105,11 @@ Every list downloads as a spreadsheet and a PDF.
 - **`requireStaff(locals)`** at the top of every staff page and endpoint:
   ```ts
   const { staff, response } = requireStaff(Astro.locals);
-  if (response) return response; // signed-in non-staff: "Not found"
+  if (response) return response; // signed-in non-staff: 404 with the "Staff only" panel
   // staff is null when signed out: AdminShell shows the staff sign-in.
   ```
+- **Signed in, but not staff** (a teacher before teacher logins, a parent): the 404 has no body, so Astro renders `src/pages/404.astro` with the status kept; on an `/admin` address that page shows the shell's panel: "This page is for Little Characters staff. You're signed in as …", Sign out, and a link to the family account. Downloads get an empty 404.
+- **Signing out** from a staff page sends `next=/admin` to `/account/sign-out`, so staff land on the staff sign-in and the installed app stays in the app. The route accepts only a `safeStaffPath`; families' forms send nothing and land on the home page as before.
 - **A fresh sign-in.** `signedInRecently(locals, 15)` is true when the session was made in the last 15 minutes. `requireFreshStaff(locals, url)` uses it: downloads now, refunds and staff changes later. Otherwise staff go to `/admin/confirm?next=…`, which says "Confirm it's you before downloading", fills in their email, and runs the normal 6-digit code sign-in (a new session). For a download it then starts the file and offers "Back to the list"; for anything else it goes straight to `next`.
 - **Idle limit.** A staff session not renewed for 30 days counts as signed out, and is deleted. Families keep 90 days. `readSession` (used by `src/middleware.ts`) reads the session without renewing it first, so an idle one is seen as idle, then renews it once a day as before.
 - **Tests** age a session with `POST /dev/age-session` (`minutes` or `days`), which exists only in development, like `/dev/mailbox`.
@@ -185,3 +188,25 @@ Pages `src/pages/admin/payments/index.astro` and `[orderId].astro`; Hannah's gui
 | Upcoming Autopay | `downloads(payments('upcoming'))` | Date, Family, Class, For, Amount ($) (the next 90 days) |
 
 All three go through `paymentsDownload` (`payments.csv.ts`, `payments.pdf.ts`): a fresh sign-in, then an audit entry (`admin.download.csv|pdf`, entity `list`, id `payments-received|overdue|upcoming`). Amounts are plain numbers ("80.75") so a spreadsheet can add them up.
+
+## 12. Today and Needs attention (`src/server/today.ts`)
+
+- **Today (`/admin`):** the date; the classes meeting today (every staff session whose `meetings(session)` include today, plus the site's events that day not booked through one of those sessions), each with time, class, location, teacher and "8 of 12", linking to `classPage`; "No classes today" with the next day that has classes; the top of Needs attention with "See all"; quick links (Classes, Families, Payments, and "Put the app on your phone", hidden when it runs as the app).
+- **Needs attention (`/admin/attention`):** every item, grouped by kind with counts, most urgent first:
+
+| Kind | Tone | When | Link |
+|---|---|---|---|
+| `payments` | alert | `billingOverview().needsAttention`: failed (or on hold: the family is paying it themselves) and processing | `payments('failed')` |
+| `waitlist` | warning | a current class with a waitlist and a place open | `classPage` |
+| `under5` | warning | weekly classes (kind `class`, not one-off) short of 5, from 14 days before their first class to 14 days after; one item for all | `classes()?under5=1` |
+| `emergency` | warning | families with an active or trial enrollment in a class that hasn't ended, and no emergency contact | `family` |
+| `care` | neutral | the same children, care details not confirmed by a parent within a year (`detailsOnFile`), one item per family | `family` |
+| `signups` | good | active and trial enrollments made in the last 7 days, one item per class | `classPage` |
+| `leads` | neutral | messages and sign-ups from the site's forms in the last 7 days, one item | `leads()` |
+| `birthdays` | good | enrolled children with a birthday today or in the next 6 days | `family` |
+
+- Today shows the first 3 of each kind (5 families without an emergency contact) and links the rest.
+- **The functions:** `todayClasses(content, now, date?)` → `{ date, classes: TodayClass[], next }`; `attentionItems(content, now, key?, date?)` → `AttentionItem[]` (`{ kind, tone, title, detail, action: { label, href } }`); `attentionCount(content, now, key?)`. Their pure halves (`classesOn`, `nextClassDay`, `attentionFrom`, `attentionGroups`, `todaysAttention`) take plain data and a date; Phase 2's dashboard can build on them.
+- **The count** on the Alerts tab and on Today in the top bar is the alert and warning items. It costs three queries (billing overview, class counts, active enrollments), cached per request by `Astro.locals` and shared with the page's own list. Leads are loaded only for the list.
+- **Tests:** `?on=YYYY-MM-DD` sets the day on both pages in development only (`devDay`, ignored when `isProd`).
+- The rows come from `<AttentionList items={…} />` (`src/components/admin/AttentionList.astro`), on `.attention-item--alert|warning|neutral|good`.
