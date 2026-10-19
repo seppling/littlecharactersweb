@@ -46,7 +46,8 @@ Branch `claude/bo2-teacher-app`, from `claude/blissful-archimedes-enun5m` (acfb1
 - `npm run check`: 0 errors, 0 warnings.
 - `npm test`: 33 files, 662 tests passed.
 - `npm run build`: passed.
-- Browser tests: a fresh build and a fresh database (`tests/e2e/serve.sh`), then every test in `README.md`, in its order, with `staff-teach.mjs` last. CHAIN_RESULTS
+- Browser tests: a fresh build and a fresh database (`tests/e2e/serve.sh`), then every test in `README.md`, in its order, with `staff-teach.mjs` last. All 14 pass on the final commit: enroll-journey 23 checks, trial-journey 15, content-editor 11, navigation 64, staff-foundation 86, staff-contacts 27, staff-classes 59, staff-families 64, staff-payments 68, staff-today 41, staff-messages 46 (with `SERVER_LOG`), staff-roster 48, staff-settings 43, staff-teach 53.
+  - **An earlier run failed in `staff-today`:** "signing out from the panel shows the staff sign-in". The cause was mine: sign-out held the form back until it had cleared the phone's copy, so the test looked before the page moved on. Fixed in my code, not in the test. Sign-out now goes on at once, and the staff sign-in page clears the copy once it loads (`clearWhenSignedOut`). No existing browser test was edited.
 - Screenshots are in `.orchestration/teacher-app/shots/`:
   - the teacher's Today: `teach-today-phone`, `teach-today-desktop`;
   - a roster: `teach-roster-sent-phone`, `teach-roster-desktop`, `owner-roster-desktop`;
