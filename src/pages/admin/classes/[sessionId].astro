@@ -251,7 +251,7 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
             <div class="field">
               <label for="add-reason">Reason</label>
               <input id="add-reason" name="reason" value={reason} required maxlength={REASON_MAX} placeholder="Scholarship, staff child, trade…" />
-              <p class="muted">Shown on the family’s page and on Payments as “No charge, added by staff: …”, and kept in the record.</p>
+              <p class="muted">Shown on the family’s page and on Payments as “No charge, added by staff: …”, and kept in the record. Leave out medical details.</p>
             </div>
           )}
           {addError && <p class="notice notice--error" role="alert" data-add-error>{addError}</p>}
