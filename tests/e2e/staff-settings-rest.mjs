@@ -203,7 +203,7 @@ check((await hp.inputValue('#subject')) === 'A place opened in {class}', 'Back t
 
 // ── 2. Reasons: add a drop reason, use it on Remove ──
 await hp.goto(`${BASE}/admin/settings/reasons`);
-check((await hp.locator('[data-reasons="drop"] [data-reason]').allTextContents()).map((t) => t.replace(/^\d+\.\s*/, '').trim()).join('|').startsWith('Schedule|Moved|Cost|Lost interest|Other'), 'drop reasons start with Schedule, Moved, Cost, Lost interest, Other');
+check((await hp.locator('[data-reasons="drop"] [data-reason] .reason__name').allTextContents()).map((t) => t.replace(/^\d+\.\s*/, '').trim()).join('|').startsWith('Schedule|Moved|Cost|Lost interest|Other'), 'drop reasons start with Schedule, Moved, Cost, Lost interest, Other');
 await hp.fill('#add-drop', DROP);
 await Promise.all([hp.waitForURL(/done=add/), hp.click('[data-add-reason="drop"] button')]);
 check(await hp.locator(`[data-reasons="drop"] [data-reason="${DROP}"]`).count(), `“${DROP}” is added at the end`);
@@ -332,13 +332,13 @@ await form.locator('select[name="location"]').selectOption('hq');
 await form.locator(`input[name="classes"][value="${SONGS}"]`).check();
 await Promise.all([hp.waitForURL(/done=rehearsal-added/), form.locator('button[value="rehearsal-add"]').click()]);
 await hp.goto(`${BASE}/admin?on=${SAT}`);
-const reh = hp.locator('[data-today-rehearsal]').filter({ hasText: '10 am–11:30 am' });
+const reh = hp.locator('[data-today-rehearsal]').filter({ hasText: '10–11:30 am' });
 check((await reh.textContent()).includes(`Rehearsal: ${SHOW_TITLE}`) && (await reh.textContent()).includes('Stories and Songs'), 'Today shows the day’s rehearsal beside the classes');
 check((await reh.getAttribute('href')) === `/admin/shows/${SHOW}`, '… linking to the show');
 await shot(hp, 'today-rehearsal');
 await phoneCheck(hp, 'Today with a rehearsal', 'today-rehearsal-390');
 await tp.goto(`${BASE}/admin/teach?on=${WED}`);
-const weekReh = tp.locator('[data-week-rehearsal]').filter({ hasText: '10 am–11:30 am' });
+const weekReh = tp.locator('[data-week-rehearsal]').filter({ hasText: '10–11:30 am' });
 check((await weekReh.textContent()).includes(`Rehearsal: ${SHOW_TITLE}`) && !(await weekReh.locator('a, button').count()), 'the teacher’s This week lists the rehearsal, read-only');
 await phoneCheck(tp, 'the teacher’s This week', 'teach-week-rehearsal-390');
 

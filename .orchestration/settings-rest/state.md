@@ -21,4 +21,4 @@ Branch `claude/bo2-settings-rest`, from `claude/blissful-archimedes-enun5m` at 2
 - (none blocking)
 
 ## Next action
-- Finish the browser suite run, fix anything, take screenshots, write report.md.
+- Done: checks green (check, 835 unit tests, build, 21 browser tests in order). Report in report.md. Waiting on the coordinator.

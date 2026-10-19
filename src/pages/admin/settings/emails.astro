@@ -126,7 +126,7 @@ const done = ({ saved: 'Saved. Families get the new wording from now on.', reset
         <>
           <div class="email-edit">
             <section class="staff-card words" aria-labelledby="words-h">
-              <h2 id="words-h">{current(def.name) ? 'Your wording' : 'The original wording'}</h2>
+              <h2 id="words-h">{fresh ? 'Change the wording' : current(def.name) ? 'Your wording' : 'The original wording'}</h2>
               {fresh ? (
                 <form method="post" class="words__form" data-wording-form>
                   <label for="subject">Subject</label>
