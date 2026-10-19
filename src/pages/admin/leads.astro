@@ -39,8 +39,10 @@ const files = downloads(leadsPath());
                 <td data-label="When" class="nowrap">{leadWhen(l.createdAt)}</td>
                 <td data-label="Form">{l.form}</td>
                 <td data-label="From">
-                  {l.name && <strong>{l.name}<br /></strong>}
-                  <a href={`mailto:${l.email}`}>{l.email}</a>
+                  <div>
+                    {l.name && <strong>{l.name}<br /></strong>}
+                    <a href={`mailto:${l.email}`}>{l.email}</a>
+                  </div>
                 </td>
                 <td data-label="Details">
                   <div>

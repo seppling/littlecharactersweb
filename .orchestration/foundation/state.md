@@ -1,18 +1,17 @@
 # Foundation unit: state
 
-## Done
-- Migration `0009_back_office` (household contact columns, household_note, message, message_recipient, waitlist_offer).
-- `src/lib/contacts.ts`, `src/lib/badges.ts`, `src/lib/csv.ts`, `src/lib/admin-links.ts`, `src/server/downloads.ts` (pdfkit), `src/server/staff.ts` (+ middleware uses `readSession`).
-- Unit tests for each.
+## Status: done, report written (`report.md`)
 
-## Next
-- Shell (AdminShell + admin.css), page moves and redirects, Today placeholder, leads CSV/PDF, confirm page, dev session ager, manifest/icons/install page, docs, browser test, screenshots.
+## Commits (branch `claude/bo-foundation`)
+1. Data, contacts, badges, downloads, link contract, staff sign-in rules.
+2. Staff shell for computer and phone, page moves and redirects, downloads, fresh sign-in, phone app shell.
+3. Table wrapping fix, leads screenshots with entries, report.
 
 ## Decisions
-- US phones stored as 10 digits (leading 1/+1 dropped); other countries as +digits.
-- Birthday badge: 3 days either side; Feb 29 birthdays fall on Feb 28 in other years.
-- PDF uses Helvetica: pdfkit fails to subset the site's variable fonts (fontkit RangeError).
-- Staff idle check reads the session with `disableRefresh`, then renews as Better Auth does.
+- See `report.md` → Decisions.
 
 ## Open questions
-- none yet
+- None blocking. Recommendations are in `report.md` → Open points.
+
+## Next action
+- Coordinator: review and merge; the screen units can start from `docs/back-office.md`.

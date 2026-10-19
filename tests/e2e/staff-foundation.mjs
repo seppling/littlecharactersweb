@@ -56,8 +56,17 @@ async function codeFor(email) {
 /** Types the email (unless it's filled in already) and the code, like Hannah would. */
 async function signIn(p, email, { waitForNav = true } = {}) {
   if (!(await p.inputValue('#signin-email'))) await p.fill('#signin-email', email);
-  await p.click('[data-step="email"] button[type="submit"]');
-  await p.waitForSelector('#signin-code', { state: 'visible' });
+  // Every browser test signs in from the same address, so the 5-codes-a-minute
+  // limit can be hit right after the other tests. Wait it out, like a person would.
+  for (let tries = 0; ; tries++) {
+    await p.click('[data-step="email"] button[type="submit"]');
+    await p.waitForSelector('#signin-code:visible, [data-error]:visible');
+    if (await p.locator('#signin-code').isVisible()) break;
+    const error = await p.textContent('[data-error]');
+    if (tries >= 2 || !/Too many tries/.test(error)) throw new Error(`Sign-in failed: ${error}`);
+    console.log('· waiting a minute for the sign-in rate limit');
+    await p.waitForTimeout(61_000);
+  }
   const code = await codeFor(email);
   if (waitForNav) await Promise.all([p.waitForNavigation(), p.fill('#signin-code', code)]);
   else await p.fill('#signin-code', code);

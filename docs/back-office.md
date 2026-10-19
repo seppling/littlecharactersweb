@@ -64,7 +64,7 @@ Use these instead of page-level styles.
 | `.admin-page` | The page's column, with spacing |
 | `.admin-head`, `.admin-head__actions`, `.admin-intro`, `.admin-crumbs` | Page header: title and a line on the left, buttons on the right |
 | `.staff-card`, `.staff-cards` | A bordered card; a grid of them |
-| `.data-table` | A table that becomes stacked cards on phones. Give every `td` a `data-label` (the column name); `.num` right-aligns numbers |
+| `.data-table` | A table that becomes stacked cards on phones. Give every `td` a `data-label` (the column name), and wrap a cell's content in one element when it has more than one; `.num` right-aligns numbers |
 | `.badge` + `.badge--neutral`, `--good`, `--warning`, `--alert`; `.badges` | Status labels (not buttons), in a row |
 | `.chip` (site-wide) + `.chip-row`, `.chip--good`, `--warning`, `--alert` | Filter buttons, with `aria-pressed` |
 | `.btn` (site-wide), `.btn--primary`, `--outline`, `--sm`, `.btn--danger` | Buttons. On phones `.btn--sm` grows to 44 px |
