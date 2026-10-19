@@ -3,7 +3,7 @@
 Branch `claude/bo2-tags-skills`, from `claude/blissful-archimedes-enun5m` (3ab1c0a).
 
 ## Status
-Built: tags (Settings → Tags, family page, roster "Tag selected" and filter, search by tag, Email a tag, CSV/PDF), skills (Settings → Skills, teacher Skills view, class grid + worksheet, family page), progress notes (teacher drafts, Hannah's preview and send, family account). Unit tests and `tests/e2e/staff-tags-skills.mjs` pass. Full browser suite running.
+Built: tags (Settings → Tags, family page, roster "Tag selected" and filter, search by tag, Email a tag, CSV/PDF), skills (Settings → Skills, teacher Skills view, class grid + worksheet, family page), progress notes (teacher drafts, Hannah's preview and send, family account). Type check clean, 743 unit tests pass, build passes, all 17 browser tests pass in order on one fresh database (third run; the first two found tap-target and test-name issues, now fixed). Report written.
 
 ## Decisions
 - Tag emails: `message.kind` gains `'tag'` (a TypeScript enum on a text column: `drizzle-kit generate` says no changes); `message.session_id` holds the tag id for those rows. Reason: the composer's send log needs a tag's earlier emails, with no new column.
@@ -17,4 +17,4 @@ Built: tags (Settings → Tags, family page, roster "Tag selected" and filter, s
 None blocking.
 
 ## Next
-Full e2e run, report.
+Done. Waiting for the coordinator.
