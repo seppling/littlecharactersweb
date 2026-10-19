@@ -679,8 +679,8 @@ const dropFiles = downloads(classDropInsLink(session.id));
                     <tr data-drop-in-row={d.id} data-status={d.status}>
                       <td data-label="Date">{dropInDay(d.date)}</td>
                       <td data-label="Child"><span><strong>{d.child}</strong>{d.overLimit && <span class="badges"><span class="badge badge--warning" data-over-limit>Over the limit</span></span>}</span></td>
-                      <td data-label="Family"><a href={family(d.householdId)}>{d.family}</a></td>
-                      <td data-label="Paid"><span>{dropInStatus(d)}{d.orderId && d.paid && <> · <a href={paymentsOrder(d.orderId)}>Payment</a></>}</span></td>
+                      <td data-label="Family"><a class="cell-link" href={family(d.householdId)}>{d.family}</a></td>
+                      <td data-label="Paid"><span>{dropInStatus(d)}{d.orderId && d.paid && <> · <a class="cell-link" href={paymentsOrder(d.orderId)}>Payment<span class="sr-only"> for {d.child}’s drop-in</span></a></>}</span></td>
                       <td data-label="">
                         {d.status !== 'cancelled' && (
                           <details class="tool">
@@ -807,6 +807,7 @@ const dropFiles = downloads(classDropInsLink(session.id));
   .confirm select { min-height: 44px; max-width: 100%; }
   .section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem 1rem; }
   .sub-h { font-size: var(--step-0); margin-top: var(--space-xs); }
+  .cell-link { display: inline-flex; align-items: center; min-height: 44px; }
   @media (max-width: 760px) {
     .kid,
     .wait { grid-template-columns: minmax(0, 1fr); }
