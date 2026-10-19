@@ -1,0 +1,162 @@
+---
+/**
+ * Settings → Staff: everyone who works here, with their role and whether they
+ * can sign in, and a form to add a teacher or an owner. Each person opens on
+ * their own page (classes, substitute dates, turn off). Owners only; changes
+ * need a sign-in from the last 15 minutes (src/server/staff-settings.ts).
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { confirm, settings, settingsStaff, settingsStaffMember } from '@/lib/admin-links';
+import { config } from '@/server/env';
+import { addStaff, NAME_MAX, staffList, StaffSettingsError } from '@/server/staff-settings';
+import { requireFreshStaff, requireStaff, signedInRecently } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const here = settingsStaff();
+let error = '';
+let values: Record<string, string> = {};
+
+if (staff && Astro.request.method === 'POST') {
+  const stop = requireFreshStaff(Astro.locals, Astro.url);
+  if (stop) return stop;
+  const form = await Astro.request.formData();
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+  try {
+    const row = await addStaff(staff.id, { email: values.email ?? '', name: values.name ?? '', role: (values.role ?? '') as 'teacher' });
+    return Astro.redirect(`${settingsStaffMember(row.id)}?saved=added`, 303);
+  } catch (e) {
+    if (!(e instanceof StaffSettingsError)) throw e;
+    error = e.message;
+  }
+}
+
+const people = staff ? await staffList(config.adminEmails) : [];
+const fresh = !!staff && signedInRecently(Astro.locals);
+const roleLabel = { owner: 'Owner', teacher: 'Teacher' } as const;
+---
+
+<AdminShell title="Staff" section="settings" back={{ href: settings(), label: 'Settings' }}>
+  <div class="admin-page staff-settings">
+    <div class="admin-head">
+      <div>
+        <h1>Staff</h1>
+        <p class="admin-intro">
+          Owners see everything. Teachers see only their own classes, and the dates they cover as a substitute: the roster, care details and contacts. Not payments, other classes or reports.
+        </p>
+      </div>
+    </div>
+
+    {error && <p class="notice notice--error" role="alert">{error}</p>}
+
+    <section class="admin-section" aria-labelledby="people-title">
+      <h2 id="people-title">Everyone</h2>
+      <table class="data-table" data-staff-list>
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Email</th>
+            <th scope="col">Role</th>
+            <th scope="col">Classes</th>
+            <th scope="col">Can sign in</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            people.map((p) => (
+              <tr data-staff-row={p.email}>
+                <td data-label="Name">
+                  {p.id ? (
+                    <a class="person" href={settingsStaffMember(p.id)}>
+                      {p.name}
+                    </a>
+                  ) : (
+                    <span class="person">{p.name}</span>
+                  )}
+                </td>
+                <td data-label="Email">
+                  <span class="email">{p.email}</span>
+                </td>
+                <td data-label="Role">
+                  <span>
+                    {roleLabel[p.role]}
+                    {p.fixed && <span class="muted"> (set by the site)</span>}
+                  </span>
+                </td>
+                <td data-label="Classes">{p.classCount || '—'}</td>
+                <td data-label="Can sign in">
+                  <span class:list={['badge', p.active ? 'badge--good' : 'badge--neutral']} data-active={String(p.active)}>
+                    {p.active ? 'Yes' : 'Turned off'}
+                  </span>
+                </td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </section>
+
+    <section class="admin-section staff-card add" aria-labelledby="add-title">
+      <h2 id="add-title">Add a person</h2>
+      {
+        fresh ? (
+          <form method="post" class="add__form" data-add-staff>
+            <div class="field">
+              <label for="add-name">Name</label>
+              <input id="add-name" name="name" required maxlength={NAME_MAX} autocomplete="off" value={values.name} />
+            </div>
+            <div class="field">
+              <label for="add-email">Email</label>
+              <input id="add-email" name="email" type="email" required autocomplete="off" inputmode="email" value={values.email} />
+            </div>
+            <fieldset class="field roles">
+              <legend>Role</legend>
+              <label class="choice">
+                <input type="radio" name="role" value="teacher" checked={values.role !== 'owner'} />
+                <span>
+                  <strong>Teacher</strong>
+                  <small>Their own classes only</small>
+                </span>
+              </label>
+              <label class="choice">
+                <input type="radio" name="role" value="owner" checked={values.role === 'owner'} />
+                <span>
+                  <strong>Owner</strong>
+                  <small>Everything, including payments and these settings</small>
+                </span>
+              </label>
+            </fieldset>
+            <p class="muted">They sign in at littlecharacters.org/admin with this email and a 6-digit code. Nothing is emailed to them now.</p>
+            <button class="btn btn--primary" type="submit">
+              Add
+            </button>
+          </form>
+        ) : (
+          <div class="confirm-first">
+            <p>To add or change staff, confirm it’s you first. We’ll email you a code.</p>
+            <a class="btn btn--primary" href={confirm(here)} data-confirm-first>
+              Confirm it’s you
+            </a>
+          </div>
+        )
+      }
+    </section>
+  </div>
+</AdminShell>
+
+<style>
+  .staff-settings .person { font-weight: 650; }
+  .staff-settings a.person { display: inline-block; min-height: 44px; padding-block: 0.6rem; }
+  .staff-settings .email { overflow-wrap: anywhere; }
+  .add { max-width: 36rem; }
+  .add .muted { color: var(--ink-soft); font-size: var(--step--1); }
+  .add__form, .confirm-first { display: grid; gap: var(--space-m); justify-items: start; }
+  .add__form .field { width: 100%; }
+  .roles { border: 0; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
+  .roles legend { font-weight: 650; font-size: var(--step--1); margin-bottom: 0.35rem; }
+  .choice { display: flex; gap: 0.6rem; align-items: flex-start; min-height: 44px; cursor: pointer; }
+  .choice input { width: 1.25rem; height: 1.25rem; margin-top: 0.2rem; flex: none; }
+  .choice small { display: block; color: var(--ink-soft); font-size: var(--step--1); }
+</style>

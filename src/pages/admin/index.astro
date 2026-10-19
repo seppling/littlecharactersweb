@@ -1,47 +1,134 @@
 ---
+/** Staff home: today's classes, the top of "Needs attention", and quick links (src/server/today.ts). */
 import AdminShell from '@/components/admin/AdminShell.astro';
-import { sessionCounts } from '@/server/admin';
-import { capacityFor } from '@/server/family';
-import { dayList, timeRange } from '@/lib/format';
+import AttentionList from '@/components/admin/AttentionList.astro';
+import { attention, classes, install, payments, search, teachHome } from '@/lib/admin-links';
+import { isProd } from '@/server/env';
+import { requireStaff } from '@/server/staff';
+import { attentionItems, devDay, longDay, shortDay, todayClasses, todaysAttention } from '@/server/today';
 
 export const prerender = false;
-// Signed-out staff get the sign-in form (AdminShell); signed-in families get nothing.
-const isAdmin = Astro.locals.isAdmin;
-if (!isAdmin && Astro.locals.user) return new Response('Not found', { status: 404 });
+// Teachers' home is the teacher app (the installed app opens /admin).
+if (Astro.locals.staffRole === 'teacher') return Astro.redirect(teachHome(), 303);
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
 
-const { programs } = Astro.locals.content;
-const counts = isAdmin ? await sessionCounts() : new Map();
-const rows = programs.flatMap((p) =>
-  p.sessions.filter((s) => !s.externalUrl || s.externalUrl.includes('docs.google.com')).map((s) => ({ program: p, session: s, c: counts.get(s.id) ?? { active: 0, trial: 0, waitlist: 0 }, cap: capacityFor(p, s) })),
-);
+const { content } = Astro.locals;
+const now = new Date();
+// Browser tests pick the day with ?on=YYYY-MM-DD; production ignores it.
+const on = devDay(Astro.url.searchParams, !isProd);
+const day = staff ? await todayClasses(content, now, on ?? undefined) : null;
+const items = staff ? await attentionItems(content, now, Astro.locals, on ?? undefined) : [];
+const { shown, hidden } = todaysAttention(items);
 ---
 
-<AdminShell title="Rosters" section="rosters">
-  <section class="wrap admin">
-    <div class="head"><h1>Rosters</h1></div>
-    <table>
-      <thead><tr><th>Class</th><th>When</th><th>Enrolled</th><th>Trials</th><th>Waitlist</th><th></th></tr></thead>
-      <tbody>
-        {rows.map(({ program, session, c, cap }) => (
-          <tr>
-            <td><strong>{program.title}</strong><br /><span class="muted">{session.label ?? session.term}</span></td>
-            <td class="script">{dayList(session.days)} {timeRange(session.start, session.end)}</td>
-            <td>{c.active}{cap ? ` / ${cap}` : ''}</td>
-            <td>{c.trial}</td>
-            <td>{c.waitlist}</td>
-            <td><a href={`/admin/${session.id}`}>Roster</a></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </section>
+<AdminShell title="Today" section="today">
+  <div class="admin-page today">
+    {
+      day && (
+        <>
+          <div class="admin-head">
+            <div>
+              <h1>Today</h1>
+              <p class="admin-intro" data-today-date>{longDay(day.date)}{on && ' (test date)'}</p>
+            </div>
+          </div>
+
+          <section class="today__section" aria-labelledby="today-classes">
+            <h2 id="today-classes">Classes today</h2>
+            {day.classes.length ? (
+              <ul class="today-classes" data-today-classes>
+                {day.classes.map((c) => (
+                  <li>
+                    <a class="today-class" href={c.href}>
+                      <span class="today-class__time">{c.time || 'All day'}</span>
+                      <span class="today-class__what">
+                        <strong>{c.title}</strong>
+                        {c.label && <span class="muted"> · {c.label}</span>}
+                        <span class="today-class__meta">{[c.location, c.teacher].filter(Boolean).join(' · ') || (c.kind === 'event' ? 'Event' : '')}</span>
+                      </span>
+                      {c.places ? (
+                        <span class="today-class__places" data-places>{c.places}</span>
+                      ) : (
+                        <span class="badge badge--neutral">Event</span>
+                      )}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div class="empty-state" data-no-classes>
+                <strong>No classes today</strong>
+                <p>{day.next ? `Next classes: ${shortDay(day.next.date)} (${day.next.classes.map((c) => c.title).join(', ')}).` : 'Nothing is on the calendar yet.'}</p>
+              </div>
+            )}
+          </section>
+
+          <section class="today__section" aria-labelledby="today-attention">
+            <div class="today__head">
+              <h2 id="today-attention">Needs attention</h2>
+              {items.length > 0 && <a href={attention()} data-see-all>See all ({items.length})</a>}
+            </div>
+            {shown.length ? (
+              <>
+                <AttentionList items={shown} />
+                {hidden > 0 && <p class="today__more"><a href={attention()}>{hidden} more on the full list</a></p>}
+              </>
+            ) : (
+              <div class="empty-state">
+                <strong>All clear</strong>
+                <p>No failed payments, waitlist openings or missing details right now.</p>
+              </div>
+            )}
+          </section>
+
+          <section class="today__section" aria-labelledby="today-links">
+            <h2 id="today-links">Quick links</h2>
+            <ul class="tiles">
+              <li><a class="tile" href={classes()}><strong>Classes</strong><span>Rosters, trials and waitlists</span></a></li>
+              <li><a class="tile" href={search()}><strong>Families</strong><span>Every family, A to Z</span></a></li>
+              <li><a class="tile" href={payments()}><strong>Payments</strong><span>Monthly autopay and failed charges</span></a></li>
+              <li class="today__install"><a class="tile" href={install()}><strong>Put the app on your phone</strong><span>Today, rosters and alerts from your home screen</span></a></li>
+            </ul>
+          </section>
+        </>
+      )
+    }
+  </div>
 </AdminShell>
 
 <style>
-  .admin { padding-block: var(--space-2xl) var(--space-3xl); display: grid; gap: var(--space-m); }
-  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
-  .muted { color: var(--ink-mute); font-size: var(--step--1); }
-  .head { display: flex; flex-wrap: wrap; gap: var(--space-m); justify-content: space-between; align-items: end; }
+  .today { display: grid; gap: var(--space-xl); }
+  .today .admin-head { margin-bottom: 0; }
+  .today__section { display: grid; gap: var(--space-s); }
+  .today__section h2 { font-size: var(--step-1); margin: 0; }
+  .today__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-m); }
+  .today__head a, .today__more a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
+  .today__more { margin: 0; }
+  .today-classes { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  .today-class {
+    display: grid;
+    grid-template-columns: 8.5rem minmax(0, 1fr) auto;
+    gap: 0.25rem 1rem;
+    align-items: center;
+    min-height: 44px;
+    padding: 0.75rem 1rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    background: var(--paper);
+    color: var(--ink);
+    text-decoration: none;
+  }
+  a.today-class:hover { border-color: var(--ink); text-decoration: none; }
+  .today-class__time { font-weight: 700; white-space: nowrap; }
+  .today-class__what { min-width: 0; overflow-wrap: anywhere; }
+  .today-class__meta { display: block; font-size: var(--step--1); color: var(--ink-mute); }
+  .today-class__places { font-weight: 700; white-space: nowrap; }
+  @media (max-width: 520px) {
+    .today-class { grid-template-columns: minmax(0, 1fr) auto; }
+    .today-class__time { grid-column: 1 / -1; }
+  }
+  @media (display-mode: standalone) {
+    .today__install { display: none; }
+  }
 </style>

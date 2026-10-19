@@ -1,0 +1,51 @@
+---
+/** Edit the family's details: emergency contacts, who may pick up, ZIP code. */
+import Base from '@/layouts/Base.astro';
+import FamilyDetailsFields from '@/components/portal/FamilyDetailsFields.astro';
+import { getFamilyDetails, householdForUser, updateFamilyDetails } from '@/server/family';
+import { readFamilyForm } from '@/lib/family-details';
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/account');
+const household = await householdForUser(user.id);
+if (!household) return Astro.redirect('/account');
+const family = await getFamilyDetails(household.id);
+const askHeard = !family?.heardAbout;
+
+let errors: Record<string, string> = {};
+let values: Record<string, string> | null = null;
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const { data, errors: found } = readFamilyForm(form, { askHeard });
+  if (data) {
+    await updateFamilyDetails(household.id, data, user.id);
+    return Astro.redirect('/account?saved=family#family', 303);
+  }
+  errors = found;
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+}
+---
+
+<Base title="Family details" noindex>
+  <section class="edit">
+    <div class="wrap wrap--narrow">
+      <a href="/account#family">← Your family account</a>
+      <form method="post" class="card">
+        <h1>Family details</h1>
+        <p class="lede">For the whole family. Little Characters staff see these, and from spring, the teachers of your children’s classes.</p>
+        <FamilyDetailsFields details={family} values={values} errors={errors} askHeard={askHeard} />
+        <button class="btn btn--primary" type="submit">Save</button>
+      </form>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .edit { padding-block: var(--space-2xl) var(--space-3xl); background: var(--hall); }
+  .card { display: grid; gap: var(--space-l); margin-top: var(--space-m); padding: var(--space-xl); background: var(--paper); border-radius: var(--r-lg); }
+  .card .btn { justify-self: start; }
+  .lede { margin: 0; }
+  @media (max-width: 640px) { .card { padding: var(--space-l); } }
+</style>

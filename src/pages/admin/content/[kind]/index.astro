@@ -1,10 +1,15 @@
 ---
 import AdminShell from '@/components/admin/AdminShell.astro';
+import { requireStaff } from '@/server/staff';
 import { collections, isCollectionKey } from '@/content/collections';
 import { deletedEntries, listEntries, reorder, statusOf, workingCopy } from '@/server/content';
 import { BASE, when } from '@/lib/editor';
 
 export const prerender = false;
+
+// Owners only: signed-in families and teachers get the "Staff only" panel (404).
+const { response: notStaff } = requireStaff(Astro.locals);
+if (notStaff) return notStaff;
 
 const kind = Astro.params.kind ?? '';
 if (kind === 'pages') return Astro.redirect(BASE);

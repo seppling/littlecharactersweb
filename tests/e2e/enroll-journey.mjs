@@ -97,6 +97,13 @@ await page.click('#students button[type="submit"]');
 await page.waitForURL(/\/enroll\/details/);
 await page.fill('input[name^="allergies-"]', 'Peanuts');
 await page.check('input[name^="photo-"][value="yes"]');
+// The family's part (October 2026): a first-time family adds an emergency contact and their ZIP code.
+// Who may pick up and "How did you hear about us?" are optional; this family answers the question.
+await page.fill('#ec-0-name', 'Rosa Rivera');
+await page.fill('#ec-0-relationship', 'Grandma');
+await page.fill('#ec-0-phone', '706-555-0123');
+await page.fill('#zip', '30601');
+await page.selectOption('#heard', 'friend');
 await page.check('input[name="policies"]');
 await shot('3-details');
 await page.click('button:has-text("Review & pay")');
@@ -216,18 +223,19 @@ await page.fill('#p-phone', '281-798-2623');
 await page.click('button[type="submit"]');
 await page.goto(`${BASE}/admin/intro-f26-tue`);
 await page.waitForSelector('text=Maya Rivera');
-await page.waitForSelector('text=Peanuts');
+await page.click('[data-child]:has-text("Maya Rivera") summary');
+await page.waitForSelector('[data-care] >> text=Peanuts');
 await shot('7-roster');
 step('Hannah sees Maya on the roster, with allergies decrypted for staff');
 
 await page.goto(`${BASE}/admin/billing`);
-await page.waitForSelector('h1:has-text("Monthly autopay")');
-await page.waitForSelector('text=/Next: .*1 charge, \\$95/');
+await page.waitForSelector('h1:has-text("Payments")');
+await page.waitForSelector('[data-upcoming-day] h3 >> text=/1 charge · \\$95/');
 await shot('7b-billing');
 step('Hannah’s billing page shows the next autopay date and total');
 
 // 10b. Hannah gives the family a discount: she checks the new amount, then saves
-await page.click(`[data-families] a[href="/admin/billing/${orderId}"]`);
+await page.click(`[data-families] a[href="/admin/payments/${orderId}"]`);
 await page.waitForSelector('[data-add-adjustment]');
 await page.fill('#adj-value', '40');
 await page.fill('#adj-reason', 'Scholarship');

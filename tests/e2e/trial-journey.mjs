@@ -172,6 +172,12 @@ await box('Ben').check();
 await page.click('#students button[type="submit"]');
 await page.waitForURL(/\/enroll\/details/);
 for (const radio of await page.locator('input[name^="photo-"][value="yes"]').all()) await radio.check();
+// The family's part (October 2026): asked once, here on the Lees' first sign-up; the later sign-ups below
+// show it as a one-line summary, like each child's details.
+await page.fill('#ec-0-name', 'Jordan Lee');
+await page.fill('#ec-0-relationship', 'Aunt');
+await page.fill('#ec-0-phone', '706-555-0142');
+await page.fill('#zip', '30606');
 await page.check('input[name="policies"]');
 await page.click('button:has-text("Review & pay")');
 await page.waitForURL(/\/enroll\/review/);
@@ -216,7 +222,7 @@ if (await hannah.locator('#p-name').count()) {
   await hannah.click('button[type="submit"]');
 }
 await hannah.goto(`${BASE}/admin/intro-f26-tue`);
-for (const k of ['Ava', 'Ben']) await hannah.locator('tr', { hasText: `${k} Lee` }).filter({ hasText: email }).locator('td', { hasText: /^trial$/ }).waitFor();
+for (const k of ['Ava', 'Ben']) await hannah.locator('[data-child]', { hasText: `${k} Lee` }).filter({ has: hannah.locator(`a[href="mailto:${email}"]`) }).locator('[data-badge="trial"]').waitFor();
 step('Hannah’s roster lists Ava and Ben as “trial”');
 
 // ───────────── 3. No second free class ─────────────

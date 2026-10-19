@@ -8,7 +8,7 @@
  * staff previewing unpublished edits, who get a private copy.
  */
 import { defineMiddleware } from 'astro:middleware';
-import { getAuth, isAdmin } from '@/server/auth';
+import { readSession } from '@/server/staff';
 import { assertProductionConfig } from '@/server/env';
 import { getContent } from '@/server/content';
 import { PREVIEW_COOKIE } from '@/lib/editor';
@@ -68,13 +68,17 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   ctx.locals.user = null;
   ctx.locals.session = null;
   ctx.locals.isAdmin = false;
+  ctx.locals.staffRole = null;
+  ctx.locals.staffId = null;
 
   if (portal || wantsPreview) {
-    const auth = await getAuth();
-    const result = await auth.api.getSession({ headers: ctx.request.headers });
+    // Staff sessions end after 30 days without use, or 1 hour on a shared device (src/server/staff.ts).
+    const result = await readSession(ctx.request.headers);
     ctx.locals.user = result?.user ?? null;
     ctx.locals.session = result?.session ?? null;
-    ctx.locals.isAdmin = isAdmin(result?.user);
+    ctx.locals.staffRole = result?.role ?? null;
+    ctx.locals.staffId = result?.staffId ?? null;
+    ctx.locals.isAdmin = result?.role === 'owner';
 
     if (result?.user && !ctx.cookies.has(HINT_COOKIE)) {
       ctx.cookies.set(HINT_COOKIE, '1', { path: '/', sameSite: 'lax', maxAge: 90 * 86_400, secure: ctx.url.protocol === 'https:' });

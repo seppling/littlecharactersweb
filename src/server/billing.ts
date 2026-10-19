@@ -24,7 +24,7 @@
  * (payments.ts), a stand-in in development, fakes in tests.
  */
 import { and, asc, eq, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm';
-import { getDb, schema } from './db';
+import { getDb, schema, type DB } from './db';
 import { emailHtml, sendEmail } from './email';
 import { config } from './env';
 import { audit, householdGuardians } from './records';
@@ -35,6 +35,7 @@ import { refreshAllFamilyDiscounts, refreshFamilyDiscount, logFamilyDiscount } f
 import { getCatalog } from './content';
 
 const { installment, household } = schema;
+type Tx = Parameters<Parameters<DB['transaction']>[0]>[0];
 
 export const BILLING = {
   maxAttempts: 3,
@@ -263,8 +264,17 @@ export async function markInstallmentFailed(installmentId: string, code: string,
     .returning();
   if (!i) return null;
   await audit(null, 'installment.failed', 'installment', i.id);
-  await notify(i, 'failed', today).catch((e) => console.error('Payment-failed email failed', e));
+  await sendPayLinkEmail(i, today).catch((e) => console.error('Payment-failed email failed', e));
   return i;
+}
+
+/**
+ * The "pay now" email to every parent in the family: sent when a charge fails,
+ * and again when staff press "Send a pay link" (src/server/payments-admin.ts).
+ * Returns how many parents it went to.
+ */
+export async function sendPayLinkEmail(i: Installment, today = todayInAthens()) {
+  return notify(i, 'failed', today);
 }
 
 async function notify(i: Installment, kind: 'paid' | 'failed' | 'late_fee', today = todayInAthens()) {
@@ -296,6 +306,7 @@ async function notify(i: Installment, kind: 'paid' | 'failed' | 'late_fee', toda
   for (const g of guardians) {
     await sendEmail({ to: g.email, subject: `${heading} · Little Characters`, text: `${heading}\n\n${lines.join('\n\n')}`, html: emailHtml(heading, lines) });
   }
+  return guardians.length;
 }
 
 // ───────────── For families (always scoped to their household) ─────────────
@@ -369,17 +380,26 @@ export async function stopRemainingPayments(orderId: string, staffUserId: string
   const db = await getDb();
   const catalog = await getCatalog();
   const result = await db.transaction(async (tx) => {
-    const stopped = await tx
-      .update(installment)
-      .set({ status: 'cancelled', retryOn: null })
-      .where(and(eq(installment.orderId, orderId), inArray(installment.status, ['scheduled', 'failed'])))
-      .returning({ id: installment.id, householdId: installment.householdId });
+    const stopped = await cancelRemainingInstallments(tx, orderId);
     const householdId = stopped[0]?.householdId;
     return { stopped: stopped.length, householdId, family: householdId ? await refreshFamilyDiscount(tx, householdId, { catalog }) : null };
   });
   await audit(staffUserId, 'installment.stop', 'order', orderId);
   if (result.householdId && result.family) await logFamilyDiscount(staffUserId, result.householdId, result.family);
   return { stopped: result.stopped, familyDiscount: result.family?.changes ?? [] };
+}
+
+/**
+ * Cancel an order's charges that haven't happened yet (scheduled and failed).
+ * Stop payments and removing a child from a class (roster-changes.ts) both use
+ * it, inside their own transaction, and then refresh the family discount.
+ */
+export async function cancelRemainingInstallments(tx: Tx, orderId: string) {
+  return tx
+    .update(installment)
+    .set({ status: 'cancelled', retryOn: null })
+    .where(and(eq(installment.orderId, orderId), inArray(installment.status, ['scheduled', 'failed'])))
+    .returning({ id: installment.id, householdId: installment.householdId });
 }
 
 /** Staff decided not to charge the late fee this time. */

@@ -16,11 +16,15 @@ import {
   fitsAges,
   listEnrollments,
   listStudents,
+  offeredStudents,
   outsideAgesNote,
   PickError,
+  placesFree,
+  placeTakenNote,
   studentInput,
   takenSpots,
 } from '@/server/family';
+import { familyOffer, offerDeadline } from '@/server/roster-changes';
 import { ageLabel } from '@/lib/format';
 import { bookingClock, bookingProblem } from '@/lib/session-dates';
 
@@ -95,15 +99,29 @@ const students = household ? await listStudents(household.id) : [];
 const statusHere = new Map(
   household ? (await listEnrollments(household.id)).filter((r) => r.enrollment.sessionId === session.id).map((r) => [r.student.id, r.enrollment.status]) : [],
 );
+// A place staff offered from the waitlist (roster-changes.ts): that child can be picked while the offer is open and a place is free.
+const offered = household ? await offeredStudents(household.id, session.id) : new Map<string, { offerId: string; expiresAt: Date | null }>();
+const free = await placesFree(program, session);
+const placeLeft = free === undefined || free > 0;
+const offerParam = Astro.url.searchParams.get('offer');
+const linked = household && offerParam ? await familyOffer(offerParam, household.id, session.id) : null;
+const offerNote = !linked || linked.enrollmentStatus !== 'waitlist'
+  ? null
+  : linked.status === 'offered' && placeLeft
+    ? { ok: true, text: `A place is held for ${linked.firstName} until ${linked.expiresAt ? offerDeadline(linked.expiresAt) : 'we hear from you'}. It goes to the first family to sign up, so don’t wait too long.` }
+    : linked.status === 'offered'
+      ? { ok: false, text: placeTakenNote(program, linked.firstName) }
+      : { ok: false, text: `This offer has ended${linked.status === 'expired' && linked.expiresAt ? ` (it was open until ${offerDeadline(linked.expiresAt)})` : ''}. ${linked.firstName} is still on the waitlist, and we’ll email you if another place opens.` };
 const added = Astro.url.searchParams.get('added');
 const ages = ageLabel(program.ages, program.agesLabel);
 // Who can be picked: not already in this class, and within its ages (fitsAges allows a year either side).
 const picks = students.map((s) => {
   const age = ageOn(s.birthdate);
   const status = statusHere.get(s.id);
-  const already = status === 'active' || status === 'waitlist';
+  const offer = status === 'waitlist' && placeLeft ? offered.get(s.id) : undefined;
+  const already = status === 'active' || (status === 'waitlist' && !offer);
   const fits = fitsAges(program, age);
-  return { s, age, status, already, fits, open: !already && fits };
+  return { s, age, status, offer, already, fits, open: !already && fits };
 });
 const openPicks = picks.filter((p) => p.open);
 const noneFit = picks.length > 0 && picks.every((p) => !p.fits);
@@ -151,7 +169,8 @@ const comingSoon = session.status === 'coming-soon';
           <form method="post" class="form" id="students">
             <input type="hidden" name="action" value="continue" />
             <h1>Who’s coming to {program.title}?</h1>
-            {full && <p class="notice">This class is full. Choose your students to join the waitlist, and we’ll email you if a spot opens.</p>}
+            {offerNote && <p class:list={['notice', { 'notice--ok': offerNote.ok }]} data-offer-note={offerNote.ok ? 'open' : 'ended'}>{offerNote.text}</p>}
+            {full && !picks.some((p) => p.offer) && <p class="notice">This class is full. Choose your students to join the waitlist, and we’ll email you if a spot opens.</p>}
             {noneFit && (
               <p class="notice" data-none-fit>
                 {program.title} is for {ages.toLowerCase()}, and {picks.length === 1 ? `${students[0].firstName} is outside that range` : 'none of your saved students are in that range'}. You can add another student below, or <a href={askUs}>ask us</a> if you think it’s still a good fit.
@@ -160,21 +179,23 @@ const comingSoon = session.status === 'coming-soon';
             {picks.length > 0 ? (
               <fieldset class="picks">
                 <legend class="sr-only">Students</legend>
-                {picks.map(({ s, age, status, already, fits, open }) => (
+                {picks.map(({ s, age, status, offer, already, fits, open }) => (
                   <label class:list={['pick', { 'pick--off': !open }]} data-pick={open ? 'open' : already ? 'enrolled' : 'outside-ages'}>
                     <input
                       type="checkbox"
                       name="studentId"
                       value={s.id}
                       disabled={!open}
-                      checked={open && (s.id === added || openPicks.length === 1)}
-                      aria-describedby={!already && !fits ? `why-${s.id}` : undefined}
+                      checked={open && (s.id === added || openPicks.length === 1 || !!offer)}
+                      aria-describedby={!already && !fits && !offer ? `why-${s.id}` : undefined}
                     />
                     <span class="pick__body">
                       <strong>{s.firstName} {s.lastName}</strong>
                       <span class="pick__meta">
                         {age !== null ? `Age ${age}` : 'Age not set'}
-                        {already ? (
+                        {offer ? (
+                          <span class="badge badge--ok" data-offered>A place is offered{offer.expiresAt ? ` until ${offerDeadline(offer.expiresAt)}` : ''}</span>
+                        ) : already ? (
                           <span class="badge badge--ok">{status === 'waitlist' ? 'On the waitlist' : 'Already enrolled'}</span>
                         ) : !fits ? (
                           <span class="badge badge--off">Outside the ages</span>
@@ -184,7 +205,7 @@ const comingSoon = session.status === 'coming-soon';
                           <span class="badge badge--ok">Fits {ages.toLowerCase()}</span>
                         )}
                       </span>
-                      {!already && !fits && (
+                      {!already && !fits && !offer && (
                         <span class="pick__why" id={`why-${s.id}`}>
                           {outsideAgesNote(program, s.firstName, age!)} <a href={askUs}>Ask us</a> if you think it’s still a fit.
                         </span>
@@ -238,6 +259,7 @@ const comingSoon = session.status === 'coming-soon';
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-m); }
   .error { color: var(--red-ink); font-size: var(--step--1); font-weight: 600; }
   .notice { padding: 0.8rem 1rem; background: var(--yellow-tint); border-radius: var(--r-md); }
+  .notice--ok { background: var(--ok-tint); }
   .picks { border: 0; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
   .pick { position: relative; display: block; cursor: pointer; }
   .pick input { position: absolute; left: 1rem; top: 1.15rem; width: 1.25rem; height: 1.25rem; accent-color: var(--purple); }

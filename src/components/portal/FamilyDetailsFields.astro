@@ -1,0 +1,176 @@
+---
+/**
+ * The family's part of the details form: emergency contacts, who else may pick
+ * up, ZIP code and (once) how they heard about us. Used by the details step
+ * (/enroll/details) and the account (/account/family). Read back with
+ * readFamilyForm (src/lib/family-details.ts).
+ *
+ * Rows for the people already on file, plus one empty row; the rest (up to 4)
+ * open with "Add another". Without scripts, saving brings a new empty row.
+ */
+import { MAX_CONTACTS, formatPhone } from '@/lib/contacts';
+import { EMERGENCY_CONTACT_REQUIRED, HEARD_ABOUT, HEARD_ABOUT_OTHER, rowField, type FamilyDetails } from '@/lib/family-details';
+
+interface Props {
+  details: FamilyDetails | null;
+  /** What was posted, when the form comes back with errors. */
+  values?: Record<string, string> | null;
+  errors?: Record<string, string>;
+  askHeard: boolean;
+}
+const { details, values, errors = {}, askHeard } = Astro.props;
+
+type Row = { name: string; relationship: string; phone: string };
+function rows(list: 'ec' | 'pu', saved: { name: string; relationship: string; phone?: string }[]): Row[] {
+  return Array.from({ length: MAX_CONTACTS }, (_, i) =>
+    values
+      ? { name: values[rowField(list, i, 'name')] ?? '', relationship: values[rowField(list, i, 'relationship')] ?? '', phone: values[rowField(list, i, 'phone')] ?? '' }
+      : { name: saved[i]?.name ?? '', relationship: saved[i]?.relationship ?? '', phone: formatPhone(saved[i]?.phone) },
+  );
+}
+const filled = (r: Row) => !!(r.name || r.relationship || r.phone);
+/** How many rows show: the filled ones and one empty one (at least one). */
+const shown = (list: Row[]) => Math.min(MAX_CONTACTS, Math.max(1, list.reduce((n, r, i) => (filled(r) ? i + 1 : n), 0) + 1));
+
+const ec = rows('ec', details?.emergencyContacts ?? []);
+const pu = rows('pu', details?.pickupPeople ?? []);
+const lists = [
+  {
+    key: 'ec' as const,
+    title: 'Emergency contact',
+    opt: !EMERGENCY_CONTACT_REQUIRED,
+    hint: 'Someone besides you we can call if we can’t reach you.',
+    phoneOpt: false,
+    rows: ec,
+    shown: shown(ec),
+  },
+  {
+    key: 'pu' as const,
+    title: 'Who else may pick up?',
+    opt: true,
+    hint: 'Parents always may. Add anyone else who may collect your children.',
+    phoneOpt: true,
+    rows: pu,
+    shown: shown(pu),
+  },
+];
+const heard = values?.heard ?? '';
+---
+
+<div class="family" data-family-fields>
+  {
+    lists.map((l) => (
+      <fieldset class="people" data-people={l.key}>
+        <legend>
+          {l.title} {l.opt && <span class="opt">optional</span>}
+        </legend>
+        <p class="hint">{l.hint}</p>
+        {errors[l.key] && <p class="error">{errors[l.key]}</p>}
+        {l.rows.map((r, i) => (
+          <div class="person" data-person hidden={i >= l.shown}>
+            <div class="field">
+              <label for={rowField(l.key, i, 'name')}>Name</label>
+              <input id={rowField(l.key, i, 'name')} name={rowField(l.key, i, 'name')} value={r.name} required={l.key === 'ec' && EMERGENCY_CONTACT_REQUIRED && i === 0} autocomplete="off" maxlength="80" />
+              {errors[rowField(l.key, i, 'name')] && <p class="error">{errors[rowField(l.key, i, 'name')]}</p>}
+            </div>
+            <div class="field">
+              <label for={rowField(l.key, i, 'relationship')}>Relationship</label>
+              <input id={rowField(l.key, i, 'relationship')} name={rowField(l.key, i, 'relationship')} value={r.relationship} required={l.key === 'ec' && EMERGENCY_CONTACT_REQUIRED && i === 0} placeholder="e.g. Grandma" autocomplete="off" maxlength="40" />
+              {errors[rowField(l.key, i, 'relationship')] && <p class="error">{errors[rowField(l.key, i, 'relationship')]}</p>}
+            </div>
+            <div class="field">
+              <label for={rowField(l.key, i, 'phone')}>
+                Phone {l.phoneOpt && <span class="opt">optional</span>}
+              </label>
+              <input id={rowField(l.key, i, 'phone')} name={rowField(l.key, i, 'phone')} value={r.phone} required={l.key === 'ec' && EMERGENCY_CONTACT_REQUIRED && i === 0} type="tel" autocomplete="off" />
+              {errors[rowField(l.key, i, 'phone')] && <p class="error">{errors[rowField(l.key, i, 'phone')]}</p>}
+            </div>
+          </div>
+        ))}
+        {l.shown < MAX_CONTACTS && (
+          <button type="button" class="more" data-add-person hidden>
+            + Add another
+          </button>
+        )}
+      </fieldset>
+    ))
+  }
+
+  <div class="field zip">
+    <label for="zip">ZIP code</label>
+    <input id="zip" name="zip" value={values?.zip ?? details?.zip ?? ''} inputmode="numeric" autocomplete="postal-code" maxlength="10" required />
+    {errors.zip && <p class="error">{errors.zip}</p>}
+  </div>
+
+  {
+    askHeard && (
+      <div class="heard">
+        <div class="field">
+          <label for="heard">
+            How did you hear about us? <span class="opt">optional</span>
+          </label>
+          <select id="heard" name="heard" data-heard>
+            <option value="" selected={!heard}>Choose one</option>
+            {HEARD_ABOUT.map((o) => (
+              <option value={o.key} selected={heard === o.key}>
+                {o.label}
+              </option>
+            ))}
+            <option value={HEARD_ABOUT_OTHER} selected={heard === HEARD_ABOUT_OTHER}>
+              Something else
+            </option>
+          </select>
+        </div>
+        <div class="field" data-heard-other>
+          <label for="heard-other">
+            Something else <span class="opt">optional</span>
+          </label>
+          <input id="heard-other" name="heard-other" value={values?.['heard-other'] ?? ''} maxlength="100" placeholder="Tell us where" />
+        </div>
+      </div>
+    )
+  }
+</div>
+
+<script>
+  // "Add another" shows the next hidden row; "Something else" shows its text box.
+  for (const set of document.querySelectorAll<HTMLElement>('[data-people]')) {
+    const button = set.querySelector<HTMLButtonElement>('[data-add-person]');
+    if (!button) continue;
+    button.hidden = false;
+    button.addEventListener('click', () => {
+      const next = set.querySelector<HTMLElement>('[data-person][hidden]');
+      if (!next) return;
+      next.hidden = false;
+      next.querySelector('input')?.focus();
+      if (!set.querySelector('[data-person][hidden]')) button.hidden = true;
+    });
+  }
+  const heard = document.querySelector<HTMLSelectElement>('[data-heard]');
+  const other = document.querySelector<HTMLElement>('[data-heard-other]');
+  if (heard && other) {
+    const sync = () => (other.hidden = heard.value !== 'other');
+    heard.addEventListener('change', sync);
+    sync();
+  }
+</script>
+
+<style>
+  .family { display: grid; gap: var(--space-l); }
+  .people { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-s); min-width: 0; }
+  .people legend { font-weight: 700; padding: 0; margin-bottom: 0.15rem; }
+  .people .hint { margin: 0; }
+  .person { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: var(--space-s); }
+  .person[hidden] { display: none; }
+  .person + .person { padding-top: var(--space-s); border-top: 1px dashed var(--line); }
+  .opt { font-weight: 400; color: var(--ink-mute); }
+  .hint { font-size: var(--step--1); color: var(--ink-soft); }
+  .error { color: var(--red-ink); font-size: var(--step--1); font-weight: 600; margin: 0; }
+  .more { justify-self: start; min-height: 44px; padding: 0 0.25rem; font: inherit; font-weight: 700; color: var(--purple); background: none; border: 0; cursor: pointer; }
+  .more[hidden], [data-heard-other][hidden] { display: none; }
+  .zip { max-width: 12rem; }
+  .heard { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-s); }
+  @media (max-width: 640px) {
+    .person, .heard { grid-template-columns: 1fr; }
+  }
+</style>

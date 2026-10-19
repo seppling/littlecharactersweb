@@ -1,0 +1,330 @@
+---
+/**
+ * The staff email composer: write (who gets it, subject, message, "Send me
+ * a test"), review ("Sending to 12 families"), and the sent confirmation with
+ * "Try again for the failed ones". Below it, earlier emails from this page.
+ * Used by "Email the class" and "Email this family"; the steps run in
+ * src/server/message-composer.ts.
+ */
+import { formatPhone } from '@/lib/contacts';
+import { familiesText, type ComposerState } from '@/server/message-composer';
+import { BODY_MAX, SUBJECT_MAX, emailList, paragraphs, phoneList, type AudienceFamily, type messageResult, type earlierMessages } from '@/server/messages';
+
+interface Props {
+  kind: 'class' | 'family';
+  heading: string;
+  /** The class's when and where, or the family's parents. */
+  line?: string;
+  here: string;
+  /** Where "Done" goes: the class or the family page. */
+  doneHref: string;
+  doneLabel: string;
+  audience: AudienceFamily[];
+  footer: string;
+  state: ComposerState | null;
+  sent: NonNullable<Awaited<ReturnType<typeof messageResult>>> | null;
+  sentNotice?: string;
+  earlier: Awaited<ReturnType<typeof earlierMessages>>;
+}
+const { kind, heading, line, here, doneHref, doneLabel, audience, footer, state, sent, sentNotice, earlier } = Astro.props;
+
+const when = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
+const enrolled = audience.filter((f) => !f.waitlist);
+const waitlisted = audience.filter((f) => f.waitlist);
+const ticked = (f: AudienceFamily) => (state?.selected ? state.selected.has(f.householdId) : true);
+const emailsOf = (f: AudienceFamily) => emailList([f]).join(', ');
+const phonesOf = (f: AudienceFamily) => phoneList([f]).map((p) => formatPhone(p)).join(', ');
+const reviewing = state?.step === 'review';
+const sentOk = sent ? sent.families.length - sent.failed : 0;
+---
+
+<div class="admin-page composer" data-composer data-kind={kind}>
+  <div class="admin-head">
+    <div>
+      <h1>{heading}</h1>
+      {line && <p class="admin-intro">{line}</p>}
+    </div>
+  </div>
+
+  {
+    sent && (
+      <section class="composer__step" data-step="sent" aria-labelledby="sent-h">
+        {sentNotice && <p class="notice" role="status">{sentNotice}</p>}
+        {sent.failed > 0 ? (
+          <div class="notice notice--error" role="alert" data-sent-failed>
+            <strong>Didn’t send to {familiesText(sent.failed)}.</strong> The email service turned {sent.failed === 1 ? 'it' : 'them'} away. Try again, or email them from Gmail.
+          </div>
+        ) : (
+          <p class="notice" role="status" data-sent-ok>Sent to {familiesText(sentOk)}.</p>
+        )}
+        <h2 id="sent-h">{sent.subject}</h2>
+        <p class="muted">Sent {when(sent.createdAt)} by {sent.sender}{kind === 'class' && <> · {familiesText(sent.families.length)}</>}</p>
+        <ul class="families families--sent" data-sent-list>
+          {sent.families.map((f) => (
+            <li class="family" data-sent-family={f.failed ? 'failed' : 'sent'}>
+              <span class="family__who">
+                <strong>{f.name}</strong>
+                <span class="muted">{f.emails.join(', ')}</span>
+              </span>
+              {f.failed ? <span class="badge badge--alert">Didn’t send</span> : <span class="badge badge--good">Sent</span>}
+            </li>
+          ))}
+        </ul>
+        <details class="composer__body-view">
+          <summary>Show the message</summary>
+          <div class="preview">{paragraphs(sent.body).map((p) => <p>{p}</p>)}<p class="preview__footer">— {footer}. Reply to this email to reach us.</p></div>
+        </details>
+        <div class="composer__buttons">
+          {sent.failed > 0 && (
+            <form method="post" data-once>
+              <input type="hidden" name="action" value="retry" />
+              <input type="hidden" name="message" value={sent.id} />
+              <button class="btn btn--primary" type="submit" data-retry data-busy="Sending…">Try again for the failed ones</button>
+            </form>
+          )}
+          <a class="btn btn--outline" href={here}>Write another</a>
+          <a class="btn btn--outline" href={doneHref}>{doneLabel}</a>
+        </div>
+      </section>
+    )
+  }
+
+  {
+    state && reviewing && (
+      <section class="composer__step" data-step="review" aria-labelledby="review-h">
+        <h2 id="review-h">Check it, then send</h2>
+        <div class="staff-card preview-card">
+          <p class="preview__label">Subject</p>
+          <p class="preview__subject" data-review-subject>{state.subject}</p>
+          <p class="preview__label">Message</p>
+          <div class="preview" data-review-body>
+            {paragraphs(state.body).map((p) => <p>{p}</p>)}
+            <p class="preview__footer">— {footer}. Reply to this email to reach us.</p>
+          </div>
+        </div>
+        <p class="sending-to" data-sending-to><strong>Sending to {familiesText(state.recipients.length)}</strong>{kind === 'class' && ', one email each, to all of their parents.'}</p>
+        <ul class="families families--plain">
+          {state.recipients.map((f) => (
+            <li class="family" data-family data-emails={emailsOf(f)} data-phones={phonesOf(f)}>
+              <span class="family__who"><strong>{f.name}</strong><span class="muted">{emailsOf(f)}</span></span>
+            </li>
+          ))}
+        </ul>
+        <form method="post" class="composer__buttons" data-once>
+          <input type="hidden" name="token" value={state.token} />
+          <input type="hidden" name="subject" value={state.subject} />
+          <input type="hidden" name="body" value={state.body} />
+          {state.includeWaitlist && <input type="hidden" name="waitlist" value="1" />}
+          {kind === 'class' && state.recipients.map((f) => <input type="hidden" name="family" value={f.householdId} />)}
+          <button class="btn btn--primary" type="submit" name="action" value="send" data-send data-busy="Sending…">Send to {familiesText(state.recipients.length)}</button>
+          <button class="btn btn--outline" type="submit" name="action" value="edit" formnovalidate>Back to edit</button>
+        </form>
+      </section>
+    )
+  }
+
+  {
+    state && !reviewing && (
+      <form method="post" class="composer__step" data-step="compose" novalidate>
+        {state.notice && <p class="notice" role="status" data-notice>{state.notice}</p>}
+        {state.error && <p class="notice notice--error" role="alert" data-error>{state.error}</p>}
+
+        <fieldset class="cf-group who" aria-describedby="who-help">
+          <legend class="cf__label">Who gets it</legend>
+          {audience.length === 0 ? (
+            <p class="muted">No families in this class yet.</p>
+          ) : kind === 'family' ? (
+            <ul class="families families--plain">
+              {audience.map((f) => (
+                <li class="family" data-family data-emails={emailsOf(f)} data-phones={phonesOf(f)}>
+                  <span class="family__who"><strong>{f.name}</strong><span class="muted">{f.parents.length ? emailsOf(f) : 'No email on file'}</span></span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <>
+              <p id="who-help" class="cf__help">One email to each family, to all of their parents. Untick a family to leave them out.</p>
+              <ul class="families" data-group="enrolled">
+                {enrolled.map((f) => (
+                  <li class="family" data-family data-emails={emailsOf(f)} data-phones={phonesOf(f)}>
+                    <label class="family__pick">
+                      <input type="checkbox" name="family" value={f.householdId} checked={ticked(f)} disabled={!f.parents.length} />
+                      <span class="family__who"><strong>{f.name}</strong><span class="muted">{f.parents.length ? emailsOf(f) : 'No email on file'}</span></span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              {waitlisted.length > 0 && (
+                <>
+                  <label class="switch">
+                    <input type="checkbox" name="waitlist" value="1" checked={state.includeWaitlist} data-waitlist-switch />
+                    <span>Also send to the waitlist ({familiesText(waitlisted.length)})</span>
+                  </label>
+                  <ul class="families" data-group="waitlist" hidden={!state.includeWaitlist}>
+                    {waitlisted.map((f) => (
+                      <li class="family" data-family data-emails={emailsOf(f)} data-phones={phonesOf(f)}>
+                        <label class="family__pick">
+                          <input type="checkbox" name="family" value={f.householdId} checked={ticked(f)} disabled={!f.parents.length} />
+                          <span class="family__who"><strong>{f.name}</strong><span class="muted">{f.parents.length ? emailsOf(f) : 'No email on file'}</span></span>
+                        </label>
+                        <span class="badge badge--warning">Waitlist</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <p class="count" data-count aria-live="polite">{familiesText(state.recipients.length)} ticked</p>
+            </>
+          )}
+          {audience.length > 0 && (
+            <div class="copy" data-copy-tools>
+              <p class="cf__help">For Gmail or a group text:</p>
+              <div class="composer__buttons">
+                <button class="btn btn--outline btn--sm" type="button" data-copy="emails">Copy emails</button>
+                <button class="btn btn--outline btn--sm" type="button" data-copy="phones">Copy phone numbers</button>
+              </div>
+              <p class="cf__help" data-copy-status role="status"></p>
+              <div class="cf" data-copy-fallback hidden>
+                <label for="copy-box">Select all and copy</label>
+                <textarea id="copy-box" rows="3" readonly></textarea>
+              </div>
+            </div>
+          )}
+        </fieldset>
+
+        <div class="cf">
+          <label for="msg-subject">Subject</label>
+          <input id="msg-subject" name="subject" value={state.subject} maxlength={SUBJECT_MAX} required autocomplete="off" />
+        </div>
+        <div class="cf">
+          <label for="msg-body">Message</label>
+          <textarea id="msg-body" name="body" rows="12" maxlength={BODY_MAX} required>{state.body}</textarea>
+          <p class="cf__help">Leave a blank line between paragraphs. Web addresses become links. Families see “{footer}” at the end.</p>
+        </div>
+        <div class="composer__buttons">
+          <button class="btn btn--primary" type="submit" name="action" value="review" data-review>Review</button>
+          <button class="btn btn--outline" type="submit" name="action" value="test" data-test>Send me a test</button>
+        </div>
+      </form>
+    )
+  }
+
+  <section class="earlier" aria-labelledby="earlier-h" data-earlier>
+    <h2 id="earlier-h">Earlier emails</h2>
+    {
+      earlier.length === 0 ? (
+        <p class="muted">No emails sent from here yet.</p>
+      ) : (
+        <table class="data-table">
+          <thead><tr><th>Sent</th><th>Subject</th><th>From</th>{kind === 'class' && <th class="num">Families</th>}<th>Status</th></tr></thead>
+          <tbody>
+            {earlier.map((m) => (
+              <tr data-earlier-row>
+                <td data-label="Sent"><span>{when(m.sentAt)}</span></td>
+                <td data-label="Subject"><a href={`${here}?sent=${encodeURIComponent(m.id)}`}>{m.subject}</a></td>
+                <td data-label="From"><span>{m.sender}</span></td>
+                {kind === 'class' && <td data-label="Families" class="num"><span>{m.families}</span></td>}
+                <td data-label="Status">{m.failed > 0 ? <span class="badge badge--alert">{m.failed} didn’t send</span> : <span class="badge badge--good">Sent</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )
+    }
+  </section>
+</div>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-composer]');
+  if (root) {
+    const waitSwitch = root.querySelector<HTMLInputElement>('[data-waitlist-switch]');
+    const waitGroup = root.querySelector<HTMLElement>('[data-group="waitlist"]');
+    const count = root.querySelector<HTMLElement>('[data-count]');
+    const chosen = () =>
+      [...root.querySelectorAll<HTMLElement>('[data-family]')].filter((li) => {
+        if (li.closest('[hidden]')) return false;
+        const box = li.querySelector<HTMLInputElement>('input[type=checkbox]');
+        return !box || (box.checked && !box.disabled);
+      });
+    const update = () => {
+      if (waitGroup && waitSwitch) waitGroup.hidden = !waitSwitch.checked;
+      if (count) {
+        const n = chosen().length;
+        count.textContent = `${n} ${n === 1 ? 'family' : 'families'} ticked`;
+      }
+    };
+    root.addEventListener('change', update);
+    update();
+
+    // Copy for Gmail's BCC or a group text; a box to copy from when the browser won't allow it.
+    const status = root.querySelector<HTMLElement>('[data-copy-status]');
+    const fallback = root.querySelector<HTMLElement>('[data-copy-fallback]');
+    const box = fallback?.querySelector('textarea');
+    for (const btn of root.querySelectorAll<HTMLButtonElement>('[data-copy]')) {
+      btn.addEventListener('click', async () => {
+        const what = btn.dataset.copy === 'phones' ? 'phones' : 'emails';
+        const items = [...new Set(chosen().flatMap((li) => (li.dataset[what] ?? '').split(', ').filter(Boolean)))];
+        const text = items.join(', ');
+        const label = what === 'phones' ? 'phone number' : 'email';
+        if (!items.length) {
+          if (status) status.textContent = what === 'phones' ? 'No phone numbers on file for these families.' : 'No families ticked.';
+          return;
+        }
+        if (box) box.value = text;
+        try {
+          await navigator.clipboard.writeText(text);
+          if (fallback) fallback.hidden = true;
+          if (status) status.textContent = `Copied ${items.length} ${label}${items.length === 1 ? '' : 's'}.`;
+        } catch {
+          if (fallback) fallback.hidden = false;
+          box?.focus();
+          box?.select();
+          if (status) status.textContent = `Your browser didn’t allow copying. Select the ${label}s below and copy them.`;
+        }
+      });
+    }
+
+    // One click sends once: the button stays down while the page works.
+    for (const form of root.querySelectorAll<HTMLFormElement>('form[data-once]')) {
+      form.addEventListener('submit', (e) => {
+        const btn = (e as SubmitEvent).submitter as HTMLButtonElement | null;
+        if (!btn?.dataset.busy) return;
+        if (form.dataset.sending) return e.preventDefault();
+        form.dataset.sending = '1';
+        // Disable after the browser has read the button's value.
+        setTimeout(() => {
+          btn.disabled = true;
+          btn.textContent = btn.dataset.busy!;
+        });
+      });
+    }
+  }
+</script>
+
+<style>
+  .composer > * { min-width: 0; }
+  .composer__step { display: grid; gap: var(--space-m); max-width: 48rem; min-width: 0; }
+  .composer__step h2, .earlier h2 { font-size: var(--step-1); overflow-wrap: anywhere; }
+  .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .composer__buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .who { gap: var(--space-s); min-width: 0; }
+  .who legend { padding: 0 0.3rem; }
+  .families { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+  .family { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.75rem; border: 1.5px solid var(--line); border-radius: var(--r-sm); background: var(--paper); min-width: 0; }
+  .families--sent .family, .families--plain .family { min-height: 44px; }
+  .family__pick { display: flex; align-items: center; gap: 0.75rem; min-height: 44px; cursor: pointer; flex: 1; min-width: 0; }
+  .family__pick input, .switch input { width: 1.3rem; height: 1.3rem; flex: none; accent-color: var(--purple); }
+  .family__who { display: grid; gap: 0.1rem; min-width: 0; overflow-wrap: anywhere; }
+  .switch { display: flex; align-items: center; gap: 0.75rem; min-height: 44px; font-weight: 700; font-size: var(--step--1); cursor: pointer; }
+  .count { margin: 0; font-size: var(--step--1); color: var(--ink-soft); }
+  .copy { display: grid; gap: 0.4rem; border-top: 1px solid var(--line); padding-top: var(--space-s); }
+  .preview-card { display: grid; gap: 0.3rem; }
+  .preview__label { margin: 0; font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+  .preview__subject { margin: 0 0 0.5rem; font-weight: 700; overflow-wrap: anywhere; }
+  .preview { display: grid; gap: 0.6rem; }
+  .preview p { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+  .preview__footer { color: var(--ink-mute); font-size: var(--step--1); }
+  .sending-to { margin: 0; }
+  .composer__body-view summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--purple); font-weight: 700; }
+  .earlier { display: grid; gap: var(--space-s); }
+</style>

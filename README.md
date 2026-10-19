@@ -42,6 +42,15 @@ node tests/e2e/enroll-journey.mjs       # in a second terminal
 node tests/e2e/trial-journey.mjs        # then the free first class and the age rule
 node tests/e2e/content-editor.mjs       # after the journeys, on the same database
 node tests/e2e/navigation.mjs           # menus by keyboard, the class finder's order, headings (any order)
+node tests/e2e/staff-foundation.mjs     # staff shell, phone tabs, redirects, downloads, sign-in rules (after the others)
+node tests/e2e/staff-contacts.mjs       # family details: emergency contacts, pickup, ZIP; summary; account; 390 px
+node tests/e2e/staff-classes.mjs        # Classes list, a class's roster and waitlist, print, downloads (after staff-foundation)
+node tests/e2e/staff-families.mjs       # search, a family's page, notes, staff edits, family downloads
+node tests/e2e/staff-payments.mjs       # Payments: a declined charge, Send a pay link, upcoming, received, downloads, 390 px
+node tests/e2e/staff-today.mjs          # Today, Needs attention, the urgent count, sign-out, the staff-only panel
+node tests/e2e/staff-messages.mjs       # Email the class / this family, copy buttons, no double sends (SERVER_LOG=<server output> also checks reply-to)
+node tests/e2e/staff-roster.mjs         # add, remove, offer the spot on a class's page; payments stop; 390 px
+node tests/e2e/staff-settings.mjs       # Settings → Staff, a teacher's sign-in and home, shared device, turning off; 390 px (last)
 ```
 
 ## Where things live

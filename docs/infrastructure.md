@@ -232,6 +232,6 @@ To run it by hand against production: `DATABASE_URL=… STRIPE_SECRET_KEY=… np
 |---|---|---|
 | Automatically | GitHub CI runs type checks, unit tests and a build on every push. Dependabot opens a pull request when a dependency has an update or a security fix. | — |
 | Weekly | Merge green Dependabot pull requests (the host deploys them). | 5 min |
-| Monthly (the 2nd) | Check `/admin/billing` for charges that need a person, and the Stripe dashboard for disputes. Glance at the host's error log and the audit log. Download the monthly database export. | 20 min |
+| Monthly (the 2nd) | Check `/admin/payments` for charges that need a person, and the Stripe dashboard for disputes. Glance at the host's error log and the audit log. Download the monthly database export. | 20 min |
 | Each term | Hannah adds the new sessions in the editor (copy last term's, change the dates) and closes the old ones. Run one test enrollment. | 30 min |
 | Yearly | Review `ADMIN_EMAILS`. Rotate `BETTER_AUTH_SECRET` (signs everyone out once). Delete families with no activity in 3 years (see `security.md`). Renew the domain. | 1 hr |

@@ -1,0 +1,126 @@
+---
+/**
+ * How to put the staff app on a phone's home screen (docs/back-office.md →
+ * The phone app). iPhone: Safari's Share → Add to Home Screen. Android:
+ * Chrome's install prompt, or its menu.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { teachHome, today } from '@/lib/admin-links';
+import { requireTeacherOrOwner } from '@/server/staff';
+
+export const prerender = false;
+// Teachers put the app on their phones too.
+const { response } = requireTeacherOrOwner(Astro.locals);
+if (response) return response;
+const back = Astro.locals.staffRole === 'teacher' ? { href: teachHome(), label: 'Your classes' } : { href: today(), label: 'Today' };
+---
+
+<AdminShell title="Put the app on your phone" section="today" back={back} teachers>
+  <div class="admin-page install">
+    <div class="admin-head">
+      <div>
+        <h1>Put the app on your phone</h1>
+        <p class="admin-intro">Add Little Characters Staff to your home screen. It opens like an app, with Today, Classes and Search one tap away. You sign in once with the 6-digit code from your email.</p>
+      </div>
+    </div>
+
+    <p class="notice" data-installed hidden role="status">You’re using the app now. Nothing more to do.</p>
+
+    <section class="staff-card" data-platform="iphone" aria-labelledby="iphone">
+      <h2 id="iphone">iPhone</h2>
+      <ol class="steps">
+        <li>
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <rect x="30" y="8" width="60" height="104" rx="12" class="phone" />
+            <circle cx="60" cy="60" r="20" class="ring" />
+            <path d="M60 44 66 60 60 76 54 60z" class="accent" />
+          </svg>
+          <p><strong>Open this page in Safari.</strong> Other browsers on iPhone can’t add it.</p>
+        </li>
+        <li>
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <rect x="30" y="8" width="60" height="104" rx="12" class="phone" />
+            <rect x="34" y="88" width="52" height="18" rx="4" class="bar" />
+            <path d="M53 98v-6h-3l10-10 10 10h-3v6" class="line" />
+            <path d="M60 84v14" class="accent-line" />
+            <rect x="52" y="91" width="16" height="12" rx="2" class="line" />
+          </svg>
+          <p><strong>Tap Share</strong>, the square with an arrow pointing up, at the bottom of the screen (or the top on iPad).</p>
+        </li>
+        <li>
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <rect x="30" y="8" width="60" height="104" rx="12" class="phone" />
+            <rect x="36" y="56" width="48" height="16" rx="4" class="bar" />
+            <rect x="40" y="59" width="10" height="10" rx="2" class="line" />
+            <path d="M45 61v6M42 64h6" class="accent-line" />
+            <path d="M54 64h24" class="line" />
+          </svg>
+          <p><strong>Scroll down and tap Add to Home Screen</strong>, then Add. The app is called “LC Staff”.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="staff-card" data-platform="android" aria-labelledby="android">
+      <h2 id="android">Android</h2>
+      <p data-install-ready hidden>Tap the button, then Install.</p>
+      <button type="button" class="btn btn--primary" data-install hidden>Install app</button>
+      <p data-install-fallback>
+        In Chrome, tap the menu <span class="kbd" aria-label="three dots">⋮</span> at the top right, then <strong>Install app</strong> or <strong>Add to Home screen</strong>.
+      </p>
+    </section>
+
+    <p class="admin-intro">On a computer you can keep using the site in your browser. The website editor works best there.</p>
+  </div>
+</AdminShell>
+
+<script>
+  const installed = window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  if (installed) document.querySelector<HTMLElement>('[data-installed]')!.hidden = false;
+
+  // Phones show their own steps first.
+  const ua = navigator.userAgent;
+  if (/Android/i.test(ua)) document.querySelector('[data-platform="android"]')?.classList.add('is-first');
+
+  // Android (Chrome): its own install prompt, when it offers one.
+  type InstallPrompt = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
+  const button = document.querySelector<HTMLButtonElement>('[data-install]')!;
+  let deferred: InstallPrompt | null = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferred = e as InstallPrompt;
+    button.hidden = false;
+    document.querySelector<HTMLElement>('[data-install-ready]')!.hidden = false;
+  });
+  button.addEventListener('click', async () => {
+    if (!deferred) return;
+    await deferred.prompt();
+    await deferred.userChoice;
+    deferred = null;
+    button.hidden = true;
+  });
+  window.addEventListener('appinstalled', () => {
+    button.hidden = true;
+    document.querySelector<HTMLElement>('[data-installed]')!.hidden = false;
+  });
+</script>
+
+<style>
+  .install { max-width: calc(52rem + 2 * var(--gutter)); }
+  .install .staff-card { gap: var(--space-m); }
+  .is-first { order: -1; }
+  .steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-m); }
+  .steps li { counter-increment: step; display: grid; gap: 0.5rem; align-content: start; }
+  .steps li p::before { content: counter(step) '. '; font-family: var(--font-script); font-weight: 700; color: var(--purple); }
+  .steps svg { width: 100%; height: auto; max-height: 150px; background: var(--hall); border-radius: var(--r-md); padding: 0.5rem; }
+  .steps .phone { fill: var(--paper); stroke: var(--ink); stroke-width: 3; }
+  .steps .ring { fill: none; stroke: var(--teal); stroke-width: 4; }
+  .steps .accent { fill: var(--red); }
+  .steps .bar { fill: var(--hall); stroke: var(--line-strong); stroke-width: 1.5; }
+  .steps .line { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .steps .accent-line { fill: none; stroke: var(--purple); stroke-width: 3; stroke-linecap: round; }
+  .kbd { display: inline-block; min-width: 1.6em; text-align: center; border: 1.5px solid var(--line-strong); border-radius: var(--r-sm); font-weight: 700; }
+  @media (max-width: 640px) {
+    .steps { grid-template-columns: minmax(0, 1fr); }
+    .steps li { grid-template-columns: 88px minmax(0, 1fr); align-items: center; }
+  }
+</style>

@@ -13,6 +13,9 @@ import { getDb, schema } from './db';
 import { emailHtml, sendEmail } from './email';
 
 const DAY = 60 * 60 * 24;
+/** How long a session lasts, and how often it's renewed while in use (seconds). Staff have a shorter idle limit: src/server/staff.ts. */
+export const SESSION_EXPIRES_IN = 90 * DAY;
+export const SESSION_UPDATE_AGE = DAY;
 
 async function createAuth() {
   const db = await getDb();
@@ -32,8 +35,8 @@ async function createAuth() {
     },
     emailAndPassword: { enabled: false },
     session: {
-      expiresIn: 90 * DAY, // stay signed in for 90 days…
-      updateAge: DAY, // …renewed at most once a day while in use
+      expiresIn: SESSION_EXPIRES_IN, // stay signed in for 90 days…
+      updateAge: SESSION_UPDATE_AGE, // …renewed at most once a day while in use
       // No cookie cache: profile and household changes show up immediately.
       cookieCache: { enabled: false },
     },
@@ -85,6 +88,11 @@ export function resetAuthForTests() {
   authPromise = undefined;
 }
 
+/**
+ * An owner from ADMIN_EMAILS. Owners added on the site, and teachers, come from
+ * the staff table: use `Astro.locals.isAdmin` / `staffRole`, or `isOwner` in
+ * src/server/staff.ts.
+ */
 export function isAdmin(user: { email: string; emailVerified: boolean } | null | undefined) {
   return !!user && user.emailVerified && config.adminEmails.includes(user.email.toLowerCase());
 }

@@ -13,16 +13,16 @@ Enrolling feels like part of the website, not a trip to another app. Families go
 |---|---|---|
 | Discovery | `/programs`, `/programs/<slug>` | Static pages: age-first finder, times, prices, "ends in a show". Each weekly class page says what joining now costs one new student, today and after ("Joining now, per student", `joiningNow` in `src/lib/pricing.ts`, from the same quote as checkout). The header says "Hi, Sam" if this browser has signed in before. |
 | Selection | `/enroll/<sessionId>` | **Signed out:** email → 6-digit code, typed in the same tab, so there's no trip to the inbox and back. First time: name and phone, then add a child. **Signed in:** saved children as checkboxes with an age-fit badge; enrolled ones, and children outside the class's ages ("Ages 7–10. Maya is 5." with an **Ask us** link to the contact form), are greyed out and can't be picked; after a free trial, "continue". The server refuses the same children (`pickProblem` in `src/server/family.ts`) when the order is started and again when it's confirmed. A date that can't be booked (past, past its sign-up cut-off, or closed by staff; `src/lib/session-dates.ts`) gets a "Sign-ups are closed" page with a link back to the class, at this step and at every later step of an unpaid order; the server refuses it too (`checkBookable`). A payment already handed to Stripe is honoured. |
-| Details | `/enroll/details` | Per child: allergies, medical notes (encrypted), pickup people, photo consent. Details confirmed within the past year show as a one-line summary with **Edit** instead of the form (`src/lib/student-details.ts`); older or missing details get the form. Then a 3-bullet policy summary with one checkbox. |
+| Details | `/enroll/details` | Per child: allergies, medical notes (encrypted), pickup notes for that child, photo consent. Once per family (**Your family**): emergency contacts (at least one, up to 4: name, relationship, phone), who else may pick up (optional, up to 4, phone optional; parents always may), ZIP code, and "How did you hear about us?" (optional, only while the family has no answer). Details confirmed within the past year show as a one-line summary with **Edit** instead of the form (`src/lib/student-details.ts`, `src/lib/family-details.ts`: "Emergency contact: Jordan Lee (aunt) · Pickup: 2 people · ZIP 30601"); older or missing details get the form. The form says who sees them: Little Characters staff, and from spring the teachers of the child's classes. Then a 3-bullet policy summary with one checkbox. |
 | Review | `/enroll/review` | Plan choice with live totals (free first class, pre-selected for new students · monthly · pay in full · waitlist), an itemized bill with class counts, what's due later, discounts applied automatically, and "Enroll another child or class" (back to the class finder with the age the family last chose there). |
 | Payment | `/enroll/pay` | Stripe's card form embedded in the page. Apple Pay and Google Pay appear automatically. Cards are saved for monthly tuition. |
 | Confirmation | `/enroll/confirmation` | "You're in!", the first class date, time and place, **Add to calendar** (`.ics`), what to bring, and a confirmation email to every parent in the household (it says when this sign-up lowered another child's monthly payments). When the family signed up more than once today, or has other autopay, a **Your family** box adds up today's payments and the autopay total on the next 1st, read from the family's orders and payments (`familyTotals`). **Enroll another child or class** goes back to the finder. |
 | Account | `/account` | Coming up (next class per child), students and their care-details status, **upcoming autopay charges**, anything that needs paying, receipts, sign out. Signed in for 90 days, renewed on each visit. |
-| Family account | `/account` | Coming up (each class's "Can't make it?" opens the contact form for an absence, and **Add to calendar** gives that child's own file from their first class, with a reminder an hour before), the students and their care details, and Payments: the card on file, upcoming autopay by date with a total per date, receipts naming the child. |
+| Family account | `/account` | Coming up (each class's "Can't make it?" opens the contact form for an absence, and **Add to calendar** gives that child's own file from their first class, with a reminder an hour before), the students and their care details, **Family details** (emergency contacts, who may pick up, ZIP; **Edit** opens `/account/family`, and **Looks right** confirms them when they're older than a year or came from Studio Director), and Payments: the card on file, upcoming autopay by date with a total per date, receipts naming the child. |
 | Pay now | `/account/pay/<id>` | Linked from a "we couldn't charge your card" email: pay that month with any card, which also becomes the saved card. |
-| Staff | `/admin`, `/admin/<sessionId>` | For `ADMIN_EMAILS` only: counts per class, and rosters with ages, allergies, medical notes, pickup, photo consent and parent contacts. Every view is logged. |
-| Staff billing | `/admin/billing` | Failed charges that need a person, the next autopay date and total, **Paid by cash/check**, **Stop payments** when a family withdraws, and every family on monthly autopay. |
-| Family payments | `/admin/billing/<orderId>` | One family's monthly payments for one class, and **discounts** (staff adjustments) on them. See below and `staff-billing.md`. |
+| Staff | `/admin`, `/admin/classes`, `/admin/classes/<sessionId>` | For `ADMIN_EMAILS` only (see `back-office.md`): counts per class, and rosters with ages, allergies, medical notes, pickup, photo consent and parent contacts. Every view is logged. |
+| Staff payments | `/admin/payments` | Failed charges that need a person (**Send a pay link**, **Paid by cash/check**, **Waive late fee**, **Stop payments**), upcoming autopay by date with totals, every family on monthly autopay, and payments received by month, with downloads. See `staff-billing.md`. |
+| Family payments | `/admin/payments/<orderId>` | One family's monthly payments for one class, and **discounts** (staff adjustments) on them. See below and `staff-billing.md`. |
 
 The Enroll buttons on every page go through one switch: `site.portal.mode` in `src/config/site.ts`.
 - `'native'` sends families to this portal.
@@ -43,13 +43,13 @@ Implemented in `src/lib/pricing.ts` (pure functions, unit-tested in `tests/unit/
 - **Free first class** for new students in Little Characters weekly classes, monthly or priced per session (since Oct 13, 2026, Stories and Songs too; not Geode, not drop-in nights). The review page **starts on it** for new students (`defaultPlan`); monthly and the season stay one tap away, and students who already had their free class start on monthly. Nothing is due, and "Continue after the trial" on the account page leads to paid tuition in the same spot. One free class per student. A brother or sister already in the same class counts for the multi-student discount, so siblings who continue one at a time still get it, and the first one's later months drop too.
 - **Per-child pricing:** Parents' Night Out is $30 for the first child and $10 for each additional.
 - **Capacity:** default 20 per class (override per session). When full, the only option is the waitlist, with nothing due.
+- **Waitlist offers** (October 2026, `back-office.md` §14): staff offer a waitlisted child a place, and the family gets an email with `/enroll/<sessionId>?offer=<offerId>`. For 48 hours (`OFFER_HOURS`), while a place is free, that child can be picked and signed up as usual, even when the class shows as full or "waitlist only"; the review page offers the paid plans. The open offer is what allows it (checked again when the order is started and confirmed), so the family can sign in first and still use it; the link adds a note: when the place is held until, or that the offer ended and the child is still on the waitlist, or that the place was taken. The first family to pay gets the place. Paying turns the child's waitlist enrollment into the active one (no second enrollment) and marks the offer accepted.
 - **Price conflicts** on the old site resolved to the monthly price.
 
 **Not built yet** (decide first, see `todo.md`):
-- The "paused from class after the 15th" rule. Staff can see unpaid months on `/admin/billing`.
+- The "paused from class after the 15th" rule. Staff can see unpaid months on `/admin/payments`.
 - A self-serve "update my card" button. Today a family pays a failed month with a new card (which becomes the saved card), or emails us.
 - Payment-method surcharges. We recommend dropping these: Stripe's ACH is 0.8%, and card surcharges carry disclosure rules.
-- Waitlist offer emails.
 - Reminders before the first class.
 - Refunds and transfers. Use the Stripe dashboard for now.
 
@@ -69,12 +69,12 @@ Decided Sep 2026: charge monthly tuition automatically on the 1st, retry failed 
 3. Every morning a scheduler (`.github/workflows/billing.yml`, or the host's cron) calls `POST /api/billing/run`. The site charges what's due to the saved card, then emails a receipt.
 4. **A failed charge** emails the family a link to pay with any card, and is retried automatically on the 4th and the 7th.
    - Cards whose bank insists on approval by the cardholder (3-D Secure) aren't retried; only the family can finish those.
-   - After 3 tries it waits for the family and shows on `/admin/billing`.
+   - After 3 tries it waits for the family and shows on `/admin/payments`.
    - The failure email says to pay by the 10th to avoid the late fee.
 5. **Late fee** (decided Sep 2026): a month still unpaid on the **11th** gets a one-time **$15** fee, added by that morning's run.
    - The family is emailed the new total and a pay link. The next charge or payment collects tuition and fee together.
    - A family who opened "pay now" before the 11th and pays the tuition alone isn't charged the fee.
-   - Staff can **Waive late fee** on `/admin/billing`.
+   - Staff can **Waive late fee** on `/admin/payments`.
 6. **Withdrawals:** staff click **Stop payments**, check what changes (including any family discount that ends), then confirm. The remaining months are cancelled. Refunds are issued in the Stripe dashboard.
 
 **Never charges twice.**
@@ -148,7 +148,7 @@ Decided Oct 13, 2026 (Stephen): the published rule, "15% off for multiple studen
 **What people see.**
 - **Review page:** when the enrollment lowers another child's payments, it says so ("Ava’s remaining monthly payments also drop to $80.75.").
 - **Family account, pay-now page, receipts and the card charge:** "Family discount (15%): −$14.25", before any staff discount line. The account also explains when the discount ends.
-- **Staff:** the family's payments page (`/admin/billing/<orderId>`) shows the regular price, the family discount and staff discounts in separate columns. **Stop payments** on `/admin/billing` shows which other payments go back up, and by how much, before staff confirm.
+- **Staff:** the family's payments page (`/admin/payments/<orderId>`) shows the regular price, the family discount and staff discounts in separate columns. **Stop payments** on `/admin/payments` shows which other payments go back up, and by how much, before staff confirm.
 
 Tested in `tests/unit/family-discount.test.ts` and the free-class browser test (`tests/e2e/trial-journey.mjs`).
 
@@ -195,6 +195,7 @@ Imported accounts are **unverified until claimed**: nobody can use one without a
 **What an imported family sees** (`household.source = 'studio-director'`):
 - Until they have anything here (an enrollment, an order or a payment), the account shows "Welcome from Studio Director!" in place of the empty "Coming up" and "Payments" panels, and no "Find a class" button: their fall classes and payments are still in Studio Director. The note gives the last day of Studio Director billing when it's set in **Site settings → Moving from Studio Director** (empty by default).
 - Each child's "Confirm care details" opens the child's page, where **Looks right** records that the details were checked (`detailsConfirmedAt`) without changing them.
+- The family's emergency contacts and ZIP code come over too when the export has those columns (`Emergency Contact`, `Emergency Phone`, `Emergency Relationship`, a second set, `Zip`/`Postal Code`; see `FIELDS`). They're unconfirmed (`contacts_confirmed_at` empty), so **Family details** asks "Are these still right?" with **Looks right**. A household that already has its own contacts or ZIP keeps them. The import's report names rows, never people or numbers.
 - The sign-in page says: "Moving from Studio Director? Use the email address you used there, or ask us." A different email starts a new, empty family.
 
 ## Code map

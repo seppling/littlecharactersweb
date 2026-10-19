@@ -1,7 +1,320 @@
 /*
- * The staff pages' editor: lists of content, forms, the photo picker.
+ * The staff pages: the shell (top bar, phone tab bar), the shared pieces every
+ * staff screen uses (docs/back-office.md → Shared styles), and the website
+ * editor's lists, forms and photo picker.
  * Loaded by src/components/admin/AdminShell.astro only.
  */
+
+/* ───────── The shell ───────── */
+:root { --staff-phone-bar: 56px; --staff-tabs: 64px; }
+.staff-top {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--ink);
+  color: var(--paper);
+  padding-top: env(safe-area-inset-top);
+}
+.staff-top a { color: inherit; }
+/* The site's teal focus ring is too faint on the ink bar: yellow there, as on the search box. */
+.staff-top { --focus: var(--yellow); }
+.staff-top :focus-visible { outline-offset: 2px; }
+/* The count of urgent items, on Today in the top bar and on the Alerts tab. */
+.staff-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--red-ink);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.staff-top__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-m) var(--space-l);
+  max-width: calc(var(--admin-max, 1100px) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 0.6rem var(--gutter);
+}
+.staff-brand { display: inline-flex; align-items: center; gap: 0.6rem; min-height: 44px; font-family: var(--font-display); font-weight: 750; font-stretch: 92%; text-decoration: none; white-space: nowrap; }
+.staff-brand img { border-radius: 8px; }
+.staff-brand__sub { font-family: var(--font-script); font-weight: 400; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--yellow); margin-left: 0.2rem; }
+.staff-search { flex: 1; display: flex; max-width: 30rem; margin-left: auto; }
+.staff-search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border: 0;
+  border-radius: 999px 0 0 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--step--1);
+}
+.staff-search input:focus { outline: 3px solid var(--yellow); outline-offset: 0; }
+.staff-search button {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 0 999px 999px 0;
+  background: var(--yellow);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--step--1);
+  cursor: pointer;
+}
+.staff-account { display: flex; align-items: center; gap: 0.75rem; font-size: var(--step--1); }
+.staff-account__email { color: var(--on-stage-mute); max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.staff-signout {
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border: 1.5px solid color-mix(in srgb, var(--paper) 45%, transparent);
+  border-radius: 999px;
+  background: none;
+  color: var(--paper);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.staff-signout:hover { border-color: var(--paper); }
+.staff-sections { background: var(--stage-raise); }
+.staff-sections ul {
+  display: flex;
+  gap: 0.25rem;
+  list-style: none;
+  max-width: calc(var(--admin-max, 1100px) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  overflow-x: auto;
+}
+.staff-sections a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border-bottom: 3px solid transparent;
+  color: var(--on-stage-mute);
+  font-weight: 650;
+  font-size: var(--step--1);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.staff-sections a:hover { color: var(--paper); }
+.staff-sections li { display: flex; align-items: center; }
+.staff-sections .staff-count { margin-left: -0.5rem; margin-right: 0.5rem; pointer-events: none; }
+.staff-sections a[aria-current='page'] { color: var(--paper); border-bottom-color: var(--yellow); }
+
+/* Phone parts: hidden on computers. */
+.staff-phonebar, .staff-tabs, .staff-hint { display: none; }
+
+@media (max-width: 760px) {
+  .staff-top__row, .staff-sections { display: none; }
+  .staff-top--gate .staff-top__row { display: flex; }
+  .staff-phonebar {
+    display: grid;
+    grid-template-columns: minmax(44px, auto) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: var(--staff-phone-bar);
+    padding: 0 max(var(--gutter), env(safe-area-inset-right)) 0 max(var(--gutter), env(safe-area-inset-left));
+  }
+  .staff-phonebar__mark { border-radius: 7px; }
+  .staff-phonebar__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    min-height: 44px;
+    max-width: 9rem;
+    color: var(--yellow) !important;
+    font-weight: 700;
+    font-size: var(--step--1);
+    text-decoration: none;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .staff-phonebar__back span { font-size: 1.6rem; line-height: 1; }
+  .staff-phonebar__title { font-family: var(--font-display); font-weight: 750; font-stretch: 92%; font-size: 1.05rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .staff-menu > summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 0.9rem;
+    border: 1.5px solid color-mix(in srgb, var(--paper) 45%, transparent);
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: var(--step--1);
+    list-style: none;
+    cursor: pointer;
+  }
+  .staff-menu > summary::-webkit-details-marker { display: none; }
+  .staff-menu[open] > summary { background: var(--paper); color: var(--ink); }
+  .staff-menu__panel {
+    position: absolute;
+    right: max(var(--gutter), env(safe-area-inset-right));
+    top: calc(100% + 6px);
+    width: min(20rem, calc(100vw - 2 * var(--gutter)));
+    display: grid;
+    gap: var(--space-s);
+    padding: var(--space-s);
+    border-radius: var(--r-md);
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: var(--shadow-lift);
+  }
+  .staff-menu__panel ul { list-style: none; margin: 0; padding: 0; display: grid; }
+  .staff-menu__panel a {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    padding: 0 0.75rem;
+    border-radius: var(--r-sm);
+    color: var(--ink) !important;
+    font-weight: 650;
+    text-decoration: none;
+  }
+  .staff-menu__panel a[aria-current='page'] { background: var(--purple-tint); }
+  .staff-menu__who { font-size: var(--step--1); color: var(--ink-mute); padding: 0 0.75rem; overflow-wrap: anywhere; }
+
+  .staff-tabs {
+    display: block;
+    position: fixed;
+    z-index: 50;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    background: var(--paper);
+    border-top: 1.5px solid var(--line-strong);
+  }
+  .staff-tabs ul { display: grid; grid-template-columns: repeat(4, 1fr); list-style: none; margin: 0; padding: 0; }
+  .staff-tabs a {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 2px;
+    min-height: var(--staff-tabs);
+    color: var(--ink-mute);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .staff-tabs a[aria-current='page'] { color: var(--purple); }
+  .staff-tabs a[aria-current='page'] svg { stroke-width: 2.6; }
+  .staff-tabs li { position: relative; }
+  .staff-tabs .staff-count { position: absolute; top: 6px; left: calc(50% + 6px); margin: 0; pointer-events: none; }
+  .admin-shell { padding-bottom: calc(var(--staff-tabs) + env(safe-area-inset-bottom)); }
+  /* The editor's save bar sits above the tab bar. */
+  .admin-shell .actions { bottom: calc(var(--staff-tabs) + env(safe-area-inset-bottom)); }
+  .staff-hint {
+    display: block;
+    margin: var(--space-s) var(--gutter) 0;
+    padding: 0.6rem 0.9rem;
+    border-radius: var(--r-sm);
+    background: var(--yellow-tint);
+    font-size: var(--step--1);
+  }
+  .admin-page { padding-top: var(--space-m); }
+  .admin-page h1 { font-size: var(--step-2); }
+}
+
+/* ───────── Shared pieces for staff screens (docs/back-office.md) ───────── */
+
+/* Page header: title, a line under it, and actions on the right (below on phones). */
+.admin-head__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+
+/* Cards */
+.staff-card {
+  display: grid;
+  gap: var(--space-s);
+  align-content: start;
+  padding: var(--space-m) var(--space-l);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--paper);
+}
+.staff-card > h2 { font-size: var(--step-1); }
+.staff-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr)); gap: var(--space-m); }
+
+/* Data table: rows on a computer, stacked cards on a phone. Give each td a data-label, and one child element. */
+.data-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.data-table th, .data-table td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: break-word; }
+.data-table td { font-size: var(--step--1); }
+.data-table th { font-family: var(--font-script); font-size: var(--step--2); font-weight: 400; text-transform: uppercase; color: var(--ink-mute); border-bottom: 2px solid var(--ink); }
+.data-table .num { text-align: right; white-space: nowrap; }
+.data-table tbody tr:hover { background: var(--hall); }
+.data-table .muted { color: var(--ink-mute); font-size: var(--step--1); }
+@media (max-width: 760px) {
+  .data-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
+  .data-table tr { margin-bottom: var(--space-s); padding: 0.4rem 0.9rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-md); background: var(--paper); }
+  .data-table tbody tr:hover { background: var(--paper); }
+  .data-table td { display: grid; grid-template-columns: minmax(6rem, 35%) minmax(0, 1fr); gap: 0.75rem; padding: 0.45rem 0; border-bottom: 1px solid var(--line); }
+  .data-table td:last-child { border-bottom: 0; }
+  .data-table td::before { content: attr(data-label); font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); padding-top: 0.15rem; }
+  .data-table td[data-label=''], .data-table td:not([data-label]) { grid-template-columns: minmax(0, 1fr); }
+  .data-table td[data-label='']::before, .data-table td:not([data-label])::before { display: none; }
+  .data-table .num { text-align: left; }
+}
+
+/* Badges (status labels, not buttons) in four tones, defined after the base .badge rule below; .badges is a row of them. */
+.badges { display: flex; flex-wrap: wrap; gap: 0.3rem; list-style: none; margin: 0; padding: 0; }
+
+/* Filter chips: the site's .chip with aria-pressed, in a row; tones mark a count's meaning. */
+.chip-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chip--good { border-color: var(--ok); }
+.chip--warning { border-color: var(--yellow); }
+.chip--alert { border-color: var(--red); }
+
+/* Buttons: the site's .btn. On phones even small ones are 44 px tall. */
+.btn--danger { --btn-bg: var(--red-ink); --btn-border: var(--red-ink); }
+@media (max-width: 760px) {
+  .admin-shell .btn--sm { min-height: 44px; }
+}
+
+/* Empty state: nothing to show yet, and what will appear here. */
+.empty-state {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  padding: var(--space-l);
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--r-md);
+  color: var(--ink-soft);
+}
+.empty-state strong { font-family: var(--font-display); font-size: var(--step-1); color: var(--ink); }
+
+/* "Needs attention": one thing that needs a person, with its next step. */
+.attention-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.attention-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 1rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid var(--line-strong);
+  border-left: 6px solid var(--attention, var(--yellow));
+  border-radius: var(--r-sm);
+  background: var(--paper);
+}
+.attention-item--alert { --attention: var(--red); }
+.attention-item--warning { --attention: var(--yellow); }
+.attention-item--neutral { --attention: var(--line-strong); }
+.attention-item--good { --attention: var(--ok); }
+.attention-item__title { font-weight: 700; color: var(--ink); }
+.attention-item__detail { grid-column: 1; font-size: var(--step--1); color: var(--ink-mute); }
+.attention-item__action { grid-row: 1 / span 2; grid-column: 2; }
+@media (max-width: 520px) {
+  .attention-item { grid-template-columns: minmax(0, 1fr); }
+  .attention-item__action { grid-row: auto; grid-column: 1; justify-self: start; }
+}
 
 .admin-page {
   max-width: calc(var(--admin-max, 1100px) + 2 * var(--gutter));
@@ -15,7 +328,7 @@
 .admin-crumbs { display: flex; flex-wrap: wrap; gap: 0.4rem; font-size: var(--step--1); color: var(--ink-mute); }
 .admin-crumbs a { color: var(--ink-soft); }
 .admin-head { display: flex; flex-wrap: wrap; gap: var(--space-m); align-items: end; justify-content: space-between; }
-.admin-head > div { display: grid; gap: 0.35rem; }
+.admin-head > div:not(.admin-head__actions) { display: grid; gap: 0.35rem; }
 
 /* Status badges */
 .badge {
@@ -36,6 +349,11 @@
 /* A class date that's off the site because of its dates (src/lib/session-dates.ts). */
 .badge--ended { background: var(--line); color: var(--ink-soft); }
 .badge--signups-closed { background: var(--orange-tint); color: var(--orange-ink); }
+/* The four tones of staff badges (src/lib/badges.ts). After the base .badge rule, so they win. */
+.badge--neutral { background: var(--line); color: var(--ink-soft); }
+.badge--good { background: var(--ok-tint); color: #1c6b3e; }
+.badge--warning { background: var(--yellow-tint); color: var(--yellow-ink); }
+.badge--alert { background: var(--red-tint); color: var(--red-ink); }
 
 /* Flash messages */
 .notice {

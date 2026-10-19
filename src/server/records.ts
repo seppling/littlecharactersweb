@@ -5,9 +5,9 @@
 import { eq } from 'drizzle-orm';
 import { getDb, schema } from './db';
 
-export async function audit(userId: string | null, action: string, entity?: string, entityId?: string) {
+export async function audit(userId: string | null, action: string, entity?: string, entityId?: string, detail?: string) {
   const db = await getDb();
-  await db.insert(schema.auditLog).values({ userId, action, entity, entityId });
+  await db.insert(schema.auditLog).values({ userId, action, entity, entityId, detail });
 }
 
 export async function householdGuardians(householdId: string) {

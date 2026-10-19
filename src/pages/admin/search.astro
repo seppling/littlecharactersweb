@@ -1,0 +1,167 @@
+---
+/**
+ * Staff: one search box for families, children and classes (src/server/families.ts).
+ * With no words, the Families list: every family A to Z, a page at a time.
+ * Downloads (the Family, Student / Class and Contact lists) are on the list.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import { classPage, downloads, family, familyLists, search } from '@/lib/admin-links';
+import { familiesPage, familyDirectory, searchStaff, type SearchResults } from '@/server/families';
+import { requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const q = (Astro.url.searchParams.get('q') ?? '').trim();
+const pageNo = Number(Astro.url.searchParams.get('page') ?? '1');
+const results: SearchResults | null = staff && q ? await searchStaff(q, Astro.locals.content) : null;
+const list = staff && !q ? familiesPage(await familyDirectory(Astro.locals.content), pageNo) : null;
+const found = results ? results.families.length + results.children.length + results.classes.length : 0;
+const pageHref = (n: number) => (n > 1 ? `${search()}?page=${n}` : search());
+const ageText = (age: number | null) => (age === null ? '' : `Age ${age}`);
+const files = {
+  families: downloads(search()),
+  children: downloads(familyLists().children),
+  contacts: downloads(familyLists().contacts),
+};
+---
+
+<AdminShell title={q ? 'Search' : 'Families'} section="families">
+  <div class="admin-page">
+    <div class="admin-head">
+      <div>
+        <h1>{q ? 'Search' : 'Families'}</h1>
+        <p class="admin-intro">
+          {q ? (found ? `${found} ${found === 1 ? 'match' : 'matches'} for “${q}”.` : `Nothing matches “${q}”.`) : list ? `${list.total} ${list.total === 1 ? 'family' : 'families'}, A to Z.` : ''}
+        </p>
+      </div>
+    </div>
+
+    <form class="find" method="get" action={search()} role="search">
+      <label for="find-q" class="sr-only">Search families, children and classes</label>
+      <input id="find-q" name="q" type="search" value={q} placeholder="Name, email, phone or class" autocomplete="off" />
+      <button class="btn btn--primary" type="submit">Search</button>
+    </form>
+    <p class="hint">Finds families, parents (name, email or phone), children and classes. Part of a word is enough.</p>
+
+    {
+      results && (
+        <>
+          {found === 0 && (
+            <div class="empty-state">
+              <strong>No matches</strong>
+              <p>Try part of a name, an email, or a phone number. Or see <a href={search()}>all families</a>.</p>
+            </div>
+          )}
+          {results.families.length > 0 && (
+            <section class="admin-section" aria-labelledby="r-fam" data-results="families">
+              <h2 id="r-fam">Families</h2>
+              <ul class="hits">
+                {results.families.map((f) => (
+                  <li>
+                    <a class="hit" href={family(f.id)}>
+                      <strong>{f.name}</strong>
+                      {f.parents.map((p) => <span>{p.name} · {p.email}{p.phone && ` · ${p.phone}`}</span>)}
+                      {f.children.length > 0 && <span>Children: {f.children.join(', ')}</span>}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {results.children.length > 0 && (
+            <section class="admin-section" aria-labelledby="r-kid" data-results="children">
+              <h2 id="r-kid">Children</h2>
+              <ul class="hits">
+                {results.children.map((c) => (
+                  <li>
+                    <a class="hit" href={family(c.householdId)}>
+                      <strong>{c.name}</strong>
+                      <span>{[ageText(c.age), c.family].filter(Boolean).join(' · ')}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {results.classes.length > 0 && (
+            <section class="admin-section" aria-labelledby="r-cls" data-results="classes">
+              <h2 id="r-cls">Classes</h2>
+              <ul class="hits">
+                {results.classes.map((c) => (
+                  <li>
+                    <a class="hit" href={classPage(c.sessionId)}>
+                      <strong>{c.title}</strong>
+                      <span>{c.term}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
+      )
+    }
+
+    {
+      list && (
+        <>
+          <div class="lists" aria-label="Downloads">
+            <div><span class="lists__name">Family List</span><DownloadLinks {...files.families} what="the family list" /></div>
+            <div><span class="lists__name">Student / Class List</span><DownloadLinks {...files.children} what="the student and class list" /></div>
+            <div><span class="lists__name">Student Contact List</span><DownloadLinks {...files.contacts} what="the student contact list" /></div>
+          </div>
+          {list.total === 0 ? (
+            <div class="empty-state">
+              <strong>No families yet</strong>
+              <p>Families appear here when they sign up, or when they’re imported from Studio Director.</p>
+            </div>
+          ) : (
+            <table class="data-table" data-families>
+              <thead>
+                <tr><th>Family</th><th>Parents</th><th class="num">Children</th><th>Current classes</th></tr>
+              </thead>
+              <tbody>
+                {list.rows.map((f) => (
+                  <tr>
+                    <td data-label="Family"><a class="fam" href={family(f.id)}>{f.name}</a></td>
+                    <td data-label="Parents"><span>{f.parents.map((p) => p.name).join(', ') || '—'}</span></td>
+                    <td data-label="Children" class="num"><span>{f.children.length}</span></td>
+                    <td data-label="Current classes"><span>{f.currentClasses.join(', ') || '—'}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {list.pages > 1 && (
+            <nav class="pager" aria-label="Pages">
+              {list.page > 1 ? <a class="btn btn--outline btn--sm" href={pageHref(list.page - 1)} rel="prev">← Previous</a> : <span />}
+              <span>Page {list.page} of {list.pages}</span>
+              {list.page < list.pages ? <a class="btn btn--outline btn--sm" href={pageHref(list.page + 1)} rel="next">Next →</a> : <span />}
+            </nav>
+          )}
+        </>
+      )
+    }
+  </div>
+</AdminShell>
+
+<style>
+  /* On a computer the top bar's box does this; phones have no top bar. */
+  @media (min-width: 761px) { .find { display: none !important; } }
+  .find { display: flex; gap: 0.5rem; max-width: 36rem; }
+  .find input { flex: 1; min-width: 0; min-height: 44px; padding: 0.5rem 0.8rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-sm); font: inherit; background: var(--paper); }
+  .find input:focus { border-color: var(--ink); outline: none; box-shadow: 0 0 0 4px var(--teal-tint); }
+  .hint { margin: -0.5rem 0 0; color: var(--ink-mute); font-size: var(--step--1); }
+  .hits { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  .hit { display: grid; gap: 0.15rem; min-height: 44px; padding: 0.7rem 0.9rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-md); background: var(--paper); color: var(--ink-soft); text-decoration: none; font-size: var(--step--1); overflow-wrap: anywhere; }
+  .hit strong { color: var(--ink); font-size: var(--step-0); }
+  .hit:hover, .hit:focus-visible { border-color: var(--ink); }
+  .lists { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
+  .lists > div { display: grid; gap: 0.25rem; }
+  .lists__name { font-weight: 700; font-size: var(--step--1); }
+  .fam { font-weight: 700; color: var(--ink); display: inline-block; min-height: 44px; padding-block: 0.6rem; margin-block: -0.6rem; }
+  .pager { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: var(--step--1); color: var(--ink-mute); }
+</style>

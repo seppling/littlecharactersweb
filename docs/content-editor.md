@@ -6,7 +6,7 @@ A guide for Hannah (and anyone else on staff) to changing what families see on l
 
 Go to **littlecharacters.org/admin/content** and enter your staff email. We email you a 6-digit code; type it in and you're in for 90 days on that device. There's no password.
 
-Only emails on the staff list can edit. Stephen adds people to it (`ADMIN_EMAILS` on the host).
+Only owners can edit: the emails Stephen sets on the host (`ADMIN_EMAILS`), and anyone added as an owner under **Settings → Staff**. Teachers can't open the editor.
 
 When you're signed in and browsing the site, an **Edit this page** button sits in the bottom corner. It opens the editor for whatever you're looking at.
 

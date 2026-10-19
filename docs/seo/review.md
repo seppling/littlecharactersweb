@@ -594,6 +594,46 @@ After:
 
 _Why:_ Adds the place to the opening and links each recurring event to its own page, for parents who want the details.
 
+## Policies page
+
+Edit: `/admin/content/pages/policies`
+
+### Privacy › Text › paragraph 1
+
+Before:
+
+> **What we collect, and why.** Your name, email and phone number, so you can sign in, get receipts and be reached during class. Your children’s names and birthdays, for class lists and to check a class fits their age. Allergies, medical notes and pickup notes, if you add them, to keep everyone safe in class. Your photo choice for each child. What you sign up for and pay. And any message you send us through the site.
+
+After:
+
+> **What we collect, and why.** Your name, email and phone number, so you can sign in, get receipts and be reached during class. Your children’s names and birthdays, for class lists and to check a class fits their age. Allergies, medical notes and pickup notes, if you add them, to keep everyone safe in class. Your emergency contacts and the people who may pick up your children, so we know who to call and who to send your children home with. Your ZIP code, and how you heard about us if you tell us, so we know where families come from. Your photo choice for each child. What you sign up for and pay. And any message you send us through the site.
+
+_Why:_ Families now add emergency contacts, who may pick up, their ZIP code and how they heard about us (October 2026), so the list of what we collect names them.
+
+### Privacy › Text › paragraph 2
+
+Before:
+
+> **What we don’t.** We don’t ask for your home address, your child’s school or anything else we don’t use. There are no passwords: you sign in with a code we email you. Children don’t have accounts; parents fill in everything.
+
+After:
+
+> **What we don’t.** We don’t ask for your home address (just your ZIP code), your child’s school or anything else we don’t use. There are no passwords: you sign in with a code we email you. Children don’t have accounts; parents fill in everything.
+
+_Why:_ We now keep the ZIP code, so “no home address” says that one part is kept.
+
+### Privacy › Text › paragraph 3
+
+Before:
+
+> **Who sees it.** Only your family and our staff. Allergies and medical notes are encrypted, and every time staff open a class list, it’s logged.
+
+After:
+
+> **Who sees it.** Only your family and our staff. From spring, teachers will also see the emergency contacts and pickup people for the children in their classes. Allergies and medical notes are encrypted, and every time staff open a class list, it’s logged.
+
+_Why:_ The family forms say teachers will see these details from spring; this keeps the Policies page saying the same. Please check it matches your plan for teacher rosters.
+
 ## Classes & camps: Stories and Songs
 
 Edit: `/admin/content/programs/stories-and-songs`

@@ -22,7 +22,12 @@ export async function sessionCounts() {
   return out;
 }
 
-export async function roster(sessionId: string, viewerId: string) {
+/**
+ * Everyone signed up for a session (not cancelled), with their families'
+ * contacts and the children's care details decrypted. Logged as `action`:
+ * the page's view, or a print or download (src/server/classes.ts).
+ */
+export async function roster(sessionId: string, viewerId: string, action = 'admin.roster.view') {
   const db = await getDb();
   const rows = await db
     .select({ enrollment: schema.enrollment, student: schema.student, household: schema.household })
@@ -39,14 +44,30 @@ export async function roster(sessionId: string, viewerId: string) {
         .from(schema.householdMember)
         .innerJoin(schema.user, eq(schema.user.id, schema.householdMember.userId))
         .where(inArray(schema.householdMember.householdId, householdIds))
+        .orderBy(schema.householdMember.createdAt)
     : [];
 
-  await audit(viewerId, 'admin.roster.view', 'session', sessionId);
+  await audit(viewerId, action, 'session', sessionId);
   return rows.map((r) => ({
+    enrollmentId: r.enrollment.id,
     status: r.enrollment.status,
     enrolledAt: r.enrollment.createdAt,
-    student: { name: `${r.student.firstName} ${r.student.lastName}`, age: ageOn(r.student.birthdate), photoConsent: r.student.photoConsent, pickup: r.student.pickupNotes ?? '', ...readStudentNotes(r.student) },
+    noChargeReason: r.enrollment.noChargeReason,
+    student: {
+      id: r.student.id,
+      name: `${r.student.firstName} ${r.student.lastName}`,
+      firstName: r.student.firstName,
+      lastName: r.student.lastName,
+      birthdate: r.student.birthdate,
+      age: ageOn(r.student.birthdate),
+      photoConsent: r.student.photoConsent,
+      pickup: r.student.pickupNotes ?? '',
+      ...readStudentNotes(r.student),
+    },
+    householdId: r.household.id,
     family: r.household.name,
+    emergencyContacts: r.household.emergencyContacts ?? [],
+    pickupPeople: r.household.pickupPeople ?? [],
     guardians: guardians.filter((g) => g.householdId === r.household.id),
   }));
 }

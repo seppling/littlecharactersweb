@@ -1,0 +1,24 @@
+---
+/**
+ * A child's badges as small labels (src/lib/badges.ts). Pass the list from
+ * childBadges(); nothing here reads the notes themselves.
+ */
+import type { Badge } from '@/lib/badges';
+
+interface Props {
+  badges: Badge[];
+}
+const { badges } = Astro.props;
+---
+
+{
+  badges.length > 0 && (
+    <ul class="badges" aria-label="Notes">
+      {badges.map((b) => (
+        <li class:list={['badge', `badge--${b.tone}`]} data-badge={b.key}>
+          {b.label}
+        </li>
+      ))}
+    </ul>
+  )
+}

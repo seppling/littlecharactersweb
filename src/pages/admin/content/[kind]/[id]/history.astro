@@ -1,11 +1,16 @@
 ---
 /** Every version of an item that went live, with what changed, and a way to bring an older one back. */
 import AdminShell from '@/components/admin/AdminShell.astro';
+import { requireStaff } from '@/server/staff';
 import { sameContent, getEntry, history, restoreToDraft } from '@/server/content';
 import { BASE, describe, editTarget, when } from '@/lib/editor';
 import type { Data } from '@/content/fields';
 
 export const prerender = false;
+
+// Owners only: signed-in families and teachers get the "Staff only" panel (404).
+const { response: notStaff } = requireStaff(Astro.locals);
+if (notStaff) return notStaff;
 
 const kind = Astro.params.kind ?? '';
 const id = Astro.params.id ?? '';

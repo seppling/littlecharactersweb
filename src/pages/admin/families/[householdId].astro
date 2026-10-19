@@ -1,0 +1,460 @@
+---
+/**
+ * Staff: one family's page (src/server/families.ts). Parents with Email, Call
+ * and Text; each child's care details; emergency contacts and pickup people;
+ * classes; a payments summary; staff notes; emails sent from the site.
+ * Staff can change care details, contacts and notes here; every change and
+ * every view is logged.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import Badges from '@/components/admin/Badges.astro';
+import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import { classPage, downloads, family, familyEmail, familyLists, paymentsOrder, safeStaffPath, search } from '@/lib/admin-links';
+import { MAX_CONTACTS, formatPhone, smsHref, telHref } from '@/lib/contacts';
+import { formatCents } from '@/lib/pricing';
+import { FamilyEditError, addNote, contactRows, deleteNote, editNote, familyPage, staffUpdateCareDetails, staffUpdateContacts, NOTE_MAX } from '@/server/families';
+import { noChargeLabel } from '@/server/roster-changes';
+import { requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const householdId = Astro.params.householdId ?? '';
+const here = family(householdId);
+let error = '';
+let failed = '';
+let values: Record<string, string> = {};
+
+if (staff && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+  failed = values.action ?? '';
+  try {
+    switch (values.action) {
+      case 'note-add':
+        await addNote(staff.id, householdId, values.body ?? '', values.about || null);
+        return Astro.redirect(`${here}?saved=note-added#notes`, 303);
+      case 'note-edit':
+        await editNote(staff.id, householdId, values.id ?? '', values.body ?? '');
+        return Astro.redirect(`${here}?saved=note-edited#notes`, 303);
+      case 'note-delete':
+        await deleteNote(staff.id, householdId, values.id ?? '');
+        return Astro.redirect(`${here}?saved=note-deleted#notes`, 303);
+      case 'care':
+        await staffUpdateCareDetails(staff.id, householdId, values.studentId ?? '', {
+          allergies: values.allergies ?? '',
+          medicalNotes: values.medicalNotes ?? '',
+          pickupNotes: values.pickupNotes ?? '',
+          photoConsent: values.photo === 'yes' ? true : values.photo === 'no' ? false : null,
+        });
+        return Astro.redirect(`${here}?saved=care#child-${encodeURIComponent(values.studentId ?? '')}`, 303);
+      case 'contacts':
+        await staffUpdateContacts(staff.id, householdId, { emergencyContacts: contactRows(form, 'ec'), pickupPeople: contactRows(form, 'pp') });
+        return Astro.redirect(`${here}?saved=contacts#contacts`, 303);
+    }
+  } catch (e) {
+    if (!(e instanceof FamilyEditError)) throw e;
+    error = e.message;
+  }
+}
+
+const data = staff ? await familyPage(householdId, Astro.locals.content, staff.id) : null;
+if (staff && !data) return new Response('Not found', { status: 404 });
+
+// Back to the search results when that's where staff came from; else the Families list.
+const ref = (() => {
+  try {
+    const r = new URL(Astro.request.headers.get('referer') ?? '');
+    return r.origin === Astro.url.origin && r.pathname === search() && r.searchParams.get('q') ? safeStaffPath(r.pathname + r.search) : null;
+  } catch {
+    return null;
+  }
+})();
+const back = ref ? { href: ref, label: 'Search' } : { href: search(), label: 'Families' };
+
+const saved = Astro.url.searchParams.get('saved');
+const savedText: Record<string, string> = {
+  'note-added': 'Note added.',
+  'note-edited': 'Note saved.',
+  'note-deleted': 'Note deleted.',
+  care: 'Care details saved. The family sees the change in their account.',
+  contacts: 'Contacts saved. The family sees the change in their account.',
+};
+const day = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
+const when = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
+const isoDay = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const statusLabel = { active: 'Enrolled', trial: 'Trial', waitlist: 'Waitlist', cancelled: 'Cancelled' } as const;
+const statusTone = { active: 'good', trial: 'neutral', waitlist: 'warning', cancelled: 'neutral' } as const;
+const planLabel = { monthly: 'Monthly autopay', full: 'Paid in full', trial: 'Free trial', once: 'One payment', waitlist: 'Waitlist' } as const;
+const photoText = (v: boolean | null) => (v === true ? 'OK to share photos' : v === false ? 'No photos, please' : 'Not asked yet');
+const rows = <T,>(list: T[]) => Array.from({ length: MAX_CONTACTS }, (_, i) => list[i]);
+const childName = new Map(data?.children.map((c) => [c.id, c.firstName]) ?? []);
+const notesFiles = downloads(familyLists().notes);
+const editing = (id: string) => failed === 'note-edit' && values.id === id;
+---
+
+<AdminShell title={data?.household.name ?? 'Family'} section="families" back={back}>
+  {
+    data && (
+      <div class="admin-page fam">
+        <header class="admin-head">
+          <div>
+            <h1>{data.household.name}</h1>
+            <p class="admin-intro">
+              Joined {day(data.household.createdAt)}
+              {data.household.zip && <> · ZIP {data.household.zip}</>}
+              {data.household.heardAbout && <> · Heard about us: {data.household.heardAbout}</>}
+            </p>
+            {data.household.source === 'studio-director' && (
+              <ul class="badges"><li class="badge badge--neutral" data-badge="imported">From Studio Director</li></ul>
+            )}
+          </div>
+          <div class="admin-head__actions"><a class="btn btn--outline btn--sm" href={familyEmail(householdId)} data-email-family>Email this family</a></div>
+        </header>
+
+        {saved && savedText[saved] && <p class="notice" role="status">{savedText[saved]}</p>}
+        {error && <p class="notice notice--error" role="alert">{error}</p>}
+
+        <section class="admin-section" aria-labelledby="parents-h" data-parents>
+          <h2 id="parents-h">Parents</h2>
+          {data.parents.length === 0 && <p class="admin-intro">No parent account yet.</p>}
+          <ul class="people">
+            {data.parents.map((p) => (
+              <li class="staff-card person">
+                <strong>{p.name || p.email}</strong>
+                <span class="muted">{p.email}{p.phone && <> · <span class="nowrap">{formatPhone(p.phone)}</span></>}</span>
+                <div class="person__actions">
+                  <a class="btn btn--outline btn--sm" href={`mailto:${p.email}`}>Email</a>
+                  {p.phone && <a class="btn btn--outline btn--sm" href={telHref(p.phone)}>Call</a>}
+                  {p.phone && <a class="btn btn--outline btn--sm" href={smsHref(p.phone)}>Text</a>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section class="admin-section" aria-labelledby="kids-h" data-children>
+          <h2 id="kids-h">Children</h2>
+          {data.children.length === 0 && <p class="admin-intro">No children added yet.</p>}
+          <div class="staff-cards kids">
+            {data.children.map((c) => {
+              const medical = !!(c.allergies || c.medicalNotes);
+              const open = failed === 'care' && values.studentId === c.id;
+              return (
+                <article class="staff-card kid" id={`child-${c.id}`} data-child>
+                  <div class="kid__head">
+                    <h3>{c.name}</h3>
+                    <span class="muted">{[c.age !== null && `Age ${c.age}`, c.birthdate && `Birthday ${isoDay(c.birthdate)}`].filter(Boolean).join(' · ')}</span>
+                    <Badges badges={c.badges} />
+                  </div>
+                  <details class="care" data-care open={open}>
+                    <summary>Care details</summary>
+                    <dl class:list={['care__list', { 'care__list--alert': medical }]}>
+                      <div class:list={{ alert: !!c.allergies }}><dt>Allergies</dt><dd>{c.allergies || 'None'}</dd></div>
+                      <div class:list={{ alert: !!c.medicalNotes }}><dt>Medical notes</dt><dd>{c.medicalNotes || 'None'}</dd></div>
+                      <div><dt>Pickup notes</dt><dd>{c.pickupNotes || 'None'}</dd></div>
+                      <div><dt>Photos</dt><dd>{photoText(c.photoConsent)}</dd></div>
+                    </dl>
+                    <p class="muted confirmed">{c.detailsConfirmedAt ? `A parent last confirmed these on ${day(c.detailsConfirmedAt)}.` : 'No parent has confirmed these yet.'}</p>
+                    <details class="edit" open={open}>
+                      <summary class="btn btn--outline btn--sm">Change care details</summary>
+                      <form method="post" class="cf-group" data-care-form>
+                        <input type="hidden" name="action" value="care" />
+                        <input type="hidden" name="studentId" value={c.id} />
+                        <div class="cf"><label for={`al-${c.id}`}>Allergies</label><input id={`al-${c.id}`} name="allergies" maxlength="1000" value={open ? values.allergies : c.allergies} /></div>
+                        <div class="cf"><label for={`md-${c.id}`}>Medical notes or support needs</label><textarea id={`md-${c.id}`} name="medicalNotes" rows="3" maxlength="2000">{open ? values.medicalNotes : c.medicalNotes}</textarea></div>
+                        <div class="cf"><label for={`pk-${c.id}`}>Pickup notes</label><input id={`pk-${c.id}`} name="pickupNotes" maxlength="500" value={open ? values.pickupNotes : c.pickupNotes} /></div>
+                        <fieldset class="cf-choices">
+                          <legend>Photos</legend>
+                          <div class="cf-choices__list">
+                            <label class="chip"><input type="radio" name="photo" value="yes" checked={c.photoConsent === true} />OK to share</label>
+                            <label class="chip"><input type="radio" name="photo" value="no" checked={c.photoConsent === false} />No photos</label>
+                          </div>
+                        </fieldset>
+                        <p class="cf__help">This doesn’t count as the parent confirming them. Let the family know what you changed.</p>
+                        <button class="btn btn--primary" type="submit">Save care details</button>
+                      </form>
+                    </details>
+                  </details>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section class="admin-section" id="contacts" aria-labelledby="contacts-h" data-contacts>
+          <h2 id="contacts-h">Emergency contacts and pickup</h2>
+          <div class="staff-cards">
+            <div class="staff-card">
+              <h3>Emergency contacts</h3>
+              {data.household.emergencyContacts.length === 0 ? (
+                <p class="notice notice--warning" data-no-emergency>No emergency contact on file</p>
+              ) : (
+                <ul class="contacts">
+                  {data.household.emergencyContacts.map((c) => (
+                    <li>
+                      <span><strong>{c.name}</strong> <span class="muted">{c.relationship} · {formatPhone(c.phone)}</span></span>
+                      <a class="btn btn--outline btn--sm" href={telHref(c.phone)}>Call</a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div class="staff-card">
+              <h3>May pick up</h3>
+              <p class="muted">Besides the parents.</p>
+              {data.household.pickupPeople.length === 0 ? (
+                <p class="muted">No one else listed.</p>
+              ) : (
+                <ul class="contacts">
+                  {data.household.pickupPeople.map((c) => (
+                    <li>
+                      <span><strong>{c.name}</strong> <span class="muted">{c.relationship}{c.phone && ` · ${formatPhone(c.phone)}`}</span></span>
+                      {c.phone && <a class="btn btn--outline btn--sm" href={telHref(c.phone)}>Call</a>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+          <p class="muted">{data.household.contactsConfirmedAt ? `A parent last confirmed these lists on ${day(data.household.contactsConfirmedAt)}.` : 'No parent has confirmed these lists yet.'}</p>
+          <details class="edit" open={failed === 'contacts'}>
+            <summary class="btn btn--outline btn--sm">Change contacts</summary>
+            <form method="post" class="cf-group" data-contacts-form>
+              <input type="hidden" name="action" value="contacts" />
+              {[
+                { prefix: 'ec', title: 'Emergency contacts', list: data.household.emergencyContacts as { name: string; relationship: string; phone?: string }[], phoneHelp: 'Phone' },
+                { prefix: 'pp', title: 'May pick up', list: data.household.pickupPeople as { name: string; relationship: string; phone?: string }[], phoneHelp: 'Phone (optional)' },
+              ].map((g) => (
+                <fieldset class="rows">
+                  <legend>{g.title}</legend>
+                  {rows(g.list).map((c, i) => {
+                    const v = (k: string) => (failed === 'contacts' ? values[`${g.prefix}-${i}-${k}`] : (c as Record<string, string | undefined> | undefined)?.[k]) ?? '';
+                    return (
+                      <div class="row3">
+                        <div class="cf"><label for={`${g.prefix}-${i}-name`}>Name</label><input id={`${g.prefix}-${i}-name`} name={`${g.prefix}-${i}-name`} maxlength="80" value={v('name')} /></div>
+                        <div class="cf"><label for={`${g.prefix}-${i}-relationship`}>Who they are</label><input id={`${g.prefix}-${i}-relationship`} name={`${g.prefix}-${i}-relationship`} maxlength="40" placeholder="Grandma, neighbor…" value={v('relationship')} /></div>
+                        <div class="cf"><label for={`${g.prefix}-${i}-phone`}>{g.phoneHelp}</label><input id={`${g.prefix}-${i}-phone`} name={`${g.prefix}-${i}-phone`} type="tel" inputmode="tel" value={failed === 'contacts' ? v('phone') : formatPhone(v('phone'))} /></div>
+                      </div>
+                    );
+                  })}
+                </fieldset>
+              ))}
+              <p class="cf__help">Leave a row empty to remove it. This doesn’t count as the parent confirming the lists.</p>
+              <button class="btn btn--primary" type="submit">Save contacts</button>
+            </form>
+          </details>
+        </section>
+
+        <section class="admin-section" aria-labelledby="classes-h" data-classes>
+          <h2 id="classes-h">Classes</h2>
+          {data.classes.length === 0 ? (
+            <p class="admin-intro">No classes yet.</p>
+          ) : (
+            <table class="data-table">
+              <thead><tr><th>Class</th><th>Child</th><th>Season</th><th>Status</th></tr></thead>
+              <tbody>
+                {data.classes.map((e) => (
+                  <tr class:list={{ past: !e.current }}>
+                    <td data-label="Class"><a href={classPage(e.sessionId)}>{e.title}</a></td>
+                    <td data-label="Child"><span>{e.child}</span></td>
+                    <td data-label="Season"><span>{e.term || '—'}{!e.current && e.status !== 'cancelled' && ' (ended)'}</span></td>
+                    <td data-label="Status">
+                      <span class="class-status">
+                        <span class:list={['badge', `badge--${statusTone[e.status]}`]}>{statusLabel[e.status]}</span>
+                        {e.noChargeReason && e.status !== 'cancelled' && <span class="no-charge" data-no-charge>{noChargeLabel(e.noChargeReason)}</span>}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+
+        <section class="admin-section" aria-labelledby="pay-h" data-payments>
+          <h2 id="pay-h">Payments</h2>
+          {data.payments.problems.length > 0 && (
+            <ul class="attention-list">
+              {data.payments.problems.map((p) => (
+                <li class:list={['attention-item', p.failed ? 'attention-item--alert' : 'attention-item--warning']}>
+                  <span class="attention-item__title">{p.failed ? 'Payment didn’t go through' : 'Payment overdue'}: {formatCents(p.cents)}</span>
+                  <span class="attention-item__detail">{p.title}, due {isoDay(p.dueDate)}</span>
+                  <a class="attention-item__action btn btn--outline btn--sm" href={paymentsOrder(p.orderId)}>Open</a>
+                </li>
+              ))}
+            </ul>
+          )}
+          <dl class="facts">
+            <div><dt>Card on file</dt><dd>{data.payments.card ? `${data.payments.card.brand} ending ${data.payments.card.last4}${data.payments.card.exp ? `, expires ${data.payments.card.exp}` : ''}` : data.payments.hasSavedCard ? 'Saved' : 'None'}</dd></div>
+            <div><dt>Next charge</dt><dd>{data.payments.next ? `${formatCents(data.payments.next.cents)} on ${isoDay(data.payments.next.date)}` : 'Nothing scheduled'}</dd></div>
+            <div><dt>Paid this season{data.payments.term && ` (${data.payments.term})`}</dt><dd>{formatCents(data.payments.paidCents)}</dd></div>
+          </dl>
+          {data.payments.orders.length > 0 && (
+            <ul class="orders">
+              {data.payments.orders.map((o) => (
+                <li>
+                  <a class="hit" href={paymentsOrder(o.id)}>
+                    <strong>{o.title}</strong>
+                    <span>{[o.term, planLabel[o.plan], o.paidAt && `paid ${formatCents(o.totalCents)} on ${day(o.paidAt)}`, o.remaining > 0 && `${o.remaining} monthly ${o.remaining === 1 ? 'payment' : 'payments'} to come`].filter(Boolean).join(' · ')}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section class="admin-section" id="notes" aria-labelledby="notes-h" data-notes>
+          <div class="admin-head">
+            <h2 id="notes-h">Notes</h2>
+            <div class="admin-head__actions"><DownloadLinks {...notesFiles} what="every family’s notes" /></div>
+          </div>
+          <p class="muted">For staff only. Families never see these.</p>
+          <form method="post" class="cf-group" data-note-form>
+            <input type="hidden" name="action" value="note-add" />
+            <div class="cf">
+              <label for="note-body">Add a note</label>
+              <textarea id="note-body" name="body" rows="3" maxlength={NOTE_MAX} required>{failed === 'note-add' ? values.body : ''}</textarea>
+            </div>
+            {data.children.length > 0 && (
+              <div class="cf">
+                <label for="note-about">About</label>
+                <select id="note-about" name="about">
+                  <option value="">The whole family</option>
+                  {data.children.map((c) => <option value={c.id} selected={failed === 'note-add' && values.about === c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            )}
+            <button class="btn btn--primary" type="submit">Add note</button>
+          </form>
+          {data.notes.length === 0 ? (
+            <p class="muted">No notes yet.</p>
+          ) : (
+            <ul class="notes">
+              {data.notes.map((n) => {
+                const mine = n.authorUserId === staff!.id;
+                return (
+                  <li class="staff-card note" data-note>
+                    <p class="note__meta">
+                      <strong>{n.studentId ? (childName.get(n.studentId) ?? 'A child') : 'Whole family'}</strong>
+                      <span class="muted"> · {n.author}, {when(n.createdAt)}{n.updatedAt.getTime() - n.createdAt.getTime() > 1000 && ' (edited)'}</span>
+                    </p>
+                    <p class="note__body">{n.body}</p>
+                    {mine && (
+                      <div class="note__tools">
+                        <details class="edit" open={editing(n.id)}>
+                          <summary class="btn btn--outline btn--sm">Edit</summary>
+                          <form method="post" class="cf-group" data-note-edit>
+                            <input type="hidden" name="action" value="note-edit" />
+                            <input type="hidden" name="id" value={n.id} />
+                            <div class="cf"><label for={`nb-${n.id}`}>Note</label><textarea id={`nb-${n.id}`} name="body" rows="3" maxlength={NOTE_MAX} required>{editing(n.id) ? values.body : n.body}</textarea></div>
+                            <button class="btn btn--primary" type="submit">Save note</button>
+                          </form>
+                        </details>
+                        <form method="post" data-confirm="Delete this note?">
+                          <input type="hidden" name="action" value="note-delete" />
+                          <input type="hidden" name="id" value={n.id} />
+                          <button class="btn btn--outline btn--sm" type="submit">Delete</button>
+                        </form>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        <section class="admin-section" aria-labelledby="emails-h" data-emails>
+          <h2 id="emails-h">Emails sent</h2>
+          {data.emails.length === 0 ? (
+            <p class="muted">No emails sent from the site yet.</p>
+          ) : (
+            <table class="data-table">
+              <thead><tr><th>Sent</th><th>Subject</th><th>From</th><th>To</th></tr></thead>
+              <tbody>
+                {data.emails.map((m) => (
+                  <tr>
+                    <td data-label="Sent"><span>{when(m.sentAt)}</span></td>
+                    <td data-label="Subject"><span>{m.subject}</span></td>
+                    <td data-label="From"><span>{m.sender}</span></td>
+                    <td data-label="To"><span>{m.email}{m.failed && <> <span class="badge badge--alert">Didn’t send</span></>}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      </div>
+    )
+  }
+</AdminShell>
+
+<script>
+  // Care details start open on a computer, closed on a phone (tap to open).
+  if (window.matchMedia('(min-width: 761px)').matches) {
+    for (const d of document.querySelectorAll<HTMLDetailsElement>('details[data-care]')) d.open = true;
+  }
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-confirm]')) {
+    form.addEventListener('submit', (e) => {
+      if (!confirm(form.dataset.confirm)) e.preventDefault();
+    });
+  }
+</script>
+
+<style>
+  .class-status { display: grid; gap: 0.25rem; justify-items: start; }
+  .no-charge { font-size: var(--step--1); color: var(--ink-soft); overflow-wrap: anywhere; }
+  .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .fam form > .btn, .fam .cf-group > .btn { justify-self: start; }
+  .nowrap { white-space: nowrap; }
+  .fam h3 { font-size: var(--step-0); margin: 0; }
+  .people, .contacts, .notes, .orders { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+  .people { grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); }
+  .person { display: grid; gap: 0.3rem; overflow-wrap: anywhere; }
+  .person__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
+  .kid { display: grid; gap: 0.6rem; align-content: start; }
+  .kid__head { display: grid; gap: 0.3rem; }
+  .care > summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; justify-content: space-between; list-style: none; }
+  .care > summary::-webkit-details-marker { display: none; }
+  .care > summary::after { content: ''; width: 0.55rem; height: 0.55rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin-right: 0.3rem; }
+  .care[open] > summary::after { transform: rotate(-135deg); }
+  .care__list { margin: 0; display: grid; gap: 0.4rem; padding: 0.6rem 0.8rem; border-left: 4px solid var(--line-strong); background: var(--hall); border-radius: var(--r-sm); }
+  .care__list--alert { border-left-color: var(--red); }
+  .care__list div { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: 0.5rem; }
+  .care__list dt { font-weight: 700; font-size: var(--step--1); }
+  .care__list dd { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+  .care__list .alert dt, .care__list .alert dd { color: var(--red-ink); }
+  .care__list .alert dd { font-weight: 700; }
+  .confirmed { margin: 0.4rem 0; }
+  .edit { margin-top: 0.4rem; }
+  .edit > summary { list-style: none; display: inline-flex; cursor: pointer; }
+  .edit > summary::-webkit-details-marker { display: none; }
+  .edit[open] > summary { margin-bottom: 0.6rem; }
+  .edit form { display: grid; gap: var(--space-s, 0.75rem); }
+  .contacts li { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; overflow-wrap: anywhere; }
+  .notice--warning { background: var(--yellow-tint); border-left-color: var(--yellow); margin: 0; }
+  .rows { border: 0; padding: 0; margin: 0; display: grid; gap: 0.5rem; min-width: 0; }
+  .rows > legend { font-weight: 700; margin-bottom: 0.3rem; }
+  .row3 { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 0.5rem; }
+  .past td { color: var(--ink-mute); }
+  .facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); gap: 0.6rem; }
+  .facts div { padding: 0.6rem 0.8rem; border: 1.5px solid var(--line); border-radius: var(--r-sm); }
+  .facts dt { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+  .facts dd { margin: 0.2rem 0 0; font-weight: 700; }
+  .hit { display: grid; gap: 0.15rem; min-height: 44px; padding: 0.7rem 0.9rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-md); color: var(--ink-soft); text-decoration: none; font-size: var(--step--1); overflow-wrap: anywhere; }
+  .hit strong { color: var(--ink); font-size: var(--step-0); }
+  .hit:hover { border-color: var(--ink); }
+  .note { display: grid; gap: 0.4rem; }
+  .note__meta, .note__body { margin: 0; }
+  .note__body { white-space: pre-line; overflow-wrap: anywhere; }
+  .note__tools { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: start; }
+  .note__tools .edit { margin: 0; flex: 1 1 100%; order: 2; }
+  .note__tools .edit:not([open]) { flex: 0 0 auto; order: 0; }
+  @media (max-width: 760px) {
+    .person__actions .btn { flex: 1 1 0; justify-content: center; min-height: 48px; font-size: var(--step-0); }
+    .row3 { grid-template-columns: minmax(0, 1fr); padding-bottom: 0.6rem; border-bottom: 1px solid var(--line); }
+    .care__list div { grid-template-columns: minmax(0, 1fr); gap: 0.1rem; }
+  }
+</style>

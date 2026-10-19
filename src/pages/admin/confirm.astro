@@ -1,0 +1,62 @@
+---
+/**
+ * Sign in again before a download (and later, refunds and staff changes):
+ * src/server/staff.ts → requireFreshStaff sends staff here with `next`.
+ * The normal email-code sign-in makes a new session, the page reloads, and
+ * staff go on to `next`. Only staff paths on this site are allowed as `next`.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import SignInPanel from '@/components/portal/SignInPanel.astro';
+import { safeStaffPath, today } from '@/lib/admin-links';
+import { requireStaff, signedInRecently } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const next = safeStaffPath(Astro.url.searchParams.get('next')) ?? today();
+const nextPath = next.split('?')[0];
+const download = /\.(csv|pdf)$/.test(nextPath);
+// The list a download came from: /admin/leads.csv → /admin/leads.
+const list = download ? next.replace(/\.(csv|pdf)(?=\?|$)/, '') : next;
+const fresh = !!staff && signedInRecently(Astro.locals);
+if (fresh && !download) return Astro.redirect(next, 303);
+
+const heading = download ? 'Confirm it’s you before downloading' : 'Confirm it’s you';
+const intro = download
+  ? 'For families’ privacy, we ask for a new code before downloads. We’ll email you a 6-digit code.'
+  : 'We ask for a new code before changes like this one. We’ll email you a 6-digit code.';
+const here = Astro.url.pathname + Astro.url.search;
+---
+
+<AdminShell title={heading} section="today" back={{ href: list, label: 'Back' }} signIn={{ heading, intro }}>
+  <div class="admin-page confirm">
+    {
+      fresh ? (
+        <div class="staff-card" data-confirmed>
+          <h1>Thanks, you’re confirmed</h1>
+          <p>Your {nextPath.endsWith('.pdf') ? 'PDF' : 'spreadsheet'} should start downloading. You won’t be asked again for 15 minutes.</p>
+          <div class="admin-head__actions">
+            <a class="btn btn--primary" href={next} data-download-now>Download again</a>
+            <a class="btn btn--outline" href={list}>Back to the list</a>
+          </div>
+        </div>
+      ) : (
+        <div class="staff-card">
+          <SignInPanel level="h1" heading={heading} intro={intro} next={here} email={staff?.email} sharedDevice />
+        </div>
+      )
+    }
+  </div>
+</AdminShell>
+
+<script>
+  // Start the download once, right after confirming.
+  const link = document.querySelector<HTMLAnchorElement>('[data-confirmed] [data-download-now]');
+  if (link) location.assign(link.href);
+</script>
+
+<style>
+  .confirm { max-width: calc(36rem + 2 * var(--gutter)); }
+  .confirm h1 { font-size: var(--step-2); }
+</style>

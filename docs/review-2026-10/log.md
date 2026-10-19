@@ -283,3 +283,212 @@ Hannah's check-in form is complete. No family names were given.
 - **Open:**
   - **For Stephen:** the phone app: an app that installs from the website to the phone's home screen (recommended), or one in the app stores.
   - **For Hannah:** the drop-in price for a single class, and screenshots of the Reports page.
+
+### Back-office plan drafted (October 19)
+
+Stephen asked for research into the best studio portals first, then a plan for web and phone. The plan is a shared document: [Staff back office plan: web and phone](https://claude.ai/code/artifact/d286c39d-0260-4827-bf89-9456b1f32c51). The research notes are in `backoffice-research.md`.
+
+- **Phone access:** a home-screen web app (Stephen chose it over an app-store app). Same site, phone layout, sign-in by the emailed code.
+- **Phase 1, by launch:** Today with a "Needs attention" list, Classes, a class's roster and waitlist, email the class, one search box, a family's page, payments, downloads, the phone app shell.
+- **Phase 2, by the first spring class:** teacher logins and phone attendance (works offline), class teachers and substitutes, calendar and days off, paid drop-ins, refunds and credits, tags, skills, shows, reports matching Studio Director's, settings.
+- **Waiting on:** Stephen's approval of Phase 1, and the questions listed at the end of the plan.
+
+### Phase 1 started, and how reports will work (October 19)
+
+- **Approved:** Stephen approved Phase 1. Building started with the foundation unit (`claude/bo-foundation`): the data for all of Phase 1, the staff shell for computer and phone, the link contract, badges, CSV and PDF downloads, a fresh sign-in for downloads, and the phone app shell.
+- **Family details:** add emergency contacts and a list of who may pick up the children to the family's forms, in Phase 1. ZIP code and "How did you hear about us?" are asked once per family, for two of Studio Director's reports.
+- **Drop-in price:** to be decided before Phase 2's drop-ins.
+- **Reports (Stephen):** a dashboard of the most important numbers, plus a library of report tables, each downloadable as CSV and PDF. The CSV and PDF helpers are built in Phase 1, so every Phase 1 list gets them. The dashboard and library come in Phase 2.
+- **The dashboard's numbers, with how each is counted,** are listed in the plan document:
+  - money: collected this month, booked for the next 1st, committed ahead, problem payments, discounts given;
+  - enrollment: children this season, fill rate, classes at risk (under the 5 students a class needs), waitlists, sign-up pace;
+  - growth: free class to paid, coming back, how new families found us;
+  - safety and operations: care details on file, missed two in a row, attendance taken.
+- **Open for Stephen:** load last season's class counts and totals from Studio Director once, as a starting point for comparisons (recommended).
+- **Studio Director's reports:** the full list from Hannah's account is matched in `studio-director-reports.md`. Questions for Hannah: pre-approved classes, sales tax, merchandise.
+
+### Back office foundation merged (October 19)
+
+The foundation unit (`claude/bo-foundation`) is merged.
+- **Proof on the merged branch:**
+  - type check clean;
+  - 479 unit tests pass;
+  - the site builds;
+  - all five browser tests pass on a fresh database (the four journeys, then the new `staff-foundation.mjs`).
+- **What's in it:**
+  - migration `0009_back_office`:
+    - household emergency contacts, pickup people, contacts confirmed, ZIP, how they heard;
+    - staff notes, the staff email log and waitlist offers;
+  - the staff shell: a dark top bar with search on computers; on phones, the title, a back link, a Menu and tabs (Today, Classes, Search, Alerts);
+  - the link contract (`src/lib/admin-links.ts`), badges, and CSV and PDF downloads (pdfkit, Helvetica);
+  - a fresh sign-in (15 minutes) before downloads, at `/admin/confirm`, and a 30-day idle limit for staff sessions;
+  - the staff app manifest and icons, and `/admin/install`.
+  - Rosters moved to `/admin/classes` and autopay to `/admin/payments`; the old addresses redirect. `/admin/search` and `/admin/attention` are placeholders until their units merge.
+  - The contract for the next units is `docs/back-office.md`.
+- **A walk-through as Hannah on a phone** (Stephen asked the worker for it) found these. They went into the next units' prompts:
+  - the moved roster and Classes list are too wide for a phone;
+  - phone numbers aren't tap-to-call;
+  - titles don't match the tabs;
+  - Payments buttons break mid-word;
+  - Classes lists past one-off dates.
+  - **Still open:** sign-out should return staff to the staff sign-in; a teacher who isn't on the staff list sees a bare "Not found" (show the staff-only panel with Sign out); the focus ring in the dark bar is too faint. These go to the Today unit.
+- **Open points kept for later:**
+  - the content editor should 404 signed-in families like other staff pages;
+  - a dependency update before launch (`npm audit` lists sharp and http-cache-semantics advisories).
+- **Next:** classes (`claude/bo-classes`), families (`claude/bo-families`) and contacts (`claude/bo-contacts`) started at 03:19Z.
+
+### Classes, families and family details merged (October 19)
+
+Three units are merged: contacts (`claude/bo-contacts`), classes (`claude/bo-classes`) and families (`claude/bo-families`).
+- **Proof on the merged branch:**
+  - type check clean;
+  - 524 unit tests pass;
+  - the site builds;
+  - all eight browser tests pass on one fresh database: the four journeys, then `staff-foundation`, `staff-contacts`, `staff-classes` and `staff-families`.
+- **Family details:**
+  - the details step and the account ask once per family for emergency contacts (at least one), who may pick up, ZIP, and how they heard about us;
+  - families with details confirmed within a year see one summary line;
+  - the Studio Director import brings emergency contacts and ZIP when the export has them;
+  - a Policies wording draft for Hannah names the new details.
+- **Classes:**
+  - the Classes list has filters (openings, waitlist, under 5, term, ended);
+  - a class's page has the roster with badges, care details on tap, Call, Text and Email, the waitlist, a print page, roster and list CSV/PDF, and a sign-in sheet PDF.
+- **Families:**
+  - one search box for families, parents (any phone format), children and classes;
+  - the Families list;
+  - a family's page with everything, notes, and staff edits that don't count as the family's confirmation;
+  - four Studio Director reports as CSV/PDF: Family List, Student / Class List, Student Contact List, Family Notes.
+- **Coordinator fixes at merge:**
+  - `admin.css`: the badge tones come after the base badge rule, because allergy badges showed green; the header's action row no longer stacks;
+  - two journey tests look for the new roster;
+  - the classes and families browser tests expect the new family details.
+- **For Hannah:**
+  - keep one emergency contact required (`EMERGENCY_CONTACT_REQUIRED`);
+  - the "How did you hear about us?" options;
+  - the Policies draft line that teachers see contacts from spring;
+  - teacher names are missing on some sessions in the editor (Homeschool, Geode Acting Studio, Parents' Night Out, the free class).
+- **Follow-ups:**
+  - a `classSignInSheet` and a `familyLists` link function in `admin-links.ts`;
+  - remove the scoped badge workarounds now that `admin.css` is fixed;
+  - search emergency contacts and pickup people by name.
+- **Next:** today (`claude/bo-today`), payments (`claude/bo-payments`) and messages (`claude/bo-messages`) started at 04:40Z. Roster changes come after.
+
+### Payments, Today and staff email merged (October 19)
+
+Three units are merged: payments (`claude/bo-payments`), today (`claude/bo-today`) and messages (`claude/bo-messages`).
+- **Proof on the merged branch:**
+  - type check clean;
+  - 570 unit tests pass;
+  - the site builds;
+  - all 11 browser tests pass on one fresh database.
+  - On a fresh database after the two family journeys, December's billing run charges $80.75 (Ava, family discount) and $55 (Maya, scholarship), the same as before these units.
+- **Payments:**
+  - one Payments page with Needs attention first. "Send a pay link" re-sends the same pay-now email a failed charge sends, and `billing.ts` only moved that email into `sendPayLinkEmail`;
+  - upcoming autopay by date, families on autopay, and payments received by month;
+  - Overdue List, Upcoming Autopay and Payments List as CSV/PDF;
+  - phone layout fixed.
+- **Today:**
+  - today's classes and Needs attention: failed payments, waitlist openings, classes under 5 near their start, no emergency contact, care details to confirm, new sign-ups, form messages, birthdays;
+  - an urgent count beside Today and Alerts;
+  - staff sign-out returns to the staff sign-in;
+  - signed-in non-staff see a Staff only panel (404 status);
+  - a yellow focus ring in the top bar.
+- **Staff email:**
+  - Email the class and Email this family: tick families, send a test, review, send one email per family with replies to Hannah;
+  - no double sends, failed families can be retried, and emails are logged on each family's page;
+  - Copy emails and Copy phone numbers.
+- **Open, recommended as is:**
+  - "Pay link sent" counts only staff sends;
+  - Send a pay link doesn't pause the automatic retries;
+  - unticked families aren't remembered between emails.
+- **Follow-ups:**
+  - one-off nights shouldn't count as "under 5" on the Classes list (`classes.ts`);
+  - failed staff emails on Needs attention;
+  - bounces from the email service.
+- **Next:** roster changes (`claude/bo-roster`) started at 05:53Z: add a child (sign-up link, or without charge), remove a child (with or without stopping payments), Offer the spot.
+
+### Roster changes merged; Phase 1 complete (October 19)
+
+The roster changes unit (`claude/bo-roster`) is merged, and Phase 1 of the staff back office is complete.
+- **Proof on the merged branch:**
+  - type check clean;
+  - 584 unit tests pass;
+  - the site builds;
+  - all 12 browser tests pass on one fresh database.
+  - December billing after the family journeys charges $80.75 (Ava, family discount) and $55 (Maya, scholarship), as before.
+- **What's in it:**
+  - **Remove** a child from a class:
+    - "Remove and stop payments" or "Remove only", with a preview;
+    - an order that covers a sibling who stays keeps its payments, and Hannah is pointed to a discount;
+    - the family discount is refreshed.
+  - **Add** a child:
+    - by sending a sign-up link (the family pays as usual);
+    - or without charge, with a fresh sign-in and a reason (`enrollment.no_charge_reason`, migration 0010).
+  - **Offer the spot:** a waitlisted family gets a 48-hour offer. The first family to pay gets the place, and their waitlist entry becomes the enrollment. Today subtracts open offers.
+- **For Stephen to confirm:** a no-charge place never counts toward the 15% family discount (recommended).
+- **For Hannah to confirm:** offers last 48 hours (`OFFER_HOURS`).
+- **Not built:**
+  - refunds and a last-month proration after a removal (Stripe's dashboard for now);
+  - "Take off the waitlist".
+
+**Phase 1 by unit** (all on `claude/blissful-archimedes-enun5m`):
+
+| Unit | What it does |
+|---|---|
+| foundation | Data, staff shell, link contract, badges, CSV/PDF downloads, fresh sign-in, staff idle limit, phone app shell |
+| contacts | Emergency contacts, pickup people, ZIP, how they heard |
+| classes | Classes list, class pages, print, sign-in sheets |
+| families | Search, family pages, notes |
+| payments | Payments pages and Send a pay link |
+| today | Today and Needs attention |
+| messages | Class and family email |
+| roster changes | Add, remove, offer the spot |
+
+### Phase 2 started (October 19)
+
+- **Stephen's inputs:**
+  - a test teacher account: his own email, kept out of the repository and added on the Settings page once it's live;
+  - $25 as a placeholder drop-in price, a site setting that Hannah can change.
+- **Order:**
+  1. **Foundation** (`claude/bo2-foundation`):
+     - staff roles (owner, teacher) and teachers on classes, with substitutes;
+     - the Settings → Staff page and a shared-device sign-in;
+     - every Phase 2 table in one migration (0011);
+     - Phase 1 cleanups (one-off nights aren't "under 5", link helpers, the content editor's staff check, a `sharp` update).
+  2. **The teacher app, the calendar and days off, drop-ins.**
+  3. **Refunds and credits, tags and skills, shows.**
+  4. **Reports (the dashboard and the library), and the rest of Settings.**
+- **Shows:** the performance fee is already charged at sign-up, so casting creates no new charge until Stephen decides otherwise.
+
+
+### Phase 2 foundation merged (October 19)
+
+The foundation unit (`claude/bo2-foundation`) is merged.
+- **Proof on the merged branch:**
+  - type check clean;
+  - 618 unit tests pass;
+  - the site builds;
+  - all 13 browser tests pass on one fresh database (the new `staff-settings` runs last);
+  - December billing after the family journeys charges $80.75 (Ava, family discount) and $55 (Maya, scholarship), as before;
+  - the Render preview's database step migrates from empty.
+- **What's in it:**
+  - **Staff roles.** Owners (the `ADMIN_EMAILS` emails, or added as an owner on the site) and teachers. Every Phase 1 page stays owner-only. A teacher who opens `/admin` lands on `/admin/teach`. Any owner page shows a teacher the Staff only panel.
+  - **Settings → Staff:**
+    - add a teacher or an owner;
+    - choose their classes (teaches or assists) and substitute dates;
+    - change a name or role;
+    - turn someone off.
+
+    Each change asks for a fresh sign-in and is written to the audit log. Owners can't turn themselves off.
+  - **"This is a shared device"** on the staff sign-in: the session ends after an hour without use.
+  - **The data for the rest of Phase 2,** in migration 0011: attendance, attendance done, days off, drop-ins, tags, skills, progress notes, casts, rehearsals, credits, refunds, favorite reports and staff settings.
+  - **Phase 1 cleanups:**
+    - one-off nights aren't "under 5";
+    - link helpers;
+    - the content editor uses the staff check;
+    - `sharp` 0.35.5 (its `npm audit` advisory is gone).
+- **Coordinator additions at the merge:**
+  - **Migration 0012:** a no-charge reason and a cancel reason on drop-ins, a `pending` drop-in status for open checkouts, and "note read" on a teacher's note to Hannah;
+  - **`src/server/class-day.ts`** (with unit tests), so the next three units agree on days off and who's expected on a class date.
+- **Stephen's test teacher account:** added on Settings → Staff once the site is deployed; not in the repository.
+- **Next:** the teacher app, the calendar and days off, and drop-ins ($25 placeholder), in parallel.

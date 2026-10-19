@@ -12,12 +12,18 @@ interface Props {
   intro?: string;
   /** Where to go after signing in. Defaults to reloading the current page. */
   next?: string;
+  /** Fills in the email (staff confirming it's them). */
+  email?: string;
+  /** Staff sign-in: offer "This is a shared device" (signed out after an hour without use; src/server/staff.ts). */
+  sharedDevice?: boolean;
 }
 const {
   heading = 'Sign in or get started',
   level: H = 'h2',
   intro = 'Enter your email and we’ll send you a 6-digit code. No password needed, and this device stays signed in for 90 days.',
   next,
+  email,
+  sharedDevice = false,
 } = Astro.props;
 ---
 
@@ -28,8 +34,19 @@ const {
   <form class="signin__step" data-step="email" novalidate>
     <div class="field">
       <label for="signin-email">Email</label>
-      <input id="signin-email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com" />
+      <input id="signin-email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com" value={email} />
     </div>
+    {
+      sharedDevice && (
+        <label class="signin__shared">
+          <input type="checkbox" name="shared" data-shared />
+          <span>
+            This is a shared device
+            <small>You’ll be signed out after an hour without use.</small>
+          </span>
+        </label>
+      )
+    }
     <button class="btn btn--primary btn--block" type="submit">Email me a code <span class="arrow" aria-hidden="true">→</span></button>
     {usesDevMailbox && <p class="signin__preview">Preview site: no real emails are sent. Your code will appear in the <a href="/dev/mailbox" target="_blank">test mailbox</a>.</p>}
   </form>
@@ -134,6 +151,10 @@ const {
       busy(codeForm, true);
       try {
         await post('/sign-in/email-otp', { email, otp });
+        if (root.querySelector<HTMLInputElement>('[data-shared]')?.checked) {
+          // Mark this new session as on a shared device before going on.
+          await fetch('/api/staff/shared-device', { method: 'POST', credentials: 'same-origin' });
+        }
         const next = root.dataset.next;
         if (next) location.assign(next);
         else location.reload();
@@ -176,6 +197,9 @@ const {
     letter-spacing: 0.4em;
     text-align: center;
   }
+  .signin__shared { display: flex; gap: 0.6rem; align-items: flex-start; min-height: 44px; cursor: pointer; }
+  .signin__shared input { width: 1.25rem; height: 1.25rem; margin-top: 0.15rem; flex: none; }
+  .signin__shared small { display: block; color: var(--ink-soft); font-size: var(--step--1); }
   .signin__alt { font-size: var(--step--1); color: var(--ink-mute); text-align: center; }
   .linkish { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }
   .signin__error { color: var(--red-ink); font-weight: 600; }

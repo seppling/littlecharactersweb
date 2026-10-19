@@ -18,13 +18,13 @@
  * A payment that couldn't change when staff saved (say the family had the
  * pay-now form open) catches up at the next billing run, before it's charged.
  *
- * Staff only: every change re-checks isAdmin() here as well as on the page, and
+ * Owners only: every change re-checks isOwner() here as well as on the page, and
  * is written to the audit log.
  */
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { getDb, schema, type DB } from './db';
 import { audit } from './records';
-import { isAdmin } from './auth';
+import { isOwner } from './staff';
 import { ADJUSTMENTS, applyAdjustments, familyLabel, type AdjustmentKind, type AdjustmentRepeat, type AdjustmentRule, type AppliedAdjustment } from '@/lib/adjustments';
 
 const { installment, billingAdjustment, order, household, user } = schema;
@@ -40,8 +40,8 @@ export const PAY_NOW_LOCK_MINUTES = 120;
 /** A message staff can read and act on. */
 export class AdjustmentError extends Error {}
 
-function requireStaff(staff: StaffUser | null | undefined): asserts staff is StaffUser {
-  if (!isAdmin(staff)) throw new AdjustmentError('Only staff can change a family’s payments.');
+async function requireStaff(staff: StaffUser | null | undefined) {
+  if (!(await isOwner(staff))) throw new AdjustmentError('Only staff can change a family’s payments.');
 }
 
 /** Why this payment can't be changed right now, or null when it can. */
@@ -154,12 +154,13 @@ function draft(rows: Installment[], existing: Adjustment[], staff: StaffUser, in
     createdAt: new Date(Math.max(now.getTime(), ...existing.map((a) => a.createdAt.getTime() + 1))),
     removedAt: null,
     removedBy: null,
+    closureId: null,
   };
 }
 
 /** What saving this adjustment would change, without saving it (the confirm step). */
 export async function previewAdjustment(staff: StaffUser, raw: AdjustmentInput, now = new Date()) {
-  requireStaff(staff);
+  await requireStaff(staff);
   const input = checkInput(raw);
   const db = await getDb();
   const rows = await db.select().from(installment).where(eq(installment.orderId, input.orderId)).orderBy(asc(installment.dueDate));
@@ -169,7 +170,7 @@ export async function previewAdjustment(staff: StaffUser, raw: AdjustmentInput, 
 }
 
 export async function addAdjustment(staff: StaffUser, raw: AdjustmentInput, now = new Date()) {
-  requireStaff(staff);
+  await requireStaff(staff);
   const input = checkInput(raw);
   const db = await getDb();
   const result = await db.transaction(async (tx) => {
@@ -187,7 +188,7 @@ export async function addAdjustment(staff: StaffUser, raw: AdjustmentInput, now 
 
 /** Remove an adjustment: the payments it lowered that are still unpaid go back up. */
 export async function removeAdjustment(staff: StaffUser, adjustmentId: string, now = new Date()) {
-  requireStaff(staff);
+  await requireStaff(staff);
   const db = await getDb();
   const result = await db.transaction(async (tx) => {
     const [a] = await tx
@@ -252,7 +253,7 @@ export async function orderBilling(orderId: string) {
   };
 }
 
-/** Families with monthly payments still to come, for the list on /admin/billing. */
+/** Families with monthly payments still to come, for the list on /admin/payments. */
 export async function ordersWithUpcomingPayments() {
   const db = await getDb();
   const rows = await db
