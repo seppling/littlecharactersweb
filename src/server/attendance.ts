@@ -18,7 +18,7 @@
  * No children's names or notes go into the audit log, a URL or a log line:
  * entries hold ids, the class and the date.
  */
-import { and, desc, eq, gte, inArray, isNull, lte, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Program, Session } from '@/content/types';
 import type { SiteContent } from '@/content/site-content';
@@ -26,13 +26,14 @@ import { childBadges, type Badge } from '@/lib/badges';
 import type { EmergencyContact, PickupPerson } from '@/lib/contacts';
 import { meetings, todayInAthens } from '@/lib/pricing';
 import { athensNow } from '@/lib/session-dates';
-import { daysOffBetween, dayOffFrom, dayOffOn, dropInsOn, type DayOff } from './class-day';
+import { classDay, daysOffBetween, dayOffFrom, dayOffOn, dropInsOn, type DayOff } from './class-day';
+import { staffSession } from './classes';
 import { getDb, schema } from './db';
 import { ageOn, readStudentNotes } from './family';
 import { audit } from './records';
-import { canTeach, classTeachers, coversFor, meetsOn } from './teachers';
+import { canTeach, classTeachers, coversFor, meetsOn, teacherClasses, teacherSessions } from './teachers';
 
-const { attendance, classReport, enrollment, student, household, householdMember, user, staff, dropIn } = schema;
+const { attendance, classReport, classCover, enrollment, student, household, householdMember, user, staff, dropIn } = schema;
 
 type Catalog = Pick<SiteContent, 'findSession'>;
 
@@ -289,7 +290,7 @@ export function safetyLine(children: Pick<TeachChild, 'badges'>[]) {
 // ───────────── Taps and reports from phones ─────────────
 
 const clientId = z.string().min(8).max(64).regex(/^[\w-]+$/);
-const when = z.string().datetime({ offset: true });
+const when = z.iso.datetime({ offset: true });
 
 export const tapInput = z.object({
   clientId,
@@ -694,3 +695,88 @@ export async function attentionAttendance(today: string) {
 }
 export type AttentionAttendance = Awaited<ReturnType<typeof attentionAttendance>>;
 
+
+// ───────────── The teacher's home ─────────────
+
+type HomeCatalog = Pick<SiteContent, 'findSession' | 'programs' | 'locationById'>;
+
+export interface TeachCard {
+  sessionId: string;
+  program: Program;
+  session: Session;
+  date: string;
+  location: string;
+  /** Their part that day; `owner` for an owner seeing a class they aren't on. */
+  as: 'lead' | 'assistant' | 'cover' | 'owner';
+  /** A substitute's regular teacher, by name ("Covering for Zack"), when Hannah said. */
+  coveringFor: string | null;
+  /** The substitute standing in for this teacher that date. */
+  coveredBy: string | null;
+  dayOff: string | null;
+  /** Children expected: enrolled, trial and booked drop-ins. */
+  expected: number;
+  done: boolean;
+}
+
+/**
+ * The cards on the teacher's home for one date: a teacher's classes and cover
+ * dates (teacherSessions); for an owner, every class meeting that date.
+ */
+export async function teachCards(viewer: Viewer, date: string, catalog: HomeCatalog): Promise<TeachCard[]> {
+  const db = await getDb();
+  const mine = await teacherSessions(viewer.staffId, date, catalog);
+  const list: { sessionId: string; program: Program; session: Session; as: TeachCard['as']; coveringForStaffId: string | null; dayOff: string | null }[] = [...mine];
+  if (viewer.role === 'owner') {
+    const off = await daysOffBetween(date, date);
+    for (const program of catalog.programs)
+      for (const session of program.sessions)
+        if (staffSession(session) && meetsOn(session, date) && !list.some((m) => m.sessionId === session.id))
+          list.push({ sessionId: session.id, program, session, as: 'owner', coveringForStaffId: null, dayOff: dayOffFrom(off, session.id, date)?.reason ?? null });
+    list.sort((a, b) => a.session.start.localeCompare(b.session.start) || a.program.title.localeCompare(b.program.title));
+  }
+  if (!list.length) return [];
+  const forIds = [...new Set(list.map((l) => l.coveringForStaffId).filter((v): v is string => !!v))];
+  const names = forIds.length ? new Map((await db.select({ id: staff.id, name: staff.name }).from(staff).where(inArray(staff.id, forIds))).map((r) => [r.id, r.name])) : new Map<string, string>();
+  const done = await reportsOn(
+    list.map((l) => l.sessionId),
+    date,
+  );
+  return Promise.all(
+    list.map(async (l) => {
+      const [day, covers, team] = await Promise.all([classDay(l.program, l.session, date), l.as === 'lead' || l.as === 'assistant' ? coversFor(l.sessionId, date) : Promise.resolve([]), l.as === 'lead' || l.as === 'assistant' ? classTeachers(l.sessionId) : Promise.resolve([])]);
+      return {
+        sessionId: l.sessionId,
+        program: l.program,
+        session: l.session,
+        date,
+        location: catalog.locationById(l.session.locationId)?.shortName ?? '',
+        as: l.as,
+        coveringFor: l.coveringForStaffId ? (names.get(l.coveringForStaffId) ?? null) : null,
+        coveredBy: covers.length ? coveringFor(viewer.staffId, covers, team) : null,
+        dayOff: l.dayOff,
+        expected: day.expected,
+        done: done.has(l.sessionId),
+      };
+    }),
+  );
+}
+
+/** The next date after `date` (within `within` days) when this person teaches or covers a class; null if none. */
+export async function nextTeachingDay(viewer: Viewer, date: string, catalog: HomeCatalog, within = 120) {
+  const db = await getDb();
+  const sessions =
+    viewer.role === 'owner'
+      ? catalog.programs.flatMap((p) => p.sessions.filter(staffSession))
+      : (await teacherClasses(viewer.staffId, catalog)).map((c) => c.session);
+  const [cover] = await db
+    .select({ classDate: classCover.classDate })
+    .from(classCover)
+    .where(and(eq(classCover.staffId, viewer.staffId), gte(classCover.classDate, addDays(date, 1)), lte(classCover.classDate, addDays(date, within))))
+    .orderBy(asc(classCover.classDate))
+    .limit(1);
+  for (let i = 1; i <= within; i++) {
+    const d = addDays(date, i);
+    if (cover?.classDate === d || sessions.some((s) => meetsOn(s, d))) return d;
+  }
+  return null;
+}
