@@ -225,12 +225,14 @@ All three go through `paymentsDownload` (`payments.csv.ts`, `payments.pdf.ts`): 
 | Kind | Tone | When | Link |
 |---|---|---|---|
 | `payments` | alert | `billingOverview().needsAttention`: failed (or on hold: the family is paying it themselves) and processing | `payments('failed')` |
+| `refund` | alert | "A refund didn't go through": a `refund` that failed, or is still `pending` 24 hours after it was made (`REFUND_PENDING_HOURS`); one item per refund (§25) | `paymentsOrder` (the refund's order, or its monthly charge's), else `family` |
 | `waitlist` | warning | a current class with a waitlist and a place open, not counting places with an open offer (§14) | `classPage` |
 | `under5` | warning | weekly classes (kind `class`, not one-off) short of 5, from 14 days before their first class to 14 days after; one item for all | `classes()?under5=1` |
 | `attendance` | warning | a class date with children expected and no `class_report`: today's once the class ended 2 hours ago, or any in the last 7 days; not on a day off. One item per class date (§18) | `teachRoster` |
 | `missed2` | warning | a child absent at their last two marked dates in a current class; one item per child (§18) | `family` |
 | `emergency` | warning | families with an active or trial enrollment in a class that hasn't ended, and no emergency contact | `family` |
 | `care` | neutral | the same children, care details not confirmed by a parent within a year (`detailsOnFile`), one item per family | `family` |
+| `notes` | neutral | "Progress notes to send": draft progress notes (`shared_at` empty) waiting, one item per class (§22, §25) | `classPage` + `#skills-h` |
 | `signups` | good | active and trial enrollments made in the last 7 days, one item per class | `classPage` |
 | `leads` | neutral | messages and sign-ups from the site's forms in the last 7 days, one item | `leads()` |
 | `birthdays` | good | enrolled children with a birthday today or in the next 6 days | `family` |
@@ -616,3 +618,44 @@ Settings that aren't site content live in `staff_setting`, one JSON value per ke
 | Key | Shape | Written by | Read by |
 |---|---|---|---|
 | `reports.baseline` | `Baseline`: `season`, optional `children` and `returning`, `classes` (title, enrolled), `monthly` (month, collected in cents) | Settings → Last season (settings unit) | the dashboard's comparisons (reports unit) |
+| `email.welcome`, `email.payNow`, `email.waitlistOffer`, `email.dropIn`, `email.refund`, `email.progressNote` | `Wording`: `{ subject, intro }` (1–200 and 1–1000 characters, with `{placeholders}`); for the progress note `intro` is the last line | Settings → Emails (§25) | each email's own code, through `emailWording(name)` |
+| `reasons.drop`, `reasons.absence` | `string[]`, up to 20, each 1–40 characters | Settings → Reasons (§25) | the class page's Remove; the teacher app's Absent (`reasonList(kind)`) |
+| `attendance.startDate` | `YYYY-MM-DD` | Settings → Attendance (§25) | `attentionAttendance` (`attendance` alerts only from that date) |
+| `attendance.kinds` | `ProgramKind[]` (`class`, `camp`, `workshop`, `lesson`, `inclusive`, `party`) | Settings → Attendance (§25) | `attentionAttendance` (only those kinds raise `attendance`) |
+
+Unset (or no longer fitting its shape), each key means today's behavior: the built-in email, the default reasons, every date and every kind. Saving the default as it is clears the key instead, so a later change to a default still applies.
+
+## 25. The rest of Settings: emails, reasons, attendance, last season
+
+Four owner pages under `/admin/settings/`, each a tile on `settings()`. Owners only (`requireStaff`); every change needs a sign-in from the last 15 minutes (`requireFreshStaff`; until then the page shows "Confirm it's you", as Settings → Staff). Keys in §24. Tests: `tests/unit/settings-rest.test.ts`, `tests/e2e/staff-settings-rest.mjs`.
+
+| Function | Address | Page |
+|---|---|---|
+| `settingsEmails(name?)` | `/admin/settings/emails` (`?email=<name>` opens one) | Settings → Emails |
+| `settingsReasons()` | `/admin/settings/reasons` | Settings → Reasons |
+| `settingsAttendance()` | `/admin/settings/attendance` | Settings → Attendance |
+| `settingsLastSeason()` | `/admin/settings/last-season` | Settings → Last season |
+
+**Emails** (`src/server/email-wording.ts`, `src/server/email-previews.ts`).
+
+- **Which:** `welcome` (the sign-up confirmation, not a waitlist one), `payNow` (a failed charge, and Send a pay link), `waitlistOffer`, `dropIn` (a paid drop-in), `refund`, `progressNote` (subject and the last line). Not the sign-in code email.
+- **`EMAIL_DEFS`:** each email's title, when it's sent, its `placeholders` (`{child}`, `{class}`, `{date}`, `{deadline}`, `{amount}`, `{payment}`, `{reason}`: each email has its own), and the built-in `subject` and `intro`, which, filled in, read as the email does.
+- **Each email's code** now builds its words in a pure function that takes the wording: `confirmationEmail` (`family.ts`), `payNowEmail` (`billing.ts`), `offerEmail` (`roster-changes.ts`), `dropInEmail` (`drop-ins.ts`), `refundEmail` (`refunds.ts`), `progressWords` (`progress-notes.ts`). With `null` (unset) each returns exactly what was sent before. With a wording, `worded(built, wording, values, facts)`: her subject (the heading in the email is the subject without " · Little Characters"), her opening in place of the first paragraph, then `facts`, a short line for what that first paragraph carried ("Amount due: $95 for … We couldn't charge it because …", "Enrolled: Ava in …", "Sign up by … to take the place.", "Booked: Ava, drop-in to …"; for a refund, the built-in first line itself), then the rest of the email unchanged: dates, links, the pay link, the late fee date, the account link.
+- **The page:** the list shows each email's subject and opening and "Your wording" or "Original wording". One email: the two boxes with the placeholders beside them, **Preview** (the whole email, built by the same function, from made-up sample details and one of the content's weekly classes), **Send me a test** (`sendTestEmail`: "[Test] …" to the signed-in owner only, through `sendEmail`, so the dev mailbox in development; audit `admin.email_wording.test`), **Save** (`saveWording`: `checkWording` tidies the opening to one paragraph and refuses an unknown placeholder in words), **Back to the original wording** (`resetWording`). Audit `admin.setting.update` / `.clear`.
+
+**Reasons** (`src/server/reasons.ts`).
+
+- `reasonList('drop' | 'absence')`: the saved list, else `DEFAULT_REASONS` (drop: Schedule, Moved, Cost, Lost interest, Other; absence: Sick, Travel, Family, Other). The page: add, rename, ↑ ↓, remove (`editReasons`, pure; names don't repeat in any capitals).
+- **Remove** (class page, §14): the confirm step asks "Why are they leaving? (optional)"; a reason named "Other" opens "In a few words" (CSS `:has`, no script). `dropReasonFrom(choice, other, list)` keeps only a listed reason ("Other: <words>", up to 120 characters), and `removeChild(…, staffId, dropReason)` saves it in `enrollment.drop_reason` with `cancelled_at`. The family page shows it beside **Cancelled** ("Why: Moved").
+- **Absent** (teacher app, §18): a child marked Absent gets the absence reasons as one optional row of 44 px buttons (`[data-why]`); a tap sends a new tap with `reason`, tapping it again clears it. Never required to submit. The tap input (`tapInput`) has an optional `reason` (up to 60 characters; not checked against the list, since a phone can hold an older one); `saveTaps` keeps it only with `absent` (Present, Late, Left early clear it), in the same idempotent upsert as before (a replayed `client_id` changes nothing; an older tap changes nothing). The phone's queue and marks keep `reason` (`src/scripts/teach.ts`); taps queued before have none. A changed reason writes `teach.attendance.change`.
+- **Hannah sees** the reason on the roster's read-only mark ("Absent · Sick") and under each date on the class page's **Attendance**: "Absent: Zara O. (Sick), Theo O." (`AttendanceDate.absent`).
+- Renaming or removing a reason never changes a saved `drop_reason` or `attendance.reason`.
+
+**Attendance** (`attentionAttendance` in `src/server/attendance.ts`). It now also returns `startDate` and `kinds` (null when unset); `attentionFrom` skips an `attendance` item when `attendanceExpected(a, program.kind, date)` is false: a date before the start date, or a kind not ticked. The help text suggests weekly classes and camps; the default is every kind. The teacher app is unchanged: anyone can take attendance for any class they teach. All six ticked saves as unset.
+
+**Last season** (`src/server/last-season.ts`). The form for `reports.baseline`: the season's name, children and how many came back, rows of class and enrolled, rows of month (`<input type="month">`) and dollars collected; **Add more rows** shows three more. `baselineFromForm` (pure) turns dollars into cents (`dollarsToCents`: "$9,500.50" → 950050), ignores empty rows, names a half-filled one, sorts months; `formFromBaseline` shows a saved value again. **Clear** removes it. Only the reports unit reads it.
+
+**Rehearsals** (`src/server/shows.ts`). `rehearsalCardsBetween(viewer, from, to, content)` → `RehearsalCard & { date }`, the same rule as `teacherRehearsals` (which now calls it): owners every rehearsal, teachers their classes' ones. **Today** (`/admin`) lists the day's rehearsals under the classes (`[data-today-rehearsals]`, linking to `show(slug)`); the teacher app's **This week** lists the next 7 days' rehearsals for the person's own classes, read-only (`[data-week-rehearsal]`), as its classes.
+
+**Needs attention:** `refund` and `notes` (§12), loaded in `loadCore` with two more queries (`refundsToCheck`, `draftNoteCounts` in `today.ts`). `refund` counts toward the urgent number; `notes` doesn't.
+

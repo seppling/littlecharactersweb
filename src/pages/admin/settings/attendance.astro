@@ -9,7 +9,7 @@
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import type { ProgramKind } from '@/content/types';
-import { attention, confirm, settings, settingsAttendance } from '@/lib/admin-links';
+import { confirm, settings, settingsAttendance } from '@/lib/admin-links';
 import { clearSetting, getSetting, programKindSchema, setSetting } from '@/server/settings-store';
 import { requireFreshStaff, requireStaff, signedInRecently } from '@/server/staff';
 import { longDay } from '@/server/today';
@@ -83,7 +83,7 @@ const notice = (
       <div>
         <h1>Attendance</h1>
         <p class="admin-intro">
-          When a class ends without attendance, it shows on <a href={attention()}>Needs attention</a> as “Attendance not taken”. Choose when that starts, and which kinds of class need it. Teachers can still take attendance for any class they teach.
+          When a class ends without attendance, it shows on Needs attention as “Attendance not taken”. Choose when that starts, and which kinds of class need it. Teachers can still take attendance for any class they teach.
         </p>
       </div>
     </div>

@@ -57,6 +57,7 @@ node tests/e2e/staff-drop-ins.mjs       # drop-ins: a family books and pays, the
 node tests/e2e/staff-refunds.mjs        # refunds (part, too much, cash), credits on the next payment, day-off credits, statements; 390 px
 node tests/e2e/staff-tags-skills.mjs    # tags on rosters, families and search, email a tag; skills on a teacher's phone (offline too); a progress note to a family; 390 px
 node tests/e2e/staff-shows.mjs          # shows: cast from the performing classes, roles, order, program download, a rehearsal on the calendar, teacher's Today and family account; 390 px
+node tests/e2e/staff-settings-rest.mjs  # Settings → Emails (preview, test, save, back to original), Reasons on Remove and absent taps, Attendance start date, Last season, rehearsals on Today; 390 px
 ```
 
 ## Where things live

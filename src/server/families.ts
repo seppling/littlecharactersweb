@@ -478,6 +478,8 @@ export async function familyPage(householdId: string, catalog: Catalog, viewerId
         status: e.status,
         /** Added by staff without charge: why (roster-changes.ts). */
         noChargeReason: e.noChargeReason,
+        /** Why they left, when Hannah picked a reason on Remove (Settings → Reasons). */
+        dropReason: e.status === 'cancelled' ? e.dropReason : null,
       };
     })
     .sort((a, b) => Number(b.current) - Number(a.current) || STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || b.endDate.localeCompare(a.endDate) || a.title.localeCompare(b.title));
