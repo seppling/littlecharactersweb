@@ -307,3 +307,33 @@ Stephen asked for research into the best studio portals first, then a plan for w
 - **Open for Stephen:** load last season's class counts and totals from Studio Director once, as a starting point for comparisons (recommended).
 - **Studio Director's reports:** the full list from Hannah's account is matched in `studio-director-reports.md`. Questions for Hannah: pre-approved classes, sales tax, merchandise.
 
+### Back office foundation merged (October 19)
+
+The foundation unit (`claude/bo-foundation`) is merged.
+- **Proof on the merged branch:**
+  - type check clean;
+  - 479 unit tests pass;
+  - the site builds;
+  - all five browser tests pass on a fresh database (the four journeys, then the new `staff-foundation.mjs`).
+- **What's in it:**
+  - migration `0009_back_office`:
+    - household emergency contacts, pickup people, contacts confirmed, ZIP, how they heard;
+    - staff notes, the staff email log and waitlist offers;
+  - the staff shell: a dark top bar with search on computers; on phones, the title, a back link, a Menu and tabs (Today, Classes, Search, Alerts);
+  - the link contract (`src/lib/admin-links.ts`), badges, and CSV and PDF downloads (pdfkit, Helvetica);
+  - a fresh sign-in (15 minutes) before downloads, at `/admin/confirm`, and a 30-day idle limit for staff sessions;
+  - the staff app manifest and icons, and `/admin/install`.
+  - Rosters moved to `/admin/classes` and autopay to `/admin/payments`; the old addresses redirect. `/admin/search` and `/admin/attention` are placeholders until their units merge.
+  - The contract for the next units is `docs/back-office.md`.
+- **A walk-through as Hannah on a phone** (Stephen asked the worker for it) found these. They went into the next units' prompts:
+  - the moved roster and Classes list are too wide for a phone;
+  - phone numbers aren't tap-to-call;
+  - titles don't match the tabs;
+  - Payments buttons break mid-word;
+  - Classes lists past one-off dates.
+  - **Still open:** sign-out should return staff to the staff sign-in; a teacher who isn't on the staff list sees a bare "Not found" (show the staff-only panel with Sign out); the focus ring in the dark bar is too faint. These go to the Today unit.
+- **Open points kept for later:**
+  - the content editor should 404 signed-in families like other staff pages;
+  - a dependency update before launch (`npm audit` lists sharp and http-cache-semantics advisories).
+- **Next:** classes (`claude/bo-classes`), families (`claude/bo-families`) and contacts (`claude/bo-contacts`) started at 03:19Z.
+
