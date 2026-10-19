@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { site } from '@/config/site';
 import { classCalendar, firstClassOnOrAfter } from '@/lib/ics';
+import { classDates } from '@/server/class-day';
 import { todayInAthens } from '@/lib/pricing';
 import { getEnrollment, householdForUser } from '@/server/family';
 
@@ -23,8 +24,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const first = firstClassOnOrAfter(session, joined);
   if (!first) return new Response('This class has no more dates', { status: 404 });
   const loc = locals.content.locationById(session.locationId);
+  const skip = (await classDates(session)).filter((d) => d.dayOff).map((d) => d.date);
   const body = classCalendar({
     session,
+    skip,
     first,
     uid: `${row.enrollment.id}@littlecharacters.org`,
     prodId: `-//${site.shortName}//Family account//EN`,

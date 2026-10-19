@@ -1,7 +1,7 @@
 ---
 /** Settings: one tile per settings page. Staff now; later units add email wording and reasons (docs/back-office.md → Settings). */
 import AdminShell from '@/components/admin/AdminShell.astro';
-import { settingsStaff } from '@/lib/admin-links';
+import { settingsDaysOff, settingsStaff } from '@/lib/admin-links';
 import { requireStaff } from '@/server/staff';
 
 export const prerender = false;
@@ -22,6 +22,12 @@ if (response) return response;
         <a class="tile" href={settingsStaff()} data-settings-staff>
           <strong>Staff</strong>
           <span>Who works here, the classes each teacher teaches, and substitutes.</span>
+        </a>
+      </li>
+      <li>
+        <a class="tile" href={settingsDaysOff()} data-settings-days-off>
+          <strong>Days off</strong>
+          <span>Holidays and snow days: no class, and what happens to that month’s payments.</span>
         </a>
       </li>
     </ul>

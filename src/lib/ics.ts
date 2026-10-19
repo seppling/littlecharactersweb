@@ -5,6 +5,7 @@
  * The public file (/calendar/<session>.ics) starts at the session's first day.
  * The family account's file starts at the child's own first class, names the
  * child, and adds a reminder an hour before each class.
+ * Both leave out the class's days off (EXDATE).
  */
 import { meetings } from './pricing';
 import type { Session } from '@/content/types';
@@ -28,6 +29,8 @@ export interface ClassCalendar {
   prodId: string;
   /** Minutes before each class for a reminder; none when left out. */
   reminderMinutes?: number;
+  /** Days off (YYYY-MM-DD): left out of the repeating event. */
+  skip?: string[];
   now?: Date;
 }
 
@@ -47,6 +50,7 @@ export function classCalendar(c: ClassCalendar) {
     `DTSTART;TZID=America/New_York:${date}T${hm(session.start)}`,
     `DTEND;TZID=America/New_York:${date}T${hm(session.end)}`,
     repeating ? `RRULE:FREQ=WEEKLY;BYDAY=${session.days.map((d) => BYDAY[d]).join(',')};UNTIL=${until}` : '',
+    ...(repeating ? (c.skip ?? []).filter((d) => d >= c.first).map((d) => `EXDATE;TZID=America/New_York:${d.replace(/-/g, '')}T${hm(session.start)}`) : []),
     `SUMMARY:${escape(c.summary)}`,
     `DESCRIPTION:${escape(c.description)}`,
     c.location ? `LOCATION:${escape(c.location)}` : '',

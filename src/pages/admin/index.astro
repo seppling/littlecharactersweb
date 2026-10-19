@@ -42,7 +42,12 @@ const titleOf = (sessionId: string) => content.findSession(sessionId)?.program.t
 
           <section class="today__section" aria-labelledby="today-classes">
             <h2 id="today-classes">Classes today</h2>
-            {day.classes.length ? (
+            {day.closed ? (
+              <div class="empty-state" data-no-classes data-day-off>
+                <strong>No classes today: {day.closed.reason}</strong>
+                <p>{day.next ? `Next classes: ${shortDay(day.next.date)} (${day.next.classes.map((c) => c.title).join(', ')}).` : 'Nothing else is on the calendar yet.'}</p>
+              </div>
+            ) : day.classes.length ? (
               <ul class="today-classes" data-today-classes>
                 {day.classes.map((c) => (
                   <li>
@@ -53,7 +58,9 @@ const titleOf = (sessionId: string) => content.findSession(sessionId)?.program.t
                         {c.label && <span class="muted"> · {c.label}</span>}
                         <span class="today-class__meta">{[c.location, c.teacher].filter(Boolean).join(' · ') || (c.kind === 'event' ? 'Event' : '')}</span>
                       </span>
-                      {c.places ? (
+                      {c.dayOff ? (
+                        <span class="badge badge--warning" data-day-off>Day off: {c.dayOff}</span>
+                      ) : c.places ? (
                         <span class="today-class__places" data-places>{c.places}</span>
                       ) : (
                         <span class="badge badge--neutral">Event</span>

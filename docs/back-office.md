@@ -28,9 +28,11 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 | `settingsStaff()` | `/admin/settings/staff` | Settings → Staff (§15) |
 | `settingsStaffMember(staffId)` | `/admin/settings/staff/<id>` | One staff member: role, classes, substitute dates, turn off (§15) |
 | `teachHome()` | `/admin/teach` | The teacher app's home (§18) |
-| `teachRoster(sessionId, date, on?)` | `/admin/teach/<id>/<YYYY-MM-DD>` | One class date: roster and attendance (§18) |
+| `teachRoster(sessionId, date, on?)` | `/admin/teach/<id>/<YYYY-MM-DD>` | One class date: roster and attendance (§18); the calendar links to it |
 | `teachMe()` | `/admin/teach/me` | The teacher app's Me tab (§18) |
 | `classAttendance(sessionId)` | `/admin/classes/<id>/attendance` | A class's attendance, for `downloads()` (CSV and PDF only, §18) |
+| `calendar(month?, params?)` | `/admin/calendar?month=2026-11` (`view=week&week=`, `program`, `location`, `teacher`) | The calendar (§19) |
+| `settingsDaysOff(sessionId?)` | `/admin/settings/days-off` (`?class=<id>&which=some` pre-fills a class) | Settings → Days off (§19) |
 | `confirm(next)` | `/admin/confirm?next=` | Sign in again, then go on |
 | `downloads(listPath)` | `{ csv, pdf }` | A list's two downloads |
 
@@ -405,3 +407,36 @@ Nobody marks a day off (`dayOffOn`) or a future date. The server applies the sam
 
 **Not built here:** push reminders ("Attendance not taken"), absence reasons (`attendance.reason`, from Settings later), children's photos on the roster (initials only).
 
+
+## 19. Calendar and days off
+
+Hannah's class calendar and days off (Studio Director's class calendar and each class's dates). The guide for Hannah is `staff-billing.md` → "Days off".
+
+**The calendar** (`/admin/calendar`, `src/server/calendar.ts`; owners). In the top bar after Classes, and in the phone menu (not a tab).
+
+- **Month** (the default): a grid, Sunday to Saturday, on a computer; at 760 px and narrower the same month as a list of the days with something on them. Each class shows its start time, title and "8/12" (enrolled and trials, of the places); events from the content are yellow; a day off for every class is a red band with the reason, and a class with its own day off is struck through. Today has a purple outline. Arrows and a month box, as on Payments.
+- **Week** (`?view=week&week=YYYY-MM-DD`, any date in the week): the seven days as a list, each class with its class page (`classPage`) and that date's attendance roster (`teachRoster`).
+- **Filters:** program (slug), location (id), teacher (a name: Settings → Staff's `class_teacher`, leads first, else the content's teacher). Events are hidden when filtering by teacher.
+- **Downloads** (a fresh sign-in): `calendar.csv` / `.pdf` with the month and filters: the **Daily Class Schedule** (Date, Time, Class, Location, Teacher, Students, Day off) and with `report=classes` the **Class Schedule** (Class, Time, Location, Teacher, Students, Classes, Dates, Days off). Audit `admin.download.csv|pdf`, entity `list`, id `calendar-daily|calendar-classes`, the month in `detail`.
+- **Functions:** `calendarRange(content, from, to, filters)` → `{ days: CalendarDay[], options }`; the pure `calendarDays(data, dates, filters, content)` (`CalendarDay` = `{ date, dayOff, entries: CalendarEntry[] }`, an entry has `kind`, `time`, `title`, `places`, `teacher`, `sessionId`, `href`, `rosterHref`, `dayOff`); `monthGrid`, `calendarWeek`, `teachersBySession`; `dailyScheduleTable`, `classScheduleTable`.
+
+**A class's dates:** the class page has a **Dates** part: every `meetings(session)` date (`classDates`), days off struck through with "No class: <reason>", past dates greyed, "N classes left" (from today, days off not counted), and **Add a day off**, which opens Days off with the class ticked.
+
+**Days off** (`/admin/settings/days-off`, `src/server/days-off.ts`; owners; a tile on Settings).
+
+- **Add:** a date or a range (up to 31 days), every class or some (current and upcoming classes), and a reason (up to 80 characters; families see it). "Check what changes" is a GET (`?step=check&from=&to=&which=&class=&reason=`), so the fresh sign-in can return to it.
+- **The preview** (`previewDayOff(staff, catalog, request)` → `DayOffPlan`): `classes` (each class and date, children, `refused` when attendance was taken), `alreadyOff` (left as they are), `lowered` (each monthly payment: before, after, each date's one-class amount, `later` when locked), `alreadyPaid` ("give a credit": a paid month, one being charged right now, or the month paid at sign-up), `noChange` (paid the season up front, pays by the session, free first class, no charge, payments stopped), `dropIns` (booked; "cancel and refund in Stripe for now"), `blockers`. The pure half is `planDayOff(data)`.
+- **The choice:** "Lower that month's payments by one class" or "Don't change payments", with no default, then Save (fresh sign-in). `addDayOff` works the plan out again inside one transaction and refuses when there are blockers (attendance taken; an every-class day off already there).
+- **Rows:** one `closure` per date (every class: `session_id` null) or per class and date. Rows added together share `created_at`; the list shows them as one, and Remove removes them together. "Lower" sets `adjusted_at` / `adjusted_by` on each row; "Don't change" leaves them null: that is how the choice is kept.
+- **One class's worth** (`oneClassCents`): the month's `installment.base_amount_cents` (the 15% family discount in it, Hannah's discounts not) ÷ `classDaysInMonth(session, month)` (now exported from `pricing.ts`: every time the class's weekdays fall in that calendar month), rounded up to the cent. $95 for four Thursdays: $23.75; $95 for five Tuesdays: $19.
+- **The adjustment:** one `billing_adjustment` per family's order and date: `amount`, `once`, on **that month's** installment (`installmentId`), reason "Day off Nov 26 (Thanksgiving)", shown to the family, `closure_id` set. It's made through `insertAdjustments(tx, staff, inputs, now)` in `adjustments.ts` (which `addAdjustment` now uses too), so it applies after Hannah's discounts, never below $0, and a locked payment (the pay-now form open) catches up at the billing run (`reapplyPendingAdjustments`). A payment being charged right now isn't adjusted; it's listed under "Already paid".
+- **Email:** one per family (all parents together), for dates from today on: "No class Dec 8", each child, class and date, and when their payment changed, "your December payment is now $36 (was $55)". Audit `admin.day_off.email` (entity household).
+- **Remove** (`previewRemoval`, `removeDayOff`): the payments that go back up, then confirm. Only the group's adjustments on payments still `scheduled` or `failed` are removed (and those payments re-applied); paid ones stay, with their adjustment kept. Families aren't emailed. The `closure` rows are deleted (`billing_adjustment.closure_id` goes null on any kept ones).
+- **The list** (`daysOffList(catalog, today)` → `{ upcoming, past }` of `DayOffGroup`): dates, classes ("Every class" or titles), reason, what was done ("Lowered 2 payments by $35.15 in all" / "Payments not changed"), who, the families with "Already paid, give a credit", and Remove.
+- **Audit:** `admin.day_off.add` and `admin.day_off.remove` (entity `closure`, the date and class in `detail`), `adjustment.add` / `adjustment.remove` (`detail` "day off"), and `admin.day_off.credit_due` (entity `order`, the closure id in `detail`): the record of payments already made, for the credits unit.
+
+**Elsewhere:**
+
+- **Today:** a day off for every class today shows "No classes today: <reason>" with the next classes; a class with its own day off shows "Day off: <reason>". `TodayClass` has `sessionId` and `dayOff` (the reason or null): leave closed classes out of "Not taken".
+- **Families:** the account's "Coming up" shows "No class Nov 26 (Thanksgiving)" for each day off to come, and "Next" skips them; a lowered month shows "Day off Nov 26 (Thanksgiving): −$23.75". The class's public page lists "No class …" under each date shown. Both calendar files (`/calendar/<id>.ics`, the account's) leave days off out (`EXDATE`, `classCalendar`'s `skip`).
+- **Unchanged:** prices, `meetings()`, proration and a new family's first month never change for a day off. The attendance and drop-in refusals read `dayOffOn` (§17).

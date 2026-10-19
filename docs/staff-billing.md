@@ -91,6 +91,31 @@ When a place opens, Today shows it under **Waitlist openings**. On the class's p
 - When the time runs out, it says **Expired: offer to the next family**. Offer it to the next child, or to the same one again.
 - When the family pays, the child moves from the waitlist to the roster, and the offer is done. Today stops counting a place that's on offer.
 
+## Days off
+
+For a holiday, a snow day or a week's break. Go to **Settings → Days off** (or press **Add a day off** under **Dates** on a class's page, which picks that class for you).
+
+1. Pick the **Date**, and a **Last day** for a break of several days.
+2. Choose **Every class** or **Some classes**.
+3. Write the **Reason**, like "Thanksgiving" or "Snow day". Families see it: "No class Nov 26 (Thanksgiving)".
+4. Press **Check what changes**. Nothing is saved yet. You see:
+   - the classes meeting those days, and how many children each;
+   - **Monthly payments:** each family on the monthly plan, that month's payment now, and the amount if it's lowered by one class;
+   - **Already paid: give a credit:** families whose month is already paid (or was paid at sign-up). Their payment doesn't change. Give them a credit: for now, refund in Stripe, or take it off a later month with **Add a discount**. The list stays on the Days off page;
+   - **No change:** families who paid the season up front, pay by the session, are on a free first class, or have a place without charge;
+   - **Drop-ins booked:** cancel and refund those in Stripe for now.
+   - If a teacher already took attendance for a class that day, that class can't have a day off; untick it (or choose the classes instead of every class).
+5. Choose **Lower that month's payments by one class**, or **Don't change payments** (for a break the tuition already allows for). There's no default.
+6. Press **Save day off**. You may be asked to confirm it's you first (an emailed code).
+
+**One class's worth** is that month's payment before your own discounts (with the 15% family discount, when the family has it) divided by the number of times the class meets in that calendar month, with the cent rounded in the family's favor. For example, $95 for a class that meets on four Thursdays in November: $23.75 off, so November is $71.25. A family with a scholarship gets the same $23.75 off what they pay. It comes off **that month's** payment, not the next one. If the family has the "pay now" page open, it changes a little later, before it's charged.
+
+**Families are emailed** once each: "No class Nov 26", with each child and class, and the new amount when their payment changed. Days already past aren't emailed. In their account they see "No class Nov 26 (Thanksgiving)" in their classes, and the payment shows "Day off Nov 26 (Thanksgiving): −$23.75". The class's calendar file leaves the day out.
+
+**Remove a day off:** press **Remove** next to it in the list. You see the payments that go back up; press **Remove day off** to confirm. Paid months stay as they were. Families aren't emailed about it.
+
+The days off and their effect on each class are on the **Calendar** too (in the top bar), and on Today: "No classes today: Thanksgiving".
+
 ## The record
 
-Every discount shows who added it and when, and every add and remove is written to the site's audit log. So is every child added, removed or offered a place from a class's page, with the reason for a no-charge place. Each time the family discount changes a family's payments, that's logged too.
+Every discount shows who added it and when, and every add and remove is written to the site's audit log. So is every child added, removed or offered a place from a class's page, with the reason for a no-charge place. Each time the family discount changes a family's payments, that's logged too. So is every day off added or removed, each payment it lowered, each family it emailed, and each family listed as "Already paid: give a credit".

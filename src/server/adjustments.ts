@@ -31,7 +31,7 @@ const { installment, billingAdjustment, order, household, user } = schema;
 
 type Installment = typeof installment.$inferSelect;
 export type Adjustment = typeof billingAdjustment.$inferSelect;
-type Tx = Parameters<Parameters<DB['transaction']>[0]>[0];
+export type Tx = Parameters<Parameters<DB['transaction']>[0]>[0];
 
 export type StaffUser = { id: string; email: string; emailVerified: boolean };
 
@@ -89,7 +89,7 @@ export function computeChanges(installments: Installment[], adjustments: Adjustm
 }
 
 /** Re-apply an order's adjustments to its changeable payments, inside a transaction. */
-async function reapply(tx: Tx, orderId: string, now: Date) {
+export async function reapply(tx: Tx, orderId: string, now: Date) {
   // Lock the order's payments, so the billing run can't claim one mid-change.
   const rows = await tx.select().from(installment).where(eq(installment.orderId, orderId)).orderBy(asc(installment.dueDate)).for('update');
   const adjustments = await tx.select().from(billingAdjustment).where(eq(billingAdjustment.orderId, orderId));
@@ -112,7 +112,7 @@ async function reapply(tx: Tx, orderId: string, now: Date) {
   return { changes, settled };
 }
 
-async function logSettled(staffId: string | null, ids: string[]) {
+export async function logSettled(staffId: string | null, ids: string[]) {
   for (const id of ids) await audit(staffId, 'installment.paid_by_adjustment', 'installment', id);
 }
 
@@ -123,9 +123,13 @@ export type AdjustmentInput = {
   repeat: AdjustmentRepeat;
   reason: string;
   showToFamily: boolean;
+  /** 'once' only: the payment to take it off (a day off lowers that month's payment). Default: the next one that can change. */
+  installmentId?: string;
+  /** The day off it's for (src/server/days-off.ts), so removing the day off removes it. */
+  closureId?: string;
 };
 
-function checkInput(input: AdjustmentInput) {
+export function checkInput(input: AdjustmentInput) {
   const reason = input.reason.trim();
   if (!reason) throw new AdjustmentError('Write a reason (for example “scholarship” or “credit for a missed class”).');
   if (reason.length > ADJUSTMENTS.maxReasonLength) throw new AdjustmentError(`Keep the reason under ${ADJUSTMENTS.maxReasonLength} characters.`);
@@ -136,9 +140,12 @@ function checkInput(input: AdjustmentInput) {
 }
 
 /** The new adjustment as it would be saved: checks, and picks the payment a 'once' applies to. */
-function draft(rows: Installment[], existing: Adjustment[], staff: StaffUser, input: AdjustmentInput, now: Date): Adjustment {
+export function draft(rows: Installment[], existing: Adjustment[], staff: StaffUser, input: AdjustmentInput, now: Date): Adjustment {
   const changeable = rows.filter((i) => !lockedReason(i, now));
-  if (!changeable.length) throw new AdjustmentError('This family has no upcoming payment that can be changed right now.');
+  // A chosen payment may be locked for now (the pay-now form is open): it catches up at the next billing run, as any adjustment does.
+  const target = input.installmentId ? rows.find((i) => i.id === input.installmentId) : undefined;
+  if (input.installmentId && (!target || !['scheduled', 'failed'].includes(target.status) || input.repeat !== 'once')) throw new AdjustmentError('That payment can’t be changed any more.');
+  if (!target && !changeable.length) throw new AdjustmentError('This family has no upcoming payment that can be changed right now.');
   return {
     id: crypto.randomUUID(),
     householdId: rows[0].householdId,
@@ -146,7 +153,7 @@ function draft(rows: Installment[], existing: Adjustment[], staff: StaffUser, in
     kind: input.kind,
     value: input.value,
     repeat: input.repeat,
-    installmentId: input.repeat === 'once' ? changeable[0].id : null,
+    installmentId: input.repeat === 'once' ? (target ?? changeable[0]).id : null,
     reason: input.reason,
     showToFamily: input.showToFamily,
     createdBy: staff.id,
@@ -154,7 +161,7 @@ function draft(rows: Installment[], existing: Adjustment[], staff: StaffUser, in
     createdAt: new Date(Math.max(now.getTime(), ...existing.map((a) => a.createdAt.getTime() + 1))),
     removedAt: null,
     removedBy: null,
-    closureId: null,
+    closureId: input.closureId ?? null,
   };
 }
 
@@ -173,17 +180,31 @@ export async function addAdjustment(staff: StaffUser, raw: AdjustmentInput, now 
   await requireStaff(staff);
   const input = checkInput(raw);
   const db = await getDb();
-  const result = await db.transaction(async (tx) => {
-    const [o] = await tx.select().from(order).where(eq(order.id, input.orderId));
-    if (!o || o.status !== 'paid') throw new AdjustmentError('That enrollment isn’t paid and active.');
-    const rows = await tx.select().from(installment).where(eq(installment.orderId, o.id)).orderBy(asc(installment.dueDate)).for('update');
-    const existing = await tx.select().from(billingAdjustment).where(eq(billingAdjustment.orderId, o.id));
-    const [a] = await tx.insert(billingAdjustment).values(draft(rows, existing, staff, input, now)).returning();
-    return { adjustment: a, ...(await reapply(tx, o.id, now)) };
-  });
+  const result = await db.transaction((tx) => insertAdjustments(tx, staff, [input], now).then(({ adjustments, ...r }) => ({ adjustment: adjustments[0], ...r })));
   await audit(staff.id, 'adjustment.add', 'billing_adjustment', result.adjustment.id);
   await logSettled(staff.id, result.settled);
   return result;
+}
+
+/**
+ * Save adjustments on one order inside the caller's transaction (checked
+ * input), then bring its payments up to date. addAdjustment uses it for one;
+ * a day off (src/server/days-off.ts) for one per date. The caller checks the
+ * staff member and writes the audit log.
+ */
+export async function insertAdjustments(tx: Tx, staff: StaffUser, inputs: AdjustmentInput[], now: Date) {
+  const orderId = inputs[0].orderId;
+  if (inputs.some((i) => i.orderId !== orderId)) throw new Error('insertAdjustments: one order at a time');
+  const [o] = await tx.select().from(order).where(eq(order.id, orderId));
+  if (!o || o.status !== 'paid') throw new AdjustmentError('That enrollment isn’t paid and active.');
+  const rows = await tx.select().from(installment).where(eq(installment.orderId, o.id)).orderBy(asc(installment.dueDate)).for('update');
+  const existing = await tx.select().from(billingAdjustment).where(eq(billingAdjustment.orderId, o.id));
+  const adjustments: Adjustment[] = [];
+  for (const input of inputs) {
+    const [a] = await tx.insert(billingAdjustment).values(draft(rows, [...existing, ...adjustments], staff, input, now)).returning();
+    adjustments.push(a);
+  }
+  return { adjustments, ...(await reapply(tx, o.id, now)) };
 }
 
 /** Remove an adjustment: the payments it lowered that are still unpaid go back up. */

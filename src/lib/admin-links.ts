@@ -35,6 +35,9 @@ export const familyLists = () => ({ children: `${search()}/children`, contacts: 
 export const payments = (show?: 'failed' | 'upcoming', month?: string) => `/admin/payments${query({ show, month })}`;
 export const paymentsOrder = (orderId: string) => `/admin/payments/${seg(orderId)}`;
 
+/** The calendar: every class, event and day off. `month` ("2026-11"); the page also takes view=week&week=, and filters. */
+export const calendar = (month?: string, params: Record<string, string | undefined> = {}) => `/admin/calendar${query({ month, ...params })}`;
+
 /** Messages & sign-ups from the site's forms. */
 export const leads = () => '/admin/leads';
 /** The website editor. */
@@ -43,6 +46,8 @@ export const content = () => '/admin/content';
 export const settings = () => '/admin/settings';
 /** Settings → Staff: who works here, their role, their classes and substitute dates. */
 export const settingsStaff = () => '/admin/settings/staff';
+/** Settings → Days off: the list, and Add a day off (`sessionId` pre-fills one class). */
+export const settingsDaysOff = (sessionId?: string) => `/admin/settings/days-off${query({ class: sessionId, which: sessionId ? 'some' : undefined })}`;
 /** One staff member: name and role, classes, substitute dates, deactivate. */
 export const settingsStaffMember = (staffId: string) => `/admin/settings/staff/${seg(staffId)}`;
 /** The teacher app's home: today's classes for a teacher (owners can open it too). */

@@ -85,7 +85,7 @@ check(page.url() === `${BASE}/admin`, 'Hannah signs in with a code and lands on 
 // ── 2. Computer: the top bar ──
 const sections = await page.$$eval('.staff-sections a', (as) => as.map((a) => [a.textContent.trim(), a.getAttribute('href'), a.getAttribute('aria-current')]));
 check(
-  JSON.stringify(sections.map((s) => s[0])) === JSON.stringify(['Today', 'Classes', 'Families', 'Payments', 'Messages & sign-ups', 'Website', 'Settings']),
+  JSON.stringify(sections.map((s) => s[0])) === JSON.stringify(['Today', 'Classes', 'Calendar', 'Families', 'Payments', 'Messages & sign-ups', 'Website', 'Settings']),
   `top bar sections in order: ${sections.map((s) => s[0]).join(', ')}`,
 );
 check(sections[0][2] === 'page', 'Today is marked as the current section');
