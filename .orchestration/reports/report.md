@@ -29,7 +29,14 @@ Branch `claude/bo2-reports` (from `claude/blissful-archimedes-enun5m` at 27b2e95
 
 ## Proof
 
-PROOF_PLACEHOLDER
+All on the final commit's code, Stripe keys blanked.
+
+- `npm run check` (astro check): **0 errors, 0 warnings** (15 hints, none in the new files).
+- `npm test`: **41 files, 818 tests pass**, including `tests/unit/reports.test.ts` (26): seasons and filters; collected net of refunds; charges by type and season (stopped and future charges left out); discounts by kind as a share of full price; refunds by season; aging buckets at 30/31, 60/61, 90/91; a child in two classes counted once; fill rate with no capacity; drops by reason; free class to paid; coming back from the site, from the baseline, and with neither; sign-ups per week beside last season; classes at risk; new families and ZIP codes (imported families aren't new); care details on file; attendance taken (day off left out); teachers; chart scale and comparison wording; with the database: **every dashboard tile's total equals its report's total for the tile's filters**, money by month equals Payments received, every report runs with rows the width of its columns, favorites per staff member, teachers and families refused.
+- `npm run build`: completes.
+- **Browser tests**, `tests/e2e/serve.sh` on a fresh database, every test in README order (run 3): **all 20 pass**, the 19 existing ones and then `staff-reports.mjs` (49 checks): six tiles with numbers, each opening its report with the same total; every panel; a chart's "Show the numbers"; the library's groups and Studio Director names; starring puts a report first and under the tiles; sorting; CSV (same rows as the page) and PDF after a fresh sign-in; the allergy list asks for a fresh sign-in, then a class; a teacher gets the Staff only panel; 390 px with no sideways scroll, no wrapped button, 44 px targets on the dashboard, library and a report.
+- Run 1 stopped at `staff-foundation.mjs`'s top-bar order check (my Reports link); I updated that one line. Run 2 passed the 19 existing tests and caught 22 px links in my report table at 390 px, which I fixed; run 3 is the clean one. `staff-roster.mjs`'s known intermittent tap-size check didn't fail in any run.
+- **Screenshots** (`.orchestration/reports/shots/`): `dashboard-desktop.png`, `dashboard-390.png`, `library-desktop.png`, `library-390.png`, `report-children-desktop.png`, `report-children-390.png`, `report-classes-desktop.png`, `chart-with-table.png`.
 
 ## Decisions
 

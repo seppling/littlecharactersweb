@@ -21,5 +21,8 @@ Branch `claude/bo2-reports`, from `claude/blissful-archimedes-enun5m` (27b2e95).
 - staff-foundation.mjs line 88: top-bar order now includes Reports (my change broke the old check).
 - Phone: report table's header links hidden (sort with "Sort by").
 
+## Status
+Done. Full browser suite (20 tests) passes on a fresh database; unit tests 818 pass; check clean; build OK. See report.md.
+
 ## Next action
-Full browser suite run 2 (run 1 stopped at staff-foundation's top-bar check), then screenshots, report.md.
+None; waiting for the coordinator's merge.
