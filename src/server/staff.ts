@@ -12,7 +12,7 @@
  *   (AdminShell shows both).
  * - requireTeacherOrOwner: the teacher app's pages. What a teacher sees there
  *   is filtered by their classes (src/server/teachers.ts).
- * - requireFreshStaff: downloads, staff changes and later refunds need a
+ * - requireFreshStaff: downloads, staff changes, refunds and credits need a
  *   sign-in from the last 15 minutes. Otherwise staff confirm with an emailed
  *   code at /admin/confirm and come back.
  * - readSession: staff sessions end after 30 days without use, or 1 hour on

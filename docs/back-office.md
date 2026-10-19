@@ -22,6 +22,9 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 | `familyLists()` | `{ children, contacts, notes }` | The family downloads' list paths, for `downloads()` (§10) |
 | `payments(show?, month?)` | `/admin/payments`, `?show=failed` or `upcoming`, `?month=2026-10` | Payments (§11) |
 | `paymentsOrder(orderId)` | `/admin/payments/<id>` | One family's payments for a class |
+| `refundPage(orderId, installmentId?)` | `/admin/payments/<id>/refund?installment=` | Refund one payment (§21) |
+| `creditsPage(householdId)` | `/admin/families/<id>/credits` | A family's credits (§21) |
+| `familyStatement(householdId, year)` | `/admin/families/<id>/statement?year=` | Pass to `downloads()` for the yearly statement (§21) |
 | `leads()` | `/admin/leads` | Messages & sign-ups |
 | `content()` | `/admin/content` | The website editor |
 | `install()` | `/admin/install` | Put the app on your phone (teachers too) |
@@ -484,3 +487,38 @@ A child comes to one class of a weekly class and pays for that date. Hannah's gu
 - **Refunds:** a cancelled drop-in with a paid order is the one to refund (`dropInStatus` says "(paid $25)").
 - **Test-only:** `POST /dev/drop-in-day-off` (`session`, `date`; staff, development only) adds a day off for `tests/e2e/staff-drop-ins.mjs`.
 
+
+## 21. Refunds, credits and statements
+
+Hannah refunds and gives credits on the site instead of the Stripe dashboard; families download a yearly statement. Owners only; every change needs a fresh sign-in (`requireFreshStaff` on the whole page). Hannah's guide is `staff-billing.md` → Refunds, Credits, Statements.
+
+**Refunds** (`src/server/refunds.ts`; page `src/pages/admin/payments/[orderId]/refund.astro`, `refundPage()`):
+
+- **A payment** (`Payment`, `loadPayment({ orderId, installmentId? })`, `familyPayments(householdId)`, `orderPayments(orderId)`): a paid order over $0 (a sign-up or a drop-in, key `o-<id>`) or a paid monthly charge over $0 (`i-<id>`), with its `refund` rows and `leftCents`. `via` says how it was paid: `card` (a `pi_` payment or `cs_` checkout), `cash` (marked "Paid by cash/check", `lastError = 'paid outside Stripe'`), `test` (the local stand-in) or `none`.
+- **The most:** `refundLeft(paid, refunds)` = paid less pending and succeeded refunds. Checked again in `createRefund`'s transaction with the order's row locked (`for update`), so two refunds at once can't both pass.
+- **Card:** the row is inserted `pending`, then the `Refunder` is called (`stripeRefunder` in `stripe.ts`: a sign-up's PaymentIntent is read from its checkout session; `refunds.create` with `metadata.refundId` and idempotency key `refund-<row id>`). Its answer is saved: `succeeded`, `pending` or `failed` (with Stripe's message). Stripe not answering leaves it `pending` with a note; **Try again** (`retryRefund`) sends the same key. The webhook's `refund.updated` / `refund.failed` call `settleRefund` (found by `metadata.refundId`, else the Stripe id).
+- **Cash or check:** recorded `succeeded` with no Stripe id ("Record a refund given by cash or check"). **Test payments:** the same, only where `testRefundsAllowed()` (no Stripe keys, never in production).
+- **The family's email** (ticked by default): "Refund of $X for <what>", "It takes 5–10 days to reach your card" (cash: "given back by cash or check"). Not sent for a failed refund.
+- **Where:** the family's page (**Payment history**, `FamilyMoney.astro`), the order page (**Payments made**), a class's cancelled paid drop-ins (**Refund**), and after a removal ("Refund part of a payment", `?order=` on the notice). Refunded payments show `refundNote()`: "Refunded $25", "Partly refunded: $10 of $25", "(… pending)", there and on the family's receipts. Payments received lists each pending or succeeded refund as its own line, below $0, on the day it was made (`method: 'refund'`, `signedCents`, `receivedCount`), so the month's total is net.
+- **Audit:** `admin.refund.add` (entity refund, the amount and method in `detail`), `admin.refund.retry`, `refund.succeeded|pending|failed`, `refund.email`. The reason stays in the row.
+
+**Credits** (`src/server/credits.ts`; page `src/pages/admin/families/[householdId]/credits.astro`, `creditsPage()`):
+
+- **Applied** through `insertAdjustments`: a one-time amount on the family's next payment that can change (`creditTargets`: scheduled or failed, not locked, over $0, earliest due date first, across their orders), labelled for the family `creditLabel()` ("Credit · Day off Dec 8 (Thanksgiving)", or "Credit" for a private reason). The credit row gets `adjustment_id`, `applied_to_installment_id`, `applied_at`. A credit bigger than the payment keeps what fits; the rest is a new row, "Rest of the credit from Oct 19", applied to the next payment (`planCredit` is the pure half, used by the preview).
+- **Waiting credits:** `applyWaitingCredits(householdId?)` applies them. Called from `fulfillOrder` after a monthly sign-up makes its payments, and at the start of `runBilling` after `reapplyPendingAdjustments`, before anything is charged. It first puts back to waiting a credit whose payment was cancelled (Stop payments), and splits one a payment shrank under (the family discount started).
+- **Remove** (`removeCredit`): a waiting one, or one on a payment not paid yet (its adjustment is removed and the payment re-applied). A paid one, one being charged, or one under an open pay-now form is refused. On the order page, a credit's adjustment links to Credits instead of **Remove**.
+- **Lists:** `familyCredits(householdId)` → `CreditRow` with `state` (`waiting`, `applied`, `used`, `removed`) and its payment; `creditStatus()` words it.
+- **Audit:** `admin.credit.add` (the amount, or "day off <date>"), `admin.credit.remove`, `credit.applied` (the installment in `detail`), `credit.rest`, `credit.returned`.
+
+**Day-off credits** (`src/server/day-off-credits.ts`): the Days off list shows, under a day off with `admin.day_off.credit_due` entries, each family and date with one class's worth (`oneClassCents` of that month's payment, or the next month's when the first month was paid at sign-up; two classes that day add up), and **Give these credits**. Each is one credit per family and date, reason "Day off Dec 15 (Winter break)", shown to the family, id `dayoff-<closure id>-<household id>`: a second press inserts nothing, which is how they're marked done.
+
+**The yearly statement** (`src/server/statements.ts`): every payment that year (date, child, what, "card ending 4242" read from Stripe per payment, "card" when unknown, or "cash/check"), each refund that year (pending and succeeded), and Total paid, Refunds, Total paid less refunds. The heading: the site's name, HQ's address, the contact email, and the optional `site.statements` (`{ taxId?, note? }`, Site settings → Payment statements; empty lines are left out). `buildStatement` is pure; `statementTable` gives both files the same rows; `pdfResponse` takes a new optional `madeFor` (the family's name).
+
+| Download | Address | Who |
+|---|---|---|
+| Statement (CSV, PDF) | `downloads(familyStatement(id, year))` | Staff, from the family's page: a fresh sign-in, audit `admin.statement.csv|pdf` (entity household, the year in `detail`) |
+| Statement (CSV, PDF) | `/account/statement.csv|pdf?year=` | The family, from their account's **Statements**: their own household only (`householdForUser`), audit `statement.csv|pdf` |
+
+**Families see:** **Credits** in their account ("Credit: −$19, Day off Dec 8 · comes off your Dec 1 payment"), the credit on the payment as discounts show, "Partly refunded" on receipts, and **Statements** with each year they paid in.
+
+**Test:** `tests/e2e/staff-refunds.mjs`, after every other browser test.

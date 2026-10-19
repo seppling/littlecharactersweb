@@ -17,8 +17,8 @@ Good to know:
 - It comes off **after** the family discount (15% for multiple students or classes, below), and the cent is rounded in the family's favor.
 - A payment never goes below $0. A month the discount covers completely isn't charged at all; the family gets a "nothing to pay" email instead of a receipt.
 - The $15 late fee isn't discounted. To drop a late fee, use **Waive late fee** under **Needs attention** on the Payments page.
-- Payments already made never change. To give money back for those, refund in the Stripe dashboard.
-- A family who paid the whole season up front has no payments left to discount. Refund part of it in the Stripe dashboard instead.
+- Payments already made never change. To give money back for those, use **Refund** (below).
+- A family who paid the whole season up front has no payments left to discount. Refund part of it instead (below).
 - If the family has the "pay now" page open, or a charge is going through at that moment, that month changes a little later (within a day, before it's charged).
 
 ## Remove a discount
@@ -72,7 +72,7 @@ On the class's page (**Classes**, then the class), press **Remove** under the ch
 
 Before anything is saved, you see what changes: the charges that stop and, if the family drops below two classes, which of their other payments go back up from the 15% family discount (they're emailed about it, as with Stop payments). Press the red button to confirm, or **Cancel**.
 
-The child leaves the roster, and the family's page shows the class as Cancelled. Nothing already paid is refunded and the last month isn't prorated: if you want to give money back, refund it in the Stripe dashboard.
+The child leaves the roster, and the family's page shows the class as Cancelled. Nothing already paid is refunded and the last month isn't prorated: if you want to give money back, press **Refund part of a payment** in the message that appears after removing.
 
 ## Add a child to a class
 
@@ -101,9 +101,9 @@ For a holiday, a snow day or a week's break. Go to **Settings → Days off** (or
 4. Press **Check what changes**. Nothing is saved yet. You see:
    - the classes meeting those days, and how many children each;
    - **Monthly payments:** each family on the monthly plan, that month's payment now, and the amount if it's lowered by one class;
-   - **Already paid: give a credit:** families whose month is already paid (or was paid at sign-up). Their payment doesn't change. Give them a credit: for now, refund in Stripe, or take it off a later month with **Add a discount**. The list stays on the Days off page;
+   - **Already paid: give a credit:** families whose month is already paid (or was paid at sign-up). Their payment doesn't change. After saving, press **Give these credits** next to the day off in the list: each family gets one class's worth off their next payment (below).
    - **No change:** families who paid the season up front, pay by the session, are on a free first class, or have a place without charge;
-   - **Drop-ins booked:** cancel and refund those in Stripe for now.
+   - **Drop-ins booked:** cancel them on the class's page, then press **Refund** next to each.
    - If a teacher already took attendance for a class that day, that class can't have a day off; untick it (or choose the classes instead of every class).
 5. Choose **Lower that month's payments by one class**, or **Don't change payments** (for a break the tuition already allows for). There's no default.
 6. Press **Save day off**. You may be asked to confirm it's you first (an emailed code).
@@ -123,8 +123,43 @@ A child can come to one class of a weekly class and pay for that date. **$25 a c
 - **Families** book from the class's page ("Drop in for one class · $25") once the class has started or starts within two weeks, or from their account. They pick a date and a child, agree to the policies and pay by card. A full date or a day off can't be picked. They get a confirmation email.
 - **On the class's page:** pick a date under **Roster** ("Drop-ins on …") to see who's coming that day; drop-ins have a **Drop-in** label. The **Drop-ins** list shows every drop-in with what was paid. **Over the limit** means a family paid after the date filled up: the payment is kept, so decide whether they come.
 - **Add a drop-in:** find the child, then **Send a pay link** (the family gets an email to pay for the date you pick; nothing is held until they pay) or **No charge** (confirm it's you, pick a date, type a reason).
-- **Cancel** a drop-in with a reason. Nothing is refunded here: refund it in the Stripe dashboard for now.
+- **Cancel** a drop-in with a reason. Nothing is refunded by cancelling: press **Refund** next to it afterwards. "Paid twice" drop-ins have **Refund** too.
+
+## Refunds
+
+Give money back for one payment: a sign-up, a monthly payment or a drop-in.
+
+1. On the family's page, under **Payment history**, press **Refund** next to the payment. (Also on **Payments & discounts** under **Payments made**, and next to a cancelled drop-in on the class's page.) You may be asked to confirm it's you first (an emailed code).
+2. You see what was paid, when, and what's been refunded already.
+3. Choose **All of it** or **Part of it** (type the dollars and cents), write a **Reason** (only staff see it), and leave **Email the family** ticked unless you'd rather not.
+4. Press **Check the refund**, read it over, then press **Refund $X**.
+
+Good to know:
+- You can never refund more than was paid, less earlier refunds.
+- Card refunds go through Stripe and take 5–10 days to reach the family's card; the email tells them so. Sometimes Stripe says **Pending** first; the page updates when it's done. If one **didn't go through**, the reason is shown: give the money back another way.
+- A payment marked **Paid by cash/check** offers **Record a refund given by cash or check** instead: give the money back yourself, then record it so statements and the Payments page are right.
+- A refund changes nothing else: the child stays in the class and payments to come are the same. To remove a child, use **Remove** on the class's page.
+- The payment then shows "Refunded $X" or "Partly refunded" to you and to the family. **Payments received** lists the refund as its own line, so the month's total is what you kept.
+
+## Credits
+
+A credit is money the family is owed that comes off their next payment, instead of a refund.
+
+1. On the family's page, under **Credits**, press **Add a credit**.
+2. Type the **Amount** and a **Reason**. Tick **Show the reason to the family** if they should see it ("Credit · Missed class"); otherwise they see "Credit".
+3. Press **Check where it goes**: you see the payment it comes off and the new amount. Then **Save credit**.
+
+- It comes off the family's next payment that can change, across all their classes. If it's more than that payment, the rest comes off the one after.
+- If the family has no payment to come, it waits ("Waiting for the next payment") and comes off the first payment of their next sign-up.
+- **Remove** a credit that's waiting, or one on a payment not paid yet: that payment goes back up. One that came off a paid payment stays.
+- Days off: families already paid for that month are listed on the Days off page with one class's worth each. Press **Give these credits** once; it can't be given twice.
+
+## Statements
+
+Each family's account has **Statements**: a PDF and a spreadsheet for each year they paid in, listing every payment (date, child, class, amount, and the card's last four or "cash/check"), each refund, and the total paid less refunds. You can download the same statement from the family's page, under **Statements**.
+
+The top shows our name, address and email. To add a tax ID line or a short note, fill them in under **Announcement & site settings → Payment statements** in the website editor. Left empty, they're left out.
 
 ## The record
 
-Every discount shows who added it and when, and every add and remove is written to the site's audit log. So is every child added, removed or offered a place from a class's page, with the reason for a no-charge place, and every drop-in added, paid or cancelled, with its reason. Each time the family discount changes a family's payments, that's logged too. So is every day off added or removed, each payment it lowered, each family it emailed, and each family listed as "Already paid: give a credit".
+Every discount shows who added it and when, and every add and remove is written to the site's audit log. So is every child added, removed or offered a place from a class's page, with the reason for a no-charge place, and every drop-in added, paid or cancelled, with its reason. Each time the family discount changes a family's payments, that's logged too. So is every day off added or removed, each payment it lowered, each family it emailed, and each family listed as "Already paid: give a credit". So is every refund (with its reason, amount and what Stripe said), every credit added, applied or removed, and every statement staff download.

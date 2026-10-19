@@ -18,6 +18,8 @@ import {
   autopayFamilies,
   dayOf,
   howPaid,
+  receivedCount,
+  signedCents,
   monthName,
   nextStep,
   paymentsAttention,
@@ -273,7 +275,7 @@ const views = [
               <p>Families who pay by the month show here until their last payment.</p>
             </div>
           )}
-          <p class="muted">To give a family a discount (a scholarship, a sibling deal, a credit for a missed class), open Payments & discounts. When a family withdraws, use Stop payments. Refunds are made in the Stripe dashboard.</p>
+          <p class="muted">To give a family a discount (a scholarship, a sibling deal, a credit for a missed class), open Payments & discounts. When a family withdraws, use Stop payments. To give money back, open the family’s page and press Refund next to the payment, or Add a credit to take it off their next payment.</p>
         </section>
       )
     }
@@ -314,7 +316,7 @@ const views = [
             <button class="btn btn--primary btn--sm" type="submit">Show</button>
             {month < thisMonth && <a class="btn btn--outline btn--sm" href={`${payments(undefined, shiftMonth(month, 1))}#received`} data-month-next>{monthName(shiftMonth(month, 1)).split(' ')[0]} →</a>}
           </form>
-          <p data-received-total><strong>{monthName(month)}:</strong> {plural(received.length, 'payment')}, {formatCents(sumCents(received))}</p>
+          <p data-received-total><strong>{monthName(month)}:</strong> {receivedCount(received)}, {signedCents(sumCents(received))}</p>
           {received.length ? (
             <table class="data-table" data-received-list>
               <thead><tr><th>Date</th><th>Family</th><th>Class</th><th>For</th><th class="num">Amount</th><th>How paid</th></tr></thead>
@@ -325,7 +327,7 @@ const views = [
                     <td data-label="Family"><a class="pay-link" href={family(p.householdId)}>{p.family}</a></td>
                     <td data-label="Class"><span>{classTitle(p.sessionId)}</span></td>
                     <td data-label="For"><span>{p.what}</span></td>
-                    <td data-label="Amount" class="num"><span>{formatCents(p.amountCents)}</span></td>
+                    <td data-label="Amount" class="num"><span>{signedCents(p.amountCents)}</span></td>
                     <td data-label="How paid"><span>{howPaid(p)}</span></td>
                   </tr>
                 ))}

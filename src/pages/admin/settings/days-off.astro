@@ -34,6 +34,8 @@ import {
   type DayOffRequest,
 } from '@/server/days-off';
 import { AdjustmentError } from '@/server/adjustments';
+import { CreditError } from '@/server/credits';
+import { dayOffCredits, giveDayOffCredits, type DayOffCredit } from '@/server/day-off-credits';
 import { requireFreshStaff, requireStaff, signedInRecently } from '@/server/staff';
 
 export const prerender = false;
@@ -51,6 +53,8 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 let error = '';
 /** Saving was refused: show the preview again, with why. */
 let saveError = '';
+/** Giving a day off's credits was refused. */
+let giveError = '';
 let request: DayOffRequest | null = null;
 let plan: DayOffPlan | null = null;
 
@@ -71,6 +75,20 @@ if (staff && Astro.request.method === 'POST') {
         if (!(e instanceof DayOffError) && !(e instanceof AdjustmentError)) throw e;
         saveError = e.message;
       }
+    }
+  } else if (action === 'give-credits') {
+    // "Give these credits": one credit per family and date, one class's worth (src/server/day-off-credits.ts).
+    const stop = requireFreshStaff(Astro.locals, Astro.url);
+    if (stop) return stop;
+    const id = String(form.get('id') ?? '');
+    const all = await daysOffList(content, today);
+    const g = [...all.upcoming, ...all.past].find((x) => x.id === id);
+    try {
+      const n = g ? await giveDayOffCredits(staff, content, g.ids) : 0;
+      return Astro.redirect(`${here}?${new URLSearchParams({ done: 'credits', n: String(n) })}#day-off-${encodeURIComponent(id)}`, 303);
+    } catch (e) {
+      if (!(e instanceof CreditError) && !(e instanceof AdjustmentError)) throw e;
+      giveError = e.message;
     }
   } else if (action === 'remove') {
     const id = String(form.get('id') ?? '');
@@ -93,6 +111,9 @@ const removeId = params.get('remove');
 const removal = staff && removeId ? await previewRemoval(staff, removeId) : null;
 const list = staff ? await daysOffList(content, today) : { upcoming: [], past: [] };
 const fresh = !!staff && signedInRecently(Astro.locals);
+// Families already paid when a day off was added: their credits, given or not.
+const credits = new Map<string, DayOffCredit[]>();
+for (const g of [...list.upcoming, ...list.past]) if (g.creditsDue.length) credits.set(g.id, await dayOffCredits(content, g.ids));
 
 // The classes to choose from: current and upcoming, as on the Classes list.
 const rows = staff ? classRows(content, await sessionCounts(), bookingClock(content.site.lateJoinWeeks)).filter((r) => r.state !== 'ended') : [];
@@ -111,6 +132,8 @@ const notice = (() => {
       return { ok: true, text: `Day off removed. ${n ? `${plural(n, 'payment')} went back up.` : 'No payments changed.'}` };
     case 'gone':
       return { ok: false, text: 'That day off was already removed.' };
+    case 'credits':
+      return { ok: true, text: n ? `${plural(n, 'credit')} given. Each comes off that family’s next payment, and they see it in their account.` : 'Those credits were already given.' };
     default:
       return null;
   }
@@ -132,6 +155,7 @@ const payLabel = (g: { lowered: boolean; adjustments: { count: number; cents: nu
     </div>
 
     {notice && <p class:list={['notice', { 'notice--error': !notice.ok }]} role="status" data-notice>{notice.text}</p>}
+    {giveError && <p class="notice notice--error" role="alert" data-give-error>{giveError}</p>}
 
     {removal && (
       <section class="check" aria-labelledby="remove-title" data-remove-check>
@@ -263,7 +287,7 @@ const payLabel = (g: { lowered: boolean; adjustments: { count: number; cents: nu
         {plan.alreadyPaid.length > 0 && (
           <>
             <h3>Already paid: give a credit</h3>
-            <p class="muted">These months are paid, so they don’t change. Give these families a credit (for now, refund in Stripe or take it off a later payment from Payments).</p>
+            <p class="muted">These months are paid, so they don’t change. After saving, press Give these credits next to the day off in the list below: each family gets one class’s worth off their next payment.</p>
             <ul class="people" data-preview-paid>
               {plan.alreadyPaid.map((p) => (
                 <li><a href={family(p.householdId)}>{p.family}</a> <span class="muted">{names(p.children)}, {p.title}, {monthDay(p.date)}: {p.why}{p.cents ? `. One class: ${formatCents(p.cents)}` : ''}</span>{p.orderId && <a class="small" href={paymentsOrder(p.orderId)}>Payments</a>}</li>
@@ -288,7 +312,7 @@ const payLabel = (g: { lowered: boolean; adjustments: { count: number; cents: nu
             <h3>Drop-ins booked</h3>
             <ul class="people" data-preview-dropins>
               {plan.dropIns.map((x) => (
-                <li><a href={family(x.householdId)}>{x.family}</a> <span class="muted">{x.child}, {x.title}, {monthDay(x.date)}: cancel and refund in Stripe for now</span></li>
+                <li><a href={family(x.householdId)}>{x.family}</a> <span class="muted">{x.child}, {x.title}, {monthDay(x.date)}: cancel it on the class’s page, then press Refund</span></li>
               ))}
             </ul>
           </>
@@ -333,7 +357,7 @@ const payLabel = (g: { lowered: boolean; adjustments: { count: number; cents: nu
         {groups.length ? (
           <ul class="offs">
             {groups.map((g) => (
-              <li class="off" data-day-off-row={g.id}>
+              <li class="off" id={`day-off-${g.id}`} data-day-off-row={g.id}>
                 <div class="off__main">
                   <strong class="off__dates">{datesLabel(g.dates)}</strong>
                   <span>{g.reason}</span>
@@ -342,6 +366,29 @@ const payLabel = (g: { lowered: boolean; adjustments: { count: number; cents: nu
                 <div class="off__pay">
                   <span data-pay-label>{payLabel(g)}</span>
                   {g.creditsDue.length > 0 && <span class="warn-line" data-credits-due>Already paid, give a credit: {names(g.creditsDue.map((c) => c.family))}</span>}
+                  {(credits.get(g.id) ?? []).length > 0 && (() => {
+                    const cs = credits.get(g.id)!;
+                    const toGive = cs.filter((c) => !c.given && c.cents);
+                    return (
+                      <div class="give" data-day-off-credits>
+                        <ul class="people">
+                          {cs.map((c) => (
+                            <li data-credit-row={c.given ? 'given' : 'due'}>
+                              <a href={family(c.householdId)}>{c.family}</a> <span class="muted">{monthDay(c.date)}: {c.cents ? formatCents(c.cents) : 'work out the amount and add a credit on their page'}{c.given ? ' · given ✓' : ''}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {toGive.length > 0 ? (
+                          <form method="post" class="give__form">
+                            <input type="hidden" name="id" value={g.id} />
+                            <button class="btn btn--primary btn--sm" name="action" value="give-credits" data-give-credits>Give these credits ({formatCents(toGive.reduce((a, c) => a + (c.cents ?? 0), 0))})</button>
+                          </form>
+                        ) : (
+                          <span class="muted small" data-credits-given>Credits given</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {g.adjustments.families.length > 0 && (
                     <details>
                       <summary>Who</summary>
@@ -396,6 +443,8 @@ const payLabel = (g: { lowered: boolean; adjustments: { count: number; cents: nu
   .check .data-table { background: var(--paper); }
   .check .data-table tr.refused { background: var(--red-tint); }
   .check__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .give { display: grid; gap: 0.4rem; justify-items: start; }
+  .give .btn { min-height: 44px; }
   .save { display: grid; gap: var(--space-m); padding-top: var(--space-s); border-top: 1px solid var(--line-strong); }
   .effects { list-style: none; margin: 0; padding: 0; }
   .effects li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.2rem 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }

@@ -1,0 +1,208 @@
+---
+/**
+ * Staff: a family's credits (src/server/credits.ts). Owners, with a fresh
+ * sign-in. Add a credit (amount, reason, "Show the reason to the family"),
+ * see which payment it comes off and the new amount before saving; remove
+ * one that's waiting or on a payment not paid yet.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { creditsPage, family, paymentsOrder } from '@/lib/admin-links';
+import { formatCents } from '@/lib/pricing';
+import { CREDITS, CreditError, addCredit, creditLabel, creditStatus, familyCredits, previewCredit, removeCredit, type CreditPiece } from '@/server/credits';
+import { parseDollars } from '@/server/refunds';
+import { getDb, schema } from '@/server/db';
+import { eq } from 'drizzle-orm';
+import { requireFreshStaff, requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+if (staff) {
+  const stop = requireFreshStaff(Astro.locals, Astro.url);
+  if (stop) return stop;
+}
+
+const householdId = Astro.params.householdId ?? '';
+const here = creditsPage(householdId);
+const db = await getDb();
+const [fam] = staff ? await db.select({ id: schema.household.id, name: schema.household.name }).from(schema.household).where(eq(schema.household.id, householdId)) : [];
+if (staff && !fam) return new Response('Not found', { status: 404 });
+
+let error = '';
+let values: Record<string, string> = {};
+let preview: { amountCents: number; reason: string; showToFamily: boolean; pieces: CreditPiece[]; waitingCents: number } | null = null;
+
+if (staff && fam && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+  try {
+    if (values.action === 'remove') {
+      await removeCredit(staff, householdId, values.id ?? '');
+      return Astro.redirect(`${here}?done=removed`, 303);
+    }
+    const amountCents = parseDollars(values.amount ?? '');
+    if (amountCents === null) throw new CreditError('Enter an amount, like 19 or 12.50.');
+    const input = { householdId, amountCents, reason: values.reason ?? '', showToFamily: values.show === 'on' };
+    if (values.action === 'add') {
+      const r = await addCredit(staff, input);
+      return Astro.redirect(`${here}?done=${r && r.applied.length ? 'applied' : 'waiting'}`, 303);
+    }
+    const p = await previewCredit(staff, input);
+    preview = { ...p.input, pieces: p.pieces, waitingCents: p.waitingCents };
+  } catch (e) {
+    if (!(e instanceof CreditError)) throw e;
+    error = e.message;
+  }
+}
+
+const credits = fam ? await familyCredits(householdId) : [];
+const active = credits.filter((c) => c.state !== 'removed');
+const removed = credits.filter((c) => c.state === 'removed');
+const titleOf = (sessionId: string) => Astro.locals.content.findSession(sessionId)?.program.title ?? 'a class';
+const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const when = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
+const doneText: Record<string, string> = {
+  applied: 'Credit saved. It comes off the payment shown below, and the family sees it in their account.',
+  waiting: 'Credit saved. It’s waiting: it comes off the family’s next payment once there is one.',
+  removed: 'Credit removed. If it was on a payment not paid yet, that payment is back to its amount before.',
+};
+const done = Astro.url.searchParams.get('done');
+const tone = { waiting: 'warning', applied: 'good', used: 'neutral', removed: 'neutral' } as const;
+---
+
+<AdminShell title={fam ? `Credits: ${fam.name}` : 'Credits'} section="families" back={{ href: family(householdId), label: fam?.name ?? 'Family' }}>
+  {
+    fam && (
+      <div class="admin-page credits">
+        <div class="admin-head">
+          <div>
+            <h1>Credits: {fam.name}</h1>
+            <p class="admin-intro">A credit is money the family is owed. It comes off their next payment instead of a refund.</p>
+          </div>
+          <div class="admin-head__actions"><a class="btn btn--outline btn--sm" href={family(householdId)}>Family page</a></div>
+        </div>
+
+        {done && doneText[done] && <p class="notice" role="status" data-credit-done>{doneText[done]}</p>}
+        {error && <p class="notice notice--error" role="alert" data-credit-error>{error}</p>}
+
+        <section class="admin-section" aria-labelledby="list-h">
+          <h2 id="list-h">Credits</h2>
+          {active.length === 0 ? (
+            <p class="muted">No credits.</p>
+          ) : (
+            <ul class="list" data-credits>
+              {active.map((c) => (
+                <li class="staff-card item" data-credit={c.state}>
+                  <div class="item__head">
+                    <strong>{formatCents(c.amountCents)}</strong>
+                    <span class={`badge badge--${tone[c.state]}`}>{creditStatus(c)}</span>
+                  </div>
+                  <span>Reason: {c.reason}{c.showToFamily ? '' : ' (staff only)'}</span>
+                  <span class="muted">The family sees “{creditLabel(c)}”. Added by {c.createdByName}, {when(c.createdAt)}.</span>
+                  {c.payment && <span class="muted">{c.payment.label}</span>}
+                  <div class="item__actions">
+                    {c.payment && <a class="btn btn--outline btn--sm" href={paymentsOrder(c.payment.orderId)}>Payments &amp; discounts</a>}
+                    {(c.state === 'waiting' || c.state === 'applied') && (
+                      <form method="post" data-confirm={`Remove this ${formatCents(c.amountCents)} credit?${c.state === 'applied' ? ' The payment it comes off goes back up.' : ''}`}>
+                        <input type="hidden" name="action" value="remove" />
+                        <input type="hidden" name="id" value={c.id} />
+                        <button class="btn btn--outline btn--sm" type="submit" data-remove-credit>Remove</button>
+                      </form>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {preview ? (
+          <form method="post" class="cf-group confirm" data-credit-preview>
+            <h2>Check before saving</h2>
+            <p class="big"><strong>Credit of {formatCents(preview.amountCents)}</strong></p>
+            <p>Reason: {preview.reason}. The family sees “{creditLabel(preview)}”.</p>
+            {preview.pieces.length > 0 && (
+              <table class="data-table">
+                <thead><tr><th>Payment</th><th>Now</th><th>Credit</th><th>After saving</th></tr></thead>
+                <tbody>
+                  {preview.pieces.map((p) => (
+                    <tr data-credit-piece>
+                      <td data-label="Payment"><span>{day(p.dueDate)} · {titleOf(p.sessionId)}</span></td>
+                      <td data-label="Now" class="num">{formatCents(p.beforeCents)}</td>
+                      <td data-label="Credit" class="num">−{formatCents(p.cents)}</td>
+                      <td data-label="After saving" class="num"><strong>{formatCents(p.afterCents)}</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {preview.waitingCents > 0 && <p data-credit-waits><strong>{formatCents(preview.waitingCents)} waits for the next payment.</strong> {preview.pieces.length ? 'It’s more than the payments that can change now.' : 'The family has no payment to come that can change right now.'}</p>}
+            <input type="hidden" name="amount" value={(preview.amountCents / 100).toFixed(2)} />
+            <input type="hidden" name="reason" value={preview.reason} />
+            {preview.showToFamily && <input type="hidden" name="show" value="on" />}
+            <div class="row">
+              <button class="btn btn--primary" type="submit" name="action" value="add" data-save-credit>Save credit</button>
+              <a class="btn btn--outline" href={here}>Cancel</a>
+            </div>
+          </form>
+        ) : (
+          <form method="post" class="cf-group" data-credit-form>
+            <h2>Add a credit</h2>
+            <div class="cf">
+              <label for="credit-amount">Amount ($)</label>
+              <input id="credit-amount" name="amount" inputmode="decimal" required placeholder="19 or 12.50" value={values.amount ?? ''} />
+            </div>
+            <div class="cf">
+              <label for="credit-reason">Reason</label>
+              <input id="credit-reason" name="reason" required maxlength={CREDITS.reasonMax} placeholder="Missed class Oct 6, day off…" value={values.reason ?? ''} />
+              <p class="cf__help">Kept for staff. Families see “Credit” unless you tick the box below.</p>
+            </div>
+            <label class="cf-toggle"><input type="checkbox" name="show" checked={values.show === 'on'} />Show the reason to the family</label>
+            <button class="btn btn--primary" type="submit" name="action" value="preview">Check where it goes</button>
+          </form>
+        )}
+
+        <p class="muted">It comes off the family’s next payment that can change, across their classes, earliest first. If it’s more than that payment, the rest comes off the next one. With no payment to come, it waits and comes off their next sign-up’s payment. A credit that came off a paid payment stays.</p>
+
+        {removed.length > 0 && (
+          <details class="removed">
+            <summary>Removed credits ({removed.length})</summary>
+            <ul>
+              {removed.map((c) => (
+                <li>{formatCents(c.amountCents)}: {c.reason}. Added by {c.createdByName}, {when(c.createdAt)}; removed by {c.removedByName ?? 'staff'}, {when(c.removedAt!)}.</li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+    )
+  }
+</AdminShell>
+
+<script>
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-confirm]')) {
+    form.addEventListener('submit', (e) => {
+      if (!confirm(form.dataset.confirm)) e.preventDefault();
+    });
+  }
+</script>
+
+<style>
+  .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+  .item { display: grid; gap: 0.3rem; overflow-wrap: anywhere; }
+  .item__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
+  .item__head { display: flex; flex-wrap: wrap; gap: 0.4rem 0.8rem; align-items: center; }
+  .item__head strong { font-size: var(--step-1); }
+  .cf input { font-size: 1rem; }
+  .cf-toggle { min-height: 44px; }
+  .confirm { background: var(--yellow-tint); border-color: var(--yellow); }
+  .cf-group h2 { font-size: var(--step-1); margin: 0; }
+  .cf-group > p { margin: 0; overflow-wrap: anywhere; }
+  .big { font-size: var(--step-1); }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .row .btn, .cf-group > .btn { min-height: 44px; }
+  .cf-group > .btn { justify-self: start; }
+  .removed summary { cursor: pointer; font-weight: 700; color: var(--purple); min-height: 44px; display: flex; align-items: center; }
+  .removed ul { margin: 0.5rem 0 0; padding-left: 1.2rem; color: var(--ink-soft); font-size: var(--step--1); display: grid; gap: 0.4rem; }
+</style>

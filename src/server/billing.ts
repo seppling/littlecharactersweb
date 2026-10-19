@@ -29,6 +29,7 @@ import { emailHtml, sendEmail } from './email';
 import { config } from './env';
 import { audit, householdGuardians } from './records';
 import { reapplyPendingAdjustments } from './adjustments';
+import { applyWaitingCredits } from './credits';
 import { formatCents, todayInAthens } from '@/lib/pricing';
 import { adjustmentLine, discountLines } from '@/lib/adjustments';
 import { refreshAllFamilyDiscounts, refreshFamilyDiscount, logFamilyDiscount } from './family-discount';
@@ -112,9 +113,10 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
  */
 export async function runBilling({ charge, today = todayInAthens(), limit = Infinity }: { charge: Charger; today?: string; limit?: number }): Promise<BillingReport> {
   const db = await getDb();
-  // Before charging: the family discount (a class ended, or a month skipped earlier), then staff adjustments.
+  // Before charging: the family discount (a class ended, or a month skipped earlier), then staff adjustments, then credits waiting for a payment.
   await refreshAllFamilyDiscounts({ today });
   await reapplyPendingAdjustments();
+  await applyWaitingCredits();
   const lateFees = await applyLateFees(today);
   const staleBefore = new Date(Date.now() - BILLING.staleAfterMinutes * 60_000);
   const due = await db

@@ -21,7 +21,8 @@
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
-import { classAttendance as attendanceList, classDropIns as classDropInsLink, classEmail, classes, classPage, classPrint, classSignInSheet, downloads, family, paymentsOrder, settingsDaysOff, teachRoster } from '@/lib/admin-links';
+import { classAttendance as attendanceList, classDropIns as classDropInsLink, classEmail, classes, classPage, classPrint, classSignInSheet, downloads, family, paymentsOrder, refundPage, settingsDaysOff, teachRoster } from '@/lib/admin-links';
+import { enrollmentOrder, refundedByOrder } from '@/server/refunds';
 import { classAttendance } from '@/server/attendance';
 import { formatPhone, smsHref, telHref } from '@/lib/contacts';
 import { formatCents, isWeeklyTuitionClass, meetings, todayInAthens } from '@/lib/pricing';
@@ -111,8 +112,10 @@ if (staff && Astro.request.method === 'POST') {
         if (!removal) return Astro.redirect(after({ done: 'gone' }), 303);
         break;
       case 'remove': {
+        // The child's order, for the notice's "Refund part of a payment" link.
+        const removing = { orderId: await enrollmentOrder(get('enrollmentId')) };
         const r = await removeChild(get('enrollmentId'), session.id, get('mode') === 'only' ? 'only' : 'stop', staff.id);
-        return Astro.redirect(after(r ? { done: get('mode') === 'only' ? 'removed-only' : 'removed', n: r.stopped, fd: r.familyDiscount } : { done: 'gone' }), 303);
+        return Astro.redirect(after(r ? { done: get('mode') === 'only' ? 'removed-only' : 'removed', n: r.stopped, fd: r.familyDiscount, ...(removing?.orderId ? { order: removing.orderId } : {}) } : { done: 'gone' }), 303);
       }
       // Add: find a child, choose a way, confirm.
       case 'find':
@@ -227,6 +230,8 @@ const token = newSendToken();
 const n = Number(Astro.url.searchParams.get('n') ?? 0);
 const fd = Number(Astro.url.searchParams.get('fd') ?? 0);
 const discountEnded = fd ? ` The 15% family discount ended for this family, so ${plural(fd, 'unpaid payment')} went back to the regular price. The family is emailed the new amounts.` : '';
+// After a removal: a link to the child's payments, to refund part of one (src/server/refunds.ts).
+const removedOrder = Astro.url.searchParams.get('order');
 const notice = actionError
   ? { ok: false, text: actionError }
   : (() => {
@@ -240,7 +245,7 @@ const notice = actionError
         case 'withdrawn': return { ok: true, text: 'Offer withdrawn. They’re still on the waitlist.' };
         case 'drop-link': return { ok: true, text: `Pay link sent to ${plural(n, 'parent')}. The drop-in is booked once they pay.` };
         case 'drop-added': return { ok: true, text: 'Drop-in added, with no charge.' };
-        case 'drop-cancelled': return { ok: true, text: 'Drop-in cancelled. If it was paid, refund it in the Stripe dashboard for now.' };
+        case 'drop-cancelled': return { ok: true, text: 'Drop-in cancelled. If it was paid, press Refund next to it under Drop-ins.' };
         case 'gone': return { ok: false, text: 'That changed in the meantime. Nothing was done.' };
         default: return null;
       }
@@ -271,6 +276,7 @@ const dropPrice = dropInPrice(Astro.locals.content.site, program, session);
 const allDropIns = staff ? await classDropIns(program, session) : [];
 const upcomingDropIns = allDropIns.filter((d) => d.date >= today);
 const pastDropIns = allDropIns.filter((d) => d.date < today).reverse();
+const refunded = await refundedByOrder(allDropIns.filter((d) => d.paid && d.orderId).map((d) => d.orderId!));
 const dropDates: DropInDate[] = dropPick ? await dropInDates(program, session) : [];
 const dropFiles = downloads(classDropInsLink(session.id));
 ---
@@ -291,7 +297,7 @@ const dropFiles = downloads(classDropInsLink(session.id));
       </div>
     </div>
     <p class="safety">Rosters include medical notes. Share them only with the teaching team. Views and downloads are logged.</p>
-    {notice && <p class:list={['notice', { 'notice--error': !notice.ok }]} role="status" data-notice>{notice.text}</p>}
+    {notice && <p class:list={['notice', { 'notice--error': !notice.ok }]} role="status" data-notice>{notice.text}{notice.ok && removedOrder && /^removed/.test(Astro.url.searchParams.get('done') ?? '') && <> <a href={paymentsOrder(removedOrder)} data-refund-after-remove>Refund part of a payment</a></>}</p>}
 
     <div class="roster-tools" data-roster-tools>
       <details class="tool" open={matches !== null || undefined}>
@@ -589,7 +595,7 @@ const dropFiles = downloads(classDropInsLink(session.id));
                       ) : (
                         <p class="muted">No other payment changes.</p>
                       )}
-                      <p class="muted">Nothing already paid is refunded here. To give money back, refund it in the Stripe dashboard.</p>
+                      <p class="muted">Nothing already paid is refunded here. To give money back, refund part of a payment afterwards: the next page links to it.</p>
                       <div class="confirm__actions">
                         <button class="btn btn--danger btn--sm" name="action" value="remove">{removal.mode === 'only' ? 'Remove only' : 'Remove and stop payments'}</button>
                         <a class="btn btn--outline btn--sm" href={here}>Cancel</a>
@@ -737,8 +743,11 @@ const dropFiles = downloads(classDropInsLink(session.id));
                       <td data-label="Date">{dropInDay(d.date)}</td>
                       <td data-label="Child"><span><strong>{d.child}</strong>{d.overLimit && <span class="badges"><span class="badge badge--warning" data-over-limit>Over the limit</span></span>}</span></td>
                       <td data-label="Family"><a class="cell-link" href={family(d.householdId)}>{d.family}</a></td>
-                      <td data-label="Paid"><span>{dropInStatus(d)}{d.orderId && d.paid && <> · <a class="cell-link" href={paymentsOrder(d.orderId)}>Payment<span class="sr-only"> for {d.child}’s drop-in</span></a></>}</span></td>
+                      <td data-label="Paid"><span>{dropInStatus(d)}{d.orderId && d.paid && <> · <a class="cell-link" href={paymentsOrder(d.orderId)}>Payment<span class="sr-only"> for {d.child}’s drop-in</span></a></>}{d.orderId && refunded.get(d.orderId) ? <span class="badge badge--warning" data-refunded>Refunded {formatCents(refunded.get(d.orderId)!)}</span> : null}</span></td>
                       <td data-label="">
+                        {d.status === 'cancelled' && d.paid && d.orderId && (refunded.get(d.orderId) ?? 0) < d.priceCents && (
+                          <a class="btn btn--outline btn--sm" href={refundPage(d.orderId)} data-drop-in-refund>Refund<span class="sr-only"> {d.child}’s drop-in on {dropInDay(d.date)}</span></a>
+                        )}
                         {d.status !== 'cancelled' && (
                           <details class="tool">
                             <summary class="btn btn--outline btn--sm">Cancel<span class="sr-only"> {d.child}’s drop-in on {dropInDay(d.date)}</span></summary>
@@ -748,7 +757,7 @@ const dropFiles = downloads(classDropInsLink(session.id));
                                 <label for={`cancel-${d.id}`}>Reason</label>
                                 <input id={`cancel-${d.id}`} name="reason" required maxlength={REASON_MAX} placeholder="Sick, booked by mistake…" />
                               </div>
-                              {d.paid && <p class="muted">Nothing is refunded here. Refund it in the Stripe dashboard for now.</p>}
+                              {d.paid && <p class="muted">Nothing is refunded here. Once it’s cancelled, press Refund next to it.</p>}
                               {cancelError.startsWith(`${d.id}:`) && <p class="notice notice--error" role="alert">{cancelError.slice(d.id.length + 1)}</p>}
                               <button class="btn btn--danger btn--sm" name="action" value="drop-cancel">Cancel the drop-in</button>
                             </form>

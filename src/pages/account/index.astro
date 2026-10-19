@@ -18,6 +18,9 @@ import { noClassLine } from '@/server/days-off';
 import { adjustmentLine, discountLines } from '@/lib/adjustments';
 import { cardLabel, groupAutopay, namesList, studioDirectorWelcome } from '@/lib/account';
 import { dropInClasses, dropInDay, familyDropIns } from '@/server/drop-ins';
+import { familyPayments, refundNote } from '@/server/refunds';
+import { familyCredits } from '@/server/credits';
+import { statementYears } from '@/server/statements';
 
 export const prerender = false;
 const { locationById, site } = Astro.locals.content;
@@ -92,8 +95,14 @@ const familyNote = [...needsAttention, ...autopay].some(withFamilyDiscount)
     ? 'Your family discount (15% off for multiple students or classes) ended when fewer than two were still enrolled, so the months not yet paid are back to the regular price.'
     : '';
 const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-const receipts: { date: Date; label: string; amountCents: number; discounts?: ReturnType<typeof discountLines> }[] = [
+// Refunds on each payment, the family's credits, and the years they can download a statement for (src/server/refunds.ts, credits.ts, statements.ts).
+const paidList = household ? await familyPayments(household.id) : [];
+const refundedOn = new Map(paidList.map((p) => [p.key, refundNote(p.amountCents, p.refunds)]));
+const credits = household ? (await familyCredits(household.id)).filter((c) => c.state !== 'removed') : [];
+const statementYearsList = statementYears(paidList);
+const receipts: { key: string; date: Date; label: string; amountCents: number; discounts?: ReturnType<typeof discountLines> }[] = [
   ...orders.map((o) => ({
+    key: `o-${o.id}`,
     date: o.paidAt!,
     label:
       o.plan === 'drop_in' && o.lines[0]
@@ -103,7 +112,7 @@ const receipts: { date: Date; label: string; amountCents: number; discounts?: Re
   })),
   ...installments
     .filter((i) => i.status === 'paid')
-    .map((i) => ({ date: i.paidAt!, label: `${i.label}${i.lateFeeCents ? ' + late fee' : ''}`, amountCents: totalDue(i), discounts: discountLines(i) })),
+    .map((i) => ({ key: `i-${i.id}`, date: i.paidAt!, label: `${i.label}${i.lateFeeCents ? ' + late fee' : ''}`, amountCents: totalDue(i), discounts: discountLines(i) })),
 ].sort((a, b) => b.date.getTime() - a.date.getTime());
 const today = todayInAthens();
 const clock = bookingClock(Astro.locals.content.site.lateJoinWeeks);
@@ -396,7 +405,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                     {receipts.map((r) => (
                       <tr>
                         <td>{shortDate(r.date)}</td>
-                        <td>{r.label}{r.discounts?.map((l) => (l.family ? <span class="adj" data-family-discount>{adjustmentLine(l)}</span> : <span class="adj" data-adjustment>{adjustmentLine(l)}</span>))}</td>
+                        <td>{r.label}{r.discounts?.map((l) => (l.family ? <span class="adj" data-family-discount>{adjustmentLine(l)}</span> : <span class="adj" data-adjustment>{adjustmentLine(l)}</span>))}{refundedOn.get(r.key) && <span class="adj refunded" data-refunded>{refundedOn.get(r.key)}</span>}</td>
                         <td>{formatCents(r.amountCents)}</td>
                       </tr>
                     ))}
@@ -405,7 +414,32 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
               ) : (
                 <p class="empty">No payments yet.</p>
               )}
-              <p class="fine" data-statement>Need a statement for taxes or an FSA? <a href={`mailto:${email}?subject=${encodeURIComponent('Payment statement')}`}>Email us at {email}</a>.</p>
+              {credits.length > 0 && (
+                <div class="credits" data-credits>
+                  <h3>Credits</h3>
+                  <ul>
+                    {credits.map((c) => (
+                      <li data-credit={c.state}>
+                        <strong>Credit: −{formatCents(c.amountCents)}</strong>{c.showToFamily && `, ${c.reason}`}
+                        <span class="fine"> · {c.state === 'waiting' ? 'comes off your next payment' : c.state === 'applied' ? `comes off your ${fmtDate(c.payment!.dueDate)} payment` : `taken off your ${fmtDate(c.payment!.dueDate)} payment`}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {statementYearsList.length > 0 ? (
+                <div class="statements" data-statement>
+                  <h3>Statements</h3>
+                  <ul>
+                    {statementYearsList.map((y) => (
+                      <li>Statement for {y}: <a href={`/account/statement.pdf?year=${y}`} data-statement-pdf={y}>PDF</a> · <a href={`/account/statement.csv?year=${y}`} data-statement-csv={y}>spreadsheet (CSV)</a></li>
+                    ))}
+                  </ul>
+                  <p class="fine">Every payment that year, any refunds, and the total. For taxes or an FSA.</p>
+                </div>
+              ) : (
+                <p class="fine" data-statement>Need a statement for taxes or an FSA? It’s here once you’ve made a payment.</p>
+              )}
             </section>
             )}
             <p class="fine">Signed in as {user.email} on this device for 90 days. Questions about billing? Email <a href={`mailto:${email}`}>{email}</a>.</p>
@@ -476,6 +510,9 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
   .alert p { margin: 0; flex: 1 1 22rem; }
   .autopay { display: grid; gap: 0.5rem; }
   .receipts { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .adj.refunded { color: var(--ink-soft); }
+  .credits ul, .statements ul { margin: 0.4rem 0 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; overflow-wrap: anywhere; }
+  .statements a { display: inline-block; min-height: 44px; line-height: 44px; }
   .receipts th, .receipts td { text-align: left; padding: 0.55rem 0; border-bottom: 1px solid var(--line); }
   .receipts th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
   .receipts td:last-child, .receipts th:last-child { text-align: right; }
