@@ -222,7 +222,7 @@ if (await hannah.locator('#p-name').count()) {
   await hannah.click('button[type="submit"]');
 }
 await hannah.goto(`${BASE}/admin/intro-f26-tue`);
-for (const k of ['Ava', 'Ben']) await hannah.locator('tr', { hasText: `${k} Lee` }).filter({ hasText: email }).locator('td', { hasText: /^trial$/ }).waitFor();
+for (const k of ['Ava', 'Ben']) await hannah.locator('[data-child]', { hasText: `${k} Lee` }).filter({ has: hannah.locator(`a[href="mailto:${email}"]`) }).locator('[data-badge="trial"]').waitFor();
 step('Hannah’s roster lists Ava and Ben as “trial”');
 
 // ───────────── 3. No second free class ─────────────

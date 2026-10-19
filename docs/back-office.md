@@ -12,7 +12,7 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 | `attention()` | `/admin/attention` | Needs attention (placeholder) |
 | `classes()` | `/admin/classes` | Classes list (the old rosters list) |
 | `classPage(sessionId)` | `/admin/classes/<id>` | A class (the old roster page) |
-| `classPrint(sessionId)` | `/admin/classes/<id>/print` | (Classes unit) |
+| `classPrint(sessionId)` | `/admin/classes/<id>/print` | A class's roster, ready to print (§9) |
 | `classEmail(sessionId)` | `/admin/classes/<id>/email` | (Messages unit) |
 | `search(q?)` | `/admin/search?q=` | Search (placeholder) |
 | `family(householdId)` | `/admin/families/<id>` | (Search and families unit) |
@@ -137,3 +137,11 @@ A home-screen web app; no app store.
 `src/lib/contacts.ts` has the zod inputs (`emergencyContactsInput`, `pickupPeopleInput`: names up to 80 characters, relationships up to 40), `normalizePhone` (US numbers as 10 digits, others as `+digits`), `formatPhone` ("(706) 555-0142"), `telHref` and `smsHref`. Who sees the new data: `security.md`.
 
 Families fill these in on the details step and at `/account/family` (`portal.md`). Read them with `getFamilyDetails(householdId)` (`src/server/family.ts`); `familySummary` and `personLine` (`src/lib/family-details.ts`) write them out, and `heardAboutLabel` turns the stored `heard_about` key (`friend`, `search`, `social`, `school`, `event`, `flyer`, or `other: …`) into words. `EMERGENCY_CONTACT_REQUIRED` there switches the required emergency contact off.
+
+## 9. Classes (`src/server/classes.ts`)
+
+- **The Classes list** (`/admin/classes`): one row per session the site takes sign-ups for, by term: when, teacher, places filled ("8 of 12": enrolled plus trials), openings and the waitlist. Current and upcoming by default; ended ones, past one-off dates included, under "Ended". Filters are links: `?openings=1`, `?waitlist=1`, `?under5=1` (weekly classes short of the 5 they need to run), `?term=Fall 2026`, `?show=ended`. `classFilters(params)` reads them and `filterQuery(f)` writes them. Downloads: `classes.csv.ts`, `classes.pdf.ts` ("Class List"), as filtered.
+- **A class's page** (`/admin/classes/<id>`): the roster by last name with badges and the parents' Call, Text and Email links; tapping a child opens their care details in place (allergies and medical notes in red, pickup, emergency contacts, photos); the waitlist in the order families joined, with "Offered <date>" for an open offer. Empty `data-roster-tools`, `data-roster-actions` and `data-waitlist-actions` elements mark where the Roster changes unit's buttons go.
+- **Print** (`/admin/classes/<id>/print`): the roster ready to print, landscape.
+- **Downloads**, each needing a fresh sign-in: `/admin/classes/<id>.csv` and `.pdf` ("Class Roster", with care details), and `/admin/classes/<id>/sign-in-sheet.pdf` ("Student Sign-in Sheets": names and the next 8 class dates, no care details).
+- **One query:** `classRoster(sessionId, staffId, action)` feeds the page, print, CSV and both PDFs. Each call writes `admin.roster.<action>` to the audit log (`view`, `print`, `csv`, `pdf`, `sign-in-pdf`); the list's downloads write `admin.classes.csv` / `.pdf`.

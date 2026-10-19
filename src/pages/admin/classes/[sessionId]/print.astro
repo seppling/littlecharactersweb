@@ -1,0 +1,106 @@
+---
+/**
+ * Staff: a class's roster ready to print, with care details. "Download PDF"
+ * gives the same file as the roster's PDF download. Opening it is logged as
+ * admin.roster.print.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { classPage, downloads } from '@/lib/admin-links';
+import { formatPhone } from '@/lib/contacts';
+import { todayInAthens } from '@/lib/pricing';
+import { classLine, classRoster, photoLabel, type ClassRoster } from '@/server/classes';
+import { requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+const found = Astro.locals.content.findSession(Astro.params.sessionId ?? '');
+if (!found) return new Response('Not found', { status: 404 });
+const { program, session } = found;
+const location = Astro.locals.content.locationById(session.locationId);
+const { students }: Pick<ClassRoster, 'students'> = staff ? await classRoster(session.id, staff.id, 'print') : { students: [] };
+const pdf = downloads(classPage(session.id)).pdf;
+const sheet = downloads(`${classPage(session.id)}/sign-in-sheet`).pdf;
+const made = new Date(`${todayInAthens()}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const person = (p: { name: string; relationship: string; phone?: string }) => [`${p.name} (${p.relationship})`, formatPhone(p.phone)].filter(Boolean).join(' ');
+---
+
+<AdminShell title={`Print: ${program.title}`} section="classes" back={{ href: classPage(session.id), label: program.title }}>
+  <div class="admin-page print-page">
+    <div class="admin-head">
+      <div>
+        <h1>{program.title}</h1>
+        <p>{classLine(session, location?.name)}</p>
+        <p class="muted">Class roster · {students.length} {students.length === 1 ? 'child' : 'children'} · Printed {made}</p>
+      </div>
+      <div class="admin-head__actions class-actions no-print">
+        <button type="button" class="btn btn--primary btn--sm" data-print>Print</button>
+        <a class="btn btn--outline btn--sm" href={pdf} data-download="pdf">Download PDF</a>
+        <a class="btn btn--outline btn--sm" href={sheet} data-download="sign-in">Sign-in sheet</a>
+      </div>
+    </div>
+    <p class="safety">Includes allergies and medical notes. Share only with the teaching team. Views and downloads are logged.</p>
+    {students.length === 0 ? (
+      <div class="empty-state"><strong>No one enrolled yet.</strong></div>
+    ) : (
+      <table class="data-table print-table" data-print-roster>
+        <thead>
+          <tr><th>Student</th><th>Parents</th><th>Allergies & medical</th><th>Pickup</th><th>Emergency contacts</th><th>Photos</th></tr>
+        </thead>
+        <tbody>
+          {students.map((c) => (
+            <tr>
+              <td data-label="Student"><div><strong>{c.name}</strong>{c.age !== null && <span class="muted"> · Age {c.age}</span>}{c.status === 'trial' && <span class="muted"> · Trial</span>}</div></td>
+              <td data-label="Parents"><div>{c.parents.map((p) => <div>{p.name}{p.phone && ` ${formatPhone(p.phone)}`}</div>)}</div></td>
+              <td data-label="Allergies & medical" class:list={[(c.allergies || c.medicalNotes) && 'alert']}>
+                <div>
+                  {c.allergies && <div><strong>Allergies:</strong> {c.allergies}</div>}
+                  {c.medicalNotes && <div><strong>Medical:</strong> {c.medicalNotes}</div>}
+                  {!c.allergies && !c.medicalNotes && <span class="muted">None</span>}
+                </div>
+              </td>
+              <td data-label="Pickup">
+                <div>
+                  {c.pickupNotes && <div><strong>Note:</strong> {c.pickupNotes}</div>}
+                  {c.pickupPeople.map((p) => <div>{person(p)}</div>)}
+                  {!c.pickupNotes && !c.pickupPeople.length && <span class="muted">Parents only</span>}
+                </div>
+              </td>
+              <td data-label="Emergency contacts">
+                <div>{c.emergencyContacts.length ? c.emergencyContacts.map((p) => <div>{person(p)}</div>) : <span class="warn">None on file</span>}</div>
+              </td>
+              <td data-label="Photos"><span>{photoLabel(c.photoConsent)}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</AdminShell>
+
+<script>
+  document.querySelector('[data-print]')?.addEventListener('click', () => window.print());
+</script>
+
+<style>
+  /* admin.css's `.admin-head > div { display: grid }` outranks .admin-head__actions' flex row. */
+  .admin-head > .class-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .muted { color: var(--ink-mute); }
+  .safety { font-size: var(--step--1); color: var(--ink-mute); }
+  .print-table td.alert { color: var(--red-ink); background: var(--red-tint); }
+  .warn { color: var(--yellow-ink); font-weight: 700; }
+  @media print {
+    .no-print { display: none !important; }
+    .print-table { font-size: 10pt; }
+    .print-table td.alert { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .print-table tr { break-inside: avoid; }
+  }
+</style>
+<style is:global>
+  @media print {
+    @page { size: letter landscape; margin: 0.5in; }
+    .staff-top, .staff-phonebar, .staff-tabs, .staff-hint, .staff-menu { display: none !important; }
+    .admin-page { padding: 0 !important; max-width: none !important; }
+    body { background: #fff !important; }
+  }
+</style>

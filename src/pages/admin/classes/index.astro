@@ -1,50 +1,162 @@
 ---
+/**
+ * Staff: every class the site takes sign-ups for, by term, with places filled,
+ * openings and the waitlist. Filters are links (?openings=1&waitlist=1&under5=1&term=…&show=ended),
+ * so other pages can link to a filtered list. Downloads: classes.csv.ts and
+ * classes.pdf.ts, built from the same rows (src/server/classes.ts).
+ */
 import AdminShell from '@/components/admin/AdminShell.astro';
-import { sessionCounts } from '@/server/admin';
-import { capacityFor } from '@/server/family';
-import { dayList, timeRange } from '@/lib/format';
-import { classPage } from '@/lib/admin-links';
+import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import { classes, classPage, downloads } from '@/lib/admin-links';
+import { classFilters, classList, filterQuery, MIN_TO_RUN, placesLabel, type ClassFilters } from '@/server/classes';
 import { requireStaff } from '@/server/staff';
 
 export const prerender = false;
 // Signed-out staff get the sign-in form (AdminShell); signed-in families get nothing.
 const { staff, response } = requireStaff(Astro.locals);
 if (response) return response;
-const isAdmin = !!staff;
 
-const { programs } = Astro.locals.content;
-const counts = isAdmin ? await sessionCounts() : new Map();
-const rows = programs.flatMap((p) =>
-  p.sessions.filter((s) => !s.externalUrl || s.externalUrl.includes('docs.google.com')).map((s) => ({ program: p, session: s, c: counts.get(s.id) ?? { active: 0, trial: 0, waitlist: 0 }, cap: capacityFor(p, s) })),
-);
+const f = classFilters(Astro.url.searchParams);
+const list = staff ? await classList(Astro.locals.content, f) : { terms: [], groups: [], rows: [] };
+const files = downloads(classes() + filterQuery(f));
+const link = (change: Partial<ClassFilters>) => classes() + filterQuery({ ...f, ...change });
+const toggles: { key: 'openings' | 'waitlist' | 'under5'; label: string }[] = [
+  { key: 'openings', label: 'Has openings' },
+  { key: 'waitlist', label: 'Has a waitlist' },
+  { key: 'under5', label: `Under ${MIN_TO_RUN}` },
+];
+const filtered = f.openings || f.waitlist || f.under5 || !!f.term;
 ---
 
-<AdminShell title="Rosters" section="classes">
-  <section class="wrap admin">
-    <div class="head"><h1>Rosters</h1></div>
-    <table>
-      <thead><tr><th>Class</th><th>When</th><th>Enrolled</th><th>Trials</th><th>Waitlist</th><th></th></tr></thead>
-      <tbody>
-        {rows.map(({ program, session, c, cap }) => (
-          <tr>
-            <td><strong>{program.title}</strong><br /><span class="muted">{session.label ?? session.term}</span></td>
-            <td class="script">{dayList(session.days)} {timeRange(session.start, session.end)}</td>
-            <td>{c.active}{cap ? ` / ${cap}` : ''}</td>
-            <td>{c.trial}</td>
-            <td>{c.waitlist}</td>
-            <td><a href={classPage(session.id)}>Roster</a></td>
-          </tr>
+<AdminShell title="Classes" section="classes">
+  <div class="admin-page">
+    <div class="admin-head">
+      <div>
+        <h1>Classes</h1>
+        <p class="admin-intro">{f.ended ? 'Classes that have ended.' : 'Current and upcoming classes.'} Tap a class for its roster.</p>
+      </div>
+      <div class="admin-head__actions">
+        <DownloadLinks csv={files.csv} pdf={files.pdf} what="the class list" />
+      </div>
+    </div>
+
+    <nav class="filters" aria-label="Filter classes">
+      <div class="chip-row" data-filters>
+        {toggles.map((t) => (
+          <a class="chip" href={link({ [t.key]: !f[t.key] })} aria-pressed={f[t.key] ? 'true' : 'false'} data-filter={t.key}>{t.label}</a>
         ))}
-      </tbody>
-    </table>
-  </section>
+        <a class="chip" href={link({ ended: !f.ended, term: undefined })} aria-pressed={f.ended ? 'true' : 'false'} data-filter="ended">Ended</a>
+      </div>
+      {list.terms.length > 1 && (
+        <div class="chip-row" data-terms>
+          <span class="filters__label">Term</span>
+          <a class="chip" href={link({ term: undefined })} aria-pressed={!f.term ? 'true' : 'false'}>All</a>
+          {list.terms.map((t) => (
+            <a class="chip" href={link({ term: t })} aria-pressed={f.term === t ? 'true' : 'false'}>{t}</a>
+          ))}
+        </div>
+      )}
+    </nav>
+
+    {list.groups.length === 0 ? (
+      <div class="empty-state">
+        <strong>{filtered ? 'No classes match' : f.ended ? 'No ended classes' : 'No classes yet'}</strong>
+        <p>{filtered ? 'Try fewer filters.' : 'Classes you add in the website editor show up here.'}</p>
+        {filtered && <a class="btn btn--outline btn--sm" href={link({ openings: false, waitlist: false, under5: false, term: undefined })}>Clear filters</a>}
+      </div>
+    ) : (
+      list.groups.map((g) => (
+        <section class="term" aria-labelledby={`term-${g.term.replace(/\W+/g, '-')}`}>
+          <h2 id={`term-${g.term.replace(/\W+/g, '-')}`}>{g.term}</h2>
+          <div class="class-list__head" aria-hidden="true">
+            <span>Class</span><span>Teacher</span><span class="num">Places</span><span class="num">Openings</span><span class="num">Waitlist</span>
+          </div>
+          <ul class="class-list" data-classes>
+            {g.rows.map((r) => (
+              <li>
+                <a class="class-row" href={classPage(r.session.id)} data-session={r.session.id}>
+                  <span class="class-row__name">
+                    <strong>{r.program.title}</strong>
+                    <span class="muted">{[r.label, r.when].filter(Boolean).join(' · ')}</span>
+                    {(r.under5 && r.state !== 'ended') || r.openings === 0 ? (
+                      <span class="badges">
+                        {r.openings === 0 && <span class="badge badge--neutral">Full</span>}
+                        {r.under5 && r.state !== 'ended' && <span class="badge badge--warning">Under {MIN_TO_RUN}</span>}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span class="class-row__teacher" data-label="Teacher">{r.teacher || '—'}</span>
+                  <span class="num" data-label="Places">{placesLabel(r)}{r.trial > 0 && <span class="muted"> ({r.trial} trial)</span>}</span>
+                  <span class="num" data-label="Openings">{r.openings ?? '—'}</span>
+                  <span class="num" data-label="Waitlist">{r.waitlist}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    )}
+  </div>
 </AdminShell>
 
 <style>
-  .admin { padding-block: var(--space-2xl) var(--space-3xl); display: grid; gap: var(--space-m); }
-  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
-  .muted { color: var(--ink-mute); font-size: var(--step--1); }
-  .head { display: flex; flex-wrap: wrap; gap: var(--space-m); justify-content: space-between; align-items: end; }
+  /* admin.css's base .badge rule comes after its tone rules and wins; until that's fixed there, keep the tones here (report: open points). */
+  .admin-page :global(.badge--neutral) { background: var(--line); color: var(--ink-soft); }
+  .admin-page :global(.badge--good) { background: var(--ok-tint); color: #1c6b3e; }
+  .admin-page :global(.badge--warning) { background: var(--yellow-tint); color: var(--yellow-ink); }
+  .admin-page :global(.badge--alert) { background: var(--red-tint); color: var(--red-ink); }
+  .filters { display: grid; gap: 0.6rem; }
+  .filters__label { align-self: center; font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); margin-right: 0.2rem; }
+  .filters .chip { min-height: 44px; }
+  .term { display: grid; gap: 0.4rem; }
+  .term h2 { font-size: var(--step-1); }
+  .class-list { list-style: none; margin: 0; padding: 0; }
+  .class-list__head,
+  .class-row {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1.6fr) 6.5rem 5.5rem 5rem;
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.7rem 0.5rem;
+  }
+  .class-list__head {
+    padding-block: 0.4rem;
+    border-bottom: 2px solid var(--ink);
+    font-family: var(--font-script);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .class-row { border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; font-size: var(--step--1); font-variant-numeric: tabular-nums; }
+  .class-row:hover { background: var(--hall); text-decoration: none; }
+  .class-row:hover strong { text-decoration: underline; }
+  .class-row__name { display: grid; gap: 0.2rem; min-width: 0; }
+  .class-row__name strong { font-size: var(--step-0); color: var(--purple); }
+  .class-row > * { min-width: 0; overflow-wrap: anywhere; }
+  .num { text-align: right; }
+  .muted { color: var(--ink-mute); }
+  @media (max-width: 760px) {
+    .class-list__head { display: none; }
+    .class-list { display: grid; gap: var(--space-s); }
+    .class-row {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.5rem 0.75rem;
+      padding: 0.8rem 1rem;
+      border: 1.5px solid var(--line-strong);
+      border-radius: var(--r-md);
+      background: var(--paper);
+    }
+    .class-row:hover { background: var(--paper); }
+    .class-row__name,
+    .class-row__teacher { grid-column: 1 / -1; }
+    .num { text-align: left; }
+    .class-row [data-label]::before {
+      content: attr(data-label);
+      display: block;
+      font-family: var(--font-script);
+      font-size: var(--step--2);
+      text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+  }
 </style>

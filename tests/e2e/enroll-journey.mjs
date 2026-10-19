@@ -223,7 +223,8 @@ await page.fill('#p-phone', '281-798-2623');
 await page.click('button[type="submit"]');
 await page.goto(`${BASE}/admin/intro-f26-tue`);
 await page.waitForSelector('text=Maya Rivera');
-await page.waitForSelector('text=Peanuts');
+await page.click('[data-child]:has-text("Maya Rivera") summary');
+await page.waitForSelector('[data-care] >> text=Peanuts');
 await shot('7-roster');
 step('Hannah sees Maya on the roster, with allergies decrypted for staff');
 
