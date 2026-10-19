@@ -51,6 +51,7 @@ node tests/e2e/staff-today.mjs          # Today, Needs attention, the urgent cou
 node tests/e2e/staff-messages.mjs       # Email the class / this family, copy buttons, no double sends (SERVER_LOG=<server output> also checks reply-to)
 node tests/e2e/staff-roster.mjs         # add, remove, offer the spot on a class's page; payments stop; 390 px
 node tests/e2e/staff-settings.mjs       # Settings → Staff, a teacher's sign-in and home, shared device, turning off; 390 px (last)
+node tests/e2e/staff-calendar.mjs       # calendar month/week/phone list, a day off lowering December, billing on a copy, removing it; 390 px (after staff-settings)
 ```
 
 ## Where things live

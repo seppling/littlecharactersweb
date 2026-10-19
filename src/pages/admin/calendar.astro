@@ -13,6 +13,7 @@
 import AdminShell from '@/components/admin/AdminShell.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
 import { calendar, downloads, settingsDaysOff } from '@/lib/admin-links';
+import { timeOf } from '@/lib/format';
 import { todayInAthens } from '@/lib/pricing';
 import { isProd } from '@/server/env';
 import { requireStaff } from '@/server/staff';
@@ -145,9 +146,9 @@ const classCount = (d: CalendarDay) => d.entries.filter((e) => e.kind === 'class
               {d.entries.map((e) => (
                 <li>
                   <a class:list={['cal-item', `cal-item--${e.kind}`, { 'cal-item--off': !!e.dayOff }]} href={e.href} data-cal-class={e.sessionId ?? undefined} title={[e.time, e.title, e.label, e.location, e.teacher, e.dayOff && `No class: ${e.dayOff}`].filter(Boolean).join(' · ')}>
-                    <span class="cal-item__time">{e.time.split('–')[0]}</span>
-                    <span class="cal-item__title">{e.title}</span>
+                    <span class="cal-item__time">{e.start ? timeOf(e.start) : 'All day'}</span>
                     {e.places && !e.dayOff && <span class="cal-item__places">{e.places}</span>}
+                    <span class="cal-item__title">{e.title}</span>
                     {e.dayOff && <span class="sr-only"> (no class: {e.dayOff})</span>}
                   </a>
                 </li>
@@ -240,19 +241,19 @@ const classCount = (d: CalendarDay) => d.entries.filter((e) => e.kind === 'class
 
   .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1.5px solid var(--line-strong); border-left: 1.5px solid var(--line-strong); }
   .cal-grid__head { padding: 0.35rem 0.5rem; font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); border-right: 1.5px solid var(--line-strong); border-bottom: 1.5px solid var(--line-strong); }
-  .cal-cell { min-height: 7.5rem; min-width: 0; padding: 0.3rem; display: grid; align-content: start; gap: 0.2rem; border-right: 1.5px solid var(--line-strong); border-bottom: 1.5px solid var(--line-strong); background: var(--paper); }
+  .cal-cell { min-height: 7.5rem; min-width: 0; overflow: hidden; padding: 0.3rem; display: grid; align-content: start; gap: 0.2rem; border-right: 1.5px solid var(--line-strong); border-bottom: 1.5px solid var(--line-strong); background: var(--paper); }
   .cal-cell--out { background: var(--hall); }
   .cal-cell--out .cal-cell__num { color: var(--ink-mute); }
   .cal-cell__num { font-weight: 700; font-size: var(--step--1); padding: 0 0.2rem; }
   .cal-cell--today { box-shadow: inset 0 0 0 3px var(--purple); }
   .cal-cell--today .cal-cell__num { color: var(--purple); }
-  .cal-cell__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.15rem; }
-  .cal-item { display: flex; gap: 0.3rem; align-items: baseline; padding: 0.15rem 0.3rem; border-radius: 6px; font-size: 0.78rem; line-height: 1.25; color: var(--ink); text-decoration: none; background: var(--purple-tint); min-width: 0; }
+  .cal-cell__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.2rem; }
+  .cal-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 0.3rem; padding: 0.2rem 0.35rem; border-radius: 6px; font-size: 0.78rem; line-height: 1.25; color: var(--ink); text-decoration: none; background: var(--purple-tint); min-width: 0; }
   .cal-item:hover { outline: 1.5px solid var(--ink); text-decoration: none; }
   .cal-item--event { background: var(--yellow-tint); }
   .cal-item--off { background: transparent; color: var(--ink-mute); text-decoration: line-through; }
   .cal-item__time { font-weight: 700; white-space: nowrap; }
-  .cal-item__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cal-item__title { grid-column: 1 / -1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cal-item__places { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
   .cal-band { display: block; padding: 0.15rem 0.4rem; border-radius: 6px; background: var(--red-tint); border-left: 4px solid var(--red); font-size: 0.78rem; font-weight: 700; overflow-wrap: anywhere; }
   .cal-band--wide { font-size: var(--step--1); padding: 0.5rem 0.75rem; margin: 0; }
@@ -283,6 +284,8 @@ const classCount = (d: CalendarDay) => d.entries.filter((e) => e.kind === 'class
     .cal-agenda--phone { display: grid; }
     .cal-row { grid-template-columns: minmax(0, 1fr) auto; }
     .cal-row__time { grid-column: 1 / -1; }
+    .cal-row__what { grid-column: 1 / -1; }
+    .cal-row__side { grid-column: 1 / -1; justify-content: space-between; }
     .cal-nav .btn { flex: 1 1 auto; justify-content: center; }
   }
 </style>

@@ -410,6 +410,8 @@ const payLabel = (g: { lowered: boolean; adjustments: { count: number; cents: nu
   .off details summary { cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; font-weight: 650; }
   .warn-line { color: var(--red-ink); font-weight: 650; font-size: var(--step--1); }
   @media (max-width: 760px) {
+    /* Tap targets: links in the preview's tables are 44 px tall on a phone. */
+    .check .data-table a, .effects a { display: inline-flex; align-items: center; min-height: 44px; }
     .off { grid-template-columns: minmax(0, 1fr); }
     .off__actions .btn, .check__actions .btn { flex: 1 1 auto; justify-content: center; }
     .classes-pick { margin-left: 0; }
