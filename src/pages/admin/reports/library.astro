@@ -1,0 +1,96 @@
+---
+/**
+ * Every report, grouped by the question it answers, each with its Studio
+ * Director name in small type so Hannah finds the familiar one. Starred
+ * reports list first. Reports that live on other staff pages are linked.
+ * Owners only.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import StarButton from '@/components/admin/reports/StarButton.astro';
+import * as links from '@/lib/admin-links';
+import { favorites } from '@/server/reports/favorites';
+import { ELSEWHERE, findReport, GROUPS, REPORTS } from '@/server/reports/library';
+import { requireStaff } from '@/server/staff';
+import '@/styles/reports.css';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const starred = staff && Astro.locals.staffId ? await favorites(Astro.locals.staffId) : [];
+const here = links.reportsLibrary();
+const where = { classes: links.classes(), families: links.search(), payments: links.payments(), shows: links.shows(), calendar: links.calendar(), leads: links.leads() } as const;
+const whereName = { classes: 'Classes', families: 'Families', payments: 'Payments', shows: 'Shows', calendar: 'Calendar', leads: 'Messages & sign-ups' } as const;
+---
+
+<AdminShell title="Reports library" section="reports" back={{ href: links.reports(), label: 'Reports' }}>
+  <div class="admin-page">
+    <div class="admin-head">
+      <div>
+        <h1>Reports library</h1>
+        <p class="admin-intro">Every report, by the question it answers. Each one downloads as a spreadsheet or a PDF. Star the ones you use most.</p>
+      </div>
+      <div class="admin-head__actions">
+        <a class="btn btn--outline btn--sm" href={links.reports()}>Dashboard</a>
+      </div>
+    </div>
+
+    {
+      starred.length > 0 && (
+        <section class="report-group" aria-labelledby="g-starred" data-group="starred">
+          <h2 id="g-starred">Starred</h2>
+          <ul class="report-list">
+            {starred.map((key) => {
+              const r = findReport(key)!;
+              return (
+                <li class="report-item" data-report-item={r.key}>
+                  <div class="report-item__main">
+                    <a href={links.report(r.key)}>{r.title}</a>
+                    {r.was && <span class="report-was">was: {r.was}</span>}
+                  </div>
+                  <StarButton reportKey={r.key} on name={r.title} next={here} />
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )
+    }
+
+    {
+      GROUPS.map((g) => (
+        <section class="report-group" aria-labelledby={`g-${g.key}`} data-group={g.key}>
+          <h2 id={`g-${g.key}`}>{g.title}</h2>
+          <ul class="report-list">
+            {REPORTS.filter((r) => r.group === g.key).map((r) => (
+              <li class="report-item" data-report-item={r.key}>
+                <div class="report-item__main">
+                  <a href={links.report(r.key)}>{r.title}</a>
+                  {r.was && <span class="report-was">was: {r.was}</span>}
+                </div>
+                <StarButton reportKey={r.key} on={starred.includes(r.key)} name={r.title} next={here} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+
+    <section class="report-group" aria-labelledby="g-elsewhere" data-group="elsewhere">
+      <h2 id="g-elsewhere">On other pages</h2>
+      <ul class="report-list">
+        {
+          ELSEWHERE.map((e) => (
+            <li class="report-item">
+              <div class="report-item__main">
+                <a href={where[e.where]}>{e.title}</a>
+                <span class="report-was">was: {e.was} · on {whereName[e.where]}</span>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+  </div>
+</AdminShell>
+

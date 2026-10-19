@@ -1,0 +1,111 @@
+---
+/**
+ * A bar chart for the reports dashboard, drawn on the server as inline SVG
+ * (no chart library). Vertical bars for months; horizontal bars for answers
+ * with long names. Words (axis, labels, legend) are HTML so they stay
+ * readable at phone width. Each bar has a tooltip, and "Show the numbers"
+ * opens the same data as a table for screen readers and printing.
+ */
+import { axisLabel, fullLabel, niceMax, SERIES_COLORS } from '@/lib/chart';
+
+interface Props {
+  /** What the chart shows, as its title: "Collected each month". */
+  title: string;
+  id: string;
+  categories: string[];
+  /** One or two series, the same length as `categories`; null = no number. */
+  series: { name: string; values: (number | null)[] }[];
+  kind: 'money' | 'count';
+  orientation?: 'vertical' | 'horizontal';
+}
+const { title, id, categories, series, kind, orientation = 'vertical' } = Astro.props;
+const max = niceMax(Math.max(0, ...series.flatMap((s) => s.values.map((v) => v ?? 0))));
+const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => t * max);
+const n = categories.length;
+const W = n * 10;
+const width = 7 / series.length;
+const pct = (v: number | null) => Math.max(0, ((v ?? 0) / max) * 100);
+const summary = `${title}. ${categories.map((c, i) => `${c}: ${series.map((s) => `${series.length > 1 ? `${s.name} ` : ''}${fullLabel(s.values[i], kind)}`).join(', ')}`).join('; ')}.`;
+---
+
+<figure class="chart" aria-labelledby={`${id}-title`} data-chart={id}>
+  <figcaption id={`${id}-title`} class="chart__title">{title}</figcaption>
+  {
+    series.length > 1 && (
+      <ul class="chart__legend">
+        {series.map((s, i) => (
+          <li>
+            <span class="chart__swatch" style={`background:${SERIES_COLORS[i]}`} aria-hidden="true" />
+            {s.name}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  {
+    orientation === 'vertical' ? (
+      <div class="chart__plot">
+        <div class="chart__y" aria-hidden="true">
+          {ticks.map((t) => (
+            <span style={`bottom:${(t / max) * 100}%`}>{axisLabel(t, kind)}</span>
+          ))}
+        </div>
+        <svg class="chart__svg" viewBox={`0 0 ${W} 100`} preserveAspectRatio="none" role="img" aria-label={summary}>
+          {ticks.map((t) => (
+            <line x1="0" x2={W} y1={100 - (t / max) * 100} y2={100 - (t / max) * 100} class={t === 0 ? 'chart__base' : 'chart__grid'} vector-effect="non-scaling-stroke" />
+          ))}
+          {categories.map((c, i) =>
+            series.map((s, j) =>
+              s.values[i] === null ? null : (
+                <rect x={i * 10 + 1.5 + j * width + (series.length > 1 ? 0.15 : 0)} width={width - (series.length > 1 ? 0.3 : 0)} y={100 - pct(s.values[i])} height={pct(s.values[i])} fill={SERIES_COLORS[j]}>
+                  <title>{`${c}${series.length > 1 ? `, ${s.name}` : ''}: ${fullLabel(s.values[i], kind)}`}</title>
+                </rect>
+              ),
+            ),
+          )}
+        </svg>
+        <div class="chart__x" aria-hidden="true" style={`grid-template-columns: repeat(${n}, minmax(0, 1fr))`}>
+          {categories.map((c) => (
+            <span>{c}</span>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <ul class="chart__rows" role="img" aria-label={summary}>
+        {categories.map((c, i) => (
+          <li aria-hidden="true">
+            <span class="chart__row-label">
+              {c} <strong>{fullLabel(series[0].values[i], kind)}</strong>
+            </span>
+            <svg class="chart__bar" viewBox="0 0 100 10" preserveAspectRatio="none">
+              <rect x="0" y="0" width={pct(series[0].values[i])} height="10" fill={SERIES_COLORS[0]}>
+                <title>{`${c}: ${fullLabel(series[0].values[i], kind)}`}</title>
+              </rect>
+            </svg>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  <details class="chart__table">
+    <summary>Show the numbers</summary>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col"></th>
+          {series.map((s) => <th scope="col" class="num">{s.name}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {categories.map((c, i) => (
+          <tr>
+            <th scope="row">{c}</th>
+            {series.map((s) => (
+              <td class="num" data-label={s.name}>{fullLabel(s.values[i], kind)}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </details>
+</figure>

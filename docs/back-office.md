@@ -40,6 +40,10 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 | `shows()` | `/admin/shows` | Shows: each show's cast and rehearsals (§23) |
 | `show(slug)` | `/admin/shows/<slug>` | One show: cast, roles, rehearsals. Pass `` `${show(slug)}/program` `` or `/cast-sheet` to `downloads()` (§23) |
 | `showEmail(slug)` | `/admin/shows/<slug>/email` | Email the cast (§23) |
+| `reports()` | `/admin/reports` | The reports dashboard (§26) |
+| `reportsLibrary()` | `/admin/reports/library` | Every report, starred first (§26) |
+| `report(key, params?)` | `/admin/reports/<key>?season=&month=&program=&location=&class=&show=&week=&who=&sort=&dir=` | One report. Pass to `downloads()` for its CSV and PDF (§26) |
+| `reportFavorite()` | `/admin/reports/favorite` | Where a report's star posts (§26) |
 | `confirm(next)` | `/admin/confirm?next=` | Sign in again, then go on |
 | `downloads(listPath)` | `{ csv, pdf }` | A list's two downloads |
 
@@ -659,3 +663,49 @@ Four owner pages under `/admin/settings/`, each a tile on `settings()`. Owners o
 
 **Needs attention:** `refund` and `notes` (§12), loaded in `loadCore` with two more queries (`refundsToCheck`, `draftNoteCounts` in `today.ts`). `refund` counts toward the urgent number; `notes` doesn't.
 
+
+## 26. Reports: the dashboard and the library (`src/server/reports/`)
+
+Stephen asked for "a dashboard view of the most important reports, and a long tail of individual reports pulled via tables (with CSV, PDF export options)". Owners only: teachers and families get the Staff only panel (404), and a report's CSV and PDF an empty 404. **Reports only read**; nothing on these pages changes data.
+
+**The rule:** every number on the dashboard is the total of a report in the library, run through the same function with the same filters (`runReport` in `library.ts`; `dashboard.ts` calls it for each tile and panel), and the tile links to that report with those filters. A unit test checks each tile's total equals its report's.
+
+**Files** (one per area; each report has a pure half that takes plain rows, unit-tested in `tests/unit/reports.test.ts`):
+
+| File | Holds |
+|---|---|
+| `common.ts` | `ReportResult` (`columns`, `rows` of `{ cells, href? }`, `total` `{ value, display, label }`, `empty`, `note?`), cell formatting (`cellText`, `csvCell`: money is cents, a percent 0–100), `sortRows`, seasons (`seasonsOf`, `thisSeason`, `lastSeason`), filters (`readFilters`, `filterQuery`, `sessionPasses`) |
+| `money.ts` | payments received (Payments' `paymentsReceived`), money by month (`collectedIn`, checked equal to `paymentsReceived`), next charge day (`billingOverview`), upcoming autopay (`upcomingCharges`), who owes (`paymentsAttention`, `agingBucket`), charges, charged vs paid by class, discounts, refunds, drop-ins (`loadMoney` once, then pure) |
+| `enrollment.ts` | fill rate (`classRows`), children this season, sign-ups by week, classes at risk (Today's under-5 rule), waitlists, drops, free class to paid, coming back |
+| `growth.ts` | how new families heard about us, ZIP codes, new families by month |
+| `safety.ts` | care details on file, missed two in a row (`missedTwo`), attendance taken (Today's "not taken" rule), absences, the allergy and medical list (`roster`), photo permission (`castList` for a show) |
+| `teachers.ts` | who teaches what (`class_teacher`, else the site's teacher name), attendance taken per teacher |
+| `library.ts` | `REPORTS`: each report's `key`, `group`, `title` (the question), `was` (Studio Director's name), `how` ("How it's counted"), `filters`, `namesChildren`, `fresh`, `run`; `Loads` (each load once per request); `runReport`; `ELSEWHERE` (reports on other pages, linked) |
+| `dashboard.ts` | the tiles, panels and comparisons |
+| `favorites.ts` | `favorites(staffId)`, `setFavorite(staffId, key, on)` on `report_favorite` |
+| `page.ts`, `downloads.ts` | a report page's filter choices and filters in words; the CSV and PDF |
+
+**Seasons.** A season is a content term (`session.term`). "This season" (`thisSeason`) is the term of the weekly classes running today, else the next to start: the same rule as a family's page. "Last season" (`lastSeason`) is the latest term that ended before this one began, so "Fall 2026 – Spring 2027" is never last season to "Fall 2026". Without one, comparisons use Settings → Last season (`getSetting('reports.baseline')`, §24); with neither, "No earlier season yet".
+
+**Counting rules** (each report's `how` says it in one sentence on its page and tile):
+- **Enrolled** is active or free-trial, as the Classes list counts places. A child in two classes is one child.
+- **Sign-ups** are enrollments made in the season, not the waitlist; a child who later dropped still signed up. Weeks count from the week of the season's first class ("3 weeks before", "Week 1").
+- **New families** had their first sign-up that season and weren't imported from Studio Director (`household.source`). ZIP codes can also count every family with a class that season (`who=all`).
+- **Free class to paid:** a child's first free-trial order in the season, and a paid monthly, season or one-time order for that child made after it, in any class.
+- **Coming back:** last season's enrolled children who are enrolled this season, with who isn't back. From Studio Director's numbers there's a count (`returning` of `children`) but no names.
+- **Charges** are paid sign-ups (tuition after the built-in discounts, and fees), paid drop-ins, and monthly charges due by today that staff didn't stop, with late fees.
+- **Discounts** are the family 15% (sign-up discount lines, and each charge's regular less base amount), the season 10%, staff discounts, days off and credits (each charge's applied adjustments, sorted by `credit.adjustment_id` and `billing_adjustment.closure_id`), as a share of full price (regular tuition). Free first classes are counted, not priced: nothing records a price for them.
+- **Who owes** buckets days overdue as 0–30, 31–60, 61–90 and 90+.
+- **Attendance taken** counts a week's class dates that met (with children, not a day off, ended 2 hours ago).
+- An empty season shows words ("None yet", "No sign-ups yet this season"), never a zero that looks like a result.
+
+**Pages** (`src/pages/admin/reports/`; styles in `src/styles/reports.css`; charts in `src/components/admin/reports/`):
+- **Dashboard** (`reports()`): six tiles (collected this month, booked for the next 1st, children this season, fill rate, coming back, free class to paid), each with its comparison ("↑ 8 on Spring 2026") and "How it's counted"; starred reports as links; panels: classes at risk and waitlists, problem payments by age with committed ahead and discounts given, money by month (bars, with "A year before" from Studio Director when typed in), sign-up pace (lines, this season and last), how new families found us (bars) and top ZIP codes, and safety (care details, missed two, attendance taken this week). Six tiles across on a wide screen, three or two narrower; panels stack on a phone.
+- **Charts** (`BarChart.astro`, `LineChart.astro`): inline SVG drawn on the server, no library. Words are HTML so they stay readable at phone width; each mark has a tooltip; **Show the numbers** opens the same data as a table. Two series are purple `#8040b8` and teal `#0f9e8e` (checked for colour-blind separation and 3:1 on white), the second line dashed.
+- **Library** (`reportsLibrary()`): Starred first, then Money, Classes and enrollment, Families and growth, Safety and attendance, Teachers, each report with "was: <Studio Director name>", then **On other pages** (rosters, sign-in sheets, skills worksheets, family and contact lists, payments lists, cast lists, schedules, messages).
+- **A report** (`report(key)`): the question as the title, "Was in Studio Director: …", a star, CSV and PDF, "How it's counted", the filters it takes (a GET form; "Sort by" too), the total with the filters in words, and the table: each column header sorts it (`?sort=<column>&dir=asc|desc`), and the CSV and PDF keep that order.
+- **Star** (`POST reportFavorite()`, `key`, `on`, `next`): per staff member.
+
+**Children's details and the audit log.** Reports that name children (`namesChildren`: children, free class to paid, coming back, care details, missed two, absences, allergies, photo permission) write `admin.report.view` (entity `report`, the key; the filters in words in `detail`) on each view. Only **allergies** decrypts care details, through `roster(sessionId, viewer, 'admin.report.allergies')`, and its page needs a fresh sign-in (`requireFreshStaff`). Downloads need a fresh sign-in and write `admin.download.csv|pdf` (entity `list`, id `report:<key>`). Class and tag emails aren't counted by any report.
+
+**Test:** `tests/e2e/staff-reports.mjs`, after every other browser test.

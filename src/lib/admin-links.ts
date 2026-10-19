@@ -147,3 +147,15 @@ export const settingsReasons = () => '/admin/settings/reasons';
 export const settingsAttendance = () => '/admin/settings/attendance';
 /** Settings → Last season: last season's totals from Studio Director, for the dashboard's comparisons. */
 export const settingsLastSeason = () => '/admin/settings/last-season';
+
+// ───────────── Reports (docs/back-office.md → Reports) ─────────────
+
+/** The reports dashboard: the most important numbers, each opening its report. Owners only. */
+export const reports = () => '/admin/reports';
+/** Every report, grouped by the question it answers, starred ones first. */
+export const reportsLibrary = () => '/admin/reports/library';
+/** One report, with its filters (season, month, program, location, class, show, week, who). Pass to downloads() for its CSV and PDF. */
+export const report = (key: string, params: Record<string, string | number | undefined> = {}) =>
+  `/admin/reports/${seg(key)}${query(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, v === undefined ? undefined : String(v)])))}`;
+/** Where a report's star posts (on or off). */
+export const reportFavorite = () => '/admin/reports/favorite';
