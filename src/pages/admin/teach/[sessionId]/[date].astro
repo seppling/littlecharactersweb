@@ -25,6 +25,7 @@ import { isProd } from '@/server/env';
 import { requireTeacherOrOwner } from '@/server/staff';
 import { canTeach } from '@/server/teachers';
 import { devDay, longDay } from '@/server/today';
+import { reasonList } from '@/server/reasons';
 
 export const prerender = false;
 const { staff, response } = requireTeacherOrOwner(Astro.locals);
@@ -65,6 +66,8 @@ const assigned = viewer && cd ? viewer.role === 'teacher' || (await canTeach(vie
 if (viewer && cd && assigned && date === today && !cd.dayOff) Astro.response.headers.set('X-Teach-Cache', todayInAthens());
 if (!staff) Astro.response.headers.set('X-Teach-Signed-Out', '1');
 const back = staff?.role === 'owner' && !assigned ? { href: classPage(sessionId), label: cd?.program.title ?? 'Class' } : { href: teachHome() + (on ? `?on=${on}` : ''), label: 'Today' };
+// Absence reasons (Settings → Reasons): one optional tap under a child marked Absent.
+const reasons = edit && children.length ? await reasonList('absence') : [];
 const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, please.' : c.photoConsent === true ? 'Photos are OK.' : 'Not asked yet.');
 ---
 
@@ -130,6 +133,7 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
                     data-kid={c.studentId}
                     data-status={st}
                     data-note={c.mark?.note ?? ''}
+                    data-reason={c.mark?.reason ?? ''}
                     data-marked-at={c.mark?.markedAt.toISOString() ?? ''}
                     data-flagged={flag ? '1' : '0'}
                   >
@@ -176,8 +180,19 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
                     ) : (
                       <p class="kid-row__shown" data-shown-status>
                         {st ? MARK_LABELS[st as keyof typeof MARK_LABELS] : 'Not marked'}
+                        {st === 'absent' && c.mark?.reason && ` · ${c.mark.reason}`}
                         {c.mark?.note && <span class="muted"> · {c.mark.note}</span>}
                       </p>
+                    )}
+                    {edit && reasons.length > 0 && (
+                      <div class="kid-why" data-why role="group" aria-label={`Why is ${c.shortName} absent? Optional`}>
+                        <span class="kid-why__q" aria-hidden="true">Why? <span class="muted">(optional)</span></span>
+                        {reasons.map((r) => (
+                          <button type="button" class="kid-why__btn" data-reason-choice={r} aria-pressed={st === 'absent' && c.mark?.reason === r ? 'true' : 'false'}>
+                            {r}
+                          </button>
+                        ))}
+                      </div>
                     )}
 
                     <dialog class="sheet" data-sheet aria-labelledby={`sheet-h-${c.studentId}`}>
@@ -301,9 +316,11 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
     const there = (s: string | undefined) => !!s && s !== 'absent';
 
     /** Shows a child's mark on their row. */
-    function show(row: HTMLElement, st: string, note?: string) {
+    function show(row: HTMLElement, st: string, note?: string, reason = st === 'absent' ? (row.dataset.reason ?? '') : '') {
       row.dataset.status = st;
       if (note !== undefined) row.dataset.note = note;
+      row.dataset.reason = st === 'absent' ? reason : '';
+      for (const b of row.querySelectorAll<HTMLButtonElement>('[data-reason-choice]')) b.setAttribute('aria-pressed', String(st === 'absent' && b.dataset.reasonChoice === reason));
       for (const b of row.querySelectorAll<HTMLButtonElement>('[data-mark]')) {
         const m = b.dataset.mark;
         b.setAttribute('aria-pressed', String(m === 'present' ? there(st) : m === st));
@@ -313,7 +330,7 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
       const input = row.querySelector<HTMLInputElement>('[data-kid-note]');
       if (input && note !== undefined && document.activeElement !== input) input.value = note;
       const shown = row.querySelector('[data-shown-status]');
-      if (shown) shown.textContent = st ? labels[st] + (note ? ` · ${note}` : '') : 'Not marked';
+      if (shown) shown.textContent = st ? labels[st] + (st === 'absent' && reason ? ` · ${reason}` : '') + (note ? ` · ${note}` : '') : 'Not marked';
     }
 
     function count() {
@@ -357,10 +374,10 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
 
     let go: () => Promise<void> = async () => {};
 
-    async function tap(row: HTMLElement, st: Mark, note = row.dataset.note ?? '') {
-      show(row, st, note);
+    async function tap(row: HTMLElement, st: Mark, note = row.dataset.note ?? '', reason = st === 'absent' ? (row.dataset.reason ?? '') : '') {
+      show(row, st, note, reason);
       count();
-      await enqueue({ kind: 'tap', clientId: newId(), by: by!, on, sessionId, date, studentId: row.dataset.kid!, status: st, note, markedAt: new Date().toISOString() });
+      await enqueue({ kind: 'tap', clientId: newId(), by: by!, on, sessionId, date, studentId: row.dataset.kid!, status: st, note, reason, markedAt: new Date().toISOString() });
       await paint();
       go();
     }
@@ -370,7 +387,7 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
       const known = new Map((await allMarks()).filter((m) => m.by === by).map((m) => [m.key, m]));
       for (const row of rows) {
         const m = known.get(markKey(sessionId, date, row.dataset.kid!));
-        if (m && (!row.dataset.markedAt || Date.parse(m.markedAt) > Date.parse(row.dataset.markedAt))) show(row, m.status, m.note);
+        if (m && (!row.dataset.markedAt || Date.parse(m.markedAt) > Date.parse(row.dataset.markedAt))) show(row, m.status, m.note, m.reason ?? '');
       }
       const report = (await allQueued()).filter((q) => q.by === by && q.kind === 'report' && q.sessionId === sessionId && q.date === date).pop();
       const box = root!.querySelector<HTMLTextAreaElement>('[data-report-note]');
@@ -387,6 +404,14 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
             if (m === 'present' && there(row.dataset.status)) return;
             tap(row, m);
             b.closest('details')?.removeAttribute('open');
+          });
+        }
+        // Why absent: one optional tap; tapping the chosen reason again clears it.
+        for (const b of row.querySelectorAll<HTMLButtonElement>('[data-reason-choice]')) {
+          b.addEventListener('click', () => {
+            if (row.dataset.status !== 'absent') return;
+            const r = b.dataset.reasonChoice ?? '';
+            tap(row, 'absent', row.dataset.note ?? '', row.dataset.reason === r ? '' : r);
           });
         }
         const input = row.querySelector<HTMLInputElement>('[data-kid-note]');
@@ -500,6 +525,11 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
   .kid-more__note { display: grid; gap: 0.25rem; font-size: var(--step--1); font-weight: 650; }
   .kid-more__note input { min-height: 44px; min-width: 0; }
   .kid-more__panel .muted { margin: 0; font-size: var(--step--2); }
+  .kid-why { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+  .kid-row:not([data-status='absent']) .kid-why { display: none; }
+  .kid-why__q { font-size: var(--step--1); font-weight: 700; margin-right: 0.2rem; }
+  .kid-why__btn { min-height: 44px; padding: 0 0.9rem; border: 1.5px solid var(--line-strong); border-radius: 999px; background: var(--paper); color: var(--ink); font: inherit; font-size: var(--step--1); font-weight: 700; cursor: pointer; }
+  .kid-why__btn[aria-pressed='true'] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
   .kid-row__shown { margin: 0; font-weight: 700; font-size: var(--step--1); text-align: right; }
   .muted { color: var(--ink-mute); font-weight: 400; }
   .sheet { width: min(34rem, calc(100vw - 1rem)); max-height: calc(100dvh - 2rem); padding: 1rem; border: 0; border-radius: var(--r-md); box-shadow: var(--shadow-lift); overflow: auto; }

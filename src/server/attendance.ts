@@ -20,7 +20,7 @@
  */
 import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import type { Program, Session } from '@/content/types';
+import type { Program, ProgramKind, Session } from '@/content/types';
 import type { SiteContent } from '@/content/site-content';
 import { childBadges, type Badge } from '@/lib/badges';
 import type { EmergencyContact, PickupPerson } from '@/lib/contacts';
@@ -35,6 +35,7 @@ import { ageOn, readStudentNotes } from './family';
 import { emailHtml, sendEmail } from './email';
 import { config } from './env';
 import { audit } from './records';
+import { getSetting } from './settings-store';
 import { canTeach, classTeachers, coversFor, meetsOn, teacherClasses, teacherSessions } from './teachers';
 
 const { attendance, classReport, classCover, enrollment, student, household, householdMember, user, staff, dropIn } = schema;
@@ -47,6 +48,8 @@ export const LATE_DAYS = 7;
 export const NOT_TAKEN_HOURS = 2;
 export const NOTE_MAX = 200;
 export const REPORT_NOTE_MAX = 2000;
+/** An absence reason (Settings → Reasons keeps them shorter; an older list on a phone still fits). */
+export const REASON_MAX = 60;
 
 export const MARKS = ['present', 'absent', 'late', 'left_early'] as const;
 export type Mark = (typeof MARKS)[number];
@@ -178,7 +181,8 @@ export interface TeachChild {
   emergencyContacts: EmergencyContact[];
   parents: TeachParent[];
   photoConsent: boolean | null;
-  mark: { status: Mark; note: string; markedAt: Date } | null;
+  /** `reason`: the absence reason tapped (Settings → Reasons), or ''. */
+  mark: { status: Mark; note: string; reason: string; markedAt: Date } | null;
 }
 
 const byName = (a: TeachChild, b: TeachChild) => a.firstName.localeCompare(b.firstName) || a.lastName.localeCompare(b.lastName);
@@ -278,7 +282,7 @@ export async function teachRoster(sessionId: string, date: string, viewerUserId:
         emergencyContacts: h.emergencyContacts ?? [],
         parents: parents.filter((p) => p.householdId === h.id).map((p) => ({ name: p.name, phone: p.phone })),
         photoConsent: s.photoConsent,
-        mark: m ? { status: m.status as Mark, note: m.note ?? '', markedAt: m.markedAt } : null,
+        mark: m ? { status: m.status as Mark, note: m.note ?? '', reason: m.reason ?? '', markedAt: m.markedAt } : null,
       } satisfies TeachChild;
     })
     .sort(byName);
@@ -303,9 +307,12 @@ export const tapInput = z.object({
   studentId: z.string().min(1).max(64),
   status: z.enum(MARKS),
   note: z.string().max(NOTE_MAX).optional().default(''),
+  /** Why the child was absent: one of Settings → Reasons, tapped on the phone (optional; only kept with Absent). */
+  reason: z.string().max(REASON_MAX).optional().default(''),
   markedAt: when,
 });
-export type Tap = z.infer<typeof tapInput>;
+/** A tap; `reason` may be left out (taps queued on a phone before absence reasons have none). */
+export type Tap = Omit<z.infer<typeof tapInput>, 'reason'> & { reason?: string };
 
 export const reportInput = z.object({
   clientId,
@@ -377,18 +384,20 @@ export async function saveTaps(viewer: Viewer, taps: Tap[], catalog: Catalog, no
       continue;
     }
     const [before] = await db
-      .select({ status: attendance.status, note: attendance.note })
+      .select({ status: attendance.status, note: attendance.note, reason: attendance.reason })
       .from(attendance)
       .where(and(eq(attendance.sessionId, tap.sessionId), eq(attendance.classDate, tap.date), eq(attendance.studentId, tap.studentId)));
     const note = tap.note.trim() || null;
+    // An absence reason stays only with Absent: a later Present clears it.
+    const reason = tap.status === 'absent' ? (tap.reason ?? '').trim() || null : null;
     let saved: { id: string }[];
     try {
       saved = await db
         .insert(attendance)
-        .values({ sessionId: tap.sessionId, classDate: tap.date, studentId: tap.studentId, enrollmentId: who.enrollmentId, dropInId: who.dropInId, status: tap.status, note, markedBy: viewer.userId, markedAt, clientId: tap.clientId })
+        .values({ sessionId: tap.sessionId, classDate: tap.date, studentId: tap.studentId, enrollmentId: who.enrollmentId, dropInId: who.dropInId, status: tap.status, note, reason, markedBy: viewer.userId, markedAt, clientId: tap.clientId })
         .onConflictDoUpdate({
           target: [attendance.sessionId, attendance.classDate, attendance.studentId],
-          set: { status: tap.status, note, markedBy: viewer.userId, markedAt, clientId: tap.clientId, updatedAt: now },
+          set: { status: tap.status, note, reason, markedBy: viewer.userId, markedAt, clientId: tap.clientId, updatedAt: now },
           setWhere: sql`${attendance.markedAt} < excluded.marked_at`,
         })
         .returning({ id: attendance.id });
@@ -404,7 +413,7 @@ export async function saveTaps(viewer: Viewer, taps: Tap[], catalog: Catalog, no
       results.push({ clientId: tap.clientId, result: 'older' });
       continue;
     }
-    if (before && (before.status !== tap.status || (before.note ?? null) !== note)) {
+    if (before && (before.status !== tap.status || (before.note ?? null) !== note || (before.reason ?? null) !== reason)) {
       await audit(viewer.userId, 'teach.attendance.change', 'student', tap.studentId, `${tap.sessionId} ${tap.date}: ${before.status} → ${tap.status}`);
     }
     results.push({ clientId: tap.clientId, result: 'saved' });
@@ -550,6 +559,8 @@ export interface AttendanceDate {
   /** Who submitted it, or null when not taken. */
   by: string | null;
   note: string | null;
+  /** The children marked Absent ("Maya R."), with the reason the teacher tapped, if any. */
+  absent: { name: string; reason: string | null }[];
 }
 
 export interface ClassAttendance {
@@ -563,7 +574,7 @@ export async function classAttendance(session: Session, today = todayInAthens())
   const db = await getDb();
   const [rows, reports] = await Promise.all([
     db
-      .select({ studentId: attendance.studentId, classDate: attendance.classDate, status: attendance.status, firstName: student.firstName, lastName: student.lastName })
+      .select({ studentId: attendance.studentId, classDate: attendance.classDate, status: attendance.status, reason: attendance.reason, firstName: student.firstName, lastName: student.lastName })
       .from(attendance)
       .innerJoin(student, eq(student.id, attendance.studentId))
       .where(eq(attendance.sessionId, session.id)),
@@ -585,6 +596,10 @@ export async function classAttendance(session: Session, today = todayInAthens())
       marked: marks.length,
       by: r ? (names.get(r.submittedBy ?? '') ?? 'A teacher') : null,
       note: r?.note ?? null,
+      absent: marks
+        .filter((m) => m.status === 'absent')
+        .map((m) => ({ name: shortName(m.firstName, m.lastName), reason: m.reason }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
     };
   });
   const kids = new Map<string, ClassAttendance['children'][number]>();
@@ -683,15 +698,22 @@ export async function childAttendance(studentIds: string[], catalog: Catalog, te
   return out;
 }
 
-/** What Needs attention needs for `attendance` and `missed2` (today.ts): one query each, over the last LATE_DAYS days. */
-export async function attentionAttendance(today: string) {
+/**
+ * What Needs attention needs for `attendance` and `missed2` (today.ts): one
+ * query each, over the last LATE_DAYS days. With Settings → Attendance's
+ * start date and kinds (`startDate`, `kinds`; null when unset: every date and
+ * every kind, as before).
+ */
+export async function attentionAttendance(today: string): Promise<AttentionAttendance> {
   const from = addDays(today, -LATE_DAYS);
   const db = await getDb();
-  const [reports, daysOff, drops, missed] = await Promise.all([
+  const [reports, daysOff, drops, missed, startDate, kinds] = await Promise.all([
     reportKeys(from, today),
     daysOffBetween(from, today),
     db.select({ sessionId: dropIn.sessionId, classDate: dropIn.classDate }).from(dropIn).where(and(eq(dropIn.status, 'booked'), gte(dropIn.classDate, from), lte(dropIn.classDate, today))),
     missedTwo({ since: addDays(today, -60) }),
+    getSetting('attendance.startDate'),
+    getSetting('attendance.kinds'),
   ]);
   const students = missed.length
     ? await db
@@ -709,9 +731,28 @@ export async function attentionAttendance(today: string) {
       const s = byId.get(m.studentId);
       return s ? [{ ...m, firstName: s.firstName, lastName: s.lastName, householdId: s.householdId, family: s.family }] : [];
     }),
+    startDate,
+    kinds,
   };
 }
-export type AttentionAttendance = Awaited<ReturnType<typeof attentionAttendance>>;
+
+export interface AttentionAttendance {
+  /** `${sessionId} ${date}` with a class_report. */
+  reports: Set<string>;
+  daysOff: DayOff[];
+  /** `${sessionId} ${date}` with a booked drop-in. */
+  dropIns: Set<string>;
+  missed: (MissedTwo & { firstName: string; lastName: string; householdId: string; family: string })[];
+  /** Settings → Attendance: "Attendance not taken" only from this date. Unset: every date. */
+  startDate?: string | null;
+  /** Settings → Attendance: the program kinds that raise it. Unset: every kind. */
+  kinds?: ProgramKind[] | null;
+}
+
+/** Pure: does this class date raise "Attendance not taken", by Settings → Attendance? */
+export function attendanceExpected(a: Pick<AttentionAttendance, 'startDate' | 'kinds'>, kind: ProgramKind, date: string) {
+  return (!a.startDate || date >= a.startDate) && (!a.kinds || a.kinds.includes(kind));
+}
 
 
 // ───────────── The teacher's home ─────────────

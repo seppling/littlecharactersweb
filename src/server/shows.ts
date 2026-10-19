@@ -501,7 +501,16 @@ export const teacherSeesRehearsal = (role: 'owner' | 'teacher', mySessions: Set<
 
 /** The rehearsal cards on the teacher app's Today for one date (read-only: time, place, note; no cast). */
 export async function teacherRehearsals(viewer: { staffId: string; role: 'owner' | 'teacher' }, date: string, content: Content): Promise<RehearsalCard[]> {
-  const rows = await rehearsalsBetween(date, date);
+  return rehearsalCardsBetween(viewer, date, date, content);
+}
+
+/**
+ * The rehearsal cards from `from` to `to` (Athens dates), each with its
+ * `date`: the teacher app's This week and Hannah's Today. Same rule as
+ * teacherRehearsals: owners see every rehearsal, teachers their classes' ones.
+ */
+export async function rehearsalCardsBetween(viewer: { staffId: string; role: 'owner' | 'teacher' }, from: string, to: string, content: Content): Promise<(RehearsalCard & { date: string })[]> {
+  const rows = await rehearsalsBetween(from, to);
   if (!rows.length) return [];
   const db = await getDb();
   const mine = viewer.role === 'owner' ? new Set<string>() : new Set((await db.select({ sessionId: classTeacher.sessionId }).from(classTeacher).where(eq(classTeacher.staffId, viewer.staffId))).map((r) => r.sessionId));
@@ -510,7 +519,7 @@ export async function teacherRehearsals(viewer: { staffId: string; role: 'owner'
     .filter(({ r, show }) => teacherSeesRehearsal(viewer.role, mine, rehearsingSessions(r, show, content)))
     .map(({ r, show }) => {
       const a = athensParts(r.startsAt);
-      return { id: r.id, showSlug: r.showSlug, showTitle: show?.title ?? r.showSlug, time: timeRange(a.time, athensParts(r.endsAt).time), start: a.time, place: placeOf(r, content), note: r.note, classes: rehearsingLabel(r, content) };
+      return { id: r.id, date: a.date, showSlug: r.showSlug, showTitle: show?.title ?? r.showSlug, time: timeRange(a.time, athensParts(r.endsAt).time), start: a.time, place: placeOf(r, content), note: r.note, classes: rehearsingLabel(r, content) };
     });
 }
 

@@ -1,8 +1,9 @@
 ---
-/** Settings: one tile per settings page. Staff now; later units add email wording and reasons (docs/back-office.md → Settings). */
+/** Settings: one tile per settings page (docs/back-office.md → Settings, and §25 for emails, reasons, attendance and last season). */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import { settingsDaysOff, settingsStaff } from '@/lib/admin-links';
 import { settingsSkills, settingsTags } from '@/lib/admin-links';
+import { settingsAttendance, settingsEmails, settingsLastSeason, settingsReasons } from '@/lib/admin-links';
 import { requireStaff } from '@/server/staff';
 
 export const prerender = false;
@@ -41,6 +42,30 @@ if (response) return response;
         <a class="tile" href={settingsSkills()} data-settings-skills>
           <strong>Skills</strong>
           <span>What each class works on. Teachers tick them; you send families progress notes.</span>
+        </a>
+      </li>
+      <li>
+        <a class="tile" href={settingsEmails()} data-settings-emails>
+          <strong>Emails</strong>
+          <span>The subject and opening of the emails families get: welcome, pay now, waitlist offer and more.</span>
+        </a>
+      </li>
+      <li>
+        <a class="tile" href={settingsReasons()} data-settings-reasons>
+          <strong>Reasons</strong>
+          <span>Why children leave a class, and why they miss one: the short lists you and teachers pick from.</span>
+        </a>
+      </li>
+      <li>
+        <a class="tile" href={settingsAttendance()} data-settings-attendance>
+          <strong>Attendance</strong>
+          <span>When “Attendance not taken” starts, and which kinds of class need attendance.</span>
+        </a>
+      </li>
+      <li>
+        <a class="tile" href={settingsLastSeason()} data-settings-last-season>
+          <strong>Last season</strong>
+          <span>Last season’s totals from Studio Director, so the dashboard can compare.</span>
         </a>
       </li>
     </ul>

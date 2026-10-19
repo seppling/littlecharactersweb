@@ -136,3 +136,14 @@ export const progressNote = (noteId: string) => `/admin/progress-notes/${seg(not
 /** Write a new progress note about a child (and a class). `back` is where Cancel and Send return to. */
 export const newProgressNote = (studentId: string, sessionId?: string, back?: string) =>
   `/admin/progress-notes/new${query({ student: studentId, class: sessionId, back: back ? (safeStaffPath(back) ?? undefined) : undefined })}`;
+
+// ───────────── The rest of Settings (docs/back-office.md → Settings: emails, reasons, attendance, last season) ─────────────
+
+/** Settings → Emails: each email's subject and opening. `name` opens one (`welcome`, `payNow`, `waitlistOffer`, `dropIn`, `refund`, `progressNote`). */
+export const settingsEmails = (name?: string) => `/admin/settings/emails${query({ email: name })}`;
+/** Settings → Reasons: why children drop, why they're absent. */
+export const settingsReasons = () => '/admin/settings/reasons';
+/** Settings → Attendance: when "Attendance not taken" starts, and which kinds of class need it. */
+export const settingsAttendance = () => '/admin/settings/attendance';
+/** Settings → Last season: last season's totals from Studio Director, for the dashboard's comparisons. */
+export const settingsLastSeason = () => '/admin/settings/last-season';

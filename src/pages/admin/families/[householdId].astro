@@ -306,6 +306,7 @@ const noteDone = Astro.url.searchParams.get('note');
                       <span class="class-status">
                         <span class:list={['badge', `badge--${statusTone[e.status]}`]}>{statusLabel[e.status]}</span>
                         {e.noChargeReason && e.status !== 'cancelled' && <span class="no-charge" data-no-charge>{noChargeLabel(e.noChargeReason)}</span>}
+                        {e.dropReason && <span class="no-charge" data-drop-reason>Why: {e.dropReason}</span>}
                       </span>
                     </td>
                   </tr>

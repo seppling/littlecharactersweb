@@ -2,11 +2,12 @@
 /** Staff home: today's classes, the top of "Needs attention", and quick links (src/server/today.ts). */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import AttentionList from '@/components/admin/AttentionList.astro';
-import { attention, classes, install, payments, search, teachHome, teachRoster } from '@/lib/admin-links';
+import { attention, classes, install, payments, search, show, teachHome, teachRoster } from '@/lib/admin-links';
 import { attendanceState, reportsOn, unreadNotes } from '@/server/attendance';
 import { isProd } from '@/server/env';
 import { requireStaff } from '@/server/staff';
 import { attentionItems, devDay, longDay, shortDay, todayClasses, todaysAttention } from '@/server/today';
+import { rehearsalCardsBetween } from '@/server/shows';
 
 export const prerender = false;
 // Teachers' home is the teacher app (the installed app opens /admin).
@@ -25,6 +26,8 @@ const { shown, hidden } = todaysAttention(items);
 const reports = day ? await reportsOn(day.classes.filter((c) => c.kind === 'class').map((c) => c.sessionId), day.date) : new Map();
 const taken = (c: { kind: string; sessionId: string; end: string }) => (c.kind === 'class' && day ? attendanceState(day.date, c.end, reports.has(c.sessionId), now) : null);
 const notes = staff ? await unreadNotes() : [];
+// Today's rehearsals, beside the classes (every show's; src/server/shows.ts).
+const rehearsals = staff && day ? await rehearsalCardsBetween({ staffId: '', role: 'owner' }, day.date, day.date, content) : [];
 const titleOf = (sessionId: string) => content.findSession(sessionId)?.program.title ?? 'A class';
 ---
 
@@ -76,6 +79,23 @@ const titleOf = (sessionId: string) => content.findSession(sessionId)?.program.t
                 <strong>No classes today</strong>
                 <p>{day.next ? `Next classes: ${shortDay(day.next.date)} (${day.next.classes.map((c) => c.title).join(', ')}).` : 'Nothing is on the calendar yet.'}</p>
               </div>
+            )}
+            {rehearsals.length > 0 && (
+              <ul class="today-classes" data-today-rehearsals>
+                {rehearsals.map((r) => (
+                  <li>
+                    <a class="today-class today-class--rehearsal" href={show(r.showSlug)} data-today-rehearsal={r.id}>
+                      <span class="today-class__time">{r.time}</span>
+                      <span class="today-class__what">
+                        <strong>Rehearsal: {r.showTitle}</strong>
+                        <span class="today-class__meta">{[r.place, r.classes].filter(Boolean).join(' · ')}</span>
+                        {r.note && <span class="today-class__meta">{r.note}</span>}
+                      </span>
+                      <span class="badge badge--rehearsal">Rehearsal</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
 
@@ -160,6 +180,8 @@ const titleOf = (sessionId: string) => content.findSession(sessionId)?.program.t
   .today-class__meta { display: block; font-size: var(--step--1); color: var(--ink-mute); }
   .today-class__places { font-weight: 700; white-space: nowrap; }
   .today-class__att { grid-column: 2 / -1; justify-self: start; }
+  .today-class--rehearsal { border-left: 6px solid var(--teal); }
+  .badge--rehearsal { background: var(--teal-tint); color: var(--ink); }
   .notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
   .note { display: grid; gap: 0.4rem; padding: 0.75rem 1rem; border: 1.5px solid var(--line-strong); border-left: 5px solid var(--purple); border-radius: var(--r-sm); background: var(--paper); }
   .note p { margin: 0; overflow-wrap: anywhere; }

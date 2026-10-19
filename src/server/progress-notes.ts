@@ -22,6 +22,8 @@ import { expectedOn, type Viewer } from './attendance';
 import { getDb, schema } from './db';
 import { familyAudience, footerFor, sendMessage, type SendOptions } from './messages';
 import { audit } from './records';
+import { emailWording, fill } from './email-wording';
+import type { Wording } from './settings-store';
 import { childSkills, skillDateFor } from './skills';
 
 const { progressNote, student, household, user, staff } = schema;
@@ -47,6 +49,19 @@ export function composeProgressNote(note: string, gotIt: string[], working: stri
 
 /** "Maya’s progress in Intro to Theater" */
 export const progressSubject = (firstName: string, classTitle?: string | null) => `${firstName}’s progress${classTitle ? ` in ${classTitle}` : ''}`;
+
+/**
+ * Pure: a progress note's subject and its last line. Hannah's wording
+ * (Settings → Emails, `progressNote`) changes both; the note, the skills and
+ * "Reply to this email to reach us." are always in it. A note without a class
+ * fills {class} with "Little Characters".
+ */
+export function progressWords(firstName: string, classTitle: string | null | undefined, wording: Wording | null) {
+  if (!wording) return { subject: progressSubject(firstName, classTitle), footer: footerFor(classTitle ?? undefined) };
+  const values = { child: firstName, class: classTitle ?? 'Little Characters' };
+  // composeEmail adds ". Reply to this email to reach us."; a full stop she typed isn't doubled.
+  return { subject: fill(wording.subject, values), footer: fill(wording.intro, values).replace(/[.!]+$/, '') };
+}
 
 export interface NoteView {
   id: string;
@@ -214,10 +229,11 @@ export async function previewNote(note: NoteView, input: NoteDraftInput, catalog
   const choices = await skillChoices(note, catalog);
   const pick = (list: { id: string; name: string }[], ids: string[]) => list.filter((s) => ids.includes(s.id)).map((s) => s.name);
   const audience = await familyAudience(note.householdId);
+  const words = progressWords(note.childFirst, note.classTitle, await emailWording('progressNote'));
   return {
-    subject: progressSubject(note.childFirst, note.classTitle),
+    subject: words.subject,
     body: composeProgressNote(text, pick(choices.gotIt, input.gotIt), pick(choices.working, input.working)),
-    footer: footerFor(note.classTitle ?? undefined),
+    footer: words.footer,
     audience,
     emails: [...new Set((audience?.parents ?? []).map((p) => p.email.toLowerCase()))],
   };

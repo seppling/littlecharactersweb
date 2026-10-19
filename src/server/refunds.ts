@@ -29,6 +29,8 @@ import { isProd, paymentsMode } from './env';
 import { audit, householdGuardians } from './records';
 import { getCatalog } from './content';
 import { isOwner } from './staff';
+import { emailWording, worded, type EmailParts } from './email-wording';
+import type { Wording } from './settings-store';
 
 const { order, installment, refund, household, student, user } = schema;
 
@@ -418,18 +420,30 @@ const failureWords = (code: string | null | undefined) => FAILURE[code ?? ''] ??
 /** "Refund of $25 for Drop-in: Intro to Theater, Tue, Oct 20 (Ava)". */
 export const refundHeading = (cents: number, what: string) => `Refund of ${formatCents(cents)} for ${what}`;
 
-async function emailRefund(r: Refund, p: Payment, how: 'stripe' | 'cash' | 'test', findSession?: FindSession) {
-  const guardians = await householdGuardians(r.householdId);
-  if (!guardians.length) return 0;
-  const heading = refundHeading(r.amountCents, paymentWhat(p, findSession ?? (await getCatalog()).findSession));
+/**
+ * Pure: the refund email. Hannah's wording (Settings → Emails, `refund`)
+ * changes the subject and adds her opening; the amount and how it comes back
+ * always follow it.
+ */
+export function refundEmail(cents: number, what: string, how: 'stripe' | 'cash' | 'test', wording: Wording | null): EmailParts & { lines: string[] } {
+  const heading = refundHeading(cents, what);
   const lines = [
     how === 'cash'
-      ? `We’ve given you ${formatCents(r.amountCents)} back by cash or check.`
-      : `We’ve refunded ${formatCents(r.amountCents)} to the card you paid with. It takes ${REFUNDS.cardDays} to reach your card.`,
+      ? `We’ve given you ${formatCents(cents)} back by cash or check.`
+      : `We’ve refunded ${formatCents(cents)} to the card you paid with. It takes ${REFUNDS.cardDays} to reach your card.`,
     'It shows in the Payments part of your family account.',
     'Questions? Just reply to this email.',
   ];
-  await sendEmail({ to: guardians.map((g) => g.email), subject: `${heading} · Little Characters`, text: `${heading}\n\n${lines.join('\n\n')}`, html: emailHtml(heading, lines) });
+  // Her opening goes first; the built-in first line (the amount and how) always follows it.
+  const e = worded({ subject: `${heading} · Little Characters`, heading, lines }, wording, { amount: formatCents(cents), payment: what }, [lines[0]]);
+  return { ...e, lines: e.lines as string[] };
+}
+
+async function emailRefund(r: Refund, p: Payment, how: 'stripe' | 'cash' | 'test', findSession?: FindSession) {
+  const guardians = await householdGuardians(r.householdId);
+  if (!guardians.length) return 0;
+  const email = refundEmail(r.amountCents, paymentWhat(p, findSession ?? (await getCatalog()).findSession), how, await emailWording('refund'));
+  await sendEmail({ to: guardians.map((g) => g.email), subject: email.subject, text: `${email.heading}\n\n${email.lines.join('\n\n')}`, html: emailHtml(email.heading, email.lines) });
   await audit(null, 'refund.email', 'refund', r.id);
   return guardians.length;
 }
