@@ -407,3 +407,40 @@ Three units are merged: payments (`claude/bo-payments`), today (`claude/bo-today
   - bounces from the email service.
 - **Next:** roster changes (`claude/bo-roster`) started at 05:53Z: add a child (sign-up link, or without charge), remove a child (with or without stopping payments), Offer the spot.
 
+### Roster changes merged; Phase 1 complete (October 19)
+
+The roster changes unit (`claude/bo-roster`) is merged, and Phase 1 of the staff back office is complete.
+- **Proof on the merged branch:**
+  - type check clean;
+  - 584 unit tests pass;
+  - the site builds;
+  - all 12 browser tests pass on one fresh database.
+  - December billing after the family journeys charges $80.75 (Ava, family discount) and $55 (Maya, scholarship), as before.
+- **What's in it:**
+  - **Remove** a child from a class:
+    - "Remove and stop payments" or "Remove only", with a preview;
+    - an order that covers a sibling who stays keeps its payments, and Hannah is pointed to a discount;
+    - the family discount is refreshed.
+  - **Add** a child:
+    - by sending a sign-up link (the family pays as usual);
+    - or without charge, with a fresh sign-in and a reason (`enrollment.no_charge_reason`, migration 0010).
+  - **Offer the spot:** a waitlisted family gets a 48-hour offer. The first family to pay gets the place, and their waitlist entry becomes the enrollment. Today subtracts open offers.
+- **For Stephen to confirm:** a no-charge place never counts toward the 15% family discount (recommended).
+- **For Hannah to confirm:** offers last 48 hours (`OFFER_HOURS`).
+- **Not built:**
+  - refunds and a last-month proration after a removal (Stripe's dashboard for now);
+  - "Take off the waitlist".
+
+**Phase 1 by unit** (all on `claude/blissful-archimedes-enun5m`):
+
+| Unit | What it does |
+|---|---|
+| foundation | Data, staff shell, link contract, badges, CSV/PDF downloads, fresh sign-in, staff idle limit, phone app shell |
+| contacts | Emergency contacts, pickup people, ZIP, how they heard |
+| classes | Classes list, class pages, print, sign-in sheets |
+| families | Search, family pages, notes |
+| payments | Payments pages and Send a pay link |
+| today | Today and Needs attention |
+| messages | Class and family email |
+| roster changes | Add, remove, offer the spot |
+
