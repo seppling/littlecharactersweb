@@ -373,3 +373,37 @@ Three units are merged: contacts (`claude/bo-contacts`), classes (`claude/bo-cla
   - search emergency contacts and pickup people by name.
 - **Next:** today (`claude/bo-today`), payments (`claude/bo-payments`) and messages (`claude/bo-messages`) started at 04:40Z. Roster changes come after.
 
+### Payments, Today and staff email merged (October 19)
+
+Three units are merged: payments (`claude/bo-payments`), today (`claude/bo-today`) and messages (`claude/bo-messages`).
+- **Proof on the merged branch:**
+  - type check clean;
+  - 570 unit tests pass;
+  - the site builds;
+  - all 11 browser tests pass on one fresh database.
+  - On a fresh database after the two family journeys, December's billing run charges $80.75 (Ava, family discount) and $55 (Maya, scholarship), the same as before these units.
+- **Payments:**
+  - one Payments page with Needs attention first. "Send a pay link" re-sends the same pay-now email a failed charge sends, and `billing.ts` only moved that email into `sendPayLinkEmail`;
+  - upcoming autopay by date, families on autopay, and payments received by month;
+  - Overdue List, Upcoming Autopay and Payments List as CSV/PDF;
+  - phone layout fixed.
+- **Today:**
+  - today's classes and Needs attention: failed payments, waitlist openings, classes under 5 near their start, no emergency contact, care details to confirm, new sign-ups, form messages, birthdays;
+  - an urgent count beside Today and Alerts;
+  - staff sign-out returns to the staff sign-in;
+  - signed-in non-staff see a Staff only panel (404 status);
+  - a yellow focus ring in the top bar.
+- **Staff email:**
+  - Email the class and Email this family: tick families, send a test, review, send one email per family with replies to Hannah;
+  - no double sends, failed families can be retried, and emails are logged on each family's page;
+  - Copy emails and Copy phone numbers.
+- **Open, recommended as is:**
+  - "Pay link sent" counts only staff sends;
+  - Send a pay link doesn't pause the automatic retries;
+  - unticked families aren't remembered between emails.
+- **Follow-ups:**
+  - one-off nights shouldn't count as "under 5" on the Classes list (`classes.ts`);
+  - failed staff emails on Needs attention;
+  - bounces from the email service.
+- **Next:** roster changes (`claude/bo-roster`) started at 05:53Z: add a child (sign-up link, or without charge), remove a child (with or without stopping payments), Offer the spot.
+
