@@ -121,7 +121,7 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
             {data.parents.map((p) => (
               <li class="staff-card person">
                 <strong>{p.name || p.email}</strong>
-                <span class="muted">{p.email}{p.phone && ` · ${formatPhone(p.phone)}`}</span>
+                <span class="muted">{p.email}{p.phone && <> · <span class="nowrap">{formatPhone(p.phone)}</span></>}</span>
                 <div class="person__actions">
                   <a class="btn btn--outline btn--sm" href={`mailto:${p.email}`}>Email</a>
                   {p.phone && <a class="btn btn--outline btn--sm" href={telHref(p.phone)}>Call</a>}
@@ -398,6 +398,12 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
 
 <style>
   .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  /* admin.css sets .badge's green after the tones, so the tones lose there; restated here until it's fixed. */
+  .fam :global(.badge--neutral) { background: var(--line); color: var(--ink-soft); }
+  .fam :global(.badge--warning) { background: var(--yellow-tint); color: var(--yellow-ink); }
+  .fam :global(.badge--alert) { background: var(--red-tint); color: var(--red-ink); }
+  .fam form > .btn, .fam .cf-group > .btn { justify-self: start; }
+  .nowrap { white-space: nowrap; }
   .fam h3 { font-size: var(--step-0); margin: 0; }
   .people, .contacts, .notes, .orders { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
   .people { grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); }
@@ -405,7 +411,10 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
   .person__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
   .kid { display: grid; gap: 0.6rem; align-content: start; }
   .kid__head { display: grid; gap: 0.3rem; }
-  .care > summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
+  .care > summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; justify-content: space-between; list-style: none; }
+  .care > summary::-webkit-details-marker { display: none; }
+  .care > summary::after { content: ''; width: 0.55rem; height: 0.55rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin-right: 0.3rem; }
+  .care[open] > summary::after { transform: rotate(-135deg); }
   .care__list { margin: 0; display: grid; gap: 0.4rem; padding: 0.6rem 0.8rem; border-left: 4px solid var(--line-strong); background: var(--hall); border-radius: var(--r-sm); }
   .care__list--alert { border-left-color: var(--red); }
   .care__list div { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: 0.5rem; }

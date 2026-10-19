@@ -135,3 +135,22 @@ A home-screen web app; no app store.
 | `waitlist_offer` | A place offered to a waitlisted enrollment: `offered`, `accepted`, `withdrawn`, `expired` | `WaitlistOffer` |
 
 `src/lib/contacts.ts` has the zod inputs (`emergencyContactsInput`, `pickupPeopleInput`: names up to 80 characters, relationships up to 40), `normalizePhone` (US numbers as 10 digits, others as `+digits`), `formatPhone` ("(706) 555-0142"), `telHref` and `smsHref`. Who sees the new data: `security.md`.
+
+## 9. Search and a family's page
+
+Queries in `src/server/families.ts`; pages `src/pages/admin/search.astro` and `src/pages/admin/families/[householdId].astro`.
+
+- **Search (`search(q)`):** one box. Plain SQL `ILIKE` ("contains, any case") on family names, parents' names and emails, children's first, last and full names; phone numbers compare digits only (`706.555.0101`, `+1 706 555 0101` and `(706) 555-0101` all match). Class titles come from the content. No index: about 300 families scan in milliseconds. Results are grouped Families, Children, Classes, 50 of each at most, and never show allergies or medical notes.
+- **Families (`search()` with no words):** every family A to Z, 50 a page (`?page=2`), with parents, the number of children and their current classes (enrollments not cancelled, in a class that hasn't ended).
+- **A family's page (`family(id)`):** parents with Email, Call and Text; each child's badges and care details (open on a computer, a tap on a phone, red when there's something medical to know); emergency contacts and pickup people; every class, current first; a payments summary (card, next charge, failed or overdue payments, paid this season, each order linking to `paymentsOrder`); staff notes; emails sent (`message_recipient`). The phone back link returns to the search results when staff came from them, else to Families. Viewing the page is logged (`admin.family.view`), like a roster.
+- **Staff edits on the page,** each logged: care details (`admin.student.update`; the same encryption; `detailsConfirmedAt` unchanged, so a parent still confirms), contacts (`admin.household.contacts`; the shared rules in `src/lib/contacts.ts`; `contactsConfirmedAt` unchanged), notes (`admin.note.add|edit|delete`; only the author edits or deletes their own).
+- **"This season"** is the term of the weekly class running today, else the next to start (`currentTerm`).
+
+| Download | Address | Columns |
+|---|---|---|
+| Family List | `downloads(search())` | Family, Parents, Emails, Phones, ZIP, Heard about us, Children |
+| Student / Class List | `downloads(FAMILY_LISTS.children)` | Child, Age, Family, Current classes |
+| Student Contact List | `downloads(FAMILY_LISTS.contacts)` | Child, Family, Parents, Emails, Phones, Emergency contacts |
+| Family Notes | `downloads(FAMILY_LISTS.notes)` | Family, About, Note, Written by, When |
+
+All four go through `familyDownload` (`src/server/family-downloads.ts`): a fresh sign-in, then an audit entry (`admin.download.csv|pdf`, entity `list`, id `families|children|contacts|notes`). The first three are on the Families list; Family Notes is on each family's page.

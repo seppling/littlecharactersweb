@@ -149,6 +149,8 @@ const files = {
 </AdminShell>
 
 <style>
+  /* On a computer the top bar's box does this; phones have no top bar. */
+  @media (min-width: 761px) { .find { display: none !important; } }
   .find { display: flex; gap: 0.5rem; max-width: 36rem; }
   .find input { flex: 1; min-width: 0; min-height: 44px; padding: 0.5rem 0.8rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-sm); font: inherit; background: var(--paper); }
   .find input:focus { border-color: var(--ink); outline: none; box-shadow: 0 0 0 4px var(--teal-tint); }
