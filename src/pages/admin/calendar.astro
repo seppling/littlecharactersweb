@@ -66,7 +66,7 @@ const classCount = (d: CalendarDay) => d.entries.filter((e) => e.kind === 'class
     <div class="admin-head">
       <div>
         <h1>Calendar</h1>
-        <p class="admin-intro">Every class, event and day off.</p>
+        <p class="admin-intro">Every class, event, rehearsal and day off.</p>
       </div>
       <div class="admin-head__actions">
         <a class="btn btn--outline btn--sm" href={settingsDaysOff()} data-days-off-link>Days off</a>
@@ -145,7 +145,7 @@ const classCount = (d: CalendarDay) => d.entries.filter((e) => e.kind === 'class
             <ul class="cal-cell__list">
               {d.entries.map((e) => (
                 <li>
-                  <a class:list={['cal-item', `cal-item--${e.kind}`, { 'cal-item--off': !!e.dayOff }]} href={e.href} data-cal-class={e.sessionId ?? undefined} title={[e.time, e.title, e.label, e.location, e.teacher, e.dayOff && `No class: ${e.dayOff}`].filter(Boolean).join(' · ')}>
+                  <a class:list={['cal-item', `cal-item--${e.kind}`, { 'cal-item--off': !!e.dayOff }]} href={e.href} data-cal-class={e.sessionId ?? undefined} data-cal-rehearsal={e.kind === 'rehearsal' ? '' : undefined} title={[e.time, e.title, e.label, e.location, e.teacher, e.dayOff && `No class: ${e.dayOff}`].filter(Boolean).join(' · ')}>
                     <span class="cal-item__time">{e.start ? timeOf(e.start) : 'All day'}</span>
                     {e.places && !e.dayOff && <span class="cal-item__places">{e.places}</span>}
                     <span class="cal-item__title">{e.title}</span>
@@ -177,17 +177,19 @@ const classCount = (d: CalendarDay) => d.entries.filter((e) => e.kind === 'class
             {d.entries.length ? (
               <ul class="cal-list">
                 {d.entries.map((e) => (
-                  <li class:list={['cal-row', { 'cal-row--off': !!e.dayOff }]} data-cal-class={e.sessionId ?? undefined}>
+                  <li class:list={['cal-row', `cal-row--${e.kind}`, { 'cal-row--off': !!e.dayOff }]} data-cal-class={e.sessionId ?? undefined} data-cal-rehearsal={e.kind === 'rehearsal' ? '' : undefined}>
                     <span class="cal-row__time">{e.time || 'All day'}</span>
                     <span class="cal-row__what">
                       <a href={e.href}><strong>{e.title}</strong></a>
                       {e.label && <span class="muted"> · {e.label}</span>}
-                      <span class="cal-row__meta">{[e.location, e.teacher].filter(Boolean).join(' · ') || (e.kind === 'event' ? 'Event' : '')}</span>
+                      <span class="cal-row__meta">{e.kind === 'rehearsal' ? e.location || 'Place to come' : [e.location, e.teacher].filter(Boolean).join(' · ') || (e.kind === 'event' ? 'Event' : '')}</span>
                       {e.dayOff && !d.dayOff && <span class="cal-row__off">No class: {e.dayOff}</span>}
                     </span>
                     <span class="cal-row__side">
                       {e.kind === 'event' ? (
                         <span class="badge badge--neutral">Event</span>
+                      ) : e.kind === 'rehearsal' ? (
+                        <span class="badge badge--rehearsal">Rehearsal</span>
                       ) : e.dayOff ? (
                         <span class="badge badge--warning">Day off</span>
                       ) : (
@@ -251,6 +253,9 @@ const classCount = (d: CalendarDay) => d.entries.filter((e) => e.kind === 'class
   .cal-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 0.3rem; padding: 0.2rem 0.35rem; border-radius: 6px; font-size: 0.78rem; line-height: 1.25; color: var(--ink); text-decoration: none; background: var(--purple-tint); min-width: 0; }
   .cal-item:hover { outline: 1.5px solid var(--ink); text-decoration: none; }
   .cal-item--event { background: var(--yellow-tint); }
+  .cal-item--rehearsal { background: var(--teal-tint); box-shadow: inset 3px 0 0 var(--teal); }
+  .cal-row--rehearsal { border-left: 5px solid var(--teal); }
+  .badge--rehearsal { background: var(--teal-tint); color: var(--ink); }
   .cal-item--off { background: transparent; color: var(--ink-mute); text-decoration: line-through; }
   .cal-item__time { font-weight: 700; white-space: nowrap; }
   .cal-item__title { grid-column: 1 / -1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

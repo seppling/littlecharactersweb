@@ -25,8 +25,10 @@ interface Props {
   sent: NonNullable<Awaited<ReturnType<typeof messageResult>>> | null;
   sentNotice?: string;
   earlier: Awaited<ReturnType<typeof earlierMessages>>;
+  /** Shown when nobody can be emailed yet (a show's cast uses its own words). */
+  emptyText?: string;
 }
-const { kind, heading, line, here, doneHref, doneLabel, audience, footer, state, sent, sentNotice, earlier } = Astro.props;
+const { kind, heading, line, here, doneHref, doneLabel, audience, footer, state, sent, sentNotice, earlier, emptyText = 'No families in this class yet.' } = Astro.props;
 
 const when = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
 const enrolled = audience.filter((f) => !f.waitlist);
@@ -132,7 +134,7 @@ const sentOk = sent ? sent.families.length - sent.failed : 0;
         <fieldset class="cf-group who" aria-describedby="who-help">
           <legend class="cf__label">Who gets it</legend>
           {audience.length === 0 ? (
-            <p class="muted">No families in this class yet.</p>
+            <p class="muted">{emptyText}</p>
           ) : kind === 'family' ? (
             <ul class="families families--plain">
               {audience.map((f) => (
