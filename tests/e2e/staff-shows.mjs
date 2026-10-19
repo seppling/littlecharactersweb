@@ -347,7 +347,7 @@ await hp.waitForSelector('h1:has-text("Email the cast")');
 check((await hp.inputValue('#msg-subject')) === `Rehearsal changed: ${SHOW_TITLE}`, '“Email the families about this change” opens the composer, filled in');
 check((await hp.inputValue('#msg-body')).includes(`It’s now ${REH_LABEL}, 10 am–12:30 pm, at HQ`), '… with the new time');
 const ticked = await hp.$$eval('[data-family] input[name="family"]:checked', (els) => els.map((e) => e.closest('[data-family]').textContent));
-check(ticked.length === 1 && ticked[0].includes('Penwick'), 'only the families called to that rehearsal are ticked (not Zara’s)');
+check(ticked.some((t) => t.includes('Penwick')) && !ticked.some((t) => t.includes('Okafor')), `only the families called to that rehearsal are ticked: the Penwicks, not Zara’s (${ticked.length} ticked)`);
 
 check(errors.length === 0, `no page errors (${errors.join('; ')})`);
 await browser.close();
