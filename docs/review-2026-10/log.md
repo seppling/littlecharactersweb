@@ -293,3 +293,17 @@ Stephen asked for research into the best studio portals first, then a plan for w
 - **Phase 2, by the first spring class:** teacher logins and phone attendance (works offline), class teachers and substitutes, calendar and days off, paid drop-ins, refunds and credits, tags, skills, shows, reports matching Studio Director's, settings.
 - **Waiting on:** Stephen's approval of Phase 1, and the questions listed at the end of the plan.
 
+### Phase 1 started, and how reports will work (October 19)
+
+- **Approved:** Stephen approved Phase 1. Building started with the foundation unit (`claude/bo-foundation`): the data for all of Phase 1, the staff shell for computer and phone, the link contract, badges, CSV and PDF downloads, a fresh sign-in for downloads, and the phone app shell.
+- **Family details:** add emergency contacts and a list of who may pick up the children to the family's forms, in Phase 1. ZIP code and "How did you hear about us?" are asked once per family, for two of Studio Director's reports.
+- **Drop-in price:** to be decided before Phase 2's drop-ins.
+- **Reports (Stephen):** a dashboard of the most important numbers, plus a library of report tables, each downloadable as CSV and PDF. The CSV and PDF helpers are built in Phase 1, so every Phase 1 list gets them. The dashboard and library come in Phase 2.
+- **The dashboard's numbers, with how each is counted,** are listed in the plan document:
+  - money: collected this month, booked for the next 1st, committed ahead, problem payments, discounts given;
+  - enrollment: children this season, fill rate, classes at risk (under the 5 students a class needs), waitlists, sign-up pace;
+  - growth: free class to paid, coming back, how new families found us;
+  - safety and operations: care details on file, missed two in a row, attendance taken.
+- **Open for Stephen:** load last season's class counts and totals from Studio Director once, as a starting point for comparisons (recommended).
+- **Studio Director's reports:** the full list from Hannah's account is matched in `studio-director-reports.md`. Questions for Hannah: pre-approved classes, sales tax, merchandise.
+
