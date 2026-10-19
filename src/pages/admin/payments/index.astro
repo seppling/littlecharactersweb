@@ -9,7 +9,8 @@ import AdminShell from '@/components/admin/AdminShell.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
 import { markPaidOutsideStripe, stopRemainingPayments, waiveLateFee } from '@/server/billing';
 import { formatCents, todayInAthens } from '@/lib/pricing';
-import { downloads, family, payments, paymentsOrder } from '@/lib/admin-links';
+import { classPage, downloads, family, payments, paymentsOrder } from '@/lib/admin-links';
+import { noChargeLabel, noChargePlaces } from '@/server/roster-changes';
 import { requireStaff } from '@/server/staff';
 import { orderBilling } from '@/server/adjustments';
 import { previewStopEffect, type FamilyDiscountEffect } from '@/server/family-discount';
@@ -99,6 +100,7 @@ const notice = (() => {
 const attention = staff && show !== 'upcoming' ? await paymentsAttention() : [];
 const upcoming = staff && show !== 'failed' ? await upcomingAutopay() : { nextDue: null, through: null, days: [] };
 const onAutopay = staff && !show ? await autopayFamilies() : [];
+const noCharge = staff && !show ? await noChargePlaces(Astro.locals.content) : [];
 const received = staff && !show ? await paymentsReceived(month) : [];
 const failedCount = attention.filter((a) => a.status === 'failed').length;
 const upcomingCount = upcoming.days.reduce((a, d) => a + d.charges.length, 0);
@@ -272,6 +274,28 @@ const views = [
             </div>
           )}
           <p class="muted">To give a family a discount (a scholarship, a sibling deal, a credit for a missed class), open Payments & discounts. When a family withdraws, use Stop payments. Refunds are made in the Stripe dashboard.</p>
+        </section>
+      )
+    }
+
+    {
+      !show && noCharge.length > 0 && (
+        <section class="admin-section" id="no-charge" aria-labelledby="no-charge-h" data-no-charge-list>
+          <h2 id="no-charge-h">No charge ({noCharge.length})</h2>
+          <table class="data-table">
+            <thead><tr><th>Family</th><th>Child</th><th>Class</th><th>Why</th></tr></thead>
+            <tbody>
+              {noCharge.map((p) => (
+                <tr>
+                  <td data-label="Family"><a class="pay-link" href={family(p.householdId)}>{p.family}</a></td>
+                  <td data-label="Child"><span>{p.child}</span></td>
+                  <td data-label="Class"><a href={classPage(p.sessionId)}>{classTitle(p.sessionId)}</a></td>
+                  <td data-label="Why"><span>{noChargeLabel(p.reason)}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p class="muted">Children added to a class from its page with Add without charge. They have no payments, and don’t count toward the 15% family discount.</p>
         </section>
       )
     }

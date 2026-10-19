@@ -13,6 +13,7 @@ import { classPage, downloads, family, familyEmail, paymentsOrder, safeStaffPath
 import { MAX_CONTACTS, formatPhone, smsHref, telHref } from '@/lib/contacts';
 import { formatCents } from '@/lib/pricing';
 import { FAMILY_LISTS, FamilyEditError, addNote, contactRows, deleteNote, editNote, familyPage, staffUpdateCareDetails, staffUpdateContacts, NOTE_MAX } from '@/server/families';
+import { noChargeLabel } from '@/server/roster-changes';
 import { requireStaff } from '@/server/staff';
 
 export const prerender = false;
@@ -259,7 +260,12 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
                     <td data-label="Class"><a href={classPage(e.sessionId)}>{e.title}</a></td>
                     <td data-label="Child"><span>{e.child}</span></td>
                     <td data-label="Season"><span>{e.term || '—'}{!e.current && e.status !== 'cancelled' && ' (ended)'}</span></td>
-                    <td data-label="Status"><span class:list={['badge', `badge--${statusTone[e.status]}`]}>{statusLabel[e.status]}</span></td>
+                    <td data-label="Status">
+                      <span class="class-status">
+                        <span class:list={['badge', `badge--${statusTone[e.status]}`]}>{statusLabel[e.status]}</span>
+                        {e.noChargeReason && e.status !== 'cancelled' && <span class="no-charge" data-no-charge>{noChargeLabel(e.noChargeReason)}</span>}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -398,6 +404,8 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
 </script>
 
 <style>
+  .class-status { display: grid; gap: 0.25rem; justify-items: start; }
+  .no-charge { font-size: var(--step--1); color: var(--ink-soft); overflow-wrap: anywhere; }
   .muted { color: var(--ink-mute); font-size: var(--step--1); }
   /* admin.css sets .badge's green after the tones, so the tones lose there; restated here until it's fixed. */
   .fam :global(.badge--neutral) { background: var(--line); color: var(--ink-soft); }

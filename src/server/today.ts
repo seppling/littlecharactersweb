@@ -28,6 +28,7 @@ import { billingOverview, totalDue } from './billing';
 import { classRows, MIN_TO_RUN, placesLabel, type ClassRow } from './classes';
 import { getDb, schema } from './db';
 import { LEAD_LABELS, staffLeads } from './leads';
+import { openOfferCounts } from './roster-changes';
 
 type Content = Pick<SiteContent, 'programs' | 'events' | 'locationById' | 'site' | 'findSession' | 'programBySlug'>;
 
@@ -199,6 +200,8 @@ export interface AttentionInput {
   enrolled: EnrolledChild[];
   /** Left out for the count, which doesn't need them. */
   leads?: AttentionLead[];
+  /** Open waitlist offers per class (roster-changes.ts): those places are taken until the offer ends. */
+  offers?: Record<string, number>;
 }
 
 const STAFF_REASON: Record<string, string> = {
@@ -250,10 +253,11 @@ export function attentionFrom(input: AttentionInput, content: Pick<Content, 'fin
     items.push({ kind: 'payments', tone: 'alert', title, detail: `${formatCents(p.amountCents)} · ${p.label} · ${why}`, action: { label: 'See payments', href: links.payments('failed') } });
   }
 
-  // 2. Waitlist openings: a class with a waitlist and a place open.
+  // 2. Waitlist openings: a class with a waitlist and a place open, not counting places already offered.
   for (const r of input.classes) {
-    if (r.state === 'ended' || r.waitlist === 0 || (r.openings !== undefined && r.openings <= 0)) continue;
-    const open = r.openings === undefined ? 'Places open' : `${plural(r.openings, 'place')} open`;
+    const openings = r.openings === undefined ? undefined : r.openings - (input.offers?.[r.session.id] ?? 0);
+    if (r.state === 'ended' || r.waitlist === 0 || (openings !== undefined && openings <= 0)) continue;
+    const open = openings === undefined ? 'Places open' : `${plural(openings, 'place')} open`;
     items.push({
       kind: 'waitlist',
       tone: 'warning',
@@ -412,7 +416,7 @@ function loadCore(content: Content, now: Date, key?: object): Promise<Core> {
   const hit = key && cache.get(key);
   if (hit) return hit;
   const load = (async () => {
-    const [overview, classes, enrolled] = await Promise.all([billingOverview(todayInAthens(now)), allRows(content, now), enrolledChildren()]);
+    const [overview, classes, enrolled, offers] = await Promise.all([billingOverview(todayInAthens(now)), allRows(content, now), enrolledChildren(), openOfferCounts(now)]);
     const payments = overview.needsAttention.map(({ i, family }) => ({
       id: i.id,
       family,
@@ -424,7 +428,7 @@ function loadCore(content: Content, now: Date, key?: object): Promise<Core> {
       retryOn: i.retryOn,
       payNowOpenedAt: i.payNowOpenedAt,
     }));
-    return { payments, classes, enrolled };
+    return { payments, classes, enrolled, offers };
   })();
   if (key) cache.set(key, load);
   return load;

@@ -6,15 +6,42 @@
  * the care details are in the page, not fetched per tap.
  * Print: ./print.astro. Downloads: [sessionId].csv.ts, [sessionId].pdf.ts and
  * the sign-in sheet, all from classRoster (src/server/classes.ts).
+ *
+ * Roster changes (src/server/roster-changes.ts): Add a child (a sign-up link,
+ * or without charge after a fresh sign-in), Remove (a preview, then the
+ * change), and Offer the spot / Withdraw offer on the waitlist. Buttons post
+ * back here; changes redirect with ?done= so a reload doesn't repeat them.
+ * Children's names are searched by POST, never put in the address.
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
-import { classEmail, classes, classPage, classPrint, downloads, family } from '@/lib/admin-links';
+import { classEmail, classes, classPage, classPrint, downloads, family, paymentsOrder } from '@/lib/admin-links';
 import { formatPhone, smsHref, telHref } from '@/lib/contacts';
+import { formatCents } from '@/lib/pricing';
 import { capacityFor } from '@/server/family';
 import { classLine, classRoster, type ClassRoster } from '@/server/classes';
-import { requireStaff } from '@/server/staff';
+import { newSendToken } from '@/server/messages';
+import {
+  OFFER_HOURS,
+  REASON_MAX,
+  RosterError,
+  addCandidate,
+  addProblem,
+  addWithoutCharge,
+  findChildren,
+  noChargeLabel,
+  offerDeadline,
+  offerSpot,
+  previewRemoval,
+  removeChild,
+  sendSignUpLink,
+  withdrawOffer,
+  type AddCandidate,
+  type AddWay,
+  type RemovalPreview,
+} from '@/server/roster-changes';
+import { requireFreshStaff, requireStaff } from '@/server/staff';
 
 export const prerender = false;
 const { staff, response } = requireStaff(Astro.locals);
@@ -23,6 +50,115 @@ const found = Astro.locals.content.findSession(Astro.params.sessionId ?? '');
 if (!found) return new Response('Not found', { status: 404 });
 const { program, session } = found;
 const location = Astro.locals.content.locationById(session.locationId);
+const here = classPage(session.id);
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const names = (xs: string[]) => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+const shortDay = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+/** Back here after a change, with what happened (so a reload doesn't do it twice). */
+const after = (done: Record<string, string | number>, anchor = '') => `${here}?${new URLSearchParams(Object.entries(done).map(([k, v]) => [k, String(v)]))}${anchor}`;
+/** A no-charge add needs a sign-in from the last 15 minutes; staff come back to this child's confirm step. */
+const freshFor = (studentId: string) => requireFreshStaff(Astro.locals, new URL(`${here}?add=${encodeURIComponent(studentId)}`, Astro.url));
+
+let removal: RemovalPreview | null = null;
+let matches: AddCandidate[] | null = null;
+let query = '';
+let pick: (AddCandidate & { full: boolean }) | null = null;
+let way: AddWay = 'link';
+let reason = '';
+let addError = '';
+let actionError = '';
+if (staff && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const get = (k: string) => String(form.get(k) ?? '');
+  const overFull = form.get('overFull') === 'yes';
+  try {
+    switch (get('action')) {
+      // Remove: see what changes, then remove.
+      case 'remove-check':
+        removal = await previewRemoval(get('enrollmentId'), session.id, get('mode') === 'only' ? 'only' : 'stop');
+        if (!removal) return Astro.redirect(after({ done: 'gone' }), 303);
+        break;
+      case 'remove': {
+        const r = await removeChild(get('enrollmentId'), session.id, get('mode') === 'only' ? 'only' : 'stop', staff.id);
+        return Astro.redirect(after(r ? { done: get('mode') === 'only' ? 'removed-only' : 'removed', n: r.stopped, fd: r.familyDiscount } : { done: 'gone' }), 303);
+      }
+      // Add: find a child, choose a way, confirm.
+      case 'find':
+        query = get('q').trim();
+        matches = query ? await findChildren(query, session.id, Astro.locals.content) : [];
+        break;
+      case 'add-check':
+        way = get('way') === 'free' ? 'free' : 'link';
+        if (way === 'free') {
+          const stop = freshFor(get('studentId'));
+          if (stop) return stop;
+        }
+        pick = await addCandidate(get('studentId'), session.id, Astro.locals.content);
+        break;
+      case 'add-free': {
+        const stop = freshFor(get('studentId'));
+        if (stop) return stop;
+        way = 'free';
+        reason = get('reason');
+        try {
+          await addWithoutCharge({ sessionId: session.id, studentId: get('studentId'), staffId: staff.id, reason, overFull });
+          return Astro.redirect(after({ done: 'added' }), 303);
+        } catch (e) {
+          if (!(e instanceof RosterError)) throw e;
+          addError = e.message;
+          pick = await addCandidate(get('studentId'), session.id, Astro.locals.content);
+        }
+        break;
+      }
+      case 'send-link':
+        way = 'link';
+        try {
+          const r = await sendSignUpLink({ sessionId: session.id, studentId: get('studentId'), staffId: staff.id, overFull, token: get('token') });
+          return Astro.redirect(after({ done: r.duplicate ? 'link-again' : 'link', n: r.parents }), 303);
+        } catch (e) {
+          if (!(e instanceof RosterError)) throw e;
+          addError = e.message;
+          pick = await addCandidate(get('studentId'), session.id, Astro.locals.content);
+        }
+        break;
+      // The waitlist.
+      case 'offer':
+        await offerSpot({ enrollmentId: get('enrollmentId'), sessionId: session.id, staffId: staff.id });
+        return Astro.redirect(after({ done: 'offered' }, '#waitlist-h'), 303);
+      case 'withdraw':
+        return Astro.redirect(after({ done: (await withdrawOffer(get('offerId'), session.id, staff.id)) ? 'withdrawn' : 'gone' }, '#waitlist-h'), 303);
+    }
+  } catch (e) {
+    if (!(e instanceof RosterError)) throw e;
+    actionError = e.message;
+  }
+}
+// Back from a fresh sign-in: straight to that child's "Add without charge" step.
+const addParam = Astro.url.searchParams.get('add');
+if (staff && !pick && addParam && Astro.request.method === 'GET') {
+  way = 'free';
+  pick = await addCandidate(addParam, session.id, Astro.locals.content);
+}
+const token = newSendToken();
+
+const n = Number(Astro.url.searchParams.get('n') ?? 0);
+const fd = Number(Astro.url.searchParams.get('fd') ?? 0);
+const discountEnded = fd ? ` The 15% family discount ended for this family, so ${plural(fd, 'unpaid payment')} went back to the regular price. The family is emailed the new amounts.` : '';
+const notice = actionError
+  ? { ok: false, text: actionError }
+  : (() => {
+      switch (Astro.url.searchParams.get('done')) {
+        case 'removed': return { ok: true, text: `Removed from the class.${n ? ` ${plural(n, 'upcoming charge')} stopped.` : ' No charges were stopped.'}${discountEnded}` };
+        case 'removed-only': return { ok: true, text: `Removed from the class. Payments weren’t changed.${discountEnded}` };
+        case 'added': return { ok: true, text: 'Added to the class, with no charge.' };
+        case 'link': return { ok: true, text: `Sign-up link sent to ${plural(n, 'parent')}.` };
+        case 'link-again': return { ok: true, text: 'That link was already sent.' };
+        case 'offered': return { ok: true, text: `Offer sent. The family has ${OFFER_HOURS} hours to sign up.` };
+        case 'withdrawn': return { ok: true, text: 'Offer withdrawn. They’re still on the waitlist.' };
+        case 'gone': return { ok: false, text: 'That changed in the meantime. Nothing was done.' };
+        default: return null;
+      }
+    })();
 const { students, waitlist }: ClassRoster = staff ? await classRoster(session.id, staff.id) : { students: [], waitlist: [] };
 const cap = capacityFor(program, session);
 const files = downloads(classPage(session.id));
@@ -47,8 +183,85 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
       </div>
     </div>
     <p class="safety">Rosters include medical notes. Share them only with the teaching team. Views and downloads are logged.</p>
-    {/* Roster changes (add or remove a child) go here, in a later unit. */}
-    <div class="roster-tools" data-roster-tools hidden></div>
+    {notice && <p class:list={['notice', { 'notice--error': !notice.ok }]} role="status" data-notice>{notice.text}</p>}
+
+    <div class="roster-tools" data-roster-tools>
+      <details class="tool" open={matches !== null || undefined}>
+        <summary class="btn btn--outline btn--sm">Add a child</summary>
+        <div class="tool__body">
+          <form method="post" class="find" data-find>
+            <label for="find-q">Child’s name</label>
+            <div class="find__row">
+              <input id="find-q" name="q" value={query} autocomplete="off" required maxlength="100" />
+              <button class="btn btn--primary btn--sm" name="action" value="find">Find</button>
+            </div>
+          </form>
+          {matches !== null && (matches.length === 0 ? (
+            <p class="muted" data-no-match>No child matches “{query}”. A new family signs up from the class’s page on the website.</p>
+          ) : (
+            <ul class="picks" data-add-results>
+              {matches.map((c) => {
+                const linkProblem = addProblem(c, 'link');
+                const freeProblem = addProblem(c, 'free');
+                return (
+                  <li class="pick" data-add-child={c.studentId}>
+                    <div class="pick__who">
+                      <strong>{c.name}</strong>
+                      <span class="muted">{c.age !== null ? `Age ${c.age} · ` : ''}{c.family}</span>
+                      {c.ageNote && <span class="warn-line">{c.ageNote}</span>}
+                      {(linkProblem && freeProblem) && <span class="muted">{freeProblem}</span>}
+                    </div>
+                    {!(linkProblem && freeProblem) && (
+                      <div class="pick__actions">
+                        {!linkProblem && (
+                          <form method="post"><input type="hidden" name="studentId" value={c.studentId} /><input type="hidden" name="way" value="link" /><button class="btn btn--outline btn--sm" name="action" value="add-check">Send a sign-up link</button></form>
+                        )}
+                        {!freeProblem && (
+                          <form method="post"><input type="hidden" name="studentId" value={c.studentId} /><input type="hidden" name="way" value="free" /><button class="btn btn--outline btn--sm" name="action" value="add-check">Add without charge</button></form>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ))}
+        </div>
+      </details>
+
+      {pick && (
+        <form method="post" class="confirm" data-add-confirm={way}>
+          <input type="hidden" name="studentId" value={pick.studentId} />
+          <input type="hidden" name="token" value={token} />
+          <h2>{way === 'free' ? `Add ${pick.name} without charge?` : `Send the ${pick.family} a sign-up link?`}</h2>
+          {way === 'free' ? (
+            <p>{pick.firstName} joins {program.title} with no payments. This doesn’t change anything else the family pays, and doesn’t count toward the 15% family discount.</p>
+          ) : (
+            <p>The parents get an email with a link to sign {pick.firstName} up for {program.title}. They pay through the normal sign-up, so prices and discounts apply as usual.</p>
+          )}
+          {addProblem(pick, way) && <p class="notice notice--error">{addProblem(pick, way)}</p>}
+          {pick.ageNote && <p class="warn-box" data-age-warning>{pick.ageNote} You can still go ahead.</p>}
+          {pick.full && (
+            <div class="warn-box" data-full-warning>
+              <p><strong>This class is full.</strong> {way === 'free' ? `Adding ${pick.firstName} goes over the limit.` : 'Until a place opens, the link only lets them join the waitlist.'}</p>
+              <label class="check"><input type="checkbox" name="overFull" value="yes" required /> {way === 'free' ? 'Add anyway' : 'Send anyway'}</label>
+            </div>
+          )}
+          {way === 'free' && (
+            <div class="field">
+              <label for="add-reason">Reason</label>
+              <input id="add-reason" name="reason" value={reason} required maxlength={REASON_MAX} placeholder="Scholarship, staff child, trade…" />
+              <p class="muted">Shown on the family’s page and on Payments as “No charge, added by staff: …”, and kept in the record.</p>
+            </div>
+          )}
+          {addError && <p class="notice notice--error" role="alert" data-add-error>{addError}</p>}
+          <div class="confirm__actions">
+            <button class="btn btn--primary btn--sm" name="action" value={way === 'free' ? 'add-free' : 'send-link'} disabled={!!addProblem(pick, way)}>{way === 'free' ? 'Add without charge' : 'Send the link'}</button>
+            <a class="btn btn--outline btn--sm" href={here}>Cancel</a>
+          </div>
+        </form>
+      )}
+    </div>
 
     <section class="roster-section" aria-labelledby="roster-h">
       <h2 id="roster-h">Roster <span class="muted">({students.length})</span></h2>
@@ -134,8 +347,67 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
                   ))}
                   <a class="family-link" href={family(c.householdId)}>Family page<span class="sr-only">: {c.family}</span></a>
                 </div>
-                {/* Roster changes (remove from class) go here, in a later unit. */}
-                <div class="kid__actions" data-roster-actions hidden></div>
+                <div class="kid__actions" data-roster-actions>
+                  {c.noChargeReason && <p class="muted no-charge" data-no-charge>{noChargeLabel(c.noChargeReason)}</p>}
+                  {removal?.enrollmentId === c.enrollmentId ? (
+                    <form method="post" class="confirm" data-remove-check={removal.mode} id="remove-check">
+                      <input type="hidden" name="enrollmentId" value={c.enrollmentId} />
+                      <input type="hidden" name="mode" value={removal.mode} />
+                      <h3>Remove {c.name} from {program.title}?</h3>
+                      {removal.mode === 'only' ? (
+                        <p>Payments stay as they are. Use this when {c.firstName} moved to another class and you’re handling the payments yourself.</p>
+                      ) : removal.staying.length > 0 ? (
+                        <p data-staying>
+                          Payments for this order continue, because {names(removal.staying)} {removal.staying.length === 1 ? 'is' : 'are'} still in the class. To lower them, add a discount on the <a href={paymentsOrder(removal.orderId!)}>order page</a>.
+                        </p>
+                      ) : (
+                        <p data-stopping>
+                          {removal.stopping.length
+                            ? `These charges are cancelled: ${removal.stopping.map((i) => `${shortDay(i.dueDate)} ${formatCents(i.amountCents)}`).join(', ')}.`
+                            : 'This class has no charges left to stop.'}
+                        </p>
+                      )}
+                      {removal.effects.length > 0 ? (
+                        <>
+                          <p data-discount-ends>
+                            <strong>The 15% family discount ends:</strong> the family drops below two weekly classes, so these unpaid payments{removal.effects.some((e) => e.orderId === removal!.orderId) ? '' : ' for their other classes'} go back to the regular price.
+                          </p>
+                          <ul class="effects">
+                            {removal.effects.flatMap((e) =>
+                              e.changes.map((ch) => (
+                                <li>
+                                  <span><strong>{e.names.join(' & ')}</strong>, {Astro.locals.content.findSession(e.sessionId)?.program.title ?? 'a class'}, {shortDay(ch.dueDate)}</span>
+                                  <span><s>{formatCents(ch.beforeCents)}</s> → <strong>{formatCents(ch.afterCents)}</strong> <span class="muted">(+{formatCents(ch.afterCents - ch.beforeCents)})</span></span>
+                                </li>
+                              )),
+                            )}
+                          </ul>
+                          <p class="muted">The family is emailed the new amounts, and sees them in their account.</p>
+                        </>
+                      ) : (
+                        <p class="muted">No other payment changes.</p>
+                      )}
+                      <p class="muted">Nothing already paid is refunded here. To give money back, refund it in the Stripe dashboard.</p>
+                      <div class="confirm__actions">
+                        <button class="btn btn--danger btn--sm" name="action" value="remove">{removal.mode === 'only' ? 'Remove only' : 'Remove and stop payments'}</button>
+                        <a class="btn btn--outline btn--sm" href={here}>Cancel</a>
+                      </div>
+                    </form>
+                  ) : (
+                    <details class="tool">
+                      <summary class="btn btn--outline btn--sm">Remove<span class="sr-only"> {c.name}</span></summary>
+                      <form method="post" class="tool__body">
+                        <input type="hidden" name="enrollmentId" value={c.enrollmentId} />
+                        <input type="hidden" name="action" value="remove-check" />
+                        <p class="muted">You’ll see what changes before anything is saved.</p>
+                        <div class="confirm__actions">
+                          <button class="btn btn--outline btn--sm" name="mode" value="stop">Remove and stop payments</button>
+                          <button class="btn btn--outline btn--sm" name="mode" value="only">Remove only</button>
+                        </div>
+                      </form>
+                    </details>
+                  )}
+                </div>
               </li>
             );
           })}
@@ -154,7 +426,10 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
               <div class="wait__who">
                 <strong>{c.name}</strong>
                 <span class="muted">{c.age !== null ? `Age ${c.age} · ` : ''}Joined {joined(c.joinedAt)}</span>
-                {c.offeredAt && <span class="badges"><span class="badge badge--good" data-offered>Offered {joined(c.offeredAt)}</span></span>}
+                {c.offer?.status === 'offered' && (
+                  <span class="badges"><span class="badge badge--good" data-offered>Offered {joined(c.offer.offeredAt)}{c.offer.expiresAt && `, expires ${offerDeadline(c.offer.expiresAt)}`}</span></span>
+                )}
+                {c.offer?.status === 'expired' && <span class="warn-line" data-offer-expired>Expired: offer to the next family</span>}
               </div>
               <div class="kid__family">
                 {c.parents.map((p) => (
@@ -169,8 +444,23 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
                 ))}
                 <a class="family-link" href={family(c.householdId)}>Family page<span class="sr-only">: {c.family}</span></a>
               </div>
-              {/* "Offer the spot" goes here, in the Roster changes unit. */}
-              <div class="wait__actions" data-waitlist-actions hidden></div>
+              <div class="wait__actions" data-waitlist-actions>
+                {c.offer?.status === 'offered' ? (
+                  <form method="post">
+                    <input type="hidden" name="offerId" value={c.offer.id} />
+                    <button class="btn btn--outline btn--sm" name="action" value="withdraw">Withdraw offer<span class="sr-only"> to {c.name}</span></button>
+                  </form>
+                ) : (
+                  <details class="tool">
+                    <summary class="btn btn--outline btn--sm">Offer the spot<span class="sr-only"> to {c.name}</span></summary>
+                    <form method="post" class="tool__body">
+                      <input type="hidden" name="enrollmentId" value={c.enrollmentId} />
+                      <p class="muted">Emails the parents that a place opened. They have {OFFER_HOURS} hours to sign up and pay; the place goes to the first family who does.</p>
+                      <button class="btn btn--primary btn--sm" name="action" value="offer">Send the offer</button>
+                    </form>
+                  </details>
+                )}
+              </div>
             </li>
           ))}
         </ol>
@@ -243,7 +533,38 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
   .contact-links { display: flex; flex-wrap: wrap; gap: 0.35rem; }
   .family-link { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; }
   .kid__actions,
-  .wait__actions { grid-column: 1 / -1; }
+  .wait__actions { grid-column: 1 / -1; display: grid; gap: 0.5rem; justify-items: start; min-width: 0; }
+  .roster-tools { display: grid; gap: var(--space-s); }
+  .tool { min-width: 0; max-width: 100%; }
+  .tool > summary { list-style: none; cursor: pointer; }
+  .tool > summary::-webkit-details-marker { display: none; }
+  .tool[open] > summary { background: var(--hall); }
+  .tool__body { display: grid; gap: 0.6rem; margin-top: 0.6rem; max-width: var(--measure); }
+  .find { display: grid; gap: 0.3rem; }
+  .find label { font-weight: 650; font-size: var(--step--1); }
+  .find__row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .find__row input { flex: 1 1 12rem; min-width: 0; min-height: 44px; }
+  .picks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  .pick { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-md); background: var(--paper); min-width: 0; }
+  .pick__who { display: grid; gap: 0.1rem; min-width: 0; overflow-wrap: anywhere; }
+  .pick__actions,
+  .confirm__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .pick__actions form { display: contents; }
+  .confirm { display: grid; gap: 0.6rem; padding: 0.9rem 1rem; border: 2px solid var(--ink); border-radius: var(--r-md); background: var(--paper); min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+  .confirm h2,
+  .confirm h3 { font-size: var(--step-0); }
+  .confirm p { margin: 0; }
+  .confirm .field { display: grid; gap: 0.3rem; }
+  .confirm .field label { font-weight: 650; }
+  .confirm .field input { min-height: 44px; min-width: 0; }
+  .effects { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; font-size: var(--step--1); }
+  .effects li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.2rem 1rem; }
+  .warn-box { display: grid; gap: 0.4rem; padding: 0.6rem 0.8rem; border-radius: var(--r-sm); background: var(--yellow-tint); border-left: 5px solid var(--yellow); margin: 0; }
+  .warn-box p { margin: 0; }
+  .warn-line { color: var(--yellow-ink); font-weight: 650; font-size: var(--step--1); }
+  .check { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; font-weight: 650; }
+  .check input { width: 1.25rem; height: 1.25rem; accent-color: var(--purple); }
+  .no-charge { margin: 0; font-size: var(--step--1); overflow-wrap: anywhere; }
   @media (max-width: 760px) {
     .kid,
     .wait { grid-template-columns: minmax(0, 1fr); }

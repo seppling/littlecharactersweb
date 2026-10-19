@@ -475,6 +475,8 @@ export async function familyPage(householdId: string, catalog: Catalog, viewerId
         endDate: found?.session.endDate ?? '',
         current: isCurrent(found?.session, today) && e.status !== 'cancelled',
         status: e.status,
+        /** Added by staff without charge: why (roster-changes.ts). */
+        noChargeReason: e.noChargeReason,
       };
     })
     .sort((a, b) => Number(b.current) - Number(a.current) || STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || b.endDate.localeCompare(a.endDate) || a.title.localeCompare(b.title));
