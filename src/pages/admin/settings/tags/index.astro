@@ -157,6 +157,8 @@ const addKind = values.action === 'add' && isTagKind(values.kind ?? '') ? values
 </AdminShell>
 
 <style>
+  /* Phones: a full 44 px for every button, not 43.x after rounding. */
+  .tags-page .btn, .tags-page summary.btn { min-height: 44px; }
   .tags-page .muted { color: var(--ink-mute); font-size: var(--step--1); font-weight: 400; }
   .add { max-width: 36rem; }
   .add__form { display: grid; gap: var(--space-s); justify-items: start; }

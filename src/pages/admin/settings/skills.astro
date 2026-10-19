@@ -180,6 +180,8 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 </AdminShell>
 
 <style>
+  /* Phones: a full 44 px for every button, not 43.x after rounding. */
+  .skills-settings .btn, .skills-settings summary.btn { min-height: 44px; }
   .skills-settings .muted { color: var(--ink-mute); font-size: var(--step--1); font-weight: 400; }
   .programs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr)); gap: 0.6rem; }
   .program { display: grid; gap: 0.15rem; min-height: 44px; padding: 0.7rem 0.9rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-md); background: var(--paper); color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
