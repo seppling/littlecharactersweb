@@ -45,7 +45,8 @@ node tests/e2e/navigation.mjs           # menus by keyboard, the class finder's 
 node tests/e2e/staff-foundation.mjs     # staff shell, phone tabs, redirects, downloads, sign-in rules (after the others)
 node tests/e2e/staff-contacts.mjs       # family details: emergency contacts, pickup, ZIP; summary; account; 390 px
 node tests/e2e/staff-classes.mjs        # Classes list, a class's roster and waitlist, print, downloads (after staff-foundation)
-node tests/e2e/staff-families.mjs       # search, a family's page, notes, staff edits, family downloads (last)
+node tests/e2e/staff-families.mjs       # search, a family's page, notes, staff edits, family downloads
+node tests/e2e/staff-messages.mjs       # Email the class / this family, copy buttons, no double sends (last; SERVER_LOG=<server output> also checks reply-to)
 ```
 
 ## Where things live

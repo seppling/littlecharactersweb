@@ -1,17 +1,17 @@
 # Messages unit: state
 
-## Done
-- `src/server/messages.ts`: audience, recipient picking, compose (paragraphs, links), sendTest, sendMessage (token = message id), retryFailed, messageResult, earlierMessages.
-- `src/server/message-composer.ts`: the write → review → sent steps.
-- `src/components/admin/MessageComposer.astro`, pages `classes/[sessionId]/email.astro`, `families/[householdId]/email.astro`.
-- `familyEmail(id)` added to admin-links; "Email this family" link on the family page.
-- `sendEmail`: `to` may be a list (compatible); `emailHtml` takes `{ html }` paragraphs; `escapeHtml` exported.
-- Unit tests: tests/unit/messages.test.ts (pass). check passes. npm test passes (538).
+## Commits
+- Staff email: composer, sending and log, unit tests (first commit).
+- Browser test, docs, screenshots, report (second commit).
+
+## Status
+Done. All checks pass (check, 538 unit tests, build, all 9 browser tests on a fresh server). See report.md.
 
 ## Decisions
-- One-time token = the message row's id (insert on conflict do nothing). No migration, survives restarts.
-- Composer shows family names and parents' emails only, no children: no audit for viewing it.
-- Recipient rows are written `sent` before sending and changed to `failed` on error.
+See report.md → Decisions (token = message id; retry claims rows; sent-then-failed; in-request paced sending; no audit for opening the composer).
 
-## Next
-- Build, e2e test tests/e2e/staff-messages.mjs, screenshots, docs §11, report.
+## Open questions
+None blocking. Open points in report.md.
+
+## Next action
+None: waiting for the coordinator.
