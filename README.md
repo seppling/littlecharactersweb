@@ -42,6 +42,7 @@ node tests/e2e/enroll-journey.mjs       # in a second terminal
 node tests/e2e/trial-journey.mjs        # then the free first class and the age rule
 node tests/e2e/content-editor.mjs       # after the journeys, on the same database
 node tests/e2e/navigation.mjs           # menus by keyboard, the class finder's order, headings (any order)
+node tests/e2e/staff-foundation.mjs     # staff shell, phone tabs, redirects, downloads, sign-in rules (after the others)
 ```
 
 ## Where things live
