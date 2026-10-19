@@ -236,16 +236,22 @@ export function keepSending(by: string, onResult: (o: SyncOutcome) => void) {
   return go;
 }
 
-/** Sign-out from any staff page clears the teacher app's cache on this phone (AdminShell calls it). */
+/**
+ * Sign-out from any staff page clears the teacher app's cache on this phone
+ * (AdminShell calls it). The form goes on at once; the staff sign-in it lands
+ * on clears again once loaded (clearWhenSignedOut), in case leaving the page
+ * cut this short.
+ */
 export function clearOnSignOut() {
   for (const form of document.querySelectorAll<HTMLFormElement>('form[action="/account/sign-out"]')) {
-    form.addEventListener('submit', (e) => {
-      if (form.dataset.cleared) return;
-      e.preventDefault();
-      form.dataset.cleared = '1';
-      const done = () => form.submit();
+    form.addEventListener('submit', () => {
       navigator.serviceWorker?.controller?.postMessage({ type: 'clear' });
-      clearCache().then(done, done);
+      void clearCache();
     });
   }
+}
+
+/** The staff sign-in is showing: nobody is signed in here, so nothing of the teacher app stays on the phone. */
+export function clearWhenSignedOut() {
+  if (document.querySelector('[data-staff-signin]')) void clearCache();
 }

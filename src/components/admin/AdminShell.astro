@@ -107,7 +107,7 @@ const teacherTabs = [
             </a>
           </div>
         </header>
-        <section class="wrap wrap--narrow gate">
+        <section class="wrap wrap--narrow gate" data-staff-signin={user ? undefined : ''}>
           {user ? (
             <div class="stack">
               <h1>Staff only</h1>
@@ -252,9 +252,10 @@ const teacherTabs = [
 </Base>
 
 <script>
-  import { clearOnSignOut } from '@/scripts/teach';
+  import { clearOnSignOut, clearWhenSignedOut } from '@/scripts/teach';
   // Signing out clears the teacher app's copy of today's classes on this phone.
   clearOnSignOut();
+  clearWhenSignedOut();
   // The phone menu closes when you tap outside it or press Escape.
   for (const menu of document.querySelectorAll<HTMLDetailsElement>('[data-staff-menu]')) {
     document.addEventListener('click', (e) => {
