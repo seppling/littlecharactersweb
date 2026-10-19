@@ -1,17 +1,17 @@
 # Refunds, credits and statements: state
 
-Branch `claude/bo2-refunds-credits`, from `claude/blissful-archimedes-enun5m` (3ab1c0a).
+Branch `claude/bo2-refunds-credits`, from `claude/blissful-archimedes-enun5m` (3ab1c0a). No compaction or restart.
 
 ## Commits
-- (none yet)
+- Server side and unit tests (refunds.ts, credits.ts, day-off-credits.ts, statements.ts, webhook, billing run, fulfillOrder).
+- Pages (refund form, credits, statements, Give these credits), docs, browser test.
+- Report and screenshots.
 
 ## Decisions
-- No migrations. Day-off credits are marked given by a fixed credit id (`dayoff-<closure id>-<household id>`), so a second press inserts nothing.
-- Every refund locks its order row in the transaction that checks what's left, so two refunds at once can't pass the check together.
-- Card payments' last four on statements are read from Stripe per payment (cached per download); "Card" when unknown.
+See report.md → Decisions.
 
 ## Open questions
-- none
+See report.md → Open points (none blocking).
 
 ## Next action
-- Write src/server/refunds.ts, credits.ts, day-off-credits.ts, statements.ts, then the pages.
+- Done; waiting for the coordinator's merge.
