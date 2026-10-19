@@ -22,4 +22,4 @@ Branch `claude/bo-roster`, started from `claude/blissful-archimedes-enun5m` at 4
 
 ## Next action
 
-Wait for the full browser run, run the billing comparison, screenshots, report.
+Done: report written (report.md). Waiting on the coordinator for the open points.
