@@ -32,7 +32,7 @@ Branch `claude/bo2-refunds-credits`. No compaction or restart happened during th
 - Pages: new `admin/payments/[orderId]/refund.astro`, `admin/families/[householdId]/credits.astro`, `statement.csv.ts`/`.pdf.ts` (staff and `/account/`), component `components/admin/FamilyMoney.astro`; edits to the order page, family page (one line), class page, Days off page, Payments page, account page.
 - `src/lib/admin-links.ts`: `refundPage`, `creditsPage`, `familyStatement`.
 - Docs: `back-office.md` §21 and three routes; `staff-billing.md` Refunds, Credits, Statements and the old Stripe lines; `security.md`; `infrastructure.md` webhook events (now 6); README test list.
-- Tests: `tests/unit/refunds-credits.test.ts` (24 tests), `tests/e2e/staff-refunds.mjs`.
+- Tests: `tests/unit/refunds-credits.test.ts` (23 tests), `tests/e2e/staff-refunds.mjs`.
 
 ## Proof
 
