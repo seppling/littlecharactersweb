@@ -5,7 +5,7 @@ A guide for Hannah (and anyone else on staff) to scholarships, pay-what-you-can,
 ## Give a discount
 
 1. Go to **littlecharacters.org/admin/payments** and sign in with your staff email.
-2. Under **Families on monthly autopay**, press **Payments & discounts** next to the family and class.
+2. Under **Families on autopay**, press **Payments & discounts** next to the family and class.
 3. Under **Add a discount**, choose:
    - **A dollar amount** (for example 40) or **a percentage** (for example 25);
    - **Next payment only**, or **Every remaining month**;
@@ -16,7 +16,7 @@ A guide for Hannah (and anyone else on staff) to scholarships, pay-what-you-can,
 Good to know:
 - It comes off **after** the family discount (15% for multiple students or classes, below), and the cent is rounded in the family's favor.
 - A payment never goes below $0. A month the discount covers completely isn't charged at all; the family gets a "nothing to pay" email instead of a receipt.
-- The $15 late fee isn't discounted. To drop a late fee, use **Waive late fee** on the Monthly autopay page.
+- The $15 late fee isn't discounted. To drop a late fee, use **Waive late fee** under **Needs attention** on the Payments page.
 - Payments already made never change. To give money back for those, refund in the Stripe dashboard.
 - A family who paid the whole season up front has no payments left to discount. Refund part of it in the Stripe dashboard instead.
 - If the family has the "pay now" page open, or a charge is going through at that moment, that month changes a little later (within a day, before it's charged).
@@ -44,9 +44,24 @@ Families with more than one child or class get it on their own; there's nothing 
 - **With your discounts:** the family discount comes first, then yours. For example, a 10% scholarship on $95: $95 less 15% is $80.75, then 10% off that is $72.67.
 - **Where you see it:** on the family's **Payments & discounts** page, in its own **Family 15%** column, apart from the discounts you added. Families see "Family discount (15%): −$14.25" in their account, on receipts and on their card statement.
 
+## The Payments page
+
+**littlecharacters.org/admin/payments** has four parts. The buttons at the top show everything, only **Needs attention**, or only **Upcoming autopay**.
+
+- **Needs attention:** charges that didn't go through, and charges waiting for the family to pay. Each shows the family (tap the name for their page), the month, the amount with any late fee, why it failed and when it's tried again. The buttons:
+  - **Send a pay link** emails the parents the same "pay now" message they got when the charge failed. The item then says "Pay link sent Oct 19".
+  - **Paid by cash/check** when the family paid you another way.
+  - **Waive late fee**, when there is one.
+  - **Stop payments** (below).
+- **Upcoming autopay:** the next charge day and the two months after it, by date, with each day's total.
+- **Families on autopay:** each family and class with payments left, with **Payments & discounts** and **Stop payments**.
+- **Payments received:** what came in during a month, newest first: monthly charges and sign-up payments, by card or marked paid by cash or check. It shows this month; use the arrow or the month box to see another.
+
+Each of Needs attention, Upcoming autopay and Payments received has **CSV** and **PDF** downloads: the **Overdue List**, **Upcoming Autopay** (the next 90 days) and the **Payments List** (the month shown). If you signed in more than 15 minutes ago, the site emails you a code first.
+
 ## Stop payments
 
-When a family withdraws, press **Stop payments** on the Monthly autopay page. You see the charges that will be cancelled and, if the family drops below two classes, which of their other payments go back up. Press **Stop payments** again to confirm, or **Cancel**.
+When a family withdraws, press **Stop payments** on the Payments page (under **Needs attention**, or next to the family under **Families on autopay**). You see the charges that will be cancelled and, if the family drops below two classes, which of their other payments go back up. Press **Stop payments** again to confirm, or **Cancel**.
 
 ## The record
 

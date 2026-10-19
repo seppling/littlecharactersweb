@@ -15,6 +15,8 @@ describe('the staff link contract', () => {
     expect(links.family('h1')).toBe('/admin/families/h1');
     expect(links.payments()).toBe('/admin/payments');
     expect(links.payments('failed')).toBe('/admin/payments?show=failed');
+    expect(links.payments(undefined, '2026-10')).toBe('/admin/payments?month=2026-10');
+    expect(links.downloads(links.payments(undefined, '2026-10')).csv).toBe('/admin/payments.csv?month=2026-10');
     expect(links.paymentsOrder('o1')).toBe('/admin/payments/o1');
     expect(links.leads()).toBe('/admin/leads');
     expect(links.content()).toBe('/admin/content');

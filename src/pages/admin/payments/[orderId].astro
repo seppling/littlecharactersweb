@@ -5,9 +5,9 @@
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import { AdjustmentError, addAdjustment, lockedReason, orderBilling, previewAdjustment, removeAdjustment, type AdjustmentInput, type PaymentChange } from '@/server/adjustments';
-import { failureReason } from '@/server/billing';
+import { staffReason } from '@/server/payments-admin';
 import { formatCents } from '@/lib/pricing';
-import { payments, paymentsOrder } from '@/lib/admin-links';
+import { family, payments, paymentsOrder } from '@/lib/admin-links';
 import { requireStaff } from '@/server/staff';
 import { ADJUSTMENTS, FAMILY_DISCOUNT_LABEL, adjustmentLine, describeAdjustment, familyDiscountCents, familyLabel, parseAdjustmentValue, repeatLabel, type AdjustmentKind, type AdjustmentRepeat } from '@/lib/adjustments';
 
@@ -72,15 +72,17 @@ const removed = data ? data.adjustments.filter((a) => a.removedAt) : [];
 const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', trial: 'Free trial', once: 'One payment', waitlist: 'Waitlist' } as const)[data.order.plan] : '';
 ---
 
-<AdminShell title={`Billing: ${data?.family ?? 'family'}`} section="payments" back={{ href: payments(), label: 'Payments' }}>
+<AdminShell title={data ? `${data.family}: ${title}` : 'Payments'} section="payments" back={{ href: payments(), label: 'Payments' }}>
   {
     data && (
       <div class="admin-page">
-        <nav class="admin-crumbs" aria-label="Breadcrumb"><a href={payments()}>Monthly autopay</a><span aria-hidden="true">/</span><span>{data.family}</span></nav>
         <div class="admin-head">
           <div>
-            <h1>{data.family}</h1>
-            <p class="admin-intro">{title}{found ? ` · ${found.session.term}` : ''} · {planText}</p>
+            <h1>{data.family}: {title}</h1>
+            <p class="admin-intro">{found ? `${found.session.term} · ` : ''}{planText}</p>
+          </div>
+          <div class="admin-head__actions">
+            <a class="btn btn--outline btn--sm" href={family(data.order.householdId)} data-family-link>Family page</a>
           </div>
         </div>
 
@@ -98,7 +100,7 @@ const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', tri
                   {data.installments.map((i) => (
                     <tr data-installment={i.dueDate}>
                       <td>{fmt(i.dueDate)}<span class="sub">{i.label.split(':')[0]}</span></td>
-                      <td>{statusText[i.status]}{i.status === 'failed' && <span class="sub">{failureReason(i.lastError ?? '')}</span>}</td>
+                      <td>{statusText[i.status]}{i.status === 'failed' && <span class="sub">{staffReason(i.lastError)}</span>}</td>
                       <td>{formatCents(i.regularAmountCents)}</td>
                       <td data-family-discount>{familyDiscountCents(i) ? <span class="line line--family">{adjustmentLine({ label: FAMILY_DISCOUNT_LABEL, cents: familyDiscountCents(i) })}</span> : <span class="sub">—</span>}</td>
                       <td>{i.adjustments.length ? i.adjustments.map((l) => <span class="line">{adjustmentLine(l)}</span>) : <span class="sub">—</span>}</td>
@@ -244,6 +246,11 @@ const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', tri
   .removed summary { cursor: pointer; font-weight: 700; color: var(--purple); }
   .removed ul { margin: 0.5rem 0 0; padding-left: 1.2rem; color: var(--ink-soft); font-size: var(--step--1); display: grid; gap: 0.4rem; }
   .cf-group > .btn { justify-self: start; }
+  .btn { white-space: nowrap; }
+  /* Tap targets: 44 px on a phone, and 16 px text so iPhones don't zoom into the field. */
+  .cf-choices .chip { min-height: 44px; }
+  .cf input { font-size: 1rem; }
+  .cf-toggle { min-height: 44px; }
   .cf-group > h3 { font-family: var(--font-display); font-size: var(--step-1); font-stretch: 92%; }
   /* Phones: each payment is a small card instead of a six-column row. */
   @media (max-width: 640px) {

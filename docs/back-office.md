@@ -16,7 +16,7 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 | `classEmail(sessionId)` | `/admin/classes/<id>/email` | (Messages unit) |
 | `search(q?)` | `/admin/search?q=` | Search (placeholder) |
 | `family(householdId)` | `/admin/families/<id>` | (Search and families unit) |
-| `payments(show?)` | `/admin/payments`, `?show=failed` or `upcoming` | Monthly autopay |
+| `payments(show?, month?)` | `/admin/payments`, `?show=failed` or `upcoming`, `?month=2026-10` | Payments (§11) |
 | `paymentsOrder(orderId)` | `/admin/payments/<id>` | One family's payments for a class |
 | `leads()` | `/admin/leads` | Messages & sign-ups |
 | `content()` | `/admin/content` | The website editor |
@@ -164,3 +164,24 @@ Queries in `src/server/families.ts`; pages `src/pages/admin/search.astro` and `s
 | Family Notes | `downloads(FAMILY_LISTS.notes)` | Family, About, Note, Written by, When |
 
 All four go through `familyDownload` (`src/server/family-downloads.ts`): a fresh sign-in, then an audit entry (`admin.download.csv|pdf`, entity `list`, id `families|children|contacts|notes`). The first three are on the Families list; Family Notes is on each family's page.
+
+## 11. Payments (`src/server/payments-admin.ts`)
+
+Pages `src/pages/admin/payments/index.astro` and `[orderId].astro`; Hannah's guide is `staff-billing.md`. Reads only, plus "Send a pay link": amounts, schedules and charging stay in `billing.ts`.
+
+- **Needs attention** (`paymentsAttention(today)`): `billingOverview`'s `needsAttention` (failed and charging), with the amount owed (`totalDue`), staff wording for the reason (`staffReason`), the next try (`nextStep`), days overdue, `held` (failed, no more automatic tries) and `payLinkSentAt`.
+- **Send a pay link** (`sendPayLink(installmentId, staffId)`): only for a failed charge; calls `sendPayLinkEmail` in `billing.ts`, the same function `markInstallmentFailed` sends with (same words, every parent), and writes `installment.pay_link_sent` to the audit log.
+- **Upcoming autopay** (`upcomingAutopay(today)`): scheduled charges from the next charge day through two months later, `byDate` with a total per date. The download covers the next 90 days (`upcomingCharges(from, through)`).
+- **Families on autopay** (`autopayFamilies()`): each order with payments left, the family's id and next charge.
+- **Payments received** (`paymentsReceived(month)`): paid monthly charges (not months a discount covered completely) and paid sign-up orders over $0, in the Athens month, newest first. `method` is `card`, or `staff` for **Paid by cash/check** (`markedBy` from the audit log).
+- **Buttons** post back to the page and redirect with `?done=` (so a reload doesn't repeat them). Stop payments stays two steps.
+- **The order page:** titled "<family>: <class>", a **Family page** link, the shell's back link to Payments.
+- **Test-only:** `POST /dev/fail-charge` (`order=<id>`, staff, development only) declines an order's next scheduled charge through `markInstallmentFailed`, for `tests/e2e/staff-payments.mjs`.
+
+| Download | Address | Columns |
+|---|---|---|
+| Payments List | `downloads(payments(undefined, month))` | Date, Family, Class, For, Amount ($), How paid |
+| Overdue List | `downloads(payments('failed'))` | Due, Family, Class, For, Amount ($), Late fee ($), Days overdue, What happened, Next, Pay link sent |
+| Upcoming Autopay | `downloads(payments('upcoming'))` | Date, Family, Class, For, Amount ($) (the next 90 days) |
+
+All three go through `paymentsDownload` (`payments.csv.ts`, `payments.pdf.ts`): a fresh sign-in, then an audit entry (`admin.download.csv|pdf`, entity `list`, id `payments-received|overdue|upcoming`). Amounts are plain numbers ("80.75") so a spreadsheet can add them up.

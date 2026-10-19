@@ -1,58 +1,128 @@
 ---
-/** Staff: monthly autopay at a glance. Charges that need a person, and what's coming on the 1st. */
+/**
+ * Staff: Payments. Charges that need a person, what autopay charges next,
+ * families on autopay, and what came in (src/server/payments-admin.ts).
+ * ?show=failed or ?show=upcoming shows one section; ?month= picks the month
+ * of Payments received. Downloads: payments.csv.ts and payments.pdf.ts.
+ */
 import AdminShell from '@/components/admin/AdminShell.astro';
-import { billingOverview, failureReason, markPaidOutsideStripe, stopRemainingPayments, totalDue, waiveLateFee } from '@/server/billing';
-import { formatCents } from '@/lib/pricing';
-import { payments, paymentsOrder } from '@/lib/admin-links';
+import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import { markPaidOutsideStripe, stopRemainingPayments, waiveLateFee } from '@/server/billing';
+import { formatCents, todayInAthens } from '@/lib/pricing';
+import { downloads, family, payments, paymentsOrder } from '@/lib/admin-links';
 import { requireStaff } from '@/server/staff';
-import { orderBilling, ordersWithUpcomingPayments } from '@/server/adjustments';
+import { orderBilling } from '@/server/adjustments';
 import { previewStopEffect, type FamilyDiscountEffect } from '@/server/family-discount';
+import {
+  autopayFamilies,
+  dayOf,
+  howPaid,
+  monthName,
+  nextStep,
+  paymentsAttention,
+  paymentsReceived,
+  receivedMonth,
+  sendPayLink,
+  shiftMonth,
+  shortDate,
+  sumCents,
+  upcomingAutopay,
+} from '@/server/payments-admin';
 
 export const prerender = false;
-const { staff: viewer, response } = requireStaff(Astro.locals);
+const { staff, response } = requireStaff(Astro.locals);
 if (response) return response;
-const isAdmin = !!viewer;
 
 const classTitle = (sessionId: string) => Astro.locals.content.findSession(sessionId)?.program.title ?? sessionId;
-const fmt = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-let notice = '';
+const params = Astro.url.searchParams;
+const show = params.get('show') === 'failed' ? 'failed' : params.get('show') === 'upcoming' ? 'upcoming' : undefined;
+const monthParam = params.get('month') ?? undefined;
+const month = receivedMonth(monthParam);
+const thisMonth = todayInAthens().slice(0, 7);
+const here = payments(show, monthParam);
+/** Back to this view after a button, with what happened (so a reload doesn't do it twice). */
+const after = (done: Record<string, string | number>) => {
+  const url = new URL(here, Astro.url);
+  for (const [k, v] of Object.entries(done)) url.searchParams.set(k, String(v));
+  return url.pathname + url.search;
+};
+
 let stopCheck: { orderId: string; family: string; title: string; stopping: { dueDate: string; amountCents: number }[]; effects: FamilyDiscountEffect[] } | null = null;
-if (isAdmin && viewer && Astro.request.method === 'POST') {
+if (staff && Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const id = String(form.get('id') ?? '');
-  if (form.get('action') === 'paid' && (await markPaidOutsideStripe(id, viewer.id))) notice = 'Marked as paid.';
-  if (form.get('action') === 'waive' && (await waiveLateFee(id, viewer.id))) notice = 'Late fee waived.';
-  // Stop payments is two steps: see what changes (the family discount may end for the family's other classes), then stop.
-  if (form.get('action') === 'check-stop') {
-    const billing = await orderBilling(id);
-    if (billing) {
-      stopCheck = {
-        orderId: id,
-        family: billing.family,
-        title: classTitle(billing.order.sessionId),
-        stopping: billing.installments.filter((i) => i.status === 'scheduled' || i.status === 'failed'),
-        effects: await previewStopEffect(id),
-      };
+  switch (form.get('action')) {
+    case 'paid':
+      return Astro.redirect(after({ done: (await markPaidOutsideStripe(id, staff.id)) ? 'paid' : 'gone' }), 303);
+    case 'waive':
+      return Astro.redirect(after({ done: (await waiveLateFee(id, staff.id)) ? 'waived' : 'gone' }), 303);
+    case 'pay-link': {
+      const sent = await sendPayLink(id, staff.id);
+      return Astro.redirect(after(sent === null ? { done: 'gone' } : { done: 'link', n: sent }), 303);
     }
-  }
-  if (form.get('action') === 'stop') {
-    const r = await stopRemainingPayments(id, viewer.id);
-    notice = `Stopped ${plural(r.stopped, 'upcoming charge')} for that family’s class.`;
-    if (r.familyDiscount.length) notice += ` The 15% family discount ended for this family, so ${plural(r.familyDiscount.length, 'unpaid payment')} for their other classes went back to the regular price.`;
+    case 'stop': {
+      const r = await stopRemainingPayments(id, staff.id);
+      return Astro.redirect(after({ done: 'stopped', n: r.stopped, fd: r.familyDiscount.length }), 303);
+    }
+    // Stop payments is two steps: see what changes (the family discount may end for the family's other classes), then stop.
+    case 'check-stop': {
+      const billing = await orderBilling(id);
+      if (billing) {
+        stopCheck = {
+          orderId: id,
+          family: billing.family,
+          title: classTitle(billing.order.sessionId),
+          stopping: billing.installments.filter((i) => i.status === 'scheduled' || i.status === 'failed'),
+          effects: await previewStopEffect(id),
+        };
+      }
+    }
   }
 }
 
-const { needsAttention, nextDue, nextDueRows } = isAdmin ? await billingOverview() : { needsAttention: [], nextDue: undefined, nextDueRows: [] };
-const families = isAdmin ? await ordersWithUpcomingPayments() : [];
-const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
+const n = Number(params.get('n') ?? 0);
+const fd = Number(params.get('fd') ?? 0);
+const notice = (() => {
+  switch (params.get('done')) {
+    case 'paid': return { ok: true, text: 'Marked as paid by cash or check.' };
+    case 'waived': return { ok: true, text: 'Late fee waived.' };
+    case 'link': return n ? { ok: true, text: `Pay link sent to ${plural(n, 'parent')}. It’s the same email the family gets when a charge fails.` } : { ok: false, text: 'Nothing was sent: this family has no parent email on file.' };
+    case 'stopped':
+      return { ok: true, text: `Stopped ${plural(n, 'upcoming charge')} for that family’s class.${fd ? ` The 15% family discount ended for this family, so ${plural(fd, 'unpaid payment')} for their other classes went back to the regular price.` : ''}` };
+    case 'gone': return { ok: false, text: 'That charge changed in the meantime (paid, or being charged). Nothing was done.' };
+    default: return null;
+  }
+})();
+
+const attention = staff && show !== 'upcoming' ? await paymentsAttention() : [];
+const upcoming = staff && show !== 'failed' ? await upcomingAutopay() : { nextDue: null, through: null, days: [] };
+const onAutopay = staff && !show ? await autopayFamilies() : [];
+const received = staff && !show ? await paymentsReceived(month) : [];
+const failedCount = attention.filter((a) => a.status === 'failed').length;
+const upcomingCount = upcoming.days.reduce((a, d) => a + d.charges.length, 0);
+const files = { overdue: downloads(payments('failed')), upcoming: downloads(payments('upcoming')), received: downloads(payments(undefined, month)) };
+const views = [
+  { key: undefined, label: 'Everything' },
+  { key: 'failed' as const, label: 'Needs attention' },
+  { key: 'upcoming' as const, label: 'Upcoming autopay' },
+];
 ---
 
-<AdminShell title="Billing" section="payments">
-  <section class="wrap admin">
-    <h1>Monthly autopay</h1>
-    {notice && <p class="notice" role="status">{notice}</p>}
+<AdminShell title="Payments" section="payments">
+  <div class="admin-page">
+    <div class="admin-head">
+      <div>
+        <h1>Payments</h1>
+        <p class="admin-intro">Autopay runs each morning. A failed charge is tried again 3 days later, twice, and the family is emailed a link to pay each time.</p>
+      </div>
+    </div>
+    <nav class="chip-row" aria-label="Show" data-views>
+      {views.map((v) => <a class="chip" href={payments(v.key)} aria-pressed={show === v.key ? 'true' : 'false'}>{v.label}</a>)}
+    </nav>
+
+    {notice && <p class:list={['notice', { 'notice--error': !notice.ok }]} role="status" data-notice>{notice.text}</p>}
 
     {
       stopCheck && (
@@ -61,7 +131,7 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
           <p>
             Use this when a family withdraws.{' '}
             {stopCheck.stopping.length
-              ? `These charges are cancelled: ${stopCheck.stopping.map((i) => `${fmt(i.dueDate)} ${formatCents(i.amountCents)}`).join(', ')}.`
+              ? `These charges are cancelled: ${stopCheck.stopping.map((i) => `${shortDate(i.dueDate)} ${formatCents(i.amountCents)}`).join(', ')}.`
               : 'This class has no charges left to stop.'}
           </p>
           {stopCheck.effects.length > 0 ? (
@@ -71,7 +141,7 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
                 {stopCheck.effects.flatMap((e) =>
                   e.changes.map((c) => (
                     <li>
-                      <span><strong>{e.names.join(' & ')}</strong>, {classTitle(e.sessionId)}, {fmt(c.dueDate)}</span>
+                      <span><strong>{e.names.join(' & ')}</strong>, {classTitle(e.sessionId)}, {shortDate(c.dueDate)}</span>
                       <span><s>{formatCents(c.beforeCents)}</s> → <strong>{formatCents(c.afterCents)}</strong> <span class="muted">(+{formatCents(c.afterCents - c.beforeCents)})</span></span>
                     </li>
                   )),
@@ -83,108 +153,206 @@ const total = nextDueRows.reduce((a, r) => a + r.i.amountCents, 0);
             <p class="muted">No other payment changes.</p>
           )}
           <input type="hidden" name="id" value={stopCheck.orderId} />
-          <div class="stop-check__buttons">
-            <button name="action" value="stop" class="btn btn--primary btn--sm">Stop payments</button>
-            <a class="btn btn--outline btn--sm" href={payments()}>Cancel</a>
+          <div class="pay-actions">
+            <button name="action" value="stop" class="btn btn--danger btn--sm">Stop payments</button>
+            <a class="btn btn--outline btn--sm" href={here}>Cancel</a>
           </div>
         </form>
       )
     }
 
-    <h2>Needs attention ({needsAttention.length})</h2>
     {
-      needsAttention.length ? (
-        <table>
-          <thead><tr><th>Family</th><th>For</th><th>Amount</th><th>What happened</th><th></th></tr></thead>
-          <tbody>
-            {needsAttention.map(({ i, family }) => (
-              <tr>
-                <td><a href={paymentsOrder(i.orderId)}>{family}</a></td>
-                <td>{i.label}<br /><span class="muted">due {fmt(i.dueDate)}</span></td>
-                <td>{formatCents(totalDue(i))}{i.lateFeeCents > 0 && <><br /><span class="muted">incl. {formatCents(i.lateFeeCents)} late fee</span></>}</td>
-                <td>
-                  {i.status === 'processing' ? 'Charge in progress' : `${failureReason(i.lastError ?? '')} (${i.attempts} ${i.attempts === 1 ? 'try' : 'tries'})`}
-                  <br /><span class="muted">{i.status === 'failed' ? (i.retryOn ? `Retrying ${fmt(i.retryOn)}` : 'Waiting for the family to pay') : ''}</span>
-                </td>
-                <td>
-                  <div class="actions">
-                    <form method="post"><input type="hidden" name="id" value={i.id} /><button name="action" value="paid" class="btn btn--outline btn--sm">Paid by cash/check</button></form>
-                    {i.lateFeeCents > 0 && <form method="post"><input type="hidden" name="id" value={i.id} /><button name="action" value="waive" class="btn btn--outline btn--sm">Waive late fee</button></form>}
-                    <form method="post"><input type="hidden" name="id" value={i.orderId} /><button name="action" value="check-stop" class="btn btn--outline btn--sm">Stop payments</button></form>
+      show !== 'upcoming' && (
+        <section class="admin-section" id="attention" aria-labelledby="attention-h" data-attention>
+          <div class="pay-head">
+            <h2 id="attention-h">Needs attention ({attention.length})</h2>
+            <DownloadLinks csv={files.overdue.csv} pdf={files.overdue.pdf} what="the Overdue List" />
+          </div>
+          {attention.length ? (
+            <ul class="attention-list">
+              {attention.map((a) => (
+                <li class={`attention-item attention-item--${a.status === 'processing' ? 'neutral' : a.held ? 'alert' : 'warning'}`} data-attention-item={a.id}>
+                  <div class="attention-item__title">
+                    <a href={family(a.householdId)}>{a.family}</a> · {formatCents(a.amountCents)}
+                    {a.lateFeeCents > 0 && <span class="muted"> (with {formatCents(a.lateFeeCents)} late fee)</span>}
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p class="muted">Nothing. Every charge so far has gone through.</p>
+                  <div class="attention-item__detail">
+                    <span class="pay-line">{a.label} · due {shortDate(a.dueDate)}{a.daysOverdue > 0 ? ` · ${plural(a.daysOverdue, 'day')} overdue` : ''}</span>
+                    <span class="pay-line">{a.reason}{a.status === 'failed' ? ` (${plural(a.attempts, 'try', 'tries')})` : ''} · {nextStep(a)}</span>
+                    {a.payLinkSentAt && <span class="pay-line pay-line--sent" data-pay-link-sent>Pay link sent {dayOf(a.payLinkSentAt)}</span>}
+                  </div>
+                  {a.status === 'failed' && (
+                    <div class="attention-item__action pay-actions">
+                      <form method="post"><input type="hidden" name="id" value={a.id} /><button name="action" value="pay-link" class="btn btn--primary btn--sm">Send a pay link</button></form>
+                      <form method="post"><input type="hidden" name="id" value={a.id} /><button name="action" value="paid" class="btn btn--outline btn--sm">Paid by cash/check</button></form>
+                      {a.lateFeeCents > 0 && <form method="post"><input type="hidden" name="id" value={a.id} /><button name="action" value="waive" class="btn btn--outline btn--sm">Waive late fee</button></form>}
+                      <form method="post"><input type="hidden" name="id" value={a.orderId} /><button name="action" value="check-stop" class="btn btn--outline btn--sm">Stop payments</button></form>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div class="empty-state">
+              <strong>Nothing needs you</strong>
+              <p>Every charge so far has gone through.</p>
+            </div>
+          )}
+          {failedCount > 0 && <p class="muted">Send a pay link emails the parents the same “pay now” message they got when the charge failed. A month still unpaid on the 11th gets a $15 late fee.</p>}
+        </section>
       )
     }
 
-    <h2>{nextDue ? `Next: ${fmt(nextDue)}, ${nextDueRows.length} charge${nextDueRows.length === 1 ? '' : 's'}, ${formatCents(total)}` : 'No upcoming charges'}</h2>
     {
-      nextDueRows.length > 0 && (
-        <table>
-          <thead><tr><th>Family</th><th>For</th><th>Amount</th><th></th></tr></thead>
-          <tbody>
-            {nextDueRows.map(({ i, family }) => (
-              <tr>
-                <td><a href={paymentsOrder(i.orderId)}>{family}</a></td>
-                <td>{i.label}</td>
-                <td>{formatCents(i.amountCents)}</td>
-                <td>
-                  <div class="actions">
-                    <form method="post"><input type="hidden" name="id" value={i.orderId} /><button name="action" value="check-stop" class="btn btn--outline btn--sm">Stop payments</button></form>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      show !== 'failed' && (
+        <section class="admin-section" id="upcoming" aria-labelledby="upcoming-h" data-upcoming>
+          <div class="pay-head">
+            <h2 id="upcoming-h">Upcoming autopay</h2>
+            <DownloadLinks csv={files.upcoming.csv} pdf={files.upcoming.pdf} what="upcoming autopay for the next 90 days" />
+          </div>
+          {upcoming.days.length ? (
+            <>
+              <p class="admin-intro">Next charge day: <strong>{shortDate(upcoming.nextDue!)}</strong>. Shown through {shortDate(upcoming.through!)}: {plural(upcomingCount, 'charge')}, {formatCents(upcoming.days.reduce((a, d) => a + d.totalCents, 0))}. The download covers the next 90 days.</p>
+              {upcoming.days.map((d) => (
+                <div class="pay-day" data-upcoming-day={d.date}>
+                  <h3>{shortDate(d.date)} <span class="pay-day__sum">{plural(d.charges.length, 'charge')} · <strong data-day-total>{formatCents(d.totalCents)}</strong></span></h3>
+                  <table class="data-table">
+                    <thead><tr><th>Family</th><th>For</th><th class="num">Amount</th></tr></thead>
+                    <tbody>
+                      {d.charges.map((c) => (
+                        <tr>
+                          <td data-label="Family"><a class="pay-link" href={family(c.householdId)}>{c.family}</a></td>
+                          <td data-label="For"><span>{c.label}</span></td>
+                          <td data-label="Amount" class="num"><span>{formatCents(c.amountCents)}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </>
+          ) : (
+            <div class="empty-state">
+              <strong>No autopay charges coming up</strong>
+              <p>When a family signs up for the monthly plan, their charges show here.</p>
+            </div>
+          )}
+        </section>
       )
     }
-    <h2 id="families">Families on monthly autopay ({families.length})</h2>
+
     {
-      families.length > 0 ? (
-        <table data-families>
-          <thead><tr><th>Family</th><th>Class</th><th>Payments left</th><th></th></tr></thead>
-          <tbody>
-            {families.map((f) => (
-              <tr>
-                <td>{f.family}</td>
-                <td>{classTitle(f.sessionId)}</td>
-                <td>{f.remaining}{f.adjusted > 0 && <><br /><span class="muted">{f.adjusted} discounted</span></>}</td>
-                <td><div class="actions"><a class="btn btn--outline btn--sm" href={paymentsOrder(f.orderId)}>Payments & discounts</a></div></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p class="muted">No family has monthly payments left.</p>
+      !show && (
+        <section class="admin-section" id="families" aria-labelledby="families-h">
+          <h2 id="families-h">Families on autopay ({onAutopay.length})</h2>
+          {onAutopay.length ? (
+            <table class="data-table" data-families>
+              <thead><tr><th>Family</th><th>Class</th><th>Next charge</th><th>Payments left</th><th><span class="sr-only">Actions</span></th></tr></thead>
+              <tbody>
+                {onAutopay.map((f) => (
+                  <tr>
+                    <td data-label="Family"><a class="pay-link" href={family(f.householdId)}>{f.family}</a></td>
+                    <td data-label="Class"><span>{classTitle(f.sessionId)}</span></td>
+                    <td data-label="Next charge"><span>{f.next ? `${shortDate(f.next.dueDate)}, ${formatCents(f.next.amountCents)}` : 'None scheduled'}</span></td>
+                    <td data-label="Payments left"><span>{f.remaining}{f.adjusted > 0 && <span class="muted"> ({f.adjusted} discounted)</span>}</span></td>
+                    <td data-label="">
+                      <div class="pay-actions">
+                        <a class="btn btn--outline btn--sm" href={paymentsOrder(f.orderId)}>Payments & discounts</a>
+                        <form method="post"><input type="hidden" name="id" value={f.orderId} /><button name="action" value="check-stop" class="btn btn--outline btn--sm">Stop payments</button></form>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div class="empty-state">
+              <strong>No family is on autopay</strong>
+              <p>Families who pay by the month show here until their last payment.</p>
+            </div>
+          )}
+          <p class="muted">To give a family a discount (a scholarship, a sibling deal, a credit for a missed class), open Payments & discounts. When a family withdraws, use Stop payments. Refunds are made in the Stripe dashboard.</p>
+        </section>
       )
     }
-    <p class="muted">To give a family a discount (a scholarship, a sibling deal, a credit for a missed class), open their payments above and add it there.</p>
-    <p class="muted">Charges run automatically each morning. Failed charges are retried on the 4th and 7th, and the family is emailed each time with a link to pay. A month still unpaid on the 11th gets a $15 late fee (you can waive it here). When a family withdraws, use Stop payments; refunds are issued in the Stripe dashboard.</p>
-  </section>
+
+    {
+      !show && (
+        <section class="admin-section" id="received" aria-labelledby="received-h" data-received>
+          <div class="pay-head">
+            <h2 id="received-h">Payments received</h2>
+            <DownloadLinks csv={files.received.csv} pdf={files.received.pdf} what={`the Payments List for ${monthName(month)}`} />
+          </div>
+          <form method="get" action={payments()} class="pay-month" data-month-picker>
+            <a class="btn btn--outline btn--sm" href={`${payments(undefined, shiftMonth(month, -1))}#received`} data-month-prev>← {monthName(shiftMonth(month, -1)).split(' ')[0]}</a>
+            <label for="pay-month" class="sr-only">Month</label>
+            <input id="pay-month" type="month" name="month" value={month} max={thisMonth} required />
+            <button class="btn btn--primary btn--sm" type="submit">Show</button>
+            {month < thisMonth && <a class="btn btn--outline btn--sm" href={`${payments(undefined, shiftMonth(month, 1))}#received`} data-month-next>{monthName(shiftMonth(month, 1)).split(' ')[0]} →</a>}
+          </form>
+          <p data-received-total><strong>{monthName(month)}:</strong> {plural(received.length, 'payment')}, {formatCents(sumCents(received))}</p>
+          {received.length ? (
+            <table class="data-table" data-received-list>
+              <thead><tr><th>Date</th><th>Family</th><th>Class</th><th>For</th><th class="num">Amount</th><th>How paid</th></tr></thead>
+              <tbody>
+                {received.map((p) => (
+                  <tr>
+                    <td data-label="Date"><span class="nowrap">{dayOf(p.paidAt)}</span></td>
+                    <td data-label="Family"><a class="pay-link" href={family(p.householdId)}>{p.family}</a></td>
+                    <td data-label="Class"><span>{classTitle(p.sessionId)}</span></td>
+                    <td data-label="For"><span>{p.what}</span></td>
+                    <td data-label="Amount" class="num"><span>{formatCents(p.amountCents)}</span></td>
+                    <td data-label="How paid"><span>{howPaid(p)}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div class="empty-state">
+              <strong>No payments in {monthName(month)}</strong>
+              <p>Card payments and cash or checks you mark as paid show here.</p>
+            </div>
+          )}
+        </section>
+      )
+    }
+  </div>
 </AdminShell>
 
 <style>
-  .admin { padding-block: var(--space-2xl) var(--space-3xl); display: grid; gap: var(--space-m); }
-  h2 { font-size: var(--step-1); margin-top: var(--space-m); }
-  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+  .pay-head { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; }
+  .pay-day { display: grid; gap: 0.4rem; }
+  .pay-day h3 { font-family: var(--font-display); font-size: var(--step-0); font-stretch: 92%; display: flex; flex-wrap: wrap; gap: 0.2rem 0.75rem; align-items: baseline; }
+  .pay-day__sum { font-family: var(--font-body, inherit); font-weight: 500; font-size: var(--step--1); color: var(--ink-soft); }
+  .pay-line { display: block; }
+  .pay-line--sent { color: var(--ok); font-weight: 650; }
   .muted { color: var(--ink-mute); font-size: var(--step--1); }
-  .actions { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: flex-end; }
-  .notice { padding: 0.7rem 1rem; background: var(--ok-tint); color: var(--ok); border-radius: var(--r-sm); font-weight: 600; }
+  .nowrap { white-space: nowrap; }
+  /* Not .actions: that's the website editor's sticky save bar. Buttons never break mid-word. */
+  .pay-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+  .pay-actions .btn { white-space: nowrap; }
+  .attention-item__action.pay-actions { justify-content: flex-end; max-width: 26rem; }
+  .pay-month { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .pay-month input {
+    min-height: 44px;
+    padding: 0 0.75rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    background: var(--paper);
+    color: var(--ink);
+    font: inherit;
+    font-size: 1rem;
+  }
   .stop-check { display: grid; gap: 0.75rem; padding: var(--space-m); border: 1.5px solid var(--yellow); background: var(--yellow-tint); border-radius: var(--r-md); }
-  .stop-check h2 { margin-top: 0; }
+  .stop-check h2 { font-size: var(--step-1); }
   .stop-check p { margin: 0; }
-  .stop-check__buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .effects { list-style: none; margin: 0; padding: 0; }
   .effects li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.2rem 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
   .effects s { color: var(--ink-mute); }
-  /* Long class names ("LC/Geode Performance Troupe") wrap instead of pushing the page sideways on phones. */
-  td { overflow-wrap: anywhere; }
+  @media (max-width: 760px) {
+    /* Tap targets: links in lists are 44 px tall on a phone. */
+    .pay-link, .attention-item__title a { display: inline-flex; align-items: center; min-height: 44px; }
+    .attention-item__action.pay-actions { justify-content: flex-start; max-width: none; }
+    .pay-actions .btn { flex: 1 1 auto; justify-content: center; }
+  }
 </style>
