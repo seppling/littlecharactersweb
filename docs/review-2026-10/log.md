@@ -283,3 +283,13 @@ Hannah's check-in form is complete. No family names were given.
 - **Open:**
   - **For Stephen:** the phone app: an app that installs from the website to the phone's home screen (recommended), or one in the app stores.
   - **For Hannah:** the drop-in price for a single class, and screenshots of the Reports page.
+
+### Back-office plan drafted (October 19)
+
+Stephen asked for research into the best studio portals first, then a plan for web and phone. The plan is a shared document: [Staff back office plan: web and phone](https://claude.ai/code/artifact/d286c39d-0260-4827-bf89-9456b1f32c51). The research notes are in `backoffice-research.md`.
+
+- **Phone access:** a home-screen web app (Stephen chose it over an app-store app). Same site, phone layout, sign-in by the emailed code.
+- **Phase 1, by launch:** Today with a "Needs attention" list, Classes, a class's roster and waitlist, email the class, one search box, a family's page, payments, downloads, the phone app shell.
+- **Phase 2, by the first spring class:** teacher logins and phone attendance (works offline), class teachers and substitutes, calendar and days off, paid drop-ins, refunds and credits, tags, skills, shows, reports matching Studio Director's, settings.
+- **Waiting on:** Stephen's approval of Phase 1, and the questions listed at the end of the plan.
+
