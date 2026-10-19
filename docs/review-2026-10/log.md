@@ -492,3 +492,17 @@ The foundation unit (`claude/bo2-foundation`) is merged.
   - **`src/server/class-day.ts`** (with unit tests), so the next three units agree on days off and who's expected on a class date.
 - **Stephen's test teacher account:** added on Settings → Staff once the site is deployed; not in the repository.
 - **Next:** the teacher app, the calendar and days off, and drop-ins ($25 placeholder), in parallel.
+
+### Merged to main (October 19)
+
+Stephen approved it. [Pull request #15](https://github.com/seppling/littlecharactersweb/pull/15) brought Phase 1 of the back office and the Phase 2 foundation into `main` (merge commit 648503a), after GitHub's checks passed. Nothing deployed: the production Blueprint isn't set up yet.
+
+**Stephen's steps to set it up** (`docs/infrastructure.md` → Production on Render):
+1. Resend.
+2. The Stripe test keys.
+3. The Render Blueprint (`render.production.yaml`, branch `main`).
+4. The Stripe webhook.
+5. Back up `DATA_ENCRYPTION_KEY`.
+6. Delete the two duplicate Render services.
+
+**Optional:** last season's totals from Studio Director, as a starting point for the dashboard's comparisons. Totals only, no family names; needed by the reports unit.
