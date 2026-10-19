@@ -47,6 +47,12 @@ export const settingsStaff = () => '/admin/settings/staff';
 export const settingsStaffMember = (staffId: string) => `/admin/settings/staff/${seg(staffId)}`;
 /** The teacher app's home: today's classes for a teacher (owners can open it too). */
 export const teachHome = () => '/admin/teach';
+/** One class date in the teacher app: the roster and attendance. `on` carries a test day (development only). */
+export const teachRoster = (sessionId: string, date: string, on?: string | null) => `/admin/teach/${seg(sessionId)}/${seg(date)}${query({ on: on ?? undefined })}`;
+/** The teacher app's Me tab: sign out, shared devices, the app on your phone. */
+export const teachMe = () => '/admin/teach/me';
+/** A class's attendance downloads: pass to downloads() (CSV and PDF, a column per class date). */
+export const classAttendance = (sessionId: string) => `/admin/classes/${seg(sessionId)}/attendance`;
 /** How to put the staff app on a phone's home screen. */
 export const install = () => '/admin/install';
 /** Sign in again before a download or another sensitive step, then go on to `next`. */
