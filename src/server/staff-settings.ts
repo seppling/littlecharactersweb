@@ -20,6 +20,7 @@ import { staffSession, whenLabel } from './classes';
 import { getDb, schema } from './db';
 import { audit } from './records';
 import { isEnvOwner, type StaffRole } from './staff';
+import { sendCoverEmails } from './attendance';
 import { meetsOn } from './teachers';
 
 const { staff, classTeacher, classCover } = schema;
@@ -205,6 +206,8 @@ export async function addCover(byUserId: string, id: string, raw: z.input<typeof
     .returning();
   if (!row) throw new StaffSettingsError('They’re already covering that class on that date.');
   await audit(byUserId, 'admin.staff.cover_add', 'staff', id, `${sessionId} ${classDate}`);
+  // The teacher app: one email to the substitute, and one to the teacher they cover for.
+  await sendCoverEmails(row, found);
   return row;
 }
 

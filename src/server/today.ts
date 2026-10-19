@@ -29,6 +29,8 @@ import { classRows, MIN_TO_RUN, placesLabel, type ClassRow } from './classes';
 import { getDb, schema } from './db';
 import { LEAD_LABELS, staffLeads } from './leads';
 import { openOfferCounts } from './roster-changes';
+import { attentionAttendance, endedHoursAgo, LATE_DAYS, type AttentionAttendance } from './attendance';
+import { dayOffFrom } from './class-day';
 
 type Content = Pick<SiteContent, 'programs' | 'events' | 'locationById' | 'site' | 'findSession' | 'programBySlug'>;
 
@@ -59,6 +61,9 @@ export interface TodayClass {
   /** The class's staff page; the event's page on the site for an event. */
   href: string;
   kind: 'class' | 'event';
+  /** The class's session id (empty for an event), and its end ("17:30"), for attendance (teacher app). */
+  sessionId: string;
+  end: string;
 }
 
 const eventLocation = (e: EventItem, content: Pick<Content, 'locationById'>) => e.venue || content.locationById(e.locationId)?.shortName || '';
@@ -80,6 +85,8 @@ export function classesOn(rows: ClassRow[], events: EventItem[], date: string, c
     places: placesLabel(r),
     href: links.classPage(r.session.id),
     kind: 'class',
+    sessionId: r.session.id,
+    end: r.session.end,
   }));
   const bookedPrograms = new Set(meeting.map((r) => r.program.slug));
   for (const e of events) {
@@ -98,6 +105,8 @@ export function classesOn(rows: ClassRow[], events: EventItem[], date: string, c
         places: '',
         href: e.kind === 'show' ? `/events/${e.slug}` : `/events#${e.slug}`,
         kind: 'event',
+        sessionId: '',
+        end,
       });
     }
   }
@@ -127,7 +136,7 @@ export async function todayClasses(content: Content, now = new Date(), date = to
 
 // ───────────── Needs attention ─────────────
 
-export type AttentionKind = 'payments' | 'waitlist' | 'under5' | 'emergency' | 'care' | 'signups' | 'leads' | 'birthdays';
+export type AttentionKind = 'payments' | 'waitlist' | 'under5' | 'attendance' | 'missed2' | 'emergency' | 'care' | 'signups' | 'leads' | 'birthdays';
 export type AttentionTone = 'alert' | 'warning' | 'neutral' | 'good';
 
 export interface AttentionItem {
@@ -144,6 +153,8 @@ export const ATTENTION_KINDS: { kind: AttentionKind; tone: AttentionTone; headin
   { kind: 'payments', tone: 'alert', heading: 'Payments that need a look' },
   { kind: 'waitlist', tone: 'warning', heading: 'Waitlist openings' },
   { kind: 'under5', tone: 'warning', heading: `Classes under ${MIN_TO_RUN}` },
+  { kind: 'attendance', tone: 'warning', heading: 'Attendance not taken' },
+  { kind: 'missed2', tone: 'warning', heading: 'Missed the last two classes' },
   { kind: 'emergency', tone: 'warning', heading: 'No emergency contact' },
   { kind: 'care', tone: 'neutral', heading: 'Care details to confirm' },
   { kind: 'signups', tone: 'good', heading: 'New sign-ups this week' },
@@ -202,6 +213,8 @@ export interface AttentionInput {
   leads?: AttentionLead[];
   /** Open waitlist offers per class (roster-changes.ts): those places are taken until the offer ends. */
   offers?: Record<string, number>;
+  /** Attendance done, days off and drop-ins over the last 7 days, and children who missed their last two (attendance.ts). */
+  attendance?: AttentionAttendance;
 }
 
 const STAFF_REASON: Record<string, string> = {
@@ -281,6 +294,41 @@ export function attentionFrom(input: AttentionInput, content: Pick<Content, 'fin
       detail: short.length === 1 ? `${short[0].when} · starts ${shortDay(meetings(short[0].session)[0] ?? short[0].session.startDate)}` : short.map((r) => `${r.program.title} (${r.filled})`).join(', '),
       action: { label: 'See classes', href: `${links.classes()}?under5=1` },
     });
+  }
+
+  // 3b. Attendance not taken: classes that ended 2 hours ago today, or in the last 7 days, with no report. One per class date.
+  if (input.attendance) {
+    const a = input.attendance;
+    for (let back = LATE_DAYS; back >= 0; back--) {
+      const d = addDays(today, -back);
+      for (const r of input.classes) {
+        const key = `${r.session.id} ${d}`;
+        if (!meetings(r.session).includes(d) || a.reports.has(key) || (r.filled === 0 && !a.dropIns.has(key))) continue;
+        if (dayOffFrom(a.daysOff, r.session.id, d) || !(d < today || endedHoursAgo(d, r.session.end, now))) continue;
+        items.push({
+          kind: 'attendance',
+          tone: 'warning',
+          title: `Attendance not taken: ${r.program.title}${r.label ? ` (${r.label})` : ''}`,
+          detail: [shortDay(d), r.session.start && r.session.end ? timeRange(r.session.start, r.session.end) : '', r.teacher].filter(Boolean).join(' · '),
+          action: { label: 'Open roster', href: links.teachRoster(r.session.id, d) },
+        });
+      }
+    }
+
+    // 3c. Missed the last two, in a current class: one item per child.
+    for (const misses of groupBy(
+      a.missed.filter((m) => (content.findSession(m.sessionId)?.session.endDate ?? '') >= today),
+      (m) => m.studentId,
+    ).values()) {
+      const m = misses[0];
+      items.push({
+        kind: 'missed2',
+        tone: 'warning',
+        title: `${m.firstName} ${m.lastName} missed the last two classes`,
+        detail: misses.map((x) => `${titleOf(x.sessionId)}: ${shortDay(x.dates[1])} and ${shortDay(x.dates[0])}`).join(' · '),
+        action: { label: 'Open family', href: links.family(m.householdId) },
+      });
+    }
   }
 
   // 4. Families with a current enrollment and no emergency contact.
@@ -416,7 +464,7 @@ function loadCore(content: Content, now: Date, key?: object): Promise<Core> {
   const hit = key && cache.get(key);
   if (hit) return hit;
   const load = (async () => {
-    const [overview, classes, enrolled, offers] = await Promise.all([billingOverview(todayInAthens(now)), allRows(content, now), enrolledChildren(), openOfferCounts(now)]);
+    const [overview, classes, enrolled, offers, attendance] = await Promise.all([billingOverview(todayInAthens(now)), allRows(content, now), enrolledChildren(), openOfferCounts(now), attentionAttendance(todayInAthens(now))]);
     const payments = overview.needsAttention.map(({ i, family }) => ({
       id: i.id,
       family,
@@ -428,7 +476,7 @@ function loadCore(content: Content, now: Date, key?: object): Promise<Core> {
       retryOn: i.retryOn,
       payNowOpenedAt: i.payNowOpenedAt,
     }));
-    return { payments, classes, enrolled, offers };
+    return { payments, classes, enrolled, offers, attendance };
   })();
   if (key) cache.set(key, load);
   return load;
@@ -443,7 +491,9 @@ const leadTitle = (content: Pick<Content, 'programBySlug' | 'events'>) => (slug:
  */
 export async function attentionItems(content: Content, now = new Date(), key?: object, date = todayInAthens(now)) {
   const [core, leads] = await Promise.all([loadCore(content, now, key), staffLeads(leadTitle(content))]);
-  return attentionFrom({ ...core, leads }, content, date, now);
+  // Another day (development only): that day's attendance window.
+  const attendance = date === todayInAthens(now) ? core.attendance : await attentionAttendance(date);
+  return attentionFrom({ ...core, leads, attendance }, content, date, now);
 }
 
 /** Alert and warning items: the count on the Alerts tab and on Today in the top bar. */

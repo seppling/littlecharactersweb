@@ -1,0 +1,69 @@
+---
+/**
+ * The teacher app's Me tab (docs/back-office.md → The teacher app): who's
+ * signed in, Sign out (which also clears today's classes from this phone),
+ * what "This is a shared device" does, and putting the app on the phone.
+ */
+import { eq } from 'drizzle-orm';
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { install, teachHome } from '@/lib/admin-links';
+import { getDb, schema } from '@/server/db';
+import { requireTeacherOrOwner, SHARED_IDLE_MINUTES } from '@/server/staff';
+import { staffById } from '@/server/staff-settings';
+
+export const prerender = false;
+const { staff, response } = requireTeacherOrOwner(Astro.locals);
+if (response) return response;
+const name = staff ? (await staffById(staff.staffId))?.name : undefined;
+let shared = false;
+if (staff && Astro.locals.session) {
+  const db = await getDb();
+  const [row] = await db.select({ sharedDevice: schema.session.sharedDevice }).from(schema.session).where(eq(schema.session.id, Astro.locals.session.id));
+  shared = !!row?.sharedDevice;
+}
+---
+
+<AdminShell title="Me" section="teach" teachers back={{ href: teachHome(), label: 'Today' }}>
+  {
+    staff && (
+      <div class="admin-page me">
+        <div class="admin-head">
+          <div>
+            <h1>{name && !name.includes('@') ? name : 'Me'}</h1>
+            <p class="admin-intro" data-me-email>Signed in as {staff.email}</p>
+          </div>
+        </div>
+
+        <section class="staff-card me__card" aria-labelledby="device-h">
+          <h2 id="device-h">This phone</h2>
+          {shared ? (
+            <p data-shared-note>This is a shared device: you’re signed out after an hour without use.</p>
+          ) : (
+            <p data-shared-note>You stay signed in on this phone. If other people use it, sign out when you’re done, or tick “This is a shared device” when you sign in: you’re then signed out after {SHARED_IDLE_MINUTES / 60} hour without use.</p>
+          )}
+          <p>Today’s classes are kept on this phone so they open without signal. Signing out clears them.</p>
+          <form method="post" action="/account/sign-out">
+            <input type="hidden" name="next" value={teachHome()} />
+            <button type="submit" class="btn btn--outline btn--block me__out" data-me-signout>Sign out</button>
+          </form>
+        </section>
+
+        <a class="tile me__install" href={install()}>
+          <strong>Put the app on your phone</strong>
+          <span>Today’s classes from your home screen, with or without signal</span>
+        </a>
+      </div>
+    )
+  }
+</AdminShell>
+
+<style>
+  .me { display: grid; gap: var(--space-m); }
+  .me__card { display: grid; gap: 0.6rem; }
+  .me__card h2 { font-size: var(--step-1); margin: 0; }
+  .me__card p { margin: 0; }
+  .me__out { min-height: 48px; }
+  @media (display-mode: standalone) {
+    .me__install { display: none; }
+  }
+</style>

@@ -2,7 +2,8 @@
 /** Staff home: today's classes, the top of "Needs attention", and quick links (src/server/today.ts). */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import AttentionList from '@/components/admin/AttentionList.astro';
-import { attention, classes, install, payments, search, teachHome } from '@/lib/admin-links';
+import { attention, classes, install, payments, search, teachHome, teachRoster } from '@/lib/admin-links';
+import { attendanceState, reportsOn, unreadNotes } from '@/server/attendance';
 import { isProd } from '@/server/env';
 import { requireStaff } from '@/server/staff';
 import { attentionItems, devDay, longDay, shortDay, todayClasses, todaysAttention } from '@/server/today';
@@ -20,6 +21,11 @@ const on = devDay(Astro.url.searchParams, !isProd);
 const day = staff ? await todayClasses(content, now, on ?? undefined) : null;
 const items = staff ? await attentionItems(content, now, Astro.locals, on ?? undefined) : [];
 const { shown, hidden } = todaysAttention(items);
+// Attendance from the teacher app: done, or not taken once the class has ended; and teachers' notes until read.
+const reports = day ? await reportsOn(day.classes.filter((c) => c.kind === 'class').map((c) => c.sessionId), day.date) : new Map();
+const taken = (c: { kind: string; sessionId: string; end: string }) => (c.kind === 'class' && day ? attendanceState(day.date, c.end, reports.has(c.sessionId), now) : null);
+const notes = staff ? await unreadNotes() : [];
+const titleOf = (sessionId: string) => content.findSession(sessionId)?.program.title ?? 'A class';
 ---
 
 <AdminShell title="Today" section="today">
@@ -52,6 +58,8 @@ const { shown, hidden } = todaysAttention(items);
                       ) : (
                         <span class="badge badge--neutral">Event</span>
                       )}
+                      {taken(c) === 'done' && <span class="today-class__att badge badge--good" data-attendance="done">Attendance done ✓</span>}
+                      {taken(c) === 'not-taken' && <span class="today-class__att badge badge--warning" data-attendance="not-taken">Not taken</span>}
                     </a>
                   </li>
                 ))}
@@ -63,6 +71,25 @@ const { shown, hidden } = todaysAttention(items);
               </div>
             )}
           </section>
+
+          {notes.length > 0 && (
+            <section class="today__section" aria-labelledby="today-notes" data-teacher-notes>
+              <h2 id="today-notes">Notes from teachers</h2>
+              <ul class="notes">
+                {notes.map((n) => (
+                  <li class="note" data-note={n.id}>
+                    <p class="note__head"><strong>Note from {n.by}:</strong> <a href={teachRoster(n.sessionId, n.classDate)}>{titleOf(n.sessionId)}, {shortDay(n.classDate)}</a></p>
+                    <p class="note__text">{n.note}</p>
+                    <form method="post" action="/api/teach/note-read">
+                      <input type="hidden" name="reportId" value={n.id} />
+                      <input type="hidden" name="next" value={Astro.url.pathname + Astro.url.search} />
+                      <button type="submit" class="btn btn--outline btn--sm" data-note-read>Mark read</button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section class="today__section" aria-labelledby="today-attention">
             <div class="today__head">
@@ -86,6 +113,7 @@ const { shown, hidden } = todaysAttention(items);
             <h2 id="today-links">Quick links</h2>
             <ul class="tiles">
               <li><a class="tile" href={classes()}><strong>Classes</strong><span>Rosters, trials and waitlists</span></a></li>
+              <li><a class="tile" href={teachHome()} data-take-attendance><strong>Take attendance</strong><span>Today’s classes, as teachers see them</span></a></li>
               <li><a class="tile" href={search()}><strong>Families</strong><span>Every family, A to Z</span></a></li>
               <li><a class="tile" href={payments()}><strong>Payments</strong><span>Monthly autopay and failed charges</span></a></li>
               <li class="today__install"><a class="tile" href={install()}><strong>Put the app on your phone</strong><span>Today, rosters and alerts from your home screen</span></a></li>
@@ -124,9 +152,15 @@ const { shown, hidden } = todaysAttention(items);
   .today-class__what { min-width: 0; overflow-wrap: anywhere; }
   .today-class__meta { display: block; font-size: var(--step--1); color: var(--ink-mute); }
   .today-class__places { font-weight: 700; white-space: nowrap; }
+  .today-class__att { grid-column: 2 / -1; justify-self: start; }
+  .notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  .note { display: grid; gap: 0.4rem; padding: 0.75rem 1rem; border: 1.5px solid var(--line-strong); border-left: 5px solid var(--purple); border-radius: var(--r-sm); background: var(--paper); }
+  .note p { margin: 0; overflow-wrap: anywhere; }
+  .note__text { white-space: pre-line; }
   @media (max-width: 520px) {
     .today-class { grid-template-columns: minmax(0, 1fr) auto; }
     .today-class__time { grid-column: 1 / -1; }
+    .today-class__att { grid-column: 1 / -1; }
   }
   @media (display-mode: standalone) {
     .today__install { display: none; }

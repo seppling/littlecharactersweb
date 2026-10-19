@@ -69,6 +69,7 @@ const tabs = [
   { key: 'alerts', label: 'Alerts', href: links.attention(), icon: 'M12 4a5 5 0 0 0-5 5v3.5L5 16h14l-2-3.5V9a5 5 0 0 0-5-5zM10 19a2 2 0 0 0 4 0' },
 ];
 const more = [
+  { key: 'teach', label: 'Take attendance', href: links.teachHome() },
   { key: 'families', label: 'Families', href: links.search() },
   { key: 'payments', label: 'Payments', href: links.payments() },
   { key: 'leads', label: 'Messages & sign-ups', href: links.leads() },
@@ -79,6 +80,12 @@ const more = [
 const home = teacher ? links.teachHome() : links.today();
 const navSections: { key: StaffSection; label: string; href: string }[] = teacher ? [{ key: 'teach', label: 'Your classes', href: links.teachHome() }] : sections;
 const navMore = teacher ? [] : more;
+// A teacher's phone tabs: Today and Me (the teacher app; owners keep theirs).
+const teachTab = path.startsWith(links.teachMe()) ? 'me' : path.startsWith(links.teachHome()) ? 'today' : null;
+const teacherTabs = [
+  { key: 'today', label: 'Today', href: links.teachHome(), icon: 'M4 11.5 12 5l8 6.5V20h-5v-5h-6v5H4z' },
+  { key: 'me', label: 'Me', href: links.teachMe(), icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0' },
+];
 ---
 
 <Base title={title} noindex staffBar={false} chrome={false} themeColor="#1c1826">
@@ -100,7 +107,7 @@ const navMore = teacher ? [] : more;
             </a>
           </div>
         </header>
-        <section class="wrap wrap--narrow gate">
+        <section class="wrap wrap--narrow gate" data-staff-signin={user ? undefined : ''}>
           {user ? (
             <div class="stack">
               <h1>Staff only</h1>
@@ -205,6 +212,20 @@ const navMore = teacher ? [] : more;
         </header>
         {section === 'content' && <p class="staff-hint" role="note">The website editor works best on a computer.</p>}
         <slot />
+        {teacher && (<nav class="teach-tabs" aria-label="Teacher app, on a phone">
+          <ul>
+            {teacherTabs.map((t) => (
+              <li>
+                <a href={t.href} aria-current={t.key === teachTab ? 'page' : undefined}>
+                  <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d={t.icon} />
+                  </svg>
+                  <span>{t.label}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>)}
         {!teacher && (<nav class="staff-tabs" aria-label="Staff, on a phone">
           <ul>
             {tabs.map((t) => (
@@ -231,6 +252,10 @@ const navMore = teacher ? [] : more;
 </Base>
 
 <script>
+  import { clearOnSignOut, clearWhenSignedOut } from '@/scripts/teach';
+  // Signing out clears the teacher app's copy of today's classes on this phone.
+  clearOnSignOut();
+  clearWhenSignedOut();
   // The phone menu closes when you tap outside it or press Escape.
   for (const menu of document.querySelectorAll<HTMLDetailsElement>('[data-staff-menu]')) {
     document.addEventListener('click', (e) => {

@@ -1,19 +1,25 @@
 ---
 /**
- * The teacher app's home (docs/back-office.md → Staff roles): today's classes
- * for the signed-in teacher, and the classes they teach. A placeholder: the
- * teacher app unit adds rosters, attendance and the note to Hannah. Teachers
- * land here from /admin; owners can open it too.
+ * The teacher app's home (docs/back-office.md → The teacher app): today's
+ * classes, each with how many children are expected and whether attendance is
+ * done, then the next 7 days. Teachers land here from /admin; owners see every
+ * class today here, so Hannah can take attendance when she teaches or covers.
+ *
+ * Kept on the phone for the day (the X-Teach-Cache header, read by
+ * public/admin/teach-sw.js) with today's rosters, so it opens with no signal.
+ * The status chips add what's saved on the phone and not sent yet.
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
+import { teachRoster } from '@/lib/admin-links';
 import { timeRange } from '@/lib/format';
 import { todayInAthens } from '@/lib/pricing';
+import { addDays, nextTeachingDay, teachCards, type TeachCard } from '@/server/attendance';
+import { whenLabel } from '@/server/classes';
 import { isProd } from '@/server/env';
 import { requireTeacherOrOwner } from '@/server/staff';
-import { teacherClasses, teacherSessions } from '@/server/teachers';
-import { devDay, longDay } from '@/server/today';
-import { whenLabel } from '@/server/classes';
 import { staffById } from '@/server/staff-settings';
+import { teacherClasses } from '@/server/teachers';
+import { devDay, longDay, shortDay } from '@/server/today';
 
 export const prerender = false;
 const { staff, response } = requireTeacherOrOwner(Astro.locals);
@@ -21,23 +27,40 @@ if (response) return response;
 
 const { content } = Astro.locals;
 // Browser tests pick the day with ?on=YYYY-MM-DD; production ignores it.
-const date = devDay(Astro.url.searchParams, !isProd) ?? todayInAthens();
-const today = staff ? await teacherSessions(staff.staffId, date, content) : [];
+const on = devDay(Astro.url.searchParams, !isProd);
+const date = on ?? todayInAthens();
+const viewer = staff ? { userId: staff.id, staffId: staff.staffId, role: staff.role } : null;
+const today: TeachCard[] = viewer ? await teachCards(viewer, date, content) : [];
+// The week ahead: their own classes and cover dates (owners too).
+const week = viewer
+  ? (await Promise.all([1, 2, 3, 4, 5, 6, 7].map(async (i) => ({ date: addDays(date, i), cards: await teachCards({ ...viewer, role: 'teacher' }, addDays(date, i), content) })))).filter((d) => d.cards.length)
+  : [];
+const next = viewer && !today.length ? await nextTeachingDay(viewer, date, content) : null;
 const mine = staff ? (await teacherClasses(staff.staffId, content)).filter((c) => c.session.endDate >= date).sort((a, b) => a.session.startDate.localeCompare(b.session.startDate)) : [];
 // The name Hannah typed in Settings → Staff (a new sign-in has no name of its own).
 const name = staff ? (await staffById(staff.staffId))?.name : undefined;
 const firstName = name && !name.includes('@') ? name.split(' ')[0] : undefined;
-const asLabel = { lead: '', assistant: 'Assisting', cover: 'Substitute' } as const;
+
+const time = (c: TeachCard) => (c.session.start && c.session.end ? timeRange(c.session.start, c.session.end) : '');
+const role = (c: TeachCard) =>
+  c.as === 'cover' ? (c.coveringFor ? `Covering for ${c.coveringFor}` : 'Substitute') : c.as === 'assistant' ? 'Assisting' : c.as === 'owner' && c.session.teacher ? c.session.teacher : '';
+const kids = (n: number) => `${n} ${n === 1 ? 'child' : 'children'}`;
+// Today's rosters this person may mark: kept on the phone with this page.
+const precache = today.filter((c) => !c.dayOff && c.as !== 'owner').map((c) => teachRoster(c.sessionId, date, on));
+
+if (staff) Astro.response.headers.set('X-Teach-Cache', todayInAthens());
+else Astro.response.headers.set('X-Teach-Signed-Out', '1');
 ---
 
 <AdminShell title="Your classes" section="teach" teachers>
-  <div class="admin-page teach">
+  <div class="admin-page teach" data-teach-home data-by={staff?.id} data-date={date} data-on={on ?? ''} data-precache={JSON.stringify(precache)}>
     <div class="admin-head">
       <div>
         <h1>{firstName ? `Hi, ${firstName}` : 'Your classes'}</h1>
-        <p class="admin-intro" data-teach-date>{longDay(date)}</p>
+        <p class="admin-intro" data-teach-date>{longDay(date)}{on && ' (test date)'}</p>
       </div>
     </div>
+    <p class="sync-line" data-sync-status hidden></p>
 
     <section class="admin-section" aria-labelledby="today-title">
       <h2 id="today-title">Today</h2>
@@ -45,27 +68,75 @@ const asLabel = { lead: '', assistant: 'Assisting', cover: 'Substitute' } as con
         today.length === 0 ? (
           <div class="empty-state" data-no-classes>
             <strong>No classes today</strong>
-            <span>Your classes and substitute dates show here on the day.</span>
+            <span>{next ? `Your next class is ${longDay(next)}.` : 'Your classes and substitute dates show here on the day.'}</span>
           </div>
         ) : (
           <ul class="teach-list" data-teach-today>
-            {today.map((t) => (
-              <li class="staff-card teach-class" data-teach-class={t.sessionId}>
-                <strong>{t.program.title}</strong>
-                <span>{[t.session.start && t.session.end ? timeRange(t.session.start, t.session.end) : '', content.locationById(t.session.locationId)?.shortName].filter(Boolean).join(' · ')}</span>
-                {(asLabel[t.as] || t.dayOff) && (
-                  <span class="badges">
-                    {asLabel[t.as] && <span class="badge badge--neutral">{asLabel[t.as]}</span>}
-                    {t.dayOff && <span class="badge badge--warning">Day off: {t.dayOff}</span>}
+            {today.map((c) => {
+              const inner = (
+                <>
+                  <span class="teach-card__time">{time(c) || 'All day'}</span>
+                  <span class="teach-card__what">
+                    <strong>{c.program.title}</strong>
+                    <span class="teach-card__meta">{[c.location, c.dayOff ? '' : kids(c.expected)].filter(Boolean).join(' · ')}</span>
+                    {(role(c) || c.coveredBy) && (
+                      <span class="badges">
+                        {role(c) && <span class:list={['badge', c.as === 'cover' ? 'badge--warning' : 'badge--neutral']} data-role>{role(c)}</span>}
+                        {c.coveredBy && <span class="badge badge--warning" data-covered-by>{c.coveredBy} is covering</span>}
+                      </span>
+                    )}
                   </span>
-                )}
-              </li>
-            ))}
+                  {c.dayOff ? (
+                    <span class="teach-card__off" data-day-off>No class: {c.dayOff}</span>
+                  ) : (
+                    <span class:list={['chip-status', c.done ? 'chip-status--done' : 'chip-status--todo']} data-status={c.done ? 'done' : 'todo'}>
+                      {c.done ? 'Done ✓' : 'Not taken'}
+                    </span>
+                  )}
+                </>
+              );
+              return (
+                <li data-teach-class={c.sessionId} data-done={c.done ? '1' : '0'} data-off={c.dayOff ? '1' : '0'}>
+                  {c.dayOff ? (
+                    <div class="teach-card teach-card--off">{inner}</div>
+                  ) : (
+                    <a class="teach-card" href={teachRoster(c.sessionId, date, on)}>{inner}</a>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )
       }
-      <p class="muted">Rosters and attendance are coming here soon.</p>
     </section>
+
+    {
+      week.length > 0 && (
+        <section class="admin-section" aria-labelledby="week-title">
+          <h2 id="week-title">This week</h2>
+          <ul class="teach-week" data-teach-week>
+            {week.map((d) => (
+              <li>
+                <h3 class="teach-week__day">{shortDay(d.date)}</h3>
+                <ul class="teach-list">
+                  {d.cards.map((c) => (
+                    <li data-week-class={`${c.sessionId} ${d.date}`}>
+                      <a class:list={['teach-row', { 'teach-row--off': c.dayOff }]} href={teachRoster(c.sessionId, d.date, on)}>
+                        <span class="teach-row__time">{time(c)}</span>
+                        <span>
+                          <strong>{c.program.title}</strong>
+                          <span class="teach-row__meta">{[c.location, c.dayOff ? `No class: ${c.dayOff}` : kids(c.expected), role(c), c.coveredBy && `${c.coveredBy} is covering`].filter(Boolean).join(' · ')}</span>
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
 
     {
       mine.length > 0 && (
@@ -73,7 +144,7 @@ const asLabel = { lead: '', assistant: 'Assisting', cover: 'Substitute' } as con
           <h2 id="mine-title">Classes you teach</h2>
           <ul class="teach-list" data-teach-mine>
             {mine.map((c) => (
-              <li class="teach-row" data-teach-mine-class={c.sessionId}>
+              <li class="teach-mine" data-teach-mine-class={c.sessionId}>
                 <strong>{c.program.title}</strong>
                 <span>{[c.session.label, whenLabel(c.session), c.role === 'assistant' ? 'Assisting' : ''].filter(Boolean).join(' · ')}</span>
               </li>
@@ -85,12 +156,97 @@ const asLabel = { lead: '', assistant: 'Assisting', cover: 'Substitute' } as con
   </div>
 </AdminShell>
 
+<script>
+  import { allQueued, claimPhone, keepSending, registerWorker, type SyncOutcome } from '@/scripts/teach';
+
+  const root = document.querySelector<HTMLElement>('[data-teach-home]');
+  const by = root?.dataset.by;
+  if (root && by) {
+    const date = root.dataset.date!;
+    const status = root.querySelector<HTMLElement>('[data-sync-status]')!;
+    const cards = [...root.querySelectorAll<HTMLElement>('[data-teach-today] > li')];
+
+    /** Each class's chip: done on the server, saved on this phone and not sent, or not taken. */
+    async function paint(outcome?: SyncOutcome) {
+      const waiting = (await allQueued()).filter((q) => q.by === by && q.date === date);
+      for (const done of outcome?.done ?? []) if (done.kind === 'report' && done.date === date) cards.find((c) => c.dataset.teachClass === done.sessionId)?.setAttribute('data-done', '1');
+      let notTaken = 0;
+      for (const li of cards) {
+        const chip = li.querySelector<HTMLElement>('[data-status]');
+        if (!chip) continue;
+        const saved = waiting.some((q) => q.sessionId === li.dataset.teachClass);
+        const done = li.dataset.done === '1';
+        const state = saved ? 'saved' : done ? 'done' : 'todo';
+        chip.dataset.status = state;
+        chip.className = `chip-status chip-status--${state}`;
+        chip.textContent = saved ? 'Saved on this phone, sending…' : done ? 'Done ✓' : 'Not taken';
+        if (!done || saved) notTaken++;
+      }
+      // The app icon's badge: classes still to take today (installed app, where supported).
+      const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+      try {
+        if (notTaken) await nav.setAppBadge?.(notTaken);
+        else await nav.clearAppBadge?.();
+      } catch {
+        /* not supported */
+      }
+      const anyWaiting = (await allQueued()).some((q) => q.by === by);
+      status.hidden = !anyWaiting && outcome?.state !== 'signed-out';
+      status.textContent =
+        outcome?.state === 'signed-out'
+          ? 'Sign in again to send what’s saved on this phone.'
+          : anyWaiting
+            ? 'Saved on this phone · sending when you have signal'
+            : 'All sent ✓';
+    }
+
+    claimPhone(by).then(() => {
+      registerWorker(JSON.parse(root.dataset.precache || '[]'));
+      const go = keepSending(by, paint);
+      paint().then(go);
+    });
+  }
+</script>
+
 <style>
   .teach-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-s); }
-  .teach-class { display: grid; gap: 0.3rem; }
-  .teach-class strong, .teach-row strong { font-family: var(--font-display); font-size: var(--step-1); font-stretch: 92%; }
-  .teach-class > span:not(.badges), .teach-row > span { color: var(--ink-soft); font-size: var(--step--1); }
-  .teach-row { display: grid; gap: 0.15rem; padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
-  .teach-row strong { font-size: var(--step-0); }
-  .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .sync-line { margin: 0; padding: 0.6rem 0.9rem; border-radius: var(--r-sm); background: var(--yellow-tint); font-weight: 650; font-size: var(--step--1); }
+  .teach-card {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr) auto;
+    gap: 0.35rem 1rem;
+    align-items: center;
+    min-height: 64px;
+    padding: 0.85rem 1rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: var(--r-md);
+    background: var(--paper);
+    color: var(--ink);
+    text-decoration: none;
+  }
+  a.teach-card:hover { border-color: var(--ink); text-decoration: none; }
+  .teach-card--off { background: var(--hall); color: var(--ink-mute); border-style: dashed; }
+  .teach-card__time { font-weight: 700; white-space: nowrap; }
+  .teach-card__what { display: grid; gap: 0.25rem; min-width: 0; overflow-wrap: anywhere; }
+  .teach-card__what strong { font-family: var(--font-display); font-size: var(--step-1); font-stretch: 92%; line-height: 1.15; }
+  .teach-card__meta { font-size: var(--step--1); color: var(--ink-soft); }
+  .teach-card__off { font-weight: 700; font-size: var(--step--1); }
+  .chip-status { display: inline-flex; align-items: center; min-height: 32px; padding: 0 0.75rem; border-radius: 999px; font-size: var(--step--1); font-weight: 750; white-space: nowrap; }
+  .chip-status--todo { background: var(--hall); color: var(--ink); border: 1.5px solid var(--line-strong); }
+  .chip-status--saved { background: var(--yellow-tint); color: var(--yellow-ink); border: 1.5px solid var(--yellow); white-space: normal; }
+  .chip-status--done { background: var(--ok-tint); color: #1c6b3e; border: 1.5px solid #1c6b3e; }
+  .teach-week { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-s); }
+  .teach-week__day { font-size: var(--step-0); margin: 0 0 0.35rem; }
+  .teach-row { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 0.2rem 1rem; align-items: center; min-height: 44px; padding: 0.55rem 0; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+  .teach-row strong { display: block; }
+  .teach-row__time { font-size: var(--step--1); font-weight: 650; color: var(--ink-soft); white-space: nowrap; }
+  .teach-row__meta { display: block; font-size: var(--step--1); color: var(--ink-mute); }
+  .teach-row--off { color: var(--ink-mute); }
+  .teach-mine { display: grid; gap: 0.15rem; padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
+  .teach-mine > span { color: var(--ink-soft); font-size: var(--step--1); }
+  @media (max-width: 520px) {
+    .teach-card { grid-template-columns: minmax(0, 1fr) auto; }
+    .teach-card__time { grid-column: 1 / -1; }
+    .teach-row { grid-template-columns: minmax(0, 1fr); }
+  }
 </style>

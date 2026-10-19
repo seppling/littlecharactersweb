@@ -27,7 +27,10 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 | `settings()` | `/admin/settings` | Settings: a tile per settings page (§15) |
 | `settingsStaff()` | `/admin/settings/staff` | Settings → Staff (§15) |
 | `settingsStaffMember(staffId)` | `/admin/settings/staff/<id>` | One staff member: role, classes, substitute dates, turn off (§15) |
-| `teachHome()` | `/admin/teach` | The teacher app's home (§15) |
+| `teachHome()` | `/admin/teach` | The teacher app's home (§18) |
+| `teachRoster(sessionId, date, on?)` | `/admin/teach/<id>/<YYYY-MM-DD>` | One class date: roster and attendance (§18) |
+| `teachMe()` | `/admin/teach/me` | The teacher app's Me tab (§18) |
+| `classAttendance(sessionId)` | `/admin/classes/<id>/attendance` | A class's attendance, for `downloads()` (CSV and PDF only, §18) |
 | `confirm(next)` | `/admin/confirm?next=` | Sign in again, then go on |
 | `downloads(listPath)` | `{ csv, pdf }` | A list's two downloads |
 
@@ -58,8 +61,9 @@ Ids in addresses are database or catalog ids. Children's names and notes never g
 | `teachers` | The page is part of the teacher app: teachers may open it (with `requireTeacherOrOwner`). Without it, only owners get the shell |
 
 - **Computer:** a dark top bar with the search box (it sends `GET /admin/search?q=`), the staff member's email and Sign out, then the sections: Today, Classes, Families, Payments, Messages & sign-ups, Website, Settings. Families goes to Search until there's a families list.
-- **Phone (760 px and narrower):** the page title with the optional back link and a Menu button at the top; a tab bar at the bottom: Today, Classes, Search, Alerts. The current tab follows the address (a family's page lights Search). The menu holds Families, Payments, Messages & sign-ups, Website, Settings, "Put the app on your phone" and Sign out.
-- **Teachers** get a smaller shell: one section, "Your classes" (`teachHome()`), no search and no tab bar; the phone menu holds only "Put the app on your phone" and Sign out.
+- **Phone (760 px and narrower):** the page title with the optional back link and a Menu button at the top; a tab bar at the bottom: Today, Classes, Search, Alerts. The current tab follows the address (a family's page lights Search). The menu holds Take attendance (the teacher app, §18), Families, Payments, Messages & sign-ups, Website, Settings, "Put the app on your phone" and Sign out.
+- **Teachers** get a smaller shell: one section, "Your classes" (`teachHome()`), no search; on a phone, two tabs, Today and Me (`.teach-tabs`), and the menu holds only "Put the app on your phone" and Sign out.
+- **Signing out** from any staff page also clears the teacher app's copy of today's classes on that phone (§18).
   - **Why a menu rather than links on Today:** it's on every page, so Payments is two taps away wherever Hannah is, and Today stays about today.
 - **The website editor** shows "The website editor works best on a computer." on phones, and stays usable.
 - The family site's header and footer aren't shown on staff pages (`Base.astro`'s `chrome={false}`).
@@ -96,7 +100,10 @@ Use these instead of page-level styles.
 | `trial` | Trial | neutral | this enrollment is a free trial |
 | `birthday` | Birthday | good | birthday within 3 days either side of today (Feb 29 counts as Feb 28 in other years) |
 
-`drop-in` is reserved for Phase 2. The input is yes/no facts (`hasAllergies`, `hasMedicalNotes`, `hasPickupNote`, `restrictedPickup`, `photoConsent`, `firstEnrolledAt`, `trial`, `birthdate`), so the notes never reach the HTML. Decrypt with `readStudentNotes`, turn into booleans on the server, and pass only those.
+| `drop-in` | Drop-in | neutral | on the roster for that date only, as a booked drop-in (teacher app) |
+| `missed2` | Missed the last two | warning | the child's last two marks in this class were Absent (§18) |
+
+The input is yes/no facts (`hasAllergies`, `hasMedicalNotes`, `hasPickupNote`, `restrictedPickup`, `photoConsent`, `firstEnrolledAt`, `trial`, `birthdate`), so the notes never reach the HTML. Decrypt with `readStudentNotes`, turn into booleans on the server, and pass only those.
 
 ## 5. Downloads: CSV and PDF
 
@@ -133,7 +140,7 @@ A home-screen web app; no app store.
 - **Manifest:** `public/admin/app.webmanifest`. "Little Characters Staff" ("LC Staff"), `start_url`, `scope` and `id` `/admin`, standalone, ink `#1c1826` theme and white background. It's a static file, so it loads without signing in (browsers fetch manifests without cookies).
 - **Icons:** `public/admin/icons/` (192, 512, maskable 512, Apple 180): the logo mark on ink, made once by `npx tsx scripts/make-staff-icons.ts`.
 - **Only staff pages** link the manifest and the Apple icon and title (through `Base.astro`'s `head` slot). The family site is unchanged.
-- **No service worker.** Chrome's install criteria no longer ask for one (web.dev, "What does it take to be installable?", updated September 2024: HTTPS, a manifest with a name, 192 and 512 px icons, `start_url` and `display`, and some engagement). Offline attendance in Phase 2 will add one.
+- **A service worker for the teacher app only** (`public/admin/teach-sw.js`, scope `/admin/teach`; §18). The rest of `/admin` and the family site have none and are never cached. Chrome's install criteria don't ask for one (web.dev, "What does it take to be installable?", updated September 2024: HTTPS, a manifest with a name, 192 and 512 px icons, `start_url` and `display`, and some engagement).
 - **`/admin/install`:** iPhone steps (Safari, Share, Add to Home Screen) with simple drawings; Android's "Install app" button when Chrome offers it, with Chrome's menu as the fallback; "You're using the app now" when it's open as the app. Linked from the phone menu.
 
 ## 8. Data added for the back office (migration `0009_back_office`)
@@ -212,6 +219,8 @@ All three go through `paymentsDownload` (`payments.csv.ts`, `payments.pdf.ts`): 
 | `payments` | alert | `billingOverview().needsAttention`: failed (or on hold: the family is paying it themselves) and processing | `payments('failed')` |
 | `waitlist` | warning | a current class with a waitlist and a place open, not counting places with an open offer (§14) | `classPage` |
 | `under5` | warning | weekly classes (kind `class`, not one-off) short of 5, from 14 days before their first class to 14 days after; one item for all | `classes()?under5=1` |
+| `attendance` | warning | a class date with children expected and no `class_report`: today's once the class ended 2 hours ago, or any in the last 7 days; not on a day off. One item per class date (§18) | `teachRoster` |
+| `missed2` | warning | a child absent at their last two marked dates in a current class; one item per child (§18) | `family` |
 | `emergency` | warning | families with an active or trial enrollment in a class that hasn't ended, and no emergency contact | `family` |
 | `care` | neutral | the same children, care details not confirmed by a parent within a year (`detailsOnFile`), one item per family | `family` |
 | `signups` | good | active and trial enrollments made in the last 7 days, one item per class | `classPage` |
@@ -301,7 +310,7 @@ The content's `session.teacher` text stays the public name on the site. Settings
 
 **Settings → Staff** (`src/server/staff-settings.ts`; pages `src/pages/admin/settings/`): owners only; changes need a fresh sign-in (until then the page shows "Confirm it's you"). The list (name, email, role, number of classes, can sign in); **Add a person** (name, email, Teacher or Owner; nothing is emailed); each person's page: name and role, **Classes they teach** (per current or upcoming class: Not teaching / Teaches / Assists), **Substitute dates** (class, date it meets, optionally who they cover for), **Turn off** / **Turn back on**. Owners can't turn themselves off or drop their own owner role. Audit: `admin.staff.add`, `.update`, `.deactivate`, `.reactivate`, `.class_add`, `.class_role`, `.class_remove`, `.cover_add`, `.cover_remove` (entity `staff`, the class and date in `detail`). Later settings pages go under `/admin/settings/` with a tile on `settings()`.
 
-**The teacher app's home** (`/admin/teach`) is a placeholder: "Hi, <first name>", today's classes (`teacherSessions`, with Assisting / Substitute / Day off), and "Classes you teach". `?on=YYYY-MM-DD` picks the day in development.
+**The teacher app** (`/admin/teach`) is §18.
 
 ## 16. Data for Phase 2 (migrations `0011_phase2` and `0012_phase2_extras`)
 
@@ -345,3 +354,54 @@ Shared by the teacher app, the calendar and drop-ins, so all three agree on days
 | `classDayFrom(input)` | Pure half of `classDay` |
 
 `teacherSessions` (§15) takes its `dayOff` from `dayOffFrom`.
+
+## 18. The teacher app (Phase 2)
+
+Teachers take attendance on their phones, with or without signal, and send Hannah a note. Data and rules in `src/server/attendance.ts`; the phone side in `src/scripts/teach.ts` and `public/admin/teach-sw.js`.
+
+**Pages** (all `requireTeacherOrOwner`, `<AdminShell teachers section="teach">`):
+
+- **Today** (`teachHome()`, `src/pages/admin/teach/index.astro`): "Hi, <first name>", then one card per class today (`teachCards`): time, class, location, "12 children" (`classDay(...).expected`), "Assisting", "Covering for <name>" (or "Substitute"), "<Sub> is covering", and a chip: **Not taken**, **Saved on this phone, sending…** (taps on this phone not sent yet) or **Done ✓** (a `class_report`). A day off is a grey card, "No class: <reason>", with no link. No classes: "No classes today" and "Your next class is …" (`nextTeachingDay`). **This week**: the next 7 days' classes, each opening its roster (read-only). **Classes you teach** below. Owners see every class meeting today; their week is their own classes. The app icon's badge counts today's classes not done (`navigator.setAppBadge`, where supported).
+- **A class date** (`teachRoster(id, date)`, `src/pages/admin/teach/[sessionId]/[date].astro`): class, date, time, location, "Present 9 of 12", **Mark all present**; the safety strip ("2 allergy or medical · 1 pickup note"; a tap shows only those children, and back); one row per child expected (`teachRoster`): initials, "Maya R.", badges, a Present / Absent toggle (48 px), **More** with Late, Left early and a short note (200 characters); a tap on the name opens the child's sheet (a `<dialog>`): allergies and medical (red), who may pick up, parents with **Call** and **Text**, emergency contacts, photos. Nothing about payments or addresses. Then **Note to Hannah** and **Submit attendance** (until everyone's marked: "Mark everyone first (2 left)"); after: "Done ✓ Hannah has it." and **Send changes**. Read-only states say why: "No class today: <reason>", a future date, "<Sub> is covering", "Attendance was sent … Ask Hannah", or closed (more than 7 days ago).
+- **Me** (`teachMe()`): who's signed in, Sign out, what "This is a shared device" does, "Put the app on your phone".
+- `?on=YYYY-MM-DD` sets "today" on all three and on the sync endpoint in development only (`devDay`).
+
+**Who sees what** (`teachAccess`, pure; `classDateFor` reads what it needs):
+
+| Who | Sees | Marks |
+|---|---|---|
+| Owner | any class, any date it meets | any date up to today |
+| Teacher (lead or assistant) | their classes, any date they meet (`canTeach`) | today; a missed date up to 7 days back (`LATE_DAYS`) until it's submitted; after submitting, changes on the class's own day only |
+| Substitute | that class on their cover date only | that date, as above |
+| The regular teacher on a cover date | read-only, "<Sub> is covering" (the cover names them, or names nobody and they're the lead) | no |
+| Anyone else, a turned-off teacher, a date the class doesn't meet | the Staff only panel (404) | no |
+
+Nobody marks a day off (`dayOffOn`) or a future date. The server applies the same rule to every tap.
+
+**Who's expected on a date** (`expectedOn`): active and trial enrollments, booked drop-ins (`dropInsOn`, §17), and anyone already marked that date. `teachRoster` reads them with care details decrypted (`readStudentNotes`) and writes `teach.roster.view` (or `teach.roster.cache` when the phone stores it for offline) with the date in `detail`.
+
+**Taps and submitting** (`POST /api/teach/sync`, JSON `{ by, taps, reports }`):
+
+- A tap is `{ clientId, sessionId, date, studentId, status, note, markedAt }`; `status` is `present`, `absent`, `late` or `left_early` (Late and Left early count as there). A report is `{ clientId, sessionId, date, note, at }` (the note to Hannah, up to 2000 characters).
+- `saveTaps`: idempotent. A `client_id` already saved → `same`; the child's row has a newer `marked_at` → `older` (one upsert on (class, date, child) with `marked_at < excluded.marked_at`); else `saved`. The phone's time is held to the server's now. Refused: no access, a day off, a closed date, a child not expected (`refused` with `why`). A change to an existing mark writes `teach.attendance.change` (entity `student`, `detail` "<class> <date>: absent → present"). Tapped on the class's day and sent the next morning still counts as that day.
+- `saveReports`: one `class_report` per class date. Submitting again updates it (`teach.attendance.resubmit`); an older submission arriving late changes nothing; a changed note clears `note_read_at`, so it shows on Today again.
+- Responses: 401 signed out (the phone keeps the taps), 409 when `by` isn't the signed-in person (taps made by someone else are never saved under them), 403 non-staff or another site's origin.
+
+**Offline** (`src/scripts/teach.ts`, `public/admin/teach-sw.js`):
+
+- Each tap goes to IndexedDB (`lc-teach`: `queue` of unsent taps and submissions, `marks` for the newest mark seen per child, `meta.who`), then is sent: on the tap, when the app opens or comes back to the front, on `online`, every 20 s while something waits, and by Background Sync (`teach-sync`) where the browser has it (Android; iPhones don't).
+- The status line: "Saved on this phone · sending when you have signal", "All sent ✓", "Saved on this phone · sign in again to send", or "Not saved: … Ask Hannah." for a refused tap.
+- The service worker (scope `/admin/teach`) fetches pages from the network first (4 s, then the saved copy) and keeps a page only when it sends `X-Teach-Cache: <today in Athens>`: the home page and today's rosters the person teaches or covers (an owner's only when they're on that class). The home page asks it to store today's rosters ahead (`X-Teach-Prefetch: 1`). It also keeps the pages' own scripts, styles, fonts and icons. Pages from another day are dropped. Cache keys are addresses (ids), never names.
+- Cleared: on sign-out from any staff page (AdminShell), when a signed-out page comes back (`X-Teach-Signed-Out`), when another person opens the app on the phone (`claimPhone`), and the next day. Unsent taps stay until their person signs in again (dropped after 8 days); the session stays in its HttpOnly cookie, never in the cache.
+
+**What Hannah sees:**
+
+- **Today:** "Attendance done ✓" on a class with a report, "Not taken" once a class has ended without one (`attendanceState`), nothing before; **Notes from teachers** ("Note from <teacher>: …", linking to the roster) until **Mark read** (`POST /api/teach/note-read`, `markNoteRead`, `admin.attendance.note_read`); a **Take attendance** tile and menu link.
+- **Needs attention:** `attendance` and `missed2` (§12), from `attentionAttendance(today)` (reports, days off and drop-ins over the last 7 days; `missedTwo` over 60 days).
+- **A class's page:** **Attendance**: each date so far (and any later date already marked), newest first: "9 of 12 present · taken by <teacher>", "Not taken", or "No class: <reason>", each opening that date's roster. Downloads (fresh sign-in; `admin.attendance.csv|pdf`): a row per child, a column per date (P, A, L, LE), Present and Absent totals (`attendanceTable`, `attendancePdf`, "Attendance: <class>").
+- **Rosters and the family page:** the `missed2` badge; the family page adds "Missed 2 classes this season" per child (`childAttendance`, the current term).
+
+**Substitutes:** adding a cover in Settings → Staff (`addCover`) emails the substitute ("You're covering <class> on <date>") and, when Hannah said whom they cover for, that teacher ("<Sub> is covering <class> on <date>"), each with a link to `/admin/teach` (`sendCoverEmails`). A failed email doesn't undo the cover.
+
+**Not built here:** push reminders ("Attendance not taken"), absence reasons (`attendance.reason`, from Settings later), children's photos on the roster (initials only).
+

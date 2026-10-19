@@ -9,8 +9,8 @@
 import { todayInAthens } from './pricing';
 
 export type BadgeTone = 'neutral' | 'good' | 'warning' | 'alert';
-/** `drop-in` is reserved for paid drop-ins (Phase 2). */
-export type BadgeKey = 'medical' | 'pickup' | 'no-photos' | 'new' | 'trial' | 'birthday' | 'drop-in';
+/** `drop-in`: booked for one class date (Phase 2). `missed2`: the last two marks in the class were Absent (teacher app). */
+export type BadgeKey = 'medical' | 'pickup' | 'no-photos' | 'new' | 'trial' | 'drop-in' | 'missed2' | 'birthday';
 export type Badge = { key: BadgeKey; label: string; tone: BadgeTone };
 
 export interface BadgeInput {
@@ -24,6 +24,10 @@ export interface BadgeInput {
   firstEnrolledAt: Date | null;
   /** This enrollment is a free trial class. */
   trial: boolean;
+  /** On the roster for one date only, as a drop-in (teacher app). */
+  dropIn?: boolean;
+  /** Absent at the last two class dates marked (teacher app's attendance). */
+  missedLastTwo?: boolean;
   /** YYYY-MM-DD */
   birthdate: string | null;
 }
@@ -63,6 +67,8 @@ export function childBadges(input: BadgeInput, today: string = todayInAthens()):
     if (age >= 0 && age <= NEW_DAYS) out.push({ key: 'new', label: 'New', tone: 'good' });
   }
   if (input.trial) out.push({ key: 'trial', label: 'Trial', tone: 'neutral' });
+  if (input.dropIn) out.push({ key: 'drop-in', label: 'Drop-in', tone: 'neutral' });
+  if (input.missedLastTwo) out.push({ key: 'missed2', label: 'Missed the last two', tone: 'warning' });
   if (input.birthdate && Math.abs(daysToBirthday(input.birthdate, today)) <= BIRTHDAY_DAYS) out.push({ key: 'birthday', label: 'Birthday', tone: 'good' });
   return out;
 }

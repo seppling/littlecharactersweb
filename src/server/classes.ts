@@ -13,6 +13,7 @@ import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { Program, Session } from '@/content/types';
 import type { SiteContent } from '@/content/site-content';
 import { childBadges, type Badge } from '@/lib/badges';
+import { missedTwo } from './attendance';
 import type { EmergencyContact, PickupPerson } from '@/lib/contacts';
 import { formatPhone } from '@/lib/contacts';
 import { dayList, shortDate, timeRange } from '@/lib/format';
@@ -238,6 +239,8 @@ export async function classRoster(sessionId: string, viewerId: string, action: R
   // Offers past their time are marked expired as they're read.
   if (waitIds.length) await expireOffers(new Date(), sessionId);
   const offerOf = await offerStates(waitIds);
+  // "Missed the last two" from the teacher app's attendance.
+  const missed = new Set((await missedTwo({ sessionIds: [sessionId] })).map((m) => m.studentId));
 
   const children: RosterChild[] = people.map((p) => {
     const s = p.student;
@@ -259,6 +262,7 @@ export async function classRoster(sessionId: string, viewerId: string, action: R
           photoConsent: s.photoConsent,
           firstEnrolledAt: firstOf.get(s.id) ?? null,
           trial: status === 'trial',
+          missedLastTwo: missed.has(s.id),
           birthdate: s.birthdate,
         },
         today,
