@@ -444,3 +444,19 @@ The roster changes unit (`claude/bo-roster`) is merged, and Phase 1 of the staff
 | messages | Class and family email |
 | roster changes | Add, remove, offer the spot |
 
+### Phase 2 started (October 19)
+
+- **Stephen's inputs:**
+  - a test teacher account: his own email, kept out of the repository and added on the Settings page once it's live;
+  - $25 as a placeholder drop-in price, a site setting that Hannah can change.
+- **Order:**
+  1. **Foundation** (`claude/bo2-foundation`):
+     - staff roles (owner, teacher) and teachers on classes, with substitutes;
+     - the Settings → Staff page and a shared-device sign-in;
+     - every Phase 2 table in one migration (0011);
+     - Phase 1 cleanups (one-off nights aren't "under 5", link helpers, the content editor's staff check, a `sharp` update).
+  2. **The teacher app, the calendar and days off, drop-ins.**
+  3. **Refunds and credits, tags and skills, shows.**
+  4. **Reports (the dashboard and the library), and the rest of Settings.**
+- **Shows:** the performance fee is already charged at sign-up, so casting creates no new charge until Stephen decides otherwise.
+
