@@ -64,6 +64,13 @@
       "when": 1791888432423,
       "tag": "0008_card_on_file",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792375893692,
+      "tag": "0009_back_office",
+      "breakpoints": true
     }
   ]
 }
