@@ -272,7 +272,7 @@ const dropFiles = downloads(classDropInsLink(session.id));
       <div>
         <h1>{program.title}</h1>
         <p class="class-line">{classLine(session, location?.name)}</p>
-        <p class="class-counts" data-counts><strong>{places}</strong> · {waitlist.length} on the waitlist{upcomingDropIns.some((d) => d.status === 'booked') && ` · ${upcomingDropIns.filter((d) => d.status === 'booked').length} drop-ins ahead`}</p>
+        <p class="class-counts" data-counts><strong>{places}</strong> · {waitlist.length} on the waitlist{upcomingDropIns.some((d) => d.status === 'booked') && ` · ${plural(upcomingDropIns.filter((d) => d.status === 'booked').length, 'drop-in')} ahead`}</p>
       </div>
       <div class="admin-head__actions class-actions">
         <a class="btn btn--outline btn--sm" href={classPrint(session.id)} data-print-link>Print</a>

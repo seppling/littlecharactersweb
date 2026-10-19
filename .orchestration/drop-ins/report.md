@@ -64,7 +64,9 @@ Stripe keys were blanked for every command.
 - `npm test`: 33 files, 642 tests passed (618 before, plus 24).
 - `npm run build`: completes.
 - `npm run db:generate`: "No schema changes, nothing to migrate".
-- Browser tests, all in README order on one fresh database (`tests/e2e/serve.sh`), staff-messages with `SERVER_LOG`: see "Full browser run" below for the final run's outcome.
+- Browser tests, all in README order on one fresh database (`tests/e2e/serve.sh` from a fresh build), staff-messages with `SERVER_LOG`:
+  - enroll-journey, trial-journey, content-editor, navigation, staff-foundation, staff-contacts, staff-classes, staff-families, staff-payments, staff-today, staff-messages, staff-roster, staff-settings and staff-drop-ins all passed (each exited 0);
+  - staff-drop-ins ended "Staff drop-ins: all checks passed.", including its 390 px checks: no sideways scroll on every page, and no wrapped buttons and 44 px targets on the staff pages.
 - Billing check: `.data/e2e` was copied right after enroll-journey and trial-journey, then `APP_ENV=development PGLITE_DIR=<copy> npm run -s billing:run -- --today 2026-12-01` was run.
   - It charged **$80.75** (Ava, family discount) and **$55** (Maya, scholarship): due 2, charged 2, failed 0.
 - My first full run failed only in `staff-drop-ins.mjs`. After signing in on `/drop-in/…` the page still showed the sign-in, because the middleware reads the session only on portal paths. I added `drop-in` to them.
@@ -81,10 +83,11 @@ Stripe keys were blanked for every command.
   - Booked over the limit, and a second payment for the same child and date (`PAID_TWICE`).
   - Staff: no charge, a full date needing "add anyway", pay link once per token, cancel, the CSV row.
   - Today's "10 of 12".
-
-### Full browser run (final)
-
-See the end of this file.
+- After that final run I fixed one header word ("1 drop-ins ahead" now reads "1 drop-in ahead"). Type check and build were re-run clean; this text isn't checked by any test, and the browser suite wasn't re-run for it.
+- **Screenshots:** `.orchestration/drop-ins/shots/`, from the final run.
+  - At both widths: the class page's link, step 1, pay, confirmation, the staff no-charge step, and the class page with its roster and Drop-ins list.
+  - Desktop only: the roster with the badge open, the Drop-ins list, and a full date with a day off.
+  - The desktop class-page shot was taken before the plural fix.
 
 ## Decisions
 
