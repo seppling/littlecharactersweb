@@ -8,7 +8,7 @@ Stephen owns this repo and is new to software. Write in plain English with short
 
 @FOUNDATION.md
 
-These ten principles come first. If a request conflicts with one, say so and ask before going on. They are copied from Stephen's SMB-AI repo, so never edit `FOUNDATION.md` or `playbook/` here. Changes are made in SMB-AI and copied over (see `playbook/README.md`).
+These ten principles come first. If a request conflicts with one, say so and ask before going on. They are copied from Stephen's SMB-AI repo, so never edit `FOUNDATION.md` or the copied pages in `playbook/` here. Changes are made in SMB-AI and copied over (see `playbook/README.md`).
 
 ## How we work
 
@@ -16,8 +16,8 @@ These ten principles come first. If a request conflicts with one, say so and ask
 - Give Claude a check. Say what "done" looks like, and show evidence it was met: test output, the command and its result, or a screenshot.
 - One task per session. After two failed corrections, stop and suggest Stephen start a fresh session with a better prompt.
 - AI drafts, people approve. Money, families, deleting data and going live always wait for Stephen's yes. Here that means prices and billing (`src/lib/pricing.ts`, autopay, Stripe), anything sent to families, their data, and database migrations.
-- `main` is what goes live. Render deploys it once CI passes, and runs database migrations first (`render.production.yaml`). Never push to `main`. Work on a branch, run `/review-change`, and open a pull request (a proposed change that waits for Stephen to merge it).
-- Secrets only in environment settings. Never put them in files, prompts or chat, and never read `.env` files. `.env.example` holds only the settings' names, so reading it is fine.
+- `main` is what goes live. Render deploys it once CI passes, and runs database migrations first (`render.production.yaml`). Never push to `main`. Work on a branch, run `/review-change`, and open a pull request (a proposed change that waits for Stephen to merge it). Stephen merges only once CI has passed on the pull request.
+- Secrets only in environment settings. Never put them in files, prompts or chat, and never read `.env` files. `.env.example` holds only the settings' names and safe example values, never a real key, so reading it is fine.
 - Family data stays put. Real families' and children's details (Studio Director exports in `imports/`, the local database in `.data/`) never go into commits, chat or other services. Tests use made-up families, such as those in `tests/e2e/fixtures/`.
 - Refer to Stephen by name or as "you"; never assume pronouns.
 
@@ -31,10 +31,10 @@ These ten principles come first. If a request conflicts with one, say so and ask
 
 ## Where things live
 
-- `README.md`: the stack, a map of the code, the design system and deploying.
+- `README.md`: the stack, a map of the code and the design system.
 - `docs/todo.md`: decisions made and what's left. Start here.
 - `docs/plans/`: one plan per feature, written by `/plan-feature` from `TEMPLATE.md`.
-- `docs/`: how the portal, back office, security and hosting work.
+- `docs/`: how the portal, back office and security work, and hosting on Render (`infrastructure.md`).
 - `FOUNDATION.md` and `playbook/`: the rules, copied from SMB-AI.
 - `.claude/skills/`: procedures to run by name: `plan-feature`, `review-change`, `orchestrate-background-sessions`.
 - `.claude/agents/`: the three roles: planner, builder, reviewer.

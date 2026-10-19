@@ -16,7 +16,7 @@ What will be true when this works? Describe results you can see, not tasks.
 
 ## How we'll check it
 
-Which real examples will we try, and what should happen for each? Include phone width (390 px) for any page.
+Which real examples will we try, and what should happen for each? Use real situations from the business, but with made-up names, emails and phone numbers, because plans are saved in this public repo. Include phone width (390 px) for any page.
 
 ## Data
 

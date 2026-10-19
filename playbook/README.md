@@ -14,10 +14,11 @@ SMB-AI keeps many projects, each called a build, in their own folders. This repo
 | --- | --- |
 | `/new-build` | `/plan-feature` |
 | a build's `plan.md` | `docs/plans/<name>.md` |
-| a build's `CLAUDE.md` | the root `CLAUDE.md` |
+| a build's `CLAUDE.md`, under 50 lines | the root `CLAUDE.md`, under 150 lines, because it is the only one |
 | a build's Decisions section | the plan's Decisions section, and `docs/todo.md` for decisions about the whole site |
 | `/review-change` | `/review-change`, with this site's checks |
 | the planner, builder and reviewer | the same three agents, in `.claude/agents/` |
+| an experiment, kept apart from what people depend on (Foundation 9) | its own branch, tried on a computer or a Render preview (`render.yaml`), never on `main` |
 
 The weekly scan, research and trials (including the Ponytail add-on) stay in SMB-AI. They were not copied.
 
