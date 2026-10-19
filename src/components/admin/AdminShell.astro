@@ -139,13 +139,13 @@ const more = [
                 <li>
                   <a href={s.href} aria-current={s.key === section ? 'page' : undefined}>
                     {s.label}
-                    {s.key === 'today' && urgent > 0 && (
-                      <span class="staff-count" data-staff-count>
-                        <span aria-hidden="true">{urgent}</span>
-                        <span class="sr-only">, {countLabel}</span>
-                      </span>
-                    )}
                   </a>
+                  {s.key === 'today' && urgent > 0 && (
+                    <span class="staff-count" data-staff-count>
+                      <span aria-hidden="true">{urgent}</span>
+                      <span class="sr-only">{countLabel}</span>
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -191,19 +191,17 @@ const more = [
             {tabs.map((t) => (
               <li>
                 <a href={t.href} aria-current={t.key === tab ? 'page' : undefined}>
-                  <span class="staff-tabs__icon">
-                    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d={t.icon} />
-                    </svg>
-                    {t.key === 'alerts' && urgent > 0 && (
-                      <span class="staff-count" data-staff-count>
-                        <span aria-hidden="true">{urgent}</span>
-                        <span class="sr-only">{countLabel}</span>
-                      </span>
-                    )}
-                  </span>
+                  <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d={t.icon} />
+                  </svg>
                   <span>{t.label}</span>
                 </a>
+                {t.key === 'alerts' && urgent > 0 && (
+                  <span class="staff-count" data-staff-count>
+                    <span aria-hidden="true">{urgent}</span>
+                    <span class="sr-only">{countLabel}</span>
+                  </span>
+                )}
               </li>
             ))}
           </ul>
