@@ -1,0 +1,341 @@
+---
+/**
+ * One staff member (Settings → Staff): name and role, the classes they teach
+ * (lead or assistant), their substitute dates, and turning them off or back
+ * on. Owners only; every change needs a sign-in from the last 15 minutes and
+ * is written to the audit log (src/server/staff-settings.ts).
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { confirm, settingsStaff, settingsStaffMember } from '@/lib/admin-links';
+import { todayInAthens } from '@/lib/pricing';
+import {
+  addCover,
+  assignableClasses,
+  NAME_MAX,
+  removeCover,
+  setClasses,
+  setStaffActive,
+  staffAssignments,
+  staffById,
+  staffList,
+  StaffSettingsError,
+  updateStaff,
+  type Assignment,
+} from '@/server/staff-settings';
+import { config } from '@/server/env';
+import { requireFreshStaff, requireStaff, signedInRecently } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const id = Astro.params.staffId ?? '';
+const here = settingsStaffMember(id);
+const { content } = Astro.locals;
+let error = '';
+let failed = '';
+let values: Record<string, string> = {};
+
+if (staff && Astro.request.method === 'POST') {
+  const stop = requireFreshStaff(Astro.locals, Astro.url);
+  if (stop) return stop;
+  const form = await Astro.request.formData();
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+  failed = values.action ?? '';
+  try {
+    switch (values.action) {
+      case 'details':
+        await updateStaff(staff.id, staff.email, id, { name: values.name ?? '', role: values.role ?? '' });
+        return Astro.redirect(`${here}?saved=details`, 303);
+      case 'classes': {
+        const choices = new Map<string, Assignment>();
+        for (const c of assignableClasses(content)) {
+          const v = values[`class:${c.sessionId}`] ?? '';
+          choices.set(c.sessionId, v === 'lead' || v === 'assistant' ? v : '');
+        }
+        await setClasses(staff.id, id, choices);
+        return Astro.redirect(`${here}?saved=classes#classes`, 303);
+      }
+      case 'cover-add':
+        await addCover(staff.id, id, { sessionId: values.sessionId ?? '', classDate: values.classDate ?? '', coveringForStaffId: values.coveringFor || undefined }, content);
+        return Astro.redirect(`${here}?saved=cover-added#covers`, 303);
+      case 'cover-remove':
+        await removeCover(staff.id, id, values.coverId ?? '');
+        return Astro.redirect(`${here}?saved=cover-removed#covers`, 303);
+      case 'deactivate':
+        await setStaffActive(staff.id, staff.email, id, false);
+        return Astro.redirect(`${here}?saved=deactivated`, 303);
+      case 'reactivate':
+        await setStaffActive(staff.id, staff.email, id, true);
+        return Astro.redirect(`${here}?saved=reactivated`, 303);
+    }
+  } catch (e) {
+    if (!(e instanceof StaffSettingsError)) throw e;
+    error = e.message;
+  }
+}
+
+const person = staff ? await staffById(id) : undefined;
+if (staff && !person) return new Response('Not found', { status: 404 });
+
+const today = todayInAthens();
+const fresh = !!staff && signedInRecently(Astro.locals);
+const choices = staff ? assignableClasses(content, today) : [];
+const { classes: assigned, covers } = person ? await staffAssignments(person.id, today) : { classes: new Map(), covers: [] };
+const others = staff ? (await staffList(config.adminEmails)).filter((p) => p.id && p.id !== id && p.active) : [];
+const nameOf = new Map(others.map((p) => [p.id, p.name]));
+const byTerm = new Map<string, typeof choices>();
+for (const c of choices) byTerm.set(c.session.term, [...(byTerm.get(c.session.term) ?? []), c]);
+const classTitle = (sessionId: string) => {
+  const f = content.findSession(sessionId);
+  return f ? f.program.title : 'A class no longer on the site';
+};
+const longDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+
+const saved = Astro.url.searchParams.get('saved');
+const savedText: Record<string, string> = {
+  added: 'Added. They can sign in now. Choose their classes below.',
+  details: 'Saved.',
+  classes: 'Classes saved.',
+  'cover-added': 'Substitute date added.',
+  'cover-removed': 'Substitute date removed.',
+  deactivated: 'Turned off. They can’t open staff pages any more. Their records stay.',
+  reactivated: 'Turned back on. They can sign in again.',
+};
+const v = (key: string, fallback = '') => (failed ? (values[key] ?? fallback) : fallback);
+---
+
+<AdminShell title={person?.name ?? 'Staff'} section="settings" back={{ href: settingsStaff(), label: 'Staff' }}>
+  <div class="admin-page person-page">
+    {
+      person && (
+        <>
+          <div class="admin-head">
+            <div>
+              <h1>{person.name}</h1>
+              <p class="admin-intro">
+                <span class="email">{person.email}</span> · {person.role === 'owner' ? 'Owner' : 'Teacher'}
+                {!person.active && !person.fixed && <span class="badge badge--neutral" data-turned-off>Turned off</span>}
+              </p>
+            </div>
+          </div>
+
+          {saved && savedText[saved] && <p class="notice" role="status">{savedText[saved]}</p>}
+          {error && <p class="notice notice--error" role="alert">{error}</p>}
+
+          {!fresh && (
+            <div class="staff-card confirm-first">
+              <p>To change anything here, confirm it’s you first. We’ll email you a code.</p>
+              <a class="btn btn--primary" href={confirm(here)} data-confirm-first>
+                Confirm it’s you
+              </a>
+            </div>
+          )}
+
+          {person.fixed && <p class="notice">This owner is set in the site’s settings, so they can’t be changed or turned off here. They can still be given classes.</p>}
+
+          {fresh && !person.fixed && (
+            <section class="admin-section staff-card" aria-labelledby="details-title">
+              <h2 id="details-title">Name and role</h2>
+              <form method="post" class="stack-form" data-details>
+                <input type="hidden" name="action" value="details" />
+                <div class="field">
+                  <label for="name">Name</label>
+                  <input id="name" name="name" required maxlength={NAME_MAX} value={v('name', person.name)} />
+                </div>
+                <fieldset class="field roles">
+                  <legend>Role</legend>
+                  <label class="choice">
+                    <input type="radio" name="role" value="teacher" checked={v('role', person.role) === 'teacher'} />
+                    <span>
+                      <strong>Teacher</strong>
+                      <small>Their own classes only</small>
+                    </span>
+                  </label>
+                  <label class="choice">
+                    <input type="radio" name="role" value="owner" checked={v('role', person.role) === 'owner'} />
+                    <span>
+                      <strong>Owner</strong>
+                      <small>Everything, including payments and these settings</small>
+                    </span>
+                  </label>
+                </fieldset>
+                <button class="btn btn--primary" type="submit">
+                  Save
+                </button>
+              </form>
+            </section>
+          )}
+
+          <section class="admin-section" id="classes" aria-labelledby="classes-title">
+            <h2 id="classes-title">Classes they teach</h2>
+            <p class="admin-intro">
+              They see these classes every week: the roster, care details and contacts. The public site still shows the teacher’s name from the website editor.
+            </p>
+            {choices.length === 0 ? (
+              <div class="empty-state">
+                <strong>No current classes</strong>
+                <span>Classes appear here once they’re on the site.</span>
+              </div>
+            ) : (
+              <form method="post" class="classes-form" data-classes>
+                <input type="hidden" name="action" value="classes" />
+                {[...byTerm].map(([term, list]) => (
+                  <fieldset class="term">
+                    <legend>{term}</legend>
+                    <ul class="class-choices">
+                      {list.map((c) => {
+                        const now = assigned.get(c.sessionId) ?? '';
+                        return (
+                          <li class="class-choice" data-class-choice={c.sessionId}>
+                            <label for={`class-${c.sessionId}`}>
+                              <strong>{c.program.title}</strong>
+                              <small>{[c.session.label, c.when].filter(Boolean).join(' · ')}</small>
+                              {c.session.teacher && <small>On the site: {c.session.teacher}</small>}
+                            </label>
+                            <select id={`class-${c.sessionId}`} name={`class:${c.sessionId}`} disabled={!fresh || !person.active}>
+                              <option value="" selected={now === ''}>
+                                Not teaching
+                              </option>
+                              <option value="lead" selected={now === 'lead'}>
+                                Teaches
+                              </option>
+                              <option value="assistant" selected={now === 'assistant'}>
+                                Assists
+                              </option>
+                            </select>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </fieldset>
+                ))}
+                {fresh && person.active && (
+                  <button class="btn btn--primary" type="submit">
+                    Save classes
+                  </button>
+                )}
+              </form>
+            )}
+          </section>
+
+          <section class="admin-section" id="covers" aria-labelledby="covers-title">
+            <h2 id="covers-title">Substitute dates</h2>
+            <p class="admin-intro">On a substitute date they see that class for that day only.</p>
+            {covers.length === 0 ? (
+              <p class="muted" data-no-covers>
+                No substitute dates coming up.
+              </p>
+            ) : (
+              <ul class="covers" data-covers>
+                {covers.map((c) => (
+                  <li class="cover" data-cover={`${c.sessionId} ${c.classDate}`}>
+                    <span>
+                      <strong>{longDate(c.classDate)}</strong>
+                      <span>
+                        {classTitle(c.sessionId)}
+                        {c.coveringForStaffId && ` (for ${nameOf.get(c.coveringForStaffId) ?? 'a teacher no longer on staff'})`}
+                      </span>
+                    </span>
+                    {fresh && (
+                      <form method="post">
+                        <input type="hidden" name="action" value="cover-remove" />
+                        <input type="hidden" name="coverId" value={c.id} />
+                        <button class="btn btn--outline btn--sm" type="submit">
+                          Remove
+                        </button>
+                      </form>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {fresh && person.active && choices.length > 0 && (
+              <form method="post" class="staff-card stack-form" data-add-cover>
+                <input type="hidden" name="action" value="cover-add" />
+                <h3>Add a substitute date</h3>
+                <div class="field">
+                  <label for="cover-class">Class</label>
+                  <select id="cover-class" name="sessionId" required>
+                    <option value="">Choose a class</option>
+                    {choices.map((c) => (
+                      <option value={c.sessionId} selected={v('sessionId') === c.sessionId}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="cover-date">Date</label>
+                  <input id="cover-date" name="classDate" type="date" required min={today} value={v('classDate')} />
+                </div>
+                <div class="field">
+                  <label for="cover-for">Covering for (optional)</label>
+                  <select id="cover-for" name="coveringFor">
+                    <option value="">Nobody in particular</option>
+                    {others.map((p) => (
+                      <option value={p.id} selected={v('coveringFor') === p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button class="btn btn--primary" type="submit">
+                  Add date
+                </button>
+              </form>
+            )}
+          </section>
+
+          {fresh && !person.fixed && person.email !== staff!.email.toLowerCase() && (
+            <section class="admin-section staff-card" aria-labelledby="access-title">
+              <h2 id="access-title">{person.active ? 'Turn off' : 'Turn back on'}</h2>
+              {person.active ? (
+                <form method="post" class="stack-form" data-deactivate>
+                  <input type="hidden" name="action" value="deactivate" />
+                  <p>When someone leaves, turn them off. They can’t open staff pages any more. Their classes, substitute dates and records stay.</p>
+                  <button class="btn btn--danger" type="submit">
+                    Turn off {person.name}
+                  </button>
+                </form>
+              ) : (
+                <form method="post" class="stack-form" data-reactivate>
+                  <input type="hidden" name="action" value="reactivate" />
+                  <p>They’ll be able to sign in to staff pages again.</p>
+                  <button class="btn btn--primary" type="submit">
+                    Turn back on
+                  </button>
+                </form>
+              )}
+            </section>
+          )}
+        </>
+      )
+    }
+  </div>
+</AdminShell>
+
+<style>
+  .person-page .email { overflow-wrap: anywhere; }
+  .person-page .admin-intro .badge { margin-left: 0.4rem; }
+  .stack-form, .confirm-first { display: grid; gap: var(--space-m); justify-items: start; }
+  .stack-form .field { width: 100%; max-width: 32rem; }
+  .stack-form h3 { font-size: var(--step-0); margin: 0; }
+  .roles { border: 0; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
+  .roles legend { font-weight: 650; font-size: var(--step--1); margin-bottom: 0.35rem; }
+  .choice { display: flex; gap: 0.6rem; align-items: flex-start; min-height: 44px; cursor: pointer; }
+  .choice input { width: 1.25rem; height: 1.25rem; margin-top: 0.2rem; flex: none; }
+  .choice small { display: block; color: var(--ink-soft); font-size: var(--step--1); }
+  .classes-form { display: grid; gap: var(--space-l); justify-items: start; }
+  .term { border: 0; padding: 0; margin: 0; width: 100%; min-width: 0; }
+  .term legend { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); margin-bottom: 0.5rem; }
+  .class-choices { list-style: none; margin: 0; padding: 0; display: grid; }
+  .class-choice { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
+  .class-choice label { display: grid; gap: 0.1rem; min-width: 0; flex: 1 1 16rem; }
+  .class-choice small { color: var(--ink-soft); font-size: var(--step--1); overflow-wrap: anywhere; }
+  .class-choice select { min-height: 44px; padding: 0.4rem 0.6rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-sm, 8px); background: var(--paper); font: inherit; flex: 0 0 auto; }
+  .covers { list-style: none; margin: 0; padding: 0; display: grid; }
+  .cover { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
+  .cover > span { display: grid; gap: 0.1rem; }
+  .muted { color: var(--ink-mute); font-size: var(--step--1); }
+</style>

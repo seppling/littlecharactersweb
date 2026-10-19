@@ -1,0 +1,93 @@
+---
+/**
+ * The teacher app's home (docs/back-office.md → Staff roles): today's classes
+ * for the signed-in teacher, and the classes they teach. A placeholder: the
+ * teacher app unit adds rosters, attendance and the note to Hannah. Teachers
+ * land here from /admin; owners can open it too.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { timeRange } from '@/lib/format';
+import { todayInAthens } from '@/lib/pricing';
+import { isProd } from '@/server/env';
+import { requireTeacherOrOwner } from '@/server/staff';
+import { teacherClasses, teacherSessions } from '@/server/teachers';
+import { devDay, longDay } from '@/server/today';
+import { whenLabel } from '@/server/classes';
+
+export const prerender = false;
+const { staff, response } = requireTeacherOrOwner(Astro.locals);
+if (response) return response;
+
+const { content } = Astro.locals;
+// Browser tests pick the day with ?on=YYYY-MM-DD; production ignores it.
+const date = devDay(Astro.url.searchParams, !isProd) ?? todayInAthens();
+const today = staff ? await teacherSessions(staff.staffId, date, content) : [];
+const mine = staff ? (await teacherClasses(staff.staffId, content)).filter((c) => c.session.endDate >= date).sort((a, b) => a.session.startDate.localeCompare(b.session.startDate)) : [];
+const firstName = staff?.name?.split(' ')[0];
+const asLabel = { lead: '', assistant: 'Assisting', cover: 'Substitute' } as const;
+---
+
+<AdminShell title="Your classes" section="teach" teachers>
+  <div class="admin-page teach">
+    <div class="admin-head">
+      <div>
+        <h1>{firstName ? `Hi, ${firstName}` : 'Your classes'}</h1>
+        <p class="admin-intro" data-teach-date>{longDay(date)}</p>
+      </div>
+    </div>
+
+    <section class="admin-section" aria-labelledby="today-title">
+      <h2 id="today-title">Today</h2>
+      {
+        today.length === 0 ? (
+          <div class="empty-state" data-no-classes>
+            <strong>No classes today</strong>
+            <span>Your classes and substitute dates show here on the day.</span>
+          </div>
+        ) : (
+          <ul class="teach-list" data-teach-today>
+            {today.map((t) => (
+              <li class="staff-card teach-class" data-teach-class={t.sessionId}>
+                <strong>{t.program.title}</strong>
+                <span>{[t.session.start && t.session.end ? timeRange(t.session.start, t.session.end) : '', content.locationById(t.session.locationId)?.shortName].filter(Boolean).join(' · ')}</span>
+                {(asLabel[t.as] || t.dayOff) && (
+                  <span class="badges">
+                    {asLabel[t.as] && <span class="badge badge--neutral">{asLabel[t.as]}</span>}
+                    {t.dayOff && <span class="badge badge--warning">Day off: {t.dayOff}</span>}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )
+      }
+      <p class="muted">Rosters and attendance are coming here soon.</p>
+    </section>
+
+    {
+      mine.length > 0 && (
+        <section class="admin-section" aria-labelledby="mine-title">
+          <h2 id="mine-title">Classes you teach</h2>
+          <ul class="teach-list" data-teach-mine>
+            {mine.map((c) => (
+              <li class="teach-row" data-teach-mine-class={c.sessionId}>
+                <strong>{c.program.title}</strong>
+                <span>{[c.session.label, whenLabel(c.session), c.role === 'assistant' ? 'Assisting' : ''].filter(Boolean).join(' · ')}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+  </div>
+</AdminShell>
+
+<style>
+  .teach-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-s); }
+  .teach-class { display: grid; gap: 0.3rem; }
+  .teach-class strong, .teach-row strong { font-family: var(--font-display); font-size: var(--step-1); font-stretch: 92%; }
+  .teach-class > span:not(.badges), .teach-row > span { color: var(--ink-soft); font-size: var(--step--1); }
+  .teach-row { display: grid; gap: 0.15rem; padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
+  .teach-row strong { font-size: var(--step-0); }
+  .muted { color: var(--ink-mute); font-size: var(--step--1); }
+</style>

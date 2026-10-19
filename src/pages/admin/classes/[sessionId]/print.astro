@@ -5,7 +5,7 @@
  * admin.roster.print.
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
-import { classPage, downloads } from '@/lib/admin-links';
+import { classPage, classSignInSheet, downloads } from '@/lib/admin-links';
 import { formatPhone } from '@/lib/contacts';
 import { todayInAthens } from '@/lib/pricing';
 import { classLine, classRoster, photoLabel, type ClassRoster } from '@/server/classes';
@@ -20,7 +20,7 @@ const { program, session } = found;
 const location = Astro.locals.content.locationById(session.locationId);
 const { students }: Pick<ClassRoster, 'students'> = staff ? await classRoster(session.id, staff.id, 'print') : { students: [] };
 const pdf = downloads(classPage(session.id)).pdf;
-const sheet = downloads(`${classPage(session.id)}/sign-in-sheet`).pdf;
+const sheet = classSignInSheet(session.id);
 const made = new Date(`${todayInAthens()}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 const person = (p: { name: string; relationship: string; phone?: string }) => [`${p.name} (${p.relationship})`, formatPhone(p.phone)].filter(Boolean).join(' ');
 ---

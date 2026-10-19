@@ -23,7 +23,9 @@ const fresh = !!staff && signedInRecently(Astro.locals);
 if (fresh && !download) return Astro.redirect(next, 303);
 
 const heading = download ? 'Confirm it’s you before downloading' : 'Confirm it’s you';
-const intro = 'For families’ privacy, we ask for a new code before downloads. We’ll email you a 6-digit code.';
+const intro = download
+  ? 'For families’ privacy, we ask for a new code before downloads. We’ll email you a 6-digit code.'
+  : 'We ask for a new code before changes like this one. We’ll email you a 6-digit code.';
 const here = Astro.url.pathname + Astro.url.search;
 ---
 
@@ -41,7 +43,7 @@ const here = Astro.url.pathname + Astro.url.search;
         </div>
       ) : (
         <div class="staff-card">
-          <SignInPanel level="h1" heading={heading} intro={intro} next={here} email={staff?.email} />
+          <SignInPanel level="h1" heading={heading} intro={intro} next={here} email={staff?.email} sharedDevice />
         </div>
       )
     }

@@ -6,8 +6,8 @@
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
-import { classPage, downloads, family, search } from '@/lib/admin-links';
-import { FAMILY_LISTS, familiesPage, familyDirectory, searchStaff, type SearchResults } from '@/server/families';
+import { classPage, downloads, family, familyLists, search } from '@/lib/admin-links';
+import { familiesPage, familyDirectory, searchStaff, type SearchResults } from '@/server/families';
 import { requireStaff } from '@/server/staff';
 
 export const prerender = false;
@@ -23,8 +23,8 @@ const pageHref = (n: number) => (n > 1 ? `${search()}?page=${n}` : search());
 const ageText = (age: number | null) => (age === null ? '' : `Age ${age}`);
 const files = {
   families: downloads(search()),
-  children: downloads(FAMILY_LISTS.children),
-  contacts: downloads(FAMILY_LISTS.contacts),
+  children: downloads(familyLists().children),
+  contacts: downloads(familyLists().contacts),
 };
 ---
 

@@ -22,10 +22,14 @@ export const classes = () => '/admin/classes';
 export const classPage = (sessionId: string) => `/admin/classes/${seg(sessionId)}`;
 export const classPrint = (sessionId: string) => `/admin/classes/${seg(sessionId)}/print`;
 export const classEmail = (sessionId: string) => `/admin/classes/${seg(sessionId)}/email`;
+/** A class's printable sign-in sheet (a PDF download: names and the next class dates, no care details). */
+export const classSignInSheet = (sessionId: string) => `/admin/classes/${seg(sessionId)}/sign-in-sheet.pdf`;
 
 export const search = (q?: string) => `/admin/search${query({ q: q?.trim() || undefined })}`;
 export const family = (householdId: string) => `/admin/families/${seg(householdId)}`;
 export const familyEmail = (householdId: string) => `/admin/families/${seg(householdId)}/email`;
+/** The family downloads besides the Family List (which is downloads(search())): pass one to downloads(). */
+export const familyLists = () => ({ children: `${search()}/children`, contacts: `${search()}/contacts`, notes: `${search()}/notes` }) as const;
 
 /** Payments: everything, or one section. `month` ("2026-10") picks the month of Payments received. */
 export const payments = (show?: 'failed' | 'upcoming', month?: string) => `/admin/payments${query({ show, month })}`;
@@ -35,6 +39,14 @@ export const paymentsOrder = (orderId: string) => `/admin/payments/${seg(orderId
 export const leads = () => '/admin/leads';
 /** The website editor. */
 export const content = () => '/admin/content';
+/** Settings: staff and teachers now; email wording and reasons later (docs/back-office.md → Settings). */
+export const settings = () => '/admin/settings';
+/** Settings → Staff: who works here, their role, their classes and substitute dates. */
+export const settingsStaff = () => '/admin/settings/staff';
+/** One staff member: name and role, classes, substitute dates, deactivate. */
+export const settingsStaffMember = (staffId: string) => `/admin/settings/staff/${seg(staffId)}`;
+/** The teacher app's home: today's classes for a teacher (owners can open it too). */
+export const teachHome = () => '/admin/teach';
 /** How to put the staff app on a phone's home screen. */
 export const install = () => '/admin/install';
 /** Sign in again before a download or another sensitive step, then go on to `next`. */

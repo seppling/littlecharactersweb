@@ -1,11 +1,16 @@
 ---
 import AdminShell from '@/components/admin/AdminShell.astro';
+import { requireStaff } from '@/server/staff';
 import { collections, collectionKeys } from '@/content/collections';
 import { pages, pageKeys } from '@/content/pages';
 import { listEntries, pendingCounts, recentChanges } from '@/server/content';
 import { BASE, editTarget, when } from '@/lib/editor';
 
 export const prerender = false;
+
+// Owners only: signed-in families and teachers get the "Staff only" panel (404).
+const { response: notStaff } = requireStaff(Astro.locals);
+if (notStaff) return notStaff;
 
 const isAdmin = Astro.locals.isAdmin;
 const pending = isAdmin ? await pendingCounts() : new Map<string, number>();

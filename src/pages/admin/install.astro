@@ -5,15 +5,17 @@
  * Chrome's install prompt, or its menu.
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
-import { today } from '@/lib/admin-links';
-import { requireStaff } from '@/server/staff';
+import { teachHome, today } from '@/lib/admin-links';
+import { requireTeacherOrOwner } from '@/server/staff';
 
 export const prerender = false;
-const { response } = requireStaff(Astro.locals);
+// Teachers put the app on their phones too.
+const { response } = requireTeacherOrOwner(Astro.locals);
 if (response) return response;
+const back = Astro.locals.staffRole === 'teacher' ? { href: teachHome(), label: 'Your classes' } : { href: today(), label: 'Today' };
 ---
 
-<AdminShell title="Put the app on your phone" section="today" back={{ href: today(), label: 'Today' }}>
+<AdminShell title="Put the app on your phone" section="today" back={back} teachers>
   <div class="admin-page install">
     <div class="admin-head">
       <div>

@@ -16,7 +16,7 @@
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
-import { classEmail, classes, classPage, classPrint, downloads, family, paymentsOrder } from '@/lib/admin-links';
+import { classEmail, classes, classPage, classPrint, classSignInSheet, downloads, family, paymentsOrder } from '@/lib/admin-links';
 import { formatPhone, smsHref, telHref } from '@/lib/contacts';
 import { formatCents } from '@/lib/pricing';
 import { capacityFor } from '@/server/family';
@@ -162,7 +162,7 @@ const notice = actionError
 const { students, waitlist }: ClassRoster = staff ? await classRoster(session.id, staff.id) : { students: [], waitlist: [] };
 const cap = capacityFor(program, session);
 const files = downloads(classPage(session.id));
-const sheet = downloads(`${classPage(session.id)}/sign-in-sheet`).pdf;
+const sheet = classSignInSheet(session.id);
 const joined = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
 const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.length) === 1 ? 'place' : 'places'}${cap ? ' filled' : ''}`;
 ---
@@ -470,11 +470,6 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
 </AdminShell>
 
 <style>
-  /* admin.css's base .badge rule comes after its tone rules and wins; until that's fixed there, keep the tones here (report: open points). */
-  .admin-page :global(.badge--neutral) { background: var(--line); color: var(--ink-soft); }
-  .admin-page :global(.badge--good) { background: var(--ok-tint); color: #1c6b3e; }
-  .admin-page :global(.badge--warning) { background: var(--yellow-tint); color: var(--yellow-ink); }
-  .admin-page :global(.badge--alert) { background: var(--red-tint); color: var(--red-ink); }
   /* admin.css's `.admin-head > div { display: grid }` outranks .admin-head__actions' flex row. */
   .admin-head > .class-actions { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
   .class-line { color: var(--ink-soft); }

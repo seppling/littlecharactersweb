@@ -1,12 +1,17 @@
 ---
 /** The photo library: upload, describe, and delete photos nothing uses. */
 import AdminShell from '@/components/admin/AdminShell.astro';
+import { requireStaff } from '@/server/staff';
 import { deleteUpload, listUploads, MAX_UPLOAD_BYTES, photoUsage, saveUpload, updateUploadAlt, UploadError } from '@/server/media';
 import { builtinPhotos, thumbnail } from '@/lib/media';
 import { editTarget, BASE, when } from '@/lib/editor';
 import { getContent } from '@/server/content';
 
 export const prerender = false;
+
+// Owners only: signed-in families and teachers get the "Staff only" panel (404).
+const { response: notStaff } = requireStaff(Astro.locals);
+if (notStaff) return notStaff;
 
 const { isAdmin, user } = Astro.locals;
 let problem: string | undefined;

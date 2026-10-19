@@ -15,7 +15,7 @@ import * as links from '@/lib/admin-links';
 import { attentionCount } from '@/server/today';
 import '@/styles/admin.css';
 
-export type StaffSection = 'today' | 'classes' | 'families' | 'payments' | 'leads' | 'content';
+export type StaffSection = 'today' | 'classes' | 'families' | 'payments' | 'leads' | 'content' | 'settings' | 'teach';
 
 interface Props {
   title: string;
@@ -27,9 +27,14 @@ interface Props {
   back?: { href: string; label: string };
   /** The sign-in shown to signed-out visitors, when the page needs other words. */
   signIn?: { heading: string; intro: string };
+  /** A teacher-app page: teachers may open it too (requireTeacherOrOwner). Every other page is for owners only. */
+  teachers?: boolean;
 }
-const { title, section = 'content', wide = false, back, signIn = { heading: 'Staff sign-in', intro: 'Enter your staff email and we’ll send you a 6-digit code.' } } = Astro.props;
-const { user, isAdmin } = Astro.locals;
+const { title, section = 'content', wide = false, back, teachers = false, signIn = { heading: 'Staff sign-in', intro: 'Enter your staff email and we’ll send you a 6-digit code.' } } = Astro.props;
+const { user, isAdmin, staffRole } = Astro.locals;
+// Teachers see the teacher app only: no sections, search or tabs.
+const teacher = staffRole === 'teacher';
+const allowed = isAdmin || (teachers && teacher);
 const path = Astro.url.pathname;
 const here = path + Astro.url.search;
 const q = path.startsWith('/admin/search') ? (Astro.url.searchParams.get('q') ?? '') : '';
@@ -44,6 +49,7 @@ const sections: { key: StaffSection; label: string; href: string }[] = [
   { key: 'payments', label: 'Payments', href: links.payments() },
   { key: 'leads', label: 'Messages & sign-ups', href: links.leads() },
   { key: 'content', label: 'Website', href: links.content() },
+  { key: 'settings', label: 'Settings', href: links.settings() },
 ];
 
 // Phone tab bar. The current tab follows the address, so Search stays lit on a family's page.
@@ -67,7 +73,12 @@ const more = [
   { key: 'payments', label: 'Payments', href: links.payments() },
   { key: 'leads', label: 'Messages & sign-ups', href: links.leads() },
   { key: 'content', label: 'Website', href: links.content() },
+  { key: 'settings', label: 'Settings', href: links.settings() },
 ];
+// A teacher's menu: the teacher app, and nothing of the owners' pages.
+const home = teacher ? links.teachHome() : links.today();
+const navSections: { key: StaffSection; label: string; href: string }[] = teacher ? [{ key: 'teach', label: 'Your classes', href: links.teachHome() }] : sections;
+const navMore = teacher ? [] : more;
 ---
 
 <Base title={title} noindex staffBar={false} chrome={false} themeColor="#1c1826">
@@ -79,7 +90,7 @@ const more = [
     <meta name="mobile-web-app-capable" content="yes" />
   </Fragment>
   {
-    !isAdmin ? (
+    !allowed ? (
       <>
         <header class="staff-top staff-top--gate">
           <div class="staff-top__row">
@@ -96,7 +107,7 @@ const more = [
               <p data-staff-only>
                 This page is for Little Characters staff. You’re signed in as <strong>{user.email}</strong>.
               </p>
-              <p>If you work here, sign out and sign in with your staff email.</p>
+              {teacher ? <p>Teachers see their own classes in the teacher app.</p> : <p>If you work here, sign out and sign in with your staff email.</p>}
               <div class="gate__actions">
                 <form method="post" action="/account/sign-out">
                   <input type="hidden" name="next" value={here} />
@@ -104,27 +115,35 @@ const more = [
                     Sign out
                   </button>
                 </form>
-                <a class="btn btn--primary" href="/account">Go to your family account</a>
+                {teacher ? (
+                  <a class="btn btn--primary" href={links.teachHome()}>
+                    Go to your classes
+                  </a>
+                ) : (
+                  <a class="btn btn--primary" href="/account">
+                    Go to your family account
+                  </a>
+                )}
               </div>
             </div>
           ) : (
-            <SignInPanel heading={signIn.heading} intro={signIn.intro} next={here} />
+            <SignInPanel heading={signIn.heading} intro={signIn.intro} next={here} sharedDevice />
           )}
         </section>
       </>
     ) : (
-      <div class:list={['admin-shell', { 'admin-shell--wide': wide }]} data-staff-shell>
+      <div class:list={['admin-shell', { 'admin-shell--wide': wide, 'admin-shell--teacher': teacher }]} data-staff-shell data-staff-role={staffRole}>
         <header class="staff-top">
           <div class="staff-top__row">
-            <a class="staff-brand" href={links.today()}>
+            <a class="staff-brand" href={home}>
               <img src="/admin/icons/icon-192.png" width="32" height="32" alt="" />
               <span>Little Characters <span class="staff-brand__sub">Staff</span></span>
             </a>
-            <form class="staff-search" role="search" action="/admin/search" method="get" data-staff-search>
+            {!teacher && (<form class="staff-search" role="search" action="/admin/search" method="get" data-staff-search>
               <label class="sr-only" for="staff-q">Search families, children and classes</label>
               <input id="staff-q" name="q" type="search" value={q} placeholder="Search families, children, classes" autocomplete="off" />
               <button type="submit">Search</button>
-            </form>
+            </form>)}
             <div class="staff-account">
               <span class="staff-account__email">{user!.email}</span>
               <form method="post" action="/account/sign-out">
@@ -135,7 +154,7 @@ const more = [
           </div>
           <nav class="staff-sections" aria-label="Staff">
             <ul>
-              {sections.map((s) => (
+              {navSections.map((s) => (
                 <li>
                   <a href={s.href} aria-current={s.key === section ? 'page' : undefined}>
                     {s.label}
@@ -164,7 +183,7 @@ const more = [
               <summary>Menu</summary>
               <div class="staff-menu__panel">
                 <ul>
-                  {more.map((m) => (
+                  {navMore.map((m) => (
                     <li>
                       <a href={m.href} aria-current={m.key === section ? 'page' : undefined}>
                         {m.label}
@@ -186,7 +205,7 @@ const more = [
         </header>
         {section === 'content' && <p class="staff-hint" role="note">The website editor works best on a computer.</p>}
         <slot />
-        <nav class="staff-tabs" aria-label="Staff, on a phone">
+        {!teacher && (<nav class="staff-tabs" aria-label="Staff, on a phone">
           <ul>
             {tabs.map((t) => (
               <li>
@@ -205,7 +224,7 @@ const more = [
               </li>
             ))}
           </ul>
-        </nav>
+        </nav>)}
       </div>
     )
   }
