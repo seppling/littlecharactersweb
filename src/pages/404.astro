@@ -2,8 +2,15 @@
 import Base from '@/layouts/Base.astro';
 import Character from '@/components/Character.astro';
 import AgePicker from '@/components/AgePicker.astro';
+import AdminShell from '@/components/admin/AdminShell.astro';
+
+// A staff page refused a signed-in person who isn't staff (requireStaff in
+// src/server/staff.ts): still a 404, but with the shell's "Staff only" panel.
+const { user, isAdmin } = Astro.locals;
+const staffOnly = /^\/admin(\/|$)/.test(Astro.url.pathname) && !!user && !isAdmin;
 ---
 
+{staffOnly ? <AdminShell title="Staff only" /> : (
 <Base title="Page not found">
   <section class="nf">
     <div class="wrap wrap--narrow nf__inner">
@@ -15,6 +22,7 @@ import AgePicker from '@/components/AgePicker.astro';
     </div>
   </section>
 </Base>
+)}
 
 <style>
   .nf { padding-block: var(--space-3xl); }

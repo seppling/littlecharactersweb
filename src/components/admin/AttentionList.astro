@@ -1,0 +1,23 @@
+---
+/** "Needs attention" rows (src/server/today.ts): a title, a short detail and one next step. */
+import type { AttentionItem } from '@/server/today';
+
+interface Props {
+  items: AttentionItem[];
+}
+const { items } = Astro.props;
+---
+
+<ul class="attention-list" data-attention>
+  {
+    items.map((i) => (
+      <li class:list={['attention-item', `attention-item--${i.tone}`]} data-kind={i.kind}>
+        <span class="attention-item__title">{i.title}</span>
+        <span class="attention-item__detail">{i.detail}</span>
+        <a class="attention-item__action btn btn--outline btn--sm" href={i.action.href}>
+          {i.action.label}
+        </a>
+      </li>
+    ))
+  }
+</ul>
