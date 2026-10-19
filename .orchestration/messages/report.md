@@ -10,7 +10,7 @@ Hannah can email a class or one family from the site, see what was sent, retry f
 - `src/components/admin/MessageComposer.astro`: the page (who gets it with ticks and the waitlist switch, copy buttons with a fallback box, subject, message, "Review", "Send me a test"; review; sent with "Try again for the failed ones"; earlier emails).
 - `src/pages/admin/classes/[sessionId]/email.astro` (`classEmail(id)`): Email the class.
 - `src/pages/admin/families/[householdId]/email.astro` (`familyEmail(id)`): Email this family.
-- `tests/unit/messages.test.ts` (12 tests), `tests/e2e/staff-messages.mjs`.
+- `tests/unit/messages.test.ts` (14 tests), `tests/e2e/staff-messages.mjs`.
 
 **Changed files**
 - `src/lib/admin-links.ts`: **added `familyEmail(id)`** → `/admin/families/<id>/email` (+ its line in `tests/unit/admin-links.test.ts`).
