@@ -15,7 +15,7 @@ import * as links from '@/lib/admin-links';
 import { attentionCount } from '@/server/today';
 import '@/styles/admin.css';
 
-export type StaffSection = 'today' | 'classes' | 'families' | 'payments' | 'leads' | 'content' | 'settings' | 'teach';
+export type StaffSection = 'today' | 'classes' | 'calendar' | 'families' | 'payments' | 'leads' | 'content' | 'settings' | 'teach';
 
 interface Props {
   title: string;
@@ -45,6 +45,7 @@ const countLabel = `${urgent} need${urgent === 1 ? 's' : ''} attention`;
 const sections: { key: StaffSection; label: string; href: string }[] = [
   { key: 'today', label: 'Today', href: links.today() },
   { key: 'classes', label: 'Classes', href: links.classes() },
+  { key: 'calendar', label: 'Calendar', href: links.calendar() },
   { key: 'families', label: 'Families', href: links.search() },
   { key: 'payments', label: 'Payments', href: links.payments() },
   { key: 'leads', label: 'Messages & sign-ups', href: links.leads() },
@@ -69,6 +70,7 @@ const tabs = [
   { key: 'alerts', label: 'Alerts', href: links.attention(), icon: 'M12 4a5 5 0 0 0-5 5v3.5L5 16h14l-2-3.5V9a5 5 0 0 0-5-5zM10 19a2 2 0 0 0 4 0' },
 ];
 const more = [
+  { key: 'calendar', label: 'Calendar', href: links.calendar() },
   { key: 'families', label: 'Families', href: links.search() },
   { key: 'payments', label: 'Payments', href: links.payments() },
   { key: 'leads', label: 'Messages & sign-ups', href: links.leads() },

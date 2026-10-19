@@ -330,3 +330,13 @@ describe('adding and removing a day off', () => {
     await expect(addDayOff(hannah, catalog, { ...one('2026-12-01', '2026-12-01', 'keep', null), reason: 'Again' })).rejects.toThrow(/already a day off/);
   });
 });
+
+describe('calendar files leave out days off', () => {
+  it('adds an EXDATE for each day off after the first class in the file', async () => {
+    const { classCalendar } = await import('@/lib/ics');
+    const session = { id: 's', days: ['Thu'], start: '16:30', end: '17:30', startDate: '2026-09-03', endDate: '2026-12-17' } as Session;
+    const ics = classCalendar({ session, first: '2026-10-01', uid: 'u', summary: 'x', description: 'y', prodId: 'p', skip: ['2026-09-24', '2026-11-26'], now: new Date('2026-10-01T00:00:00Z') });
+    expect(ics).toContain('EXDATE;TZID=America/New_York:20261126T163000');
+    expect(ics).not.toContain('20260924');
+  });
+});

@@ -16,9 +16,10 @@
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
-import { classEmail, classes, classPage, classPrint, classSignInSheet, downloads, family, paymentsOrder } from '@/lib/admin-links';
+import { classEmail, classes, classPage, classPrint, classSignInSheet, downloads, family, paymentsOrder, settingsDaysOff } from '@/lib/admin-links';
 import { formatPhone, smsHref, telHref } from '@/lib/contacts';
-import { formatCents } from '@/lib/pricing';
+import { formatCents, todayInAthens } from '@/lib/pricing';
+import { classDates } from '@/server/class-day';
 import { capacityFor } from '@/server/family';
 import { classLine, classRoster, type ClassRoster } from '@/server/classes';
 import { newSendToken } from '@/server/messages';
@@ -164,6 +165,11 @@ const cap = capacityFor(program, session);
 const files = downloads(classPage(session.id));
 const sheet = classSignInSheet(session.id);
 const joined = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
+// Every meeting, with days off struck through (src/server/class-day.ts).
+const today = todayInAthens();
+const dates = staff ? await classDates(session) : [];
+const classesLeft = dates.filter((d) => d.date >= today && !d.dayOff).length;
+const dateLabel = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.length) === 1 ? 'place' : 'places'}${cap ? ' filled' : ''}`;
 ---
 
@@ -466,6 +472,28 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
         </ol>
       )}
     </section>
+
+    <section class="roster-section" aria-labelledby="dates-h" data-class-dates>
+      <div class="dates-head">
+        <h2 id="dates-h">Dates <span class="muted">({plural(classesLeft, 'class', 'classes')} left)</span></h2>
+        <a class="btn btn--outline btn--sm" href={settingsDaysOff(session.id)} data-add-day-off>Add a day off</a>
+      </div>
+      {dates.length === 0 ? (
+        <p class="muted">No dates.</p>
+      ) : (
+        <ol class="dates">
+          {dates.map((d) => (
+            <li class:list={['date', { 'date--past': d.date < today, 'date--off': !!d.dayOff }]} data-date={d.date}>
+              {d.dayOff ? (
+                <><s>{dateLabel(d.date)}</s> <span class="date__off" data-day-off>No class: {d.dayOff.reason}</span></>
+              ) : (
+                <span>{dateLabel(d.date)}</span>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   </div>
 </AdminShell>
 
@@ -478,6 +506,13 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
   .muted { color: var(--ink-mute); font-weight: 400; }
   .roster-section { display: grid; gap: var(--space-s); }
   .roster-section h2 { font-size: var(--step-1); }
+  .dates-head { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; }
+  .dates { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); gap: 0.4rem; }
+  .date { padding: 0.45rem 0.7rem; border: 1.5px solid var(--line); border-radius: var(--r-sm); background: var(--paper); font-size: var(--step--1); font-variant-numeric: tabular-nums; }
+  .date--past { color: var(--ink-mute); background: transparent; }
+  .date--off { border-color: var(--red); background: var(--red-tint); }
+  .date--off s { color: var(--ink-mute); }
+  .date__off { display: block; font-weight: 650; color: var(--red-ink); overflow-wrap: anywhere; }
   .roster,
   .waitlist,
   .people { list-style: none; margin: 0; padding: 0; }

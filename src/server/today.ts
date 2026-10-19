@@ -25,6 +25,7 @@ import { bookingClock } from '@/lib/session-dates';
 import { detailsOnFile } from '@/lib/student-details';
 import { sessionCounts } from './admin';
 import { billingOverview, totalDue } from './billing';
+import { dayOffFrom, daysOffBetween } from './class-day';
 import { classRows, MIN_TO_RUN, placesLabel, type ClassRow } from './classes';
 import { getDb, schema } from './db';
 import { LEAD_LABELS, staffLeads } from './leads';
@@ -59,6 +60,10 @@ export interface TodayClass {
   /** The class's staff page; the event's page on the site for an event. */
   href: string;
   kind: 'class' | 'event';
+  /** The class's session id; undefined for an event. */
+  sessionId?: string;
+  /** The reason, when this class has the day off that date (src/server/class-day.ts). Closed classes don't count as "not taken". */
+  dayOff?: string | null;
 }
 
 const eventLocation = (e: EventItem, content: Pick<Content, 'locationById'>) => e.venue || content.locationById(e.locationId)?.shortName || '';
@@ -80,6 +85,7 @@ export function classesOn(rows: ClassRow[], events: EventItem[], date: string, c
     places: placesLabel(r),
     href: links.classPage(r.session.id),
     kind: 'class',
+    sessionId: r.session.id,
   }));
   const bookedPrograms = new Set(meeting.map((r) => r.program.slug));
   for (const e of events) {
@@ -120,9 +126,11 @@ async function allRows(content: Content, now: Date) {
 
 /** Today's classes in Athens, and the next day with classes when there are none. `date` overrides the day (development only). */
 export async function todayClasses(content: Content, now = new Date(), date = todayInAthens(now)) {
-  const rows = await allRows(content, now);
-  const classes = classesOn(rows, content.events, date, content);
-  return { date, classes, next: classes.length ? null : nextClassDay(rows, content.events, date, content) };
+  const [rows, daysOff] = await Promise.all([allRows(content, now), daysOffBetween(date, date)]);
+  const classes = classesOn(rows, content.events, date, content).map((c) => (c.sessionId ? { ...c, dayOff: dayOffFrom(daysOff, c.sessionId, date)?.reason ?? null } : c));
+  // A day off for every class today: "No classes today: Thanksgiving".
+  const closed = daysOff.find((d) => d.sessionId === null) ?? null;
+  return { date, classes, closed, next: classes.length && !closed ? null : nextClassDay(rows, content.events, date, content) };
 }
 
 // ───────────── Needs attention ─────────────

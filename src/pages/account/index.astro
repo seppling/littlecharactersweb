@@ -13,6 +13,8 @@ import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
 import { bookingClock, canBook, sessionState } from '@/lib/session-dates';
 import { failureReason, listInstallments, totalDue } from '@/server/billing';
+import { dayOffFrom, daysOffBetween } from '@/server/class-day';
+import { noClassLine } from '@/server/days-off';
 import { adjustmentLine, discountLines } from '@/lib/adjustments';
 import { cardLabel, groupAutopay, namesList, studioDirectorWelcome } from '@/lib/account';
 
@@ -102,14 +104,18 @@ const receipts: { date: Date; label: string; amountCents: number; discounts?: Re
 const today = todayInAthens();
 const clock = bookingClock(Astro.locals.content.site.lateJoinWeeks);
 
+// Days off from today on: "No class Nov 26 (Thanksgiving)" in each class's line, and the next class skips them.
+const daysOff = enrollments.length ? await daysOffBetween(today, '9999-12-31') : [];
 const upcoming = enrollments
   .map(({ enrollment, student }) => {
     const found = Astro.locals.content.findSession(enrollment.sessionId);
     if (!found) return null;
-    const next = meetings(found.session).find((m) => m >= today);
+    const left = meetings(found.session).filter((m) => m >= today);
+    const next = left.find((m) => !dayOffFrom(daysOff, found.session.id, m)) ?? (left.length ? left[0] : undefined);
+    const off = left.map((m) => dayOffFrom(daysOff, found.session.id, m)).filter((d): d is NonNullable<typeof d> => !!d);
     // After a free class, continuing is a new sign-up: only while the class still takes new students.
     const canContinue = enrollment.status === 'trial' && canBook(found.program, found.session, clock);
-    return { enrollment, student, ...found, next, canContinue };
+    return { enrollment, student, ...found, next, off, canContinue };
   })
   // A waitlist place shows until the class has ended.
   .filter((x): x is NonNullable<typeof x> => !!x && (!!x.next || (x.enrollment.status === 'waitlist' && sessionState(x.program, x.session, clock) !== 'ended')))
@@ -186,6 +192,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                       <div class="classes__side">
                         <span class:list={['badge', `badge--${u.enrollment.status}`]}>{statusLabel[u.enrollment.status]}</span>
                         {u.next && <span class="classes__next">Next: {fmtDate(u.next)}</span>}
+                        {u.enrollment.status !== 'waitlist' && u.off.map((d) => <span class="classes__off" data-no-class>{noClassLine(d)}</span>)}
                         {u.canContinue && <a href={`/enroll/${u.session.id}`}>Continue after the trial</a>}
                         {u.enrollment.status === 'trial' && !u.canContinue && (
                           <span>Sign-ups for this season have closed. <a href={`/contact?topic=class&class=${encodeURIComponent(u.program.title)}`}>Ask us</a></span>
@@ -388,6 +395,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
   .classes strong { font-family: var(--font-display); font-size: 1.15rem; }
   .classes .script { font-size: var(--step--1); color: var(--ink-soft); }
   .classes__side { display: grid; gap: 0.2rem; justify-items: end; font-size: var(--step--1); }
+  .classes__off { font-weight: 700; color: var(--red-ink); }
   .kids li { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; padding: 0.7rem 0; border-bottom: 1px solid var(--line); }
   .muted { color: var(--ink-mute); }
   .badge { font-size: var(--step--2); font-weight: 700; padding: 0.25em 0.7em; border-radius: 999px; }

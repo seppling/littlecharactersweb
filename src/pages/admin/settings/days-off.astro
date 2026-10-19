@@ -1,0 +1,417 @@
+---
+/**
+ * Settings → Days off: the list (upcoming and past), Add a day off, and
+ * Remove (src/server/days-off.ts). Owners only.
+ *
+ * Adding is two steps: the form, then a preview (?step=check&…, a GET, so a
+ * fresh sign-in can come back to it) of every class, family and payment it
+ * touches. Nothing is saved until Hannah chooses what happens to the monthly
+ * payments and presses Save, which needs a sign-in from the last 15 minutes.
+ * Removing shows the payments that go back up first. Changes redirect with
+ * ?done= so a reload doesn't repeat them.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { calendar, classPage, confirm, family, paymentsOrder, settings, settingsDaysOff } from '@/lib/admin-links';
+import { formatCents, todayInAthens } from '@/lib/pricing';
+import { classRows, whenLabel } from '@/server/classes';
+import { sessionCounts } from '@/server/admin';
+import { bookingClock } from '@/lib/session-dates';
+import {
+  addDayOff,
+  DAY_OFF,
+  DayOffError,
+  datesLabel,
+  daysOffList,
+  monthDay,
+  monthWord,
+  previewDayOff,
+  previewRemoval,
+  readDayOffRequest,
+  removeDayOff,
+  requestQuery,
+  weekdayDate,
+  type DayOffPlan,
+  type DayOffRequest,
+} from '@/server/days-off';
+import { AdjustmentError } from '@/server/adjustments';
+import { requireFreshStaff, requireStaff, signedInRecently } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const { content } = Astro.locals;
+const here = settingsDaysOff();
+const params = Astro.url.searchParams;
+const today = todayInAthens();
+const names = (xs: string[]) => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** The form isn't filled in right: show the form again. */
+let error = '';
+/** Saving was refused: show the preview again, with why. */
+let saveError = '';
+let request: DayOffRequest | null = null;
+let plan: DayOffPlan | null = null;
+
+if (staff && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') ?? '');
+  if (action === 'add') {
+    const read = readDayOffRequest((k) => (form.get(k) === null ? null : String(form.get(k))), (k) => form.getAll(k).map(String));
+    const stop = requireFreshStaff(Astro.locals, new URL(`${here}?${requestQuery(read.request)}`, Astro.url));
+    if (stop) return stop;
+    request = read.request;
+    error = read.error ?? '';
+    if (!error) {
+      try {
+        const r = await addDayOff(staff, content, read.request);
+        return Astro.redirect(`${here}?${new URLSearchParams({ done: 'added', n: String(r.lowered), e: String(r.emailed), d: datesLabel(r.plan.dates) })}`, 303);
+      } catch (e) {
+        if (!(e instanceof DayOffError) && !(e instanceof AdjustmentError)) throw e;
+        saveError = e.message;
+      }
+    }
+  } else if (action === 'remove') {
+    const id = String(form.get('id') ?? '');
+    const stop = requireFreshStaff(Astro.locals, new URL(`${here}?remove=${encodeURIComponent(id)}`, Astro.url));
+    if (stop) return stop;
+    const r = await removeDayOff(staff, id);
+    return Astro.redirect(`${here}?${new URLSearchParams(r ? { done: 'removed', n: String(r.changes.length) } : { done: 'gone' })}`, 303);
+  }
+}
+
+// The preview step (a GET), or the form again after an error.
+if (staff && !request && params.get('step') === 'check') {
+  const read = readDayOffRequest((k) => params.get(k), (k) => params.getAll(k));
+  request = read.request;
+  error = read.error ?? '';
+}
+if (staff && request && !error) plan = await previewDayOff(staff, content, request);
+
+const removeId = params.get('remove');
+const removal = staff && removeId ? await previewRemoval(staff, removeId) : null;
+const list = staff ? await daysOffList(content, today) : { upcoming: [], past: [] };
+const fresh = !!staff && signedInRecently(Astro.locals);
+
+// The classes to choose from: current and upcoming, as on the Classes list.
+const rows = staff ? classRows(content, await sessionCounts(), bookingClock(content.site.lateJoinWeeks)).filter((r) => r.state !== 'ended') : [];
+const picked = new Set(request?.sessionIds ?? params.getAll('class'));
+const which = request ? (request.sessionIds ? 'some' : 'all') : params.get('which') === 'some' ? 'some' : 'all';
+const values = { from: request?.from ?? '', to: request?.to && request.to !== request.from ? request.to : '', reason: request?.reason ?? '' };
+const previewUrl = request ? `${here}?${requestQuery(request)}` : here;
+
+const notice = (() => {
+  const n = Number(params.get('n') ?? 0);
+  const e = Number(params.get('e') ?? 0);
+  switch (params.get('done')) {
+    case 'added':
+      return { ok: true, text: `Day off saved for ${params.get('d') ?? 'those dates'}. ${n ? `${plural(n, 'monthly payment')} lowered.` : 'Payments weren’t changed.'} ${e ? `${plural(e, 'family', 'families')} emailed.` : 'No one was emailed.'}` };
+    case 'removed':
+      return { ok: true, text: `Day off removed. ${n ? `${plural(n, 'payment')} went back up.` : 'No payments changed.'}` };
+    case 'gone':
+      return { ok: false, text: 'That day off was already removed.' };
+    default:
+      return null;
+  }
+})();
+const payLabel = (g: { lowered: boolean; adjustments: { count: number; cents: number } }) =>
+  g.lowered ? (g.adjustments.count ? `Lowered ${plural(g.adjustments.count, 'payment')} by ${formatCents(g.adjustments.cents)} in all` : 'Lower payments (none to lower)') : 'Payments not changed';
+---
+
+<AdminShell title="Days off" section="settings" back={{ href: settings(), label: 'Settings' }}>
+  <div class="admin-page days-off">
+    <div class="admin-head">
+      <div>
+        <h1>Days off</h1>
+        <p class="admin-intro">No class on a date, for every class or some. Families see the reason on their account and on the class’s dates. A day off can lower that month’s payments by one class.</p>
+      </div>
+      <div class="admin-head__actions">
+        <a class="btn btn--outline btn--sm" href={calendar()}>Calendar</a>
+      </div>
+    </div>
+
+    {notice && <p class:list={['notice', { 'notice--error': !notice.ok }]} role="status" data-notice>{notice.text}</p>}
+
+    {removal && (
+      <section class="check" aria-labelledby="remove-title" data-remove-check>
+        <h2 id="remove-title">Remove the day off on {datesLabel([...new Set(removal.rows.map((r) => r.date))])}?</h2>
+        <p>{removal.rows[0].reason}. Families aren’t emailed.</p>
+        {removal.changes.length ? (
+          <>
+            <p><strong>These payments go back up:</strong></p>
+            <ul class="effects" data-remove-changes>
+              {removal.changes.map((c) => (
+                <li><span><a href={family(c.householdId)}>{c.family}</a>, {monthWord(c.dueDate.slice(0, 7))}</span><span><s>{formatCents(c.beforeCents)}</s> → <strong>{formatCents(c.afterCents)}</strong></span></li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p>No payments change.</p>
+        )}
+        {removal.paidStay.length > 0 && <p class="muted">Already paid, so they stay as they were: {names([...new Set(removal.paidStay.map((p) => p.family))])}.</p>}
+        {fresh ? (
+          <form method="post" class="check__actions">
+            <input type="hidden" name="id" value={removeId} />
+            <button class="btn btn--danger btn--sm" name="action" value="remove" data-confirm-remove>Remove day off</button>
+            <a class="btn btn--outline btn--sm" href={here}>Cancel</a>
+          </form>
+        ) : (
+          <div class="check__actions">
+            <a class="btn btn--primary btn--sm" href={confirm(`${here}?remove=${encodeURIComponent(removeId!)}`)} data-confirm-first>Confirm it’s you</a>
+            <a class="btn btn--outline btn--sm" href={here}>Cancel</a>
+          </div>
+        )}
+      </section>
+    )}
+
+    {!plan && !removal && (
+      <section class="admin-section staff-card add" aria-labelledby="add-title">
+        <h2 id="add-title">Add a day off</h2>
+        <form method="get" action={here} class="add__form" data-add-day-off>
+          <input type="hidden" name="step" value="check" />
+          <div class="add__dates">
+            <div class="field">
+              <label for="d-from">Date</label>
+              <input id="d-from" name="from" type="date" required value={values.from} />
+            </div>
+            <div class="field">
+              <label for="d-to">Last day <span class="opt">(for a break)</span></label>
+              <input id="d-to" name="to" type="date" value={values.to} />
+            </div>
+          </div>
+          <fieldset class="field choices">
+            <legend>Which classes</legend>
+            <label class="choice"><input type="radio" name="which" value="all" checked={which === 'all'} /> <span><strong>Every class</strong></span></label>
+            <label class="choice"><input type="radio" name="which" value="some" checked={which === 'some'} data-which-some /> <span><strong>Some classes</strong></span></label>
+            <div class="classes-pick" data-class-pick>
+              {rows.map((r) => (
+                <label class="choice choice--class">
+                  <input type="checkbox" name="class" value={r.session.id} checked={picked.has(r.session.id)} />
+                  <span><strong>{r.program.title}</strong> <small>{[r.label, whenLabel(r.session), r.location, r.term].filter(Boolean).join(' · ')}</small></span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div class="field">
+            <label for="d-reason">Reason</label>
+            <input id="d-reason" name="reason" required maxlength={DAY_OFF.reasonMax} placeholder="Thanksgiving, Snow day…" value={values.reason} />
+            <p class="muted">Families see it: “No class Nov 26 (Thanksgiving)”.</p>
+          </div>
+          {error && <p class="notice notice--error" role="alert" data-error>{error}</p>}
+          <button class="btn btn--primary" type="submit" data-check>Check what changes</button>
+          <p class="muted">Nothing is saved yet. You’ll see every class and payment it changes first.</p>
+        </form>
+      </section>
+    )}
+
+    {plan && request && (
+      <section class="check" aria-labelledby="check-title" data-preview>
+        <h2 id="check-title">Day off {datesLabel(plan.dates)}: {request.reason}</h2>
+        <p>{request.sessionIds ? 'For the classes you chose.' : 'For every class.'} Nothing is saved yet.</p>
+
+        {plan.blockers.length > 0 && (
+          <div class="notice notice--error" role="alert" data-blockers>
+            {plan.blockers.map((b) => <p>{b}</p>)}
+          </div>
+        )}
+        {saveError && !plan.blockers.includes(saveError) && <p class="notice notice--error" role="alert" data-error>{saveError}</p>}
+
+        <h3>Classes off</h3>
+        {plan.classes.length ? (
+          <table class="data-table" data-preview-classes>
+            <thead><tr><th>Date</th><th>Class</th><th class="num">Children</th><th></th></tr></thead>
+            <tbody>
+              {plan.classes.map((c) => (
+                <tr class:list={{ refused: !!c.refused }}>
+                  <td data-label="Date"><span class="nowrap">{weekdayDate(c.date)}</span></td>
+                  <td data-label="Class"><a href={classPage(c.sessionId)}>{c.title}</a></td>
+                  <td data-label="Children" class="num"><span>{c.children}</span></td>
+                  <td data-label=""><span>{c.refused ? <strong class="red">{c.refused} Can’t have a day off.</strong> : ''}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p class="muted">No classes meet on {plan.dates.length === 1 ? 'that date' : 'those dates'}.</p>
+        )}
+        {plan.alreadyOff.length > 0 && <p class="muted" data-already-off>Already a day off, left as it is: {plan.alreadyOff.map((a) => `${a.title} on ${monthDay(a.date)} (${a.reason})`).join('; ')}.</p>}
+
+        <h3>Monthly payments</h3>
+        {plan.lowered.length ? (
+          <>
+            <p class="muted">One class’s worth: that month’s payment before your own discounts, divided by the times the class meets that month, with the cent rounded in the family’s favor.</p>
+            <table class="data-table" data-preview-lowered>
+              <thead><tr><th>Family</th><th>Class</th><th>Month</th><th class="num">Now</th><th class="num">If lowered</th></tr></thead>
+              <tbody>
+                {plan.lowered.map((l) => (
+                  <tr data-lowered={l.orderId}>
+                    <td data-label="Family"><span><a href={family(l.householdId)}>{l.family}</a> <small class="muted">{names(l.children)}</small></span></td>
+                    <td data-label="Class"><span>{l.title}</span></td>
+                    <td data-label="Month"><span>{monthWord(l.month)}{l.later && <small class="muted"> (changes a little later: the family has the pay-now page open)</small>}</span></td>
+                    <td data-label="Now" class="num"><span data-now>{formatCents(l.beforeCents)}</span></td>
+                    <td data-label="If lowered" class="num"><span><strong data-after>{formatCents(l.afterCents)}</strong> <small class="muted nowrap">{l.dates.map((x) => `−${formatCents(x.cents)} for ${monthDay(x.date)}`).join(', ')}</small></span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : (
+          <p class="muted">No monthly payments to lower.</p>
+        )}
+
+        {plan.alreadyPaid.length > 0 && (
+          <>
+            <h3>Already paid: give a credit</h3>
+            <p class="muted">These months are paid, so they don’t change. Give these families a credit (for now, refund in Stripe or take it off a later payment from Payments).</p>
+            <ul class="people" data-preview-paid>
+              {plan.alreadyPaid.map((p) => (
+                <li><a href={family(p.householdId)}>{p.family}</a> <span class="muted">{names(p.children)}, {p.title}, {monthDay(p.date)}: {p.why}{p.cents ? `. One class: ${formatCents(p.cents)}` : ''}</span>{p.orderId && <a class="small" href={paymentsOrder(p.orderId)}>Payments</a>}</li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {plan.noChange.length > 0 && (
+          <>
+            <h3>No change</h3>
+            <ul class="people" data-preview-nochange>
+              {plan.noChange.map((p) => (
+                <li><a href={family(p.householdId)}>{p.family}</a> <span class="muted">{names(p.children)}, {p.title}, {monthDay(p.date)}: {p.why}</span></li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {plan.dropIns.length > 0 && (
+          <>
+            <h3>Drop-ins booked</h3>
+            <ul class="people" data-preview-dropins>
+              {plan.dropIns.map((x) => (
+                <li><a href={family(x.householdId)}>{x.family}</a> <span class="muted">{x.child}, {x.title}, {monthDay(x.date)}: cancel and refund in Stripe for now</span></li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        <p class="muted">Each family in these classes gets one short email: “No class {datesLabel(plan.dates)}”, with the new amount when their payment changes. Days already past aren’t emailed.</p>
+
+        {plan.blockers.length === 0 && (
+          fresh ? (
+            <form method="post" class="save" data-save-day-off>
+              <input type="hidden" name="from" value={request.from} />
+              <input type="hidden" name="to" value={request.to} />
+              <input type="hidden" name="which" value={request.sessionIds ? 'some' : 'all'} />
+              {(request.sessionIds ?? []).map((id) => <input type="hidden" name="class" value={id} />)}
+              <input type="hidden" name="reason" value={request.reason} />
+              <fieldset class="field choices">
+                <legend>The monthly payments</legend>
+                <label class="choice"><input type="radio" name="payments" value="lower" required data-pay="lower" /> <span><strong>Lower that month’s payments by one class</strong><small>As in the table above.</small></span></label>
+                <label class="choice"><input type="radio" name="payments" value="keep" required data-pay="keep" /> <span><strong>Don’t change payments</strong><small>For a break that tuition already allows for.</small></span></label>
+              </fieldset>
+              <div class="check__actions">
+                <button class="btn btn--primary btn--sm" name="action" value="add" data-save>Save day off</button>
+                <a class="btn btn--outline btn--sm" href={`${here}?${new URLSearchParams({ from: request.from, ...(request.to !== request.from ? { to: request.to } : {}), which: request.sessionIds ? 'some' : 'all', reason: request.reason })}${(request.sessionIds ?? []).map((id) => `&class=${encodeURIComponent(id)}`).join('')}`}>Change</a>
+                <a class="btn btn--outline btn--sm" href={here}>Cancel</a>
+              </div>
+            </form>
+          ) : (
+            <div class="check__actions">
+              <p>To save a day off, confirm it’s you first. We’ll email you a code, then bring you back here.</p>
+              <a class="btn btn--primary btn--sm" href={confirm(previewUrl)} data-confirm-first>Confirm it’s you</a>
+              <a class="btn btn--outline btn--sm" href={here}>Cancel</a>
+            </div>
+          )
+        )}
+        {plan.blockers.length > 0 && <div class="check__actions"><a class="btn btn--outline btn--sm" href={here}>Start again</a></div>}
+      </section>
+    )}
+
+    {[{ key: 'upcoming', title: 'Upcoming', groups: list.upcoming }, { key: 'past', title: 'Past', groups: list.past }].map(({ key, title, groups }) => (
+      <section class="admin-section" aria-labelledby={`list-${key}`} data-list={key}>
+        <h2 id={`list-${key}`}>{title}</h2>
+        {groups.length ? (
+          <ul class="offs">
+            {groups.map((g) => (
+              <li class="off" data-day-off-row={g.id}>
+                <div class="off__main">
+                  <strong class="off__dates">{datesLabel(g.dates)}</strong>
+                  <span>{g.reason}</span>
+                  <span class="muted">{g.classes}</span>
+                </div>
+                <div class="off__pay">
+                  <span data-pay-label>{payLabel(g)}</span>
+                  {g.creditsDue.length > 0 && <span class="warn-line" data-credits-due>Already paid, give a credit: {names(g.creditsDue.map((c) => c.family))}</span>}
+                  {g.adjustments.families.length > 0 && (
+                    <details>
+                      <summary>Who</summary>
+                      <ul class="people">
+                        {g.adjustments.families.map((f) => <li><a href={paymentsOrder(f.orderId)}>{f.family}</a> <span class="muted">{monthWord(f.month)}: −{formatCents(f.cents)} for {monthDay(f.date)}{f.paid ? ' (paid)' : ''}</span></li>)}
+                      </ul>
+                    </details>
+                  )}
+                  <span class="muted small">Added by {g.createdBy}, {g.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' })}</span>
+                </div>
+                <form method="get" action={here} class="off__actions">
+                  <input type="hidden" name="remove" value={g.id} />
+                  <button class="btn btn--outline btn--sm" data-remove>Remove</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div class="empty-state">
+            <strong>{key === 'upcoming' ? 'No days off coming up' : 'No past days off'}</strong>
+            <p>{key === 'upcoming' ? 'Add one above, like Thanksgiving or a snow day.' : 'Days off show here once they’re over.'}</p>
+          </div>
+        )}
+      </section>
+    ))}
+  </div>
+</AdminShell>
+
+<style>
+  .days-off { display: grid; gap: var(--space-l); }
+  .days-off .admin-head { margin-bottom: 0; }
+  .days-off h3 { font-size: var(--step-0); margin: var(--space-s) 0 0; }
+  .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .small { font-size: var(--step--1); }
+  .nowrap { white-space: nowrap; }
+  .red { color: var(--red-ink); }
+  .add { max-width: 44rem; }
+  .add__form { display: grid; gap: var(--space-m); }
+  .add__dates { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: var(--space-m); }
+  .opt { font-weight: 400; color: var(--ink-mute); }
+  .choices { border: 0; padding: 0; margin: 0; display: grid; gap: 0.35rem; }
+  .choices legend { font-weight: 650; font-size: var(--step--1); margin-bottom: 0.35rem; }
+  .choice { display: flex; gap: 0.6rem; align-items: flex-start; min-height: 44px; cursor: pointer; }
+  .choice input { width: 1.25rem; height: 1.25rem; margin-top: 0.2rem; flex: none; }
+  .choice small { display: block; color: var(--ink-soft); font-size: var(--step--1); font-weight: 400; }
+  .choice--class small { display: inline; }
+  .classes-pick { display: grid; gap: 0.1rem; padding: 0.5rem 0.75rem; margin-left: 1.85rem; border: 1.5px solid var(--line); border-radius: var(--r-sm); max-height: 22rem; overflow-y: auto; }
+  .choices:not(:has([data-which-some]:checked)) .classes-pick { display: none; }
+  .check { display: grid; gap: 0.75rem; padding: var(--space-m); border: 1.5px solid var(--yellow); background: var(--yellow-tint); border-radius: var(--r-md); }
+  .check h2 { font-size: var(--step-1); margin: 0; }
+  .check p { margin: 0; }
+  .check .data-table { background: var(--paper); }
+  .check .data-table tr.refused { background: var(--red-tint); }
+  .check__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .save { display: grid; gap: var(--space-m); padding-top: var(--space-s); border-top: 1px solid var(--line-strong); }
+  .effects { list-style: none; margin: 0; padding: 0; }
+  .effects li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.2rem 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .effects s { color: var(--ink-mute); }
+  .people { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+  .people li { display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; align-items: baseline; }
+  .people a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 650; }
+  .offs { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  .off { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) auto; gap: 0.5rem 1rem; align-items: start; padding: 0.75rem 1rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-sm); background: var(--paper); }
+  .off__main, .off__pay { display: grid; gap: 0.15rem; min-width: 0; overflow-wrap: anywhere; }
+  .off__dates { font-family: var(--font-display); font-size: var(--step-0); }
+  .off details summary { cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; font-weight: 650; }
+  .warn-line { color: var(--red-ink); font-weight: 650; font-size: var(--step--1); }
+  @media (max-width: 760px) {
+    .off { grid-template-columns: minmax(0, 1fr); }
+    .off__actions .btn, .check__actions .btn { flex: 1 1 auto; justify-content: center; }
+    .classes-pick { margin-left: 0; }
+  }
+</style>
