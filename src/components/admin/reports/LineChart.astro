@@ -50,6 +50,7 @@ const summary = `${title}. ${categories.map((c, i) => `${c}: ${series.map((s) =>
         <span style={`bottom:${(t / max) * 100}%`}>{axisLabel(t, kind)}</span>
       ))}
     </div>
+    <div class="chart__area">
     <svg class="chart__svg" viewBox={`-2 -2 ${W + 4} 104`} preserveAspectRatio="none" role="img" aria-label={summary}>
       {ticks.map((t) => (
         <line x1="-2" x2={W + 2} y1={y(t)} y2={y(t)} class={t === 0 ? 'chart__base' : 'chart__grid'} vector-effect="non-scaling-stroke" />
@@ -63,6 +64,13 @@ const summary = `${title}. ${categories.map((c, i) => `${c}: ${series.map((s) =>
         </rect>
       ))}
     </svg>
+    {/* A dot on each week (HTML, so it stays round when the plot stretches); with one week there's no line yet. */}
+    {series.map((s, j) =>
+      s.values.map((v, i) =>
+        v === null ? null : <span class:list={['chart__dot', { 'chart__dot--2': j === 1 }]} style={`left:${((x(i) + 2) / (W + 4)) * 100}%;top:${((y(v) + 2) / 104) * 100}%;border-color:${SERIES_COLORS[j]}`} aria-hidden="true" />,
+      ),
+    )}
+    </div>
     <div class="chart__x chart__x--ends" aria-hidden="true">
       {categories.map((c, i) => (shown.has(i) ? <span style={`left:${n === 1 ? 50 : (i / (n - 1)) * 100}%`}>{c.replace(/ \(.*\)$/, '')}</span> : null))}
     </div>

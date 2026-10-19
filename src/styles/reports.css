@@ -81,6 +81,10 @@
 .chart__y { position: relative; grid-row: 1; min-width: 2.6rem; font-size: 0.72rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
 .chart__y span { position: absolute; right: 0; transform: translateY(50%); line-height: 1; }
 .chart__svg { grid-row: 1; grid-column: 2; width: 100%; height: 100%; overflow: visible; display: block; }
+.chart__area { grid-row: 1; grid-column: 2; position: relative; min-width: 0; }
+.chart__area .chart__svg { position: absolute; inset: 0; }
+.chart__dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; border: 2px solid; background: var(--paper); pointer-events: none; }
+.chart__dot--2 { width: 7px; height: 7px; }
 .chart__grid { stroke: var(--line); stroke-width: 1; }
 .chart__base { stroke: var(--ink-mute); stroke-width: 1; }
 .chart__svg rect:hover { opacity: 0.8; }

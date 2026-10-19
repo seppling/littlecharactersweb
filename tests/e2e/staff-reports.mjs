@@ -182,6 +182,10 @@ await page.waitForURL(`${BASE}/admin/reports/library`);
 const groups = await page.$$eval('[data-group]', (els) => els.map((e) => e.dataset.group));
 check(['money', 'enrollment', 'growth', 'safety', 'teachers', 'elsewhere'].every((g) => groups.includes(g)), `the library lists every group (${groups.join(', ')})`);
 check((await text(page, '[data-report-item="coming-back"]')).includes('was: Retention List'), 'each report shows its Studio Director name (“was: Retention List”)');
+// Start unstarred (an earlier run may have stopped before unstarring).
+if ((await page.getAttribute('[data-group="money"] [data-star="who-owes"]', 'aria-pressed')) === 'true') {
+  await Promise.all([page.waitForURL(/\/admin\/reports\/library$/), page.click('[data-group="money"] [data-star="who-owes"]')]);
+}
 await Promise.all([page.waitForURL(/\/admin\/reports\/library$/), page.click('[data-group="money"] [data-star="who-owes"]')]);
 check((await page.$$eval('[data-group]', (els) => els.map((e) => e.dataset.group)))[0] === 'starred', 'starring a report adds Starred at the top');
 check((await page.$$eval('[data-group="starred"] [data-report-item]', (els) => els.map((e) => e.dataset.reportItem)))[0] === 'who-owes', 'the starred report lists first');
