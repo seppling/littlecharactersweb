@@ -397,8 +397,9 @@ export interface StaffDropIn {
 }
 
 /**
- * Pure: the booked drop-ins beyond the class's limit, per date. The earliest
- * bookings take the places left after the enrolled children.
+ * Pure: the booked drop-ins beyond the class's limit, per date. `rows` in the
+ * order they were booked: the earliest take the places left after the
+ * enrolled children.
  */
 export function overLimitIds(rows: { id: string; date: string; status: string }[], enrolled: number, capacity: number | undefined) {
   const over = new Set<string>();
@@ -444,7 +445,8 @@ export async function classDropIns(program: Program, session: Session): Promise<
     .innerJoin(household, eq(household.id, dropIn.householdId))
     .leftJoin(order, eq(order.id, dropIn.orderId))
     .where(and(eq(dropIn.sessionId, session.id), or(ne(dropIn.status, 'pending'), byOutsider)))
-    .orderBy(asc(dropIn.classDate), asc(dropIn.createdAt));
+    // In the order they were booked: when paid, or when staff added one with no charge.
+    .orderBy(asc(dropIn.classDate), sql`coalesce(${order.paidAt}, ${dropIn.createdAt})`);
   const over = overLimitIds(rows, await takenSpots(session.id), capacityFor(program, session));
   return rows.map((r) => ({
     id: r.id,

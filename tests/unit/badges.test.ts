@@ -48,6 +48,14 @@ describe('child badges', () => {
     expect(all.map((b) => b.tone)).toEqual(['alert', 'warning', 'neutral', 'good', 'neutral', 'good']);
   });
 
+  it('marks a drop-in, after trial and before birthday', () => {
+    const b = childBadges({ ...none, dropIn: true, birthdate: '2018-10-20' }, '2026-10-19');
+    expect(b.map((x) => [x.key, x.label, x.tone])).toEqual([
+      ['drop-in', 'Drop-in', 'neutral'],
+      ['birthday', 'Birthday', 'good'],
+    ]);
+  });
+
   it('never carries the notes themselves', () => {
     const text = JSON.stringify(childBadges({ ...none, hasAllergies: true, hasPickupNote: true }, '2026-10-19'));
     expect(text).not.toMatch(/peanut/i);
