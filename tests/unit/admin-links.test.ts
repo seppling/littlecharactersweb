@@ -13,6 +13,7 @@ describe('the staff link contract', () => {
     expect(links.search('  ')).toBe('/admin/search');
     expect(links.search('Rivera & Lee')).toBe('/admin/search?q=Rivera+%26+Lee');
     expect(links.family('h1')).toBe('/admin/families/h1');
+    expect(links.familyEmail('h1')).toBe('/admin/families/h1/email');
     expect(links.payments()).toBe('/admin/payments');
     expect(links.payments('failed')).toBe('/admin/payments?show=failed');
     expect(links.payments(undefined, '2026-10')).toBe('/admin/payments?month=2026-10');

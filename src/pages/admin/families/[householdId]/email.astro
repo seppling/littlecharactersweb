@@ -1,0 +1,62 @@
+---
+/**
+ * Staff: "Email this family". The class composer for one family: one email to
+ * all of its parents, logged on the family's page. Steps:
+ * src/server/message-composer.ts; sending: src/server/messages.ts.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import MessageComposer from '@/components/admin/MessageComposer.astro';
+import { family, familyEmail } from '@/lib/admin-links';
+import { blankState, composerStep, sentHere, type ComposerContext, type ComposerState } from '@/server/message-composer';
+import { earlierMessages, familyAudience, footerFor } from '@/server/messages';
+import { requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+const householdId = Astro.params.householdId ?? '';
+const here = familyEmail(householdId);
+
+const found = staff ? await familyAudience(householdId) : null;
+if (staff && !found) return new Response('Not found', { status: 404 });
+let state: ComposerState | null = null;
+let sent: Awaited<ReturnType<typeof sentHere>> = null;
+let earlier: Awaited<ReturnType<typeof earlierMessages>> = [];
+const audience = found ? [found] : [];
+const footer = footerFor();
+if (staff && found) {
+  const ctx: ComposerContext = { kind: 'family', here, audience, footer, staff };
+  if (Astro.request.method === 'POST') {
+    const result = await composerStep(await Astro.request.formData(), ctx);
+    if ('redirect' in result) return Astro.redirect(result.redirect, 303);
+    state = result.state;
+  } else {
+    sent = await sentHere(Astro.url.searchParams.get('sent') ?? '', ctx);
+    if (!sent) state = blankState(ctx);
+  }
+  earlier = await earlierMessages({ householdId });
+}
+const sentNotice = Astro.url.searchParams.get('again') ? 'This email was already sent. It wasn’t sent again.' : Astro.url.searchParams.get('retried') ? 'Tried again.' : undefined;
+const parentNames = found?.parents.map((p) => p.name || p.email).join(' and ');
+---
+
+<AdminShell title={`Email: ${found?.name ?? 'Family'}`} section="families" back={{ href: family(householdId), label: found?.name ?? 'Family' }}>
+  {
+    staff && found && (
+      <MessageComposer
+        kind="family"
+        heading="Email this family"
+        line={`${found.name} · ${parentNames ? `to ${parentNames}` : 'no parent account yet'}`}
+        here={here}
+        doneHref={family(householdId)}
+        doneLabel="Back to the family"
+        audience={audience}
+        footer={footer}
+        state={state}
+        sent={sent}
+        sentNotice={sentNotice}
+        earlier={earlier}
+      />
+    )
+  }
+</AdminShell>

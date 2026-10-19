@@ -8,14 +8,15 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 
 | Function | Address | Page |
 |---|---|---|
-| `today()` | `/admin` | Today (§11) |
-| `attention()` | `/admin/attention` | Needs attention, the phone's Alerts tab (§11) |
+| `today()` | `/admin` | Today (§12) |
+| `attention()` | `/admin/attention` | Needs attention, the phone's Alerts tab (§12) |
 | `classes()` | `/admin/classes` | Classes list (the old rosters list) |
 | `classPage(sessionId)` | `/admin/classes/<id>` | A class (the old roster page) |
 | `classPrint(sessionId)` | `/admin/classes/<id>/print` | A class's roster, ready to print (§9) |
-| `classEmail(sessionId)` | `/admin/classes/<id>/email` | (Messages unit) |
+| `classEmail(sessionId)` | `/admin/classes/<id>/email` | Email the class (§13) |
 | `search(q?)` | `/admin/search?q=` | Search (placeholder) |
-| `family(householdId)` | `/admin/families/<id>` | (Search and families unit) |
+| `family(householdId)` | `/admin/families/<id>` | A family's page (§10) |
+| `familyEmail(householdId)` | `/admin/families/<id>/email` | Email this family (§13) |
 | `payments(show?, month?)` | `/admin/payments`, `?show=failed` or `upcoming`, `?month=2026-10` | Payments (§11) |
 | `paymentsOrder(orderId)` | `/admin/payments/<id>` | One family's payments for a class |
 | `leads()` | `/admin/leads` | Messages & sign-ups |
@@ -210,3 +211,17 @@ All three go through `paymentsDownload` (`payments.csv.ts`, `payments.pdf.ts`): 
 - **The count** on the Alerts tab and on Today in the top bar is the alert and warning items. It costs three queries (billing overview, class counts, active enrollments), cached per request by `Astro.locals` and shared with the page's own list. Leads are loaded only for the list.
 - **Tests:** `?on=YYYY-MM-DD` sets the day on both pages in development only (`devDay`, ignored when `isProd`).
 - The rows come from `<AttentionList items={…} />` (`src/components/admin/AttentionList.astro`), on `.attention-item--alert|warning|neutral|good`.
+
+## 13. Staff email: "Email the class" and "Email this family"
+
+Hannah emails a class, or one family, from the site instead of Gmail. Sending and the log are in `src/server/messages.ts`; the steps (write → review → sent) in `src/server/message-composer.ts`; the page in `src/components/admin/MessageComposer.astro`, used by `src/pages/admin/classes/[sessionId]/email.astro` (`classEmail(id)`) and `src/pages/admin/families/[householdId]/email.astro` (`familyEmail(id)`, linked as "Email this family" on the family's page).
+
+- **Who gets it:** every family with an enrolled or trial child in the class, ticked. "Also send to the waitlist" adds the families whose children are only on the waitlist. Untick a family to leave them out. Families without a parent email can't be ticked. The page shows family names and parents' emails, never children's details, so opening it isn't logged.
+- **Writing:** a subject (up to 200 characters) and a plain-text message. A blank line starts a new paragraph; web addresses become links in the HTML version. Every email ends "Sent by Little Characters about <class>. Reply to this email to reach us." (one family: "Sent by Little Characters.").
+- **Steps:** "Send me a test" sends `[Test] <subject>` to the staff member's own address (not logged as a message; audit `admin.message.test`). "Review" shows the subject, the message and "Sending to 12 families". "Send" sends, then shows "Sent to 12 families." or "Didn't send to 2 families" with "Try again for the failed ones".
+- **Each email:** one per family, to all of that family's parent addresses together, from `EMAIL_FROM` with reply-to `EMAIL_REPLY_TO`. Sent one at a time, 600 ms apart (Resend's default limit is 2 a second); no pause in development.
+- **No double sends:** the review form carries a one-time token (a random UUID) that becomes the `message` row's id. A second send with the same token inserts nothing and sends nothing; the page says "This email was already sent." A retry claims the failed rows before sending, so two clicks can't send twice either.
+- **The log:** one `message` row (`kind` `class` with `sessionId`, or `family`), one `message_recipient` row per address with `householdId` and `sent` / `failed` (and the email service's reason in `error`), and an audit entry `admin.message.class|family` (and `admin.message.retry`) without the text. Rows are written `sent` and changed to `failed` when the send throws. Family pages list these rows ("Emails sent"); the composer lists earlier emails to the class (or the family's own emails): date, subject, who sent it, families, and how many didn't send, each opening its sent view (`?sent=<message id>`, only for a message of that class or family).
+- **Copy buttons:** "Copy emails" (the ticked families' parent emails, comma-separated, for Gmail's BCC) and "Copy phone numbers" (for a group text). If the browser won't allow copying, a box with the text appears to select and copy.
+- **`sendEmail`** (`src/server/email.ts`) now takes `to` as one address or a list, and `emailHtml` takes `{ html }` paragraphs that the caller has made safe (`paragraphHtml` escapes the text first). The dev mailbox stores a list as "a, b" and its log line shows the reply-to when one is given.
+- **Not in Phase 1:** attachments, scheduling, texting from the site.

@@ -25,6 +25,7 @@ export const classEmail = (sessionId: string) => `/admin/classes/${seg(sessionId
 
 export const search = (q?: string) => `/admin/search${query({ q: q?.trim() || undefined })}`;
 export const family = (householdId: string) => `/admin/families/${seg(householdId)}`;
+export const familyEmail = (householdId: string) => `/admin/families/${seg(householdId)}/email`;
 
 /** Payments: everything, or one section. `month` ("2026-10") picks the month of Payments received. */
 export const payments = (show?: 'failed' | 'upcoming', month?: string) => `/admin/payments${query({ show, month })}`;

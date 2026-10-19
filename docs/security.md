@@ -70,7 +70,7 @@ Stripe Embedded Checkout puts Stripe's own card form (an iframe served from Stri
 |---|---|
 | Netlify (or chosen host) | Page requests, IP addresses |
 | Neon | The database (encrypted at rest) |
-| Resend | Parent email addresses and message content (codes, confirmations) |
+| Resend | Parent email addresses and message content (codes, confirmations, and staff emails to a class or a family) |
 | Stripe | Parent name, email, payment details |
 
 ## Retention and deletion
