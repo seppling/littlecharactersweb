@@ -2,18 +2,21 @@
 import AdminShell from '@/components/admin/AdminShell.astro';
 import { roster } from '@/server/admin';
 import { dayList, timeRange } from '@/lib/format';
+import { classes } from '@/lib/admin-links';
+import { requireStaff } from '@/server/staff';
 
 export const prerender = false;
-const isAdmin = Astro.locals.isAdmin && !!Astro.locals.user;
-if (!isAdmin && Astro.locals.user) return new Response('Not found', { status: 404 });
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+const isAdmin = !!staff;
 const found = Astro.locals.content.findSession(Astro.params.sessionId ?? '');
 if (!found) return new Response('Not found', { status: 404 });
-const people = isAdmin ? await roster(found.session.id, Astro.locals.user!.id) : [];
+const people = isAdmin ? await roster(found.session.id, staff!.id) : [];
 ---
 
-<AdminShell title={`Roster: ${found.program.title}`} section="rosters">
+<AdminShell title={`Roster: ${found.program.title}`} section="classes" back={{ href: classes(), label: 'Classes' }}>
   <section class="wrap admin">
-    <a href="/admin">← All rosters</a>
+    <a href={classes()}>← All rosters</a>
     <h1>{found.program.title}</h1>
     <p class="script">{dayList(found.session.days)} · {timeRange(found.session.start, found.session.end)} · {found.session.term}</p>
     <p class="muted">Includes medical notes. Please don’t print or share outside the teaching team. Views are logged.</p>

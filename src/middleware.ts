@@ -8,7 +8,8 @@
  * staff previewing unpublished edits, who get a private copy.
  */
 import { defineMiddleware } from 'astro:middleware';
-import { getAuth, isAdmin } from '@/server/auth';
+import { isAdmin } from '@/server/auth';
+import { readSession } from '@/server/staff';
 import { assertProductionConfig } from '@/server/env';
 import { getContent } from '@/server/content';
 import { PREVIEW_COOKIE } from '@/lib/editor';
@@ -70,8 +71,8 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   ctx.locals.isAdmin = false;
 
   if (portal || wantsPreview) {
-    const auth = await getAuth();
-    const result = await auth.api.getSession({ headers: ctx.request.headers });
+    // Staff sessions end after 30 days without use (src/server/staff.ts).
+    const result = await readSession(ctx.request.headers);
     ctx.locals.user = result?.user ?? null;
     ctx.locals.session = result?.session ?? null;
     ctx.locals.isAdmin = isAdmin(result?.user);

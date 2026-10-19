@@ -1,0 +1,17 @@
+{
+  "id": "/admin",
+  "name": "Little Characters Staff",
+  "short_name": "LC Staff",
+  "description": "Classes, families and payments for Little Characters staff.",
+  "start_url": "/admin",
+  "scope": "/admin",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#1c1826",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "/admin/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/admin/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/admin/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -252,7 +252,7 @@ export async function orderBilling(orderId: string) {
   };
 }
 
-/** Families with monthly payments still to come, for the list on /admin/billing. */
+/** Families with monthly payments still to come, for the list on /admin/payments. */
 export async function ordersWithUpcomingPayments() {
   const db = await getDb();
   const rows = await db

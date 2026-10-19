@@ -4,7 +4,7 @@ A guide for Hannah (and anyone else on staff) to scholarships, pay-what-you-can,
 
 ## Give a discount
 
-1. Go to **littlecharacters.org/admin/billing** and sign in with your staff email.
+1. Go to **littlecharacters.org/admin/payments** and sign in with your staff email.
 2. Under **Families on monthly autopay**, press **Payments & discounts** next to the family and class.
 3. Under **Add a discount**, choose:
    - **A dollar amount** (for example 40) or **a percentage** (for example 25);

@@ -227,7 +227,7 @@ await shot('7b-billing');
 step('Hannah’s billing page shows the next autopay date and total');
 
 // 10b. Hannah gives the family a discount: she checks the new amount, then saves
-await page.click(`[data-families] a[href="/admin/billing/${orderId}"]`);
+await page.click(`[data-families] a[href="/admin/payments/${orderId}"]`);
 await page.waitForSelector('[data-add-adjustment]');
 await page.fill('#adj-value', '40');
 await page.fill('#adj-reason', 'Scholarship');

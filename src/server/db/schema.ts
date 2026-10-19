@@ -7,6 +7,7 @@
  */
 import { relations } from 'drizzle-orm';
 import type { AppliedAdjustment } from '../../lib/adjustments';
+import type { EmergencyContact, PickupPerson } from '../../lib/contacts';
 import { bigint, boolean, customType, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 const id = () => text('id').primaryKey().$defaultFn(() => crypto.randomUUID());
@@ -100,6 +101,15 @@ export const household = pgTable('household', {
   cardExpYear: integer('card_exp_year'),
   /** Where the family came from: signed up on the site, or imported from Studio Director. */
   source: text('source').notNull().default('portal'),
+  /** People besides the parents to call in an emergency (src/lib/contacts.ts). Not encrypted, never in URLs or logs. */
+  emergencyContacts: jsonb('emergency_contacts').$type<EmergencyContact[]>().notNull().default([]),
+  /** Who may pick the children up, besides the parents. */
+  pickupPeople: jsonb('pickup_people').$type<PickupPerson[]>().notNull().default([]),
+  /** Last time a parent confirmed the two lists above. */
+  contactsConfirmedAt: timestamp('contacts_confirmed_at', { withTimezone: true }),
+  zip: text('zip'),
+  /** How the family heard about Little Characters, in their words or a choice from the form. */
+  heardAbout: text('heard_about'),
   createdAt: created(),
   updatedAt: updated(),
 });
@@ -298,6 +308,88 @@ export const billingAdjustment = pgTable(
   (t) => [index('billing_adjustment_order_idx').on(t.orderId)],
 );
 
+// ───────────── Back office (staff notes, emails, waitlist offers) ─────────────
+
+/** A staff note about a family, or about one of its children. Staff only; families never see these. */
+export const householdNote = pgTable(
+  'household_note',
+  {
+    id: id(),
+    householdId: text('household_id')
+      .notNull()
+      .references(() => household.id, { onDelete: 'cascade' }),
+    studentId: text('student_id').references(() => student.id, { onDelete: 'set null' }),
+    body: text('body').notNull(),
+    authorUserId: text('author_user_id').references(() => user.id, { onDelete: 'set null' }),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [index('household_note_household_idx').on(t.householdId)],
+);
+
+/** An email staff sent from the site: to a whole class, or to one family. */
+export const message = pgTable('message', {
+  id: id(),
+  kind: text('kind', { enum: ['class', 'family'] }).notNull(),
+  /** The class it went to (kind 'class'). */
+  sessionId: text('session_id'),
+  subject: text('subject').notNull(),
+  body: text('body').notNull(),
+  sentByUserId: text('sent_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: created(),
+});
+
+/** One address a message went to, and whether it was sent. The log shown on each family's page. */
+export const messageRecipient = pgTable(
+  'message_recipient',
+  {
+    id: id(),
+    messageId: text('message_id')
+      .notNull()
+      .references(() => message.id, { onDelete: 'cascade' }),
+    householdId: text('household_id').references(() => household.id, { onDelete: 'set null' }),
+    email: text('email').notNull(),
+    status: text('status', { enum: ['sent', 'failed'] }).notNull(),
+    error: text('error'),
+    createdAt: created(),
+  },
+  (t) => [index('message_recipient_household_idx').on(t.householdId), index('message_recipient_message_idx').on(t.messageId)],
+);
+
+/** Staff offering a waitlisted child a place in the class. */
+export const waitlistOffer = pgTable(
+  'waitlist_offer',
+  {
+    id: id(),
+    /** The waitlisted enrollment. */
+    enrollmentId: text('enrollment_id')
+      .notNull()
+      .references(() => enrollment.id, { onDelete: 'cascade' }),
+    householdId: text('household_id')
+      .notNull()
+      .references(() => household.id, { onDelete: 'cascade' }),
+    sessionId: text('session_id').notNull(),
+    offeredByUserId: text('offered_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+    offeredAt: timestamp('offered_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Null: the offer stays open until staff withdraw it. */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    status: text('status', { enum: ['offered', 'accepted', 'withdrawn', 'expired'] }).notNull().default('offered'),
+    /** The order the family placed to accept it. */
+    orderId: text('order_id').references(() => order.id, { onDelete: 'set null' }),
+  },
+  (t) => [index('waitlist_offer_enrollment_idx').on(t.enrollmentId), index('waitlist_offer_household_idx').on(t.householdId), index('waitlist_offer_session_idx').on(t.sessionId)],
+);
+
+export type Household = typeof household.$inferSelect;
+export type HouseholdNote = typeof householdNote.$inferSelect;
+export type Message = typeof message.$inferSelect;
+export type MessageRecipient = typeof messageRecipient.$inferSelect;
+export type WaitlistOffer = typeof waitlistOffer.$inferSelect;
+export type NewHouseholdNote = typeof householdNote.$inferInsert;
+export type NewMessage = typeof message.$inferInsert;
+export type NewMessageRecipient = typeof messageRecipient.$inferInsert;
+export type NewWaitlistOffer = typeof waitlistOffer.$inferInsert;
+
 /** Contact messages and email signups from the public site's forms (see /api/leads). */
 export const lead = pgTable(
   'lead',
@@ -417,6 +509,27 @@ export const householdRelations = relations(household, ({ many }) => ({
   students: many(student),
   orders: many(order),
   enrollments: many(enrollment),
+  notes: many(householdNote),
+}));
+
+export const householdNoteRelations = relations(householdNote, ({ one }) => ({
+  household: one(household, { fields: [householdNote.householdId], references: [household.id] }),
+  student: one(student, { fields: [householdNote.studentId], references: [student.id] }),
+}));
+
+export const messageRelations = relations(message, ({ many }) => ({
+  recipients: many(messageRecipient),
+}));
+
+export const messageRecipientRelations = relations(messageRecipient, ({ one }) => ({
+  message: one(message, { fields: [messageRecipient.messageId], references: [message.id] }),
+  household: one(household, { fields: [messageRecipient.householdId], references: [household.id] }),
+}));
+
+export const waitlistOfferRelations = relations(waitlistOffer, ({ one }) => ({
+  enrollment: one(enrollment, { fields: [waitlistOffer.enrollmentId], references: [enrollment.id] }),
+  household: one(household, { fields: [waitlistOffer.householdId], references: [household.id] }),
+  order: one(order, { fields: [waitlistOffer.orderId], references: [order.id] }),
 }));
 
 export const householdMemberRelations = relations(householdMember, ({ one }) => ({

@@ -1,60 +1,72 @@
 ---
-/** Staff: everything sent through the site's forms, newest first. */
+/** Staff: everything sent through the site's forms, newest first. Downloads: leads.csv.ts and leads.pdf.ts, built from the same rows. */
 import AdminShell from '@/components/admin/AdminShell.astro';
-import { listLeads } from '@/server/leads';
+import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import { downloads, leads as leadsPath } from '@/lib/admin-links';
+import { LEAD_LABELS, leadWhen, staffLeads } from '@/server/leads';
+import { requireStaff } from '@/server/staff';
 
 export const prerender = false;
 const { programBySlug, events } = Astro.locals.content;
-const isAdmin = Astro.locals.isAdmin;
-if (!isAdmin && Astro.locals.user) return new Response('Not found', { status: 404 });
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
 
-const leads = isAdmin ? await listLeads(300) : [];
-const label = { contact: 'Message', newsletter: 'Newsletter', notify: 'Notify me', camps: 'Summer camps' } as Record<string, string>;
-const counts = Object.entries(label).map(([kind, name]) => ({ kind, name, n: leads.filter((l) => l.kind === kind).length }));
-const fmt = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
+const leads = staff ? await staffLeads((slug) => programBySlug(slug)?.title ?? events.find((e) => e.slug === slug)?.title) : [];
+const counts = Object.entries(LEAD_LABELS).map(([kind, name]) => ({ kind, name, n: leads.filter((l) => l.kind === kind).length }));
+const files = downloads(leadsPath());
 ---
 
-<AdminShell title="Messages & signups" section="leads">
-  <section class="wrap admin">
-    <div class="head">
-      <h1>Messages & signups</h1>
-      <a class="btn btn--outline btn--sm" href="/admin/leads.csv" download>Download signups (CSV)</a>
+<AdminShell title="Messages & sign-ups" section="leads">
+  <div class="admin-page">
+    <div class="admin-head">
+      <div>
+        <h1>Messages & sign-ups</h1>
+        <p class="admin-intro">{counts.map((c) => `${c.name}: ${c.n}`).join(' · ')}. Contact messages are also emailed to you; reply to that email to answer the family.</p>
+      </div>
+      <div class="admin-head__actions">
+        <DownloadLinks csv={files.csv} pdf={files.pdf} what="messages and sign-ups" />
+      </div>
     </div>
-    <p class="muted">{counts.map((c) => `${c.name}: ${c.n}`).join(' · ')}. Contact messages are also emailed to you; reply to that email to answer the family.</p>
     {
       leads.length ? (
-        <table>
-          <thead><tr><th>When</th><th>Form</th><th>From</th><th>Details</th></tr></thead>
+        <table class="data-table" data-leads>
+          <thead>
+            <tr><th>When</th><th>Form</th><th>From</th><th>Details</th></tr>
+          </thead>
           <tbody>
             {leads.map((l) => (
               <tr>
-                <td class="nowrap">{fmt(l.createdAt)}</td>
-                <td>{label[l.kind] ?? l.kind}</td>
-                <td>{l.name && <strong>{l.name}<br /></strong>}<a href={`mailto:${l.email}`}>{l.email}</a></td>
-                <td>
-                  {l.details.program && <span class="muted">{programBySlug(l.details.program)?.title ?? events.find((e) => e.slug === l.details.program)?.title ?? l.details.program}</span>}
-                  {l.details.topic && <span class="muted">About: {l.details.topic}</span>}
-                  {l.details.ages && <span class="muted"> · Ages {l.details.ages}</span>}
-                  {l.message && <p class="msg">{l.message}</p>}
+                <td data-label="When" class="nowrap">{leadWhen(l.createdAt)}</td>
+                <td data-label="Form">{l.form}</td>
+                <td data-label="From">
+                  <div>
+                    {l.name && <strong>{l.name}<br /></strong>}
+                    <a href={`mailto:${l.email}`}>{l.email}</a>
+                  </div>
+                </td>
+                <td data-label="Details">
+                  <div>
+                    {l.program && <span class="muted">{l.program}</span>}
+                    {l.topic && <span class="muted">About: {l.topic}</span>}
+                    {l.ages && <span class="muted"> · Ages {l.ages}</span>}
+                    {l.message && <p class="msg">{l.message}</p>}
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       ) : (
-        <p class="muted">Nothing yet. Messages and signups from the site’s forms will show up here.</p>
+        <div class="empty-state">
+          <strong>Nothing yet</strong>
+          <p>Messages and sign-ups from the site’s forms will show up here.</p>
+        </div>
       )
     }
-  </section>
+  </div>
 </AdminShell>
 
 <style>
-  .admin { padding-block: var(--space-2xl) var(--space-3xl); display: grid; gap: var(--space-m); }
-  .head { display: flex; flex-wrap: wrap; gap: var(--space-m); justify-content: space-between; align-items: end; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
-  .muted { color: var(--ink-mute); font-size: var(--step--1); }
   .nowrap { white-space: nowrap; font-size: var(--step--1); }
   .msg { margin: 0.3rem 0 0; white-space: pre-line; max-width: 60ch; }
 </style>
