@@ -1,0 +1,184 @@
+---
+/**
+ * Settings → Tags (owners; src/server/tags.ts): the child tags and family
+ * tags, with how many carry each; add, rename and delete (asks first, and
+ * takes the tag off everyone). Each tag's list, email and downloads.
+ * Changes post back here and redirect with ?done= so a reload doesn't repeat
+ * them; the tag's name is never put in the address.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import { downloads, searchTag, settings, settingsTags, tagEmail, tagList } from '@/lib/admin-links';
+import { requireStaff } from '@/server/staff';
+import { TAG_KINDS, TAG_NAME_MAX, TagError, createTag, deleteTag, isTagKind, kindLabel, listTags, renameTag } from '@/server/tags';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const here = settingsTags();
+let error = '';
+let failed = '';
+let values: Record<string, string> = {};
+if (staff && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+  failed = `${values.action}:${values.id ?? ''}`;
+  try {
+    switch (values.action) {
+      case 'add': {
+        const kind = values.kind ?? '';
+        if (!isTagKind(kind)) throw new TagError('Choose Children or Families.', 'kind');
+        const row = await createTag(staff.id, kind, values.name ?? '');
+        return Astro.redirect(`${here}?done=added&kind=${kind}#tag-${row.id}`, 303);
+      }
+      case 'rename':
+        await renameTag(staff.id, values.id ?? '', values.name ?? '');
+        return Astro.redirect(`${here}?done=renamed#tag-${encodeURIComponent(values.id ?? '')}`, 303);
+      case 'delete': {
+        const kind = (await listTags()).find((t) => t.id === values.id)?.kind ?? 'child';
+        const n = await deleteTag(staff.id, values.id ?? '');
+        return Astro.redirect(`${here}?${new URLSearchParams(n === null ? { done: 'gone' } : { done: 'deleted', n: String(n), kind })}`, 303);
+      }
+    }
+  } catch (e) {
+    if (!(e instanceof TagError)) throw e;
+    error = e.message;
+  }
+}
+
+const carried = (kind: string, count: number) => `${count} ${kind === 'child' ? (count === 1 ? 'child' : 'children') : count === 1 ? 'family' : 'families'}`;
+const tags = staff ? await listTags() : [];
+const params = Astro.url.searchParams;
+const n = Number(params.get('n') ?? 0);
+const notice = (() => {
+  switch (params.get('done')) {
+    case 'added': return 'Tag added.';
+    case 'renamed': return 'Tag renamed.';
+    case 'deleted': return n ? `Tag deleted and taken off ${carried(params.get('kind') ?? 'child', n)}.` : 'Tag deleted.';
+    case 'gone': return 'That tag was already deleted.';
+    default: return null;
+  }
+})();
+const addKind = values.action === 'add' && isTagKind(values.kind ?? '') ? values.kind : params.get('kind') === 'family' ? 'family' : 'child';
+---
+
+<AdminShell title="Tags" section="settings" back={{ href: settings(), label: 'Settings' }}>
+  <div class="admin-page tags-page">
+    <div class="admin-head">
+      <div>
+        <h1>Tags</h1>
+        <p class="admin-intro">
+          Labels for children and families: a show, a cast group, a level, “Scholarship”, “Needs a buddy”. Use them to find children on a roster or in search, and to email their families. Only you and other owners see tags: families and teachers don’t.
+        </p>
+      </div>
+    </div>
+
+    {notice && <p class:list={['notice', { 'notice--error': params.get('done') === 'gone' }]} role="status" data-notice>{notice}</p>}
+    {error && <p class="notice notice--error" role="alert" data-error>{error}</p>}
+
+    <section class="admin-section staff-card add" aria-labelledby="add-h">
+      <h2 id="add-h">Add a tag</h2>
+      <form method="post" class="add__form" data-add-tag>
+        <input type="hidden" name="action" value="add" />
+        <fieldset class="kinds">
+          <legend>For</legend>
+          <label class="choice"><input type="radio" name="kind" value="child" checked={addKind === 'child'} /> Children</label>
+          <label class="choice"><input type="radio" name="kind" value="family" checked={addKind === 'family'} /> Families</label>
+        </fieldset>
+        <div class="field">
+          <label for="tag-name">Name</label>
+          <input id="tag-name" name="name" required maxlength={TAG_NAME_MAX} autocomplete="off" value={values.action === 'add' ? values.name : ''} />
+        </div>
+        <p class="muted">Names can’t repeat among child tags (or among family tags), even with different capitals. Keep medical details out of tags.</p>
+        <button class="btn btn--primary" type="submit">Add</button>
+      </form>
+    </section>
+
+    {
+      TAG_KINDS.map((kind) => {
+        const list = tags.filter((t) => t.kind === kind);
+        return (
+          <section class="admin-section" aria-labelledby={`h-${kind}`} data-tag-kind={kind}>
+            <h2 id={`h-${kind}`}>{kindLabel(kind)} <span class="muted">({list.length})</span></h2>
+            {list.length === 0 ? (
+              <p class="muted">No {kind} tags yet.</p>
+            ) : (
+              <ul class="tag-rows">
+                {list.map((t) => {
+                  const files = downloads(tagList(t.id));
+                  const open = failed === `rename:${t.id}`;
+                  return (
+                    <li class="staff-card tag-row" id={`tag-${t.id}`} data-tag-row={t.name}>
+                      <div class="tag-row__head">
+                        <span class="tag-chip tag-row__name">{t.name}</span>
+                        <span class="muted" data-tag-count>{carried(kind, t.count)}</span>
+                      </div>
+                      <div class="tag-row__actions">
+                        <a class="btn btn--outline btn--sm" href={searchTag(t.id)} data-tag-list>See who<span class="sr-only"> has {t.name}</span></a>
+                        <a class="btn btn--outline btn--sm" href={tagEmail(t.id)} data-tag-email>Email<span class="sr-only"> the families with {t.name}</span></a>
+                        {t.count > 0 && <DownloadLinks csv={files.csv} pdf={files.pdf} what={`the ${t.name} list`} />}
+                      </div>
+                      <div class="tag-row__tools">
+                        <details class="tool" open={open || undefined}>
+                          <summary class="btn btn--outline btn--sm">Rename<span class="sr-only"> {t.name}</span></summary>
+                          <form method="post" class="tool__body">
+                            <input type="hidden" name="action" value="rename" />
+                            <input type="hidden" name="id" value={t.id} />
+                            <label for={`rename-${t.id}`}>New name</label>
+                            <div class="row">
+                              <input id={`rename-${t.id}`} name="name" required maxlength={TAG_NAME_MAX} value={open ? values.name : t.name} autocomplete="off" />
+                              <button class="btn btn--primary btn--sm" type="submit">Save</button>
+                            </div>
+                          </form>
+                        </details>
+                        <details class="tool">
+                          <summary class="btn btn--outline btn--sm">Delete<span class="sr-only"> {t.name}</span></summary>
+                          <form method="post" class="tool__body" data-delete-tag>
+                            <input type="hidden" name="action" value="delete" />
+                            <input type="hidden" name="id" value={t.id} />
+                            <p>
+                              <strong>Delete “{t.name}”?</strong> {t.count ? `It comes off ${carried(kind, t.count)}.` : 'No one has it.'} This can’t be undone.
+                            </p>
+                            <button class="btn btn--danger btn--sm" type="submit">Delete the tag</button>
+                          </form>
+                        </details>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        );
+      })
+    }
+  </div>
+</AdminShell>
+
+<style>
+  .tags-page .muted { color: var(--ink-mute); font-size: var(--step--1); font-weight: 400; }
+  .add { max-width: 36rem; }
+  .add__form { display: grid; gap: var(--space-s); justify-items: start; }
+  .add__form .field { width: 100%; display: grid; gap: 0.3rem; }
+  .add__form .field input { min-height: 44px; }
+  .kinds { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; }
+  .kinds legend { font-weight: 650; font-size: var(--step--1); margin-bottom: 0.3rem; }
+  .choice { display: flex; gap: 0.5rem; align-items: center; min-height: 44px; cursor: pointer; }
+  .choice input { width: 1.25rem; height: 1.25rem; accent-color: var(--purple); }
+  .tag-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+  .tag-row { display: grid; gap: 0.5rem; min-width: 0; }
+  .tag-row__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.8rem; }
+  .tag-row__name { font-size: var(--step-0); }
+  .tag-row__actions, .tag-row__tools { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .tag-row__tools { align-items: start; }
+  .tool { min-width: 0; max-width: 100%; }
+  .tool > summary { list-style: none; cursor: pointer; }
+  .tool > summary::-webkit-details-marker { display: none; }
+  .tool[open] > summary { background: var(--hall); }
+  .tool__body { display: grid; gap: 0.5rem; margin-top: 0.5rem; max-width: 26rem; }
+  .tool__body label { font-weight: 650; font-size: var(--step--1); }
+  .tool__body p { margin: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .row input { flex: 1 1 12rem; min-width: 0; min-height: 44px; }
+</style>

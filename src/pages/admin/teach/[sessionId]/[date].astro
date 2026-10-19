@@ -16,7 +16,7 @@
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
-import { classPage, teachHome } from '@/lib/admin-links';
+import { classPage, teachHome, teachRoster as rosterLink, teachSkills } from '@/lib/admin-links';
 import { formatPhone, smsHref, telHref } from '@/lib/contacts';
 import { timeRange } from '@/lib/format';
 import { todayInAthens } from '@/lib/pricing';
@@ -84,6 +84,10 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
         <header class="roll-head">
           <h1>{cd.program.title}</h1>
           <p class="roll-head__when" data-roll-when>{[longDay(date), time, location?.shortName].filter(Boolean).join(' · ')}</p>
+          <nav class="teach-views" aria-label="This class">
+            <a href={rosterLink(sessionId, date, on)} aria-current="page" data-view="attendance">Attendance</a>
+            <a href={teachSkills(sessionId, date, on)} data-view="skills">Skills</a>
+          </nav>
           {cd.covers.length > 0 && <p class="roll-head__covers">{cd.covers.map((c) => (c.coveringForName ? `${c.name} covering for ${c.coveringForName}` : `${c.name} substituting`)).join(' · ')}</p>}
           {!cd.dayOff && (
             <div class="roll-head__count">

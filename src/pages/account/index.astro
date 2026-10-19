@@ -6,6 +6,8 @@ import Base from '@/layouts/Base.astro';
 import Character from '@/components/Character.astro';
 import SignInPanel from '@/components/portal/SignInPanel.astro';
 import { getDb, schema } from '@/server/db';
+import ProgressNotes from '@/components/ProgressNotes.astro';
+import { sharedNotesFor } from '@/server/progress-notes';
 import { ageOn, confirmFamilyDetails, createStudent, detailsFresh, ensureHousehold, getFamilyDetails, householdAccount, listEnrollments, listOrders, listStudents, studentInput } from '@/server/family';
 import { familyDetailsComplete, familyDetailsOnFile, personLine } from '@/lib/family-details';
 import { today as staffToday } from '@/lib/admin-links';
@@ -62,6 +64,8 @@ if (user && Astro.request.method === 'POST') {
 const needsProfile = !!user && !user.name?.trim();
 const household = user && !needsProfile ? await ensureHousehold(user) : null;
 const students = household ? await listStudents(household.id) : [];
+// Progress notes staff sent about each child (src/server/progress-notes.ts); drafts never show here.
+const progress = household ? await sharedNotesFor(household.id, Astro.locals.content) : new Map();
 const enrollments = household ? await listEnrollments(household.id) : [];
 const orders = household ? await listOrders(household.id) : [];
 const installments = household ? await listInstallments(household.id) : [];
@@ -272,6 +276,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                       </a>
                     )}
                     <a href={`/account/students/${s.id}`}>Edit</a>
+                    <ProgressNotes firstName={s.firstName} notes={progress.get(s.id)} />
                   </li>
                 ))}
               </ul>

@@ -177,7 +177,8 @@ export async function sendTest(staff: { id: string; email: string }, draft: { su
 
 export interface SendInput {
   token: string;
-  kind: 'class' | 'family';
+  kind: 'class' | 'family' | 'tag';
+  /** The class (kind 'class'), or the tag's id (kind 'tag'). */
   sessionId?: string | null;
   subject: string;
   body: string;
@@ -302,15 +303,17 @@ export async function messageResult(messageId: string) {
   return { ...m, sender: m.senderName || m.senderEmail || 'Staff', families: list, failed: list.filter((f) => f.failed).length };
 }
 
-/** Earlier emails to a class, or to one family (its own emails, not class ones), newest first. */
-export async function earlierMessages(where: { sessionId: string } | { householdId: string }, limit = 50) {
+/** Earlier emails to a class, to a tag, or to one family (its own emails, not class ones), newest first. */
+export async function earlierMessages(where: { sessionId: string } | { tagId: string } | { householdId: string }, limit = 50) {
   const db = await getDb();
   const families = sql<number>`count(distinct coalesce(${messageRecipient.householdId}, ${messageRecipient.email}))::int`;
   const failed = sql<number>`count(distinct coalesce(${messageRecipient.householdId}, ${messageRecipient.email})) filter (where ${messageRecipient.status} = 'failed')::int`;
   const filter =
     'sessionId' in where
       ? and(eq(message.kind, 'class'), eq(message.sessionId, where.sessionId))
-      : and(eq(message.kind, 'family'), sql`exists (select 1 from ${messageRecipient} r where r.message_id = ${message.id} and r.household_id = ${where.householdId})`);
+      : 'tagId' in where
+        ? and(eq(message.kind, 'tag'), eq(message.sessionId, where.tagId))
+        : and(eq(message.kind, 'family'), sql`exists (select 1 from ${messageRecipient} r where r.message_id = ${message.id} and r.household_id = ${where.householdId})`);
   const rows = await db
     .select({ id: message.id, subject: message.subject, createdAt: message.createdAt, senderName: user.name, senderEmail: user.email, families, failed })
     .from(message)

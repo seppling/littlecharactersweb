@@ -17,9 +17,19 @@
  * class by default) adds that day's drop-ins with the Drop-in badge; the
  * Drop-ins part lists them all with Cancel; "Add a drop-in" sends a pay link,
  * or books one with no charge after a fresh sign-in.
+ *
+ * Tags and skills (src/server/tags.ts, skills.ts): child tags on the roster,
+ * "Show tagged …" (?tag=) and "Tag selected" (posts to ./[sessionId]/tags.ts);
+ * the Skills part with the grid, its downloads and progress notes to send.
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
+import ClassSkills from '@/components/admin/ClassSkills.astro';
+import RosterTags from '@/components/admin/RosterTags.astro';
+import TagChips from '@/components/admin/TagChips.astro';
+import { draftsForClass } from '@/server/progress-notes';
+import { classSkillGrid } from '@/server/skills';
+import { listTags, tagsForStudents, withTag } from '@/server/tags';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
 import { classAttendance as attendanceList, classDropIns as classDropInsLink, classEmail, classes, classPage, classPrint, classSignInSheet, downloads, family, paymentsOrder, settingsDaysOff, teachRoster } from '@/lib/admin-links';
 import { classAttendance } from '@/server/attendance';
@@ -273,6 +283,13 @@ const upcomingDropIns = allDropIns.filter((d) => d.date >= today);
 const pastDropIns = allDropIns.filter((d) => d.date < today).reverse();
 const dropDates: DropInDate[] = dropPick ? await dropInDates(program, session) : [];
 const dropFiles = downloads(classDropInsLink(session.id));
+// Tags (staff labels) on the roster, its tag filter (?tag=), and the Skills part.
+const rosterTags = await tagsForStudents(rosterKids.map((c) => c.studentId));
+const tagFilter = Astro.url.searchParams.get('tag');
+const shownKids = withTag(rosterKids, rosterTags, tagFilter);
+const childTags = staff ? (await listTags()).filter((t) => t.kind === 'child') : [];
+const skillGrid = staff ? await classSkillGrid(program, session) : { skills: [], children: [] };
+const noteDrafts = staff ? await draftsForClass(session.id, Astro.locals.content) : [];
 ---
 
 <AdminShell title={program.title} section="classes" back={{ href: classes(), label: 'Classes' }}>
@@ -465,6 +482,7 @@ const dropFiles = downloads(classDropInsLink(session.id));
           <button class="btn btn--outline btn--sm">Show</button>
         </form>
       )}
+      <RosterTags sessionId={session.id} date={dateParam && onDate === dateParam ? onDate : null} filter={tagFilter} tags={childTags} total={rosterKids.length} shown={shownKids.length} />
       {rosterKids.length === 0 ? (
         <div class="empty-state">
           <strong>No one enrolled yet.</strong>
@@ -472,7 +490,7 @@ const dropFiles = downloads(classDropInsLink(session.id));
         </div>
       ) : (
         <ul class="roster" data-roster>
-          {rosterKids.map((c) => {
+          {shownKids.map((c) => {
             const medical = !!(c.allergies || c.medicalNotes);
             return (
               <li class="kid" data-child={c.studentId}>
@@ -483,6 +501,7 @@ const dropFiles = downloads(classDropInsLink(session.id));
                       {c.age !== null && <span class="muted">Age {c.age}</span>}
                     </span>
                     <Badges badges={c.badges} />
+                    <TagChips tags={rosterTags.get(c.studentId)} />
                     <span class="kid__more" aria-hidden="true">Care details</span>
                   </summary>
                   <div class="care" data-care>
@@ -548,6 +567,7 @@ const dropFiles = downloads(classDropInsLink(session.id));
                   <a class="family-link" href={family(c.householdId)}>Family page<span class="sr-only">: {c.family}</span></a>
                 </div>
                 <div class="kid__actions" data-roster-actions>
+                  <label class="check" data-tag-tick><input type="checkbox" form="tag-selected" name="studentId" value={c.studentId} /> Tick to tag<span class="sr-only"> {c.name}</span></label>
                   {c.dropInId ? (
                     <p class="muted no-charge" data-drop-in-note>Drop-in on {dropInDay(onDate!)} only{c.noChargeReason ? `. No charge: ${c.noChargeReason}` : ''}. Cancel it under Drop-ins.</p>
                   ) : c.noChargeReason && <p class="muted no-charge" data-no-charge>{noChargeLabel(c.noChargeReason)}</p>}
@@ -643,6 +663,8 @@ const dropFiles = downloads(classDropInsLink(session.id));
         </ul>
       )}
     </section>
+
+    <ClassSkills sessionId={session.id} programSlug={program.slug} grid={skillGrid} drafts={noteDrafts} />
 
     <section class="roster-section" aria-labelledby="waitlist-h" data-waitlist>
       <h2 id="waitlist-h">Waitlist <span class="muted">({waitlist.length})</span></h2>

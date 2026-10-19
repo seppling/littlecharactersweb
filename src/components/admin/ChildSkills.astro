@@ -1,0 +1,112 @@
+---
+/**
+ * One child's skills by class on the family page ("Student Skills";
+ * src/server/skills.ts), with when and by whom each was marked, and their
+ * progress notes: drafts to finish and send, and the ones sent.
+ */
+import { newProgressNote, progressNote } from '@/lib/admin-links';
+import type { NoteView } from '@/server/progress-notes';
+import { SKILL_LABELS, type ChildSkillClass } from '@/server/skills';
+
+interface Props {
+  studentId: string;
+  firstName: string;
+  classes: ChildSkillClass[];
+  notes: NoteView[];
+  /** Where a note's Cancel and Send come back to. */
+  back: string;
+}
+const { studentId, firstName, classes, notes, back } = Astro.props;
+const day = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
+const drafts = notes.filter((n) => !n.sharedAt);
+const sent = notes.filter((n) => n.sharedAt);
+---
+
+<details class="child-skills" data-child-skills>
+  <summary>Skills and progress notes{drafts.length > 0 && <span class="child-skills__count"> · {drafts.length} to send</span>}</summary>
+  <div class="child-skills__body">
+    {
+      classes.length === 0 ? (
+        <p class="muted">No skills marked yet. Teachers tick them in the teacher app, for classes with skills in Settings → Skills.</p>
+      ) : (
+        classes.map((c) => (
+          <div class="child-skills__class" data-skills-class={c.programSlug}>
+            <h4>{c.title}</h4>
+            <ul class="child-skills__list">
+              {c.skills.map((s) => (
+                <li data-skill={s.id} data-status={s.status}>
+                  <span class="child-skills__name">{s.name}{s.retired && <span class="muted"> (retired)</span>}</span>
+                  <span>
+                    <span class={`skill-mark skill-mark--${s.status}`}>{SKILL_LABELS[s.status]}</span>
+                    {s.markedAt && <span class="muted"> · {day(s.markedAt)}, {s.markedBy}</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <a class="btn btn--outline btn--sm" href={newProgressNote(studentId, c.sessionId, back)} data-write-note>
+              Write a progress note<span class="sr-only"> about {firstName}, {c.title}</span>
+            </a>
+          </div>
+        ))
+      )
+    }
+    {
+      classes.length === 0 && (
+        <a class="btn btn--outline btn--sm" href={newProgressNote(studentId, undefined, back)} data-write-note>
+          Write a progress note<span class="sr-only"> about {firstName}</span>
+        </a>
+      )
+    }
+    {
+      drafts.length > 0 && (
+        <div class="child-skills__notes">
+          <h4>To send</h4>
+          <ul>
+            {drafts.map((n) => (
+              <li>
+                <a href={progressNote(n.id)} data-draft={n.id}>
+                  Draft{n.classTitle && `, ${n.classTitle}`}
+                </a>
+                <span class="muted"> · {n.author}, {day(n.updatedAt)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+    {
+      sent.length > 0 && (
+        <div class="child-skills__notes">
+          <h4>Sent to the family</h4>
+          <ul>
+            {sent.map((n) => (
+              <li>
+                <a href={progressNote(n.id)} data-sent-note={n.id}>
+                  {day(n.sharedAt!)}{n.classTitle && `, ${n.classTitle}`}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+  </div>
+</details>
+
+<style>
+  .child-skills > summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; list-style: none; }
+  .child-skills > summary::-webkit-details-marker { display: none; }
+  .child-skills > summary::after { content: ''; width: 0.55rem; height: 0.55rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin-left: auto; margin-right: 0.3rem; }
+  .child-skills[open] > summary::after { transform: rotate(-135deg); }
+  .child-skills__count { font-weight: 650; color: var(--purple); margin-left: 0.3rem; }
+  .child-skills__body { display: grid; gap: 0.8rem; justify-items: start; }
+  .child-skills__class { display: grid; gap: 0.4rem; width: 100%; justify-items: start; }
+  .child-skills h4 { margin: 0; font-size: var(--step--1); font-family: var(--font-script); font-weight: 400; text-transform: uppercase; color: var(--ink-mute); }
+  .child-skills__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; width: 100%; }
+  .child-skills__list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.1rem 0.8rem; padding: 0.3rem 0; border-bottom: 1px solid var(--line); font-size: var(--step--1); }
+  .child-skills__name { font-weight: 650; overflow-wrap: anywhere; }
+  .child-skills__notes ul { list-style: none; margin: 0.2rem 0 0; padding: 0; display: grid; gap: 0.1rem; }
+  .child-skills__notes li { font-size: var(--step--1); }
+  .child-skills__notes a { display: inline-flex; align-items: center; min-height: 44px; }
+  .child-skills .muted { color: var(--ink-mute); font-size: var(--step--1); }
+</style>

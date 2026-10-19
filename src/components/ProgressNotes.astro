@@ -1,0 +1,42 @@
+---
+/**
+ * A child's progress notes in the family's account: only the ones staff sent
+ * (src/server/progress-notes.ts, sharedNotesFor), newest first. The newest
+ * is open; older ones are a tap away.
+ */
+import { paragraphs } from '@/server/messages';
+
+interface Props {
+  firstName: string;
+  notes: { id: string; body: string; sharedAt: Date; classTitle: string | null }[] | undefined;
+}
+const { firstName } = Astro.props;
+const notes = Astro.props.notes ?? [];
+const day = (d: Date) => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
+---
+
+{
+  notes.length > 0 && (
+    <div class="progress" data-progress-notes>
+      <p class="progress__title">{firstName}’s progress notes</p>
+      {notes.map((n, i) => (
+        <details class="progress__note" open={i === 0 || undefined} data-progress-note={n.id}>
+          <summary>
+            {day(n.sharedAt)}
+            {n.classTitle && <span class="progress__class"> · {n.classTitle}</span>}
+          </summary>
+          <div class="progress__body">{paragraphs(n.body).map((p) => <p>{p}</p>)}</div>
+        </details>
+      ))}
+    </div>
+  )
+}
+
+<style>
+  .progress { flex: 1 1 100%; display: grid; gap: 0.4rem; padding: 0.7rem 0.9rem; border-left: 4px solid var(--purple); border-radius: var(--r-sm); background: var(--purple-tint); }
+  .progress__title { margin: 0; font-weight: 700; }
+  .progress__note > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; font-weight: 650; color: var(--purple-ink); }
+  .progress__class { font-weight: 400; color: var(--ink-soft); }
+  .progress__body { display: grid; gap: 0.5rem; padding-bottom: 0.4rem; }
+  .progress__body p { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+</style>

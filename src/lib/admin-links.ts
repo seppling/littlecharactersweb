@@ -97,3 +97,29 @@ export function safeStaffPath(next: string | null | undefined): string | null {
   if (/(^|\/)\.\.?(\/|$)/.test(decoded)) return null;
   return url.pathname + url.search;
 }
+
+// ───────────── Tags, skills and progress notes (docs/back-office.md → Tags and skills) ─────────────
+
+/** Settings → Tags: every child and family tag, with add, rename, delete, email and downloads. */
+export const settingsTags = () => '/admin/settings/tags';
+/** One tag's list: pass to downloads() for its CSV and PDF; the page itself opens the tag's search results. */
+export const tagList = (tagId: string) => `/admin/settings/tags/${seg(tagId)}`;
+/** Email a tag: the families of the children (or the families) carrying it. */
+export const tagEmail = (tagId: string) => `/admin/settings/tags/${seg(tagId)}/email`;
+/** Search by tag: the children or families carrying it, with their classes. */
+export const searchTag = (tagId: string) => `/admin/search${query({ tag: tagId })}`;
+/** Where the family page's tag forms post (add and remove, for the family and each child). */
+export const familyTags = (householdId: string) => `/admin/families/${seg(householdId)}/tags`;
+/** Where a class roster's "Tag selected" posts. */
+export const classTags = (sessionId: string) => `/admin/classes/${seg(sessionId)}/tags`;
+/** Settings → Skills: each program's skills in order (`program` opens one). */
+export const settingsSkills = (programSlug?: string) => `/admin/settings/skills${query({ program: programSlug })}`;
+/** A class's skills grid: pass to downloads() for the "Class Skills Worksheet" CSV and PDF; the page itself is the class page's Skills part. */
+export const classSkills = (sessionId: string) => `/admin/classes/${seg(sessionId)}/skills`;
+/** The teacher app's Skills view for one class date, beside its attendance. */
+export const teachSkills = (sessionId: string, date: string, on?: string | null) => `/admin/teach/${seg(sessionId)}/${seg(date)}/skills${query({ on: on ?? undefined })}`;
+/** A progress note: write, preview and send a draft, or see one that was sent. */
+export const progressNote = (noteId: string) => `/admin/progress-notes/${seg(noteId)}`;
+/** Write a new progress note about a child (and a class). `back` is where Cancel and Send return to. */
+export const newProgressNote = (studentId: string, sessionId?: string, back?: string) =>
+  `/admin/progress-notes/new${query({ student: studentId, class: sessionId, back: back ? (safeStaffPath(back) ?? undefined) : undefined })}`;
