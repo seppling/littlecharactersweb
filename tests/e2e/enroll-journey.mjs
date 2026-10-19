@@ -229,8 +229,8 @@ await shot('7-roster');
 step('Hannah sees Maya on the roster, with allergies decrypted for staff');
 
 await page.goto(`${BASE}/admin/billing`);
-await page.waitForSelector('h1:has-text("Monthly autopay")');
-await page.waitForSelector('text=/Next: .*1 charge, \\$95/');
+await page.waitForSelector('h1:has-text("Payments")');
+await page.waitForSelector('[data-upcoming-day] h3 >> text=/1 charge · \\$95/');
 await shot('7b-billing');
 step('Hannah’s billing page shows the next autopay date and total');
 

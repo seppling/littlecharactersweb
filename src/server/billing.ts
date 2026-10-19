@@ -263,8 +263,17 @@ export async function markInstallmentFailed(installmentId: string, code: string,
     .returning();
   if (!i) return null;
   await audit(null, 'installment.failed', 'installment', i.id);
-  await notify(i, 'failed', today).catch((e) => console.error('Payment-failed email failed', e));
+  await sendPayLinkEmail(i, today).catch((e) => console.error('Payment-failed email failed', e));
   return i;
+}
+
+/**
+ * The "pay now" email to every parent in the family: sent when a charge fails,
+ * and again when staff press "Send a pay link" (src/server/payments-admin.ts).
+ * Returns how many parents it went to.
+ */
+export async function sendPayLinkEmail(i: Installment, today = todayInAthens()) {
+  return notify(i, 'failed', today);
 }
 
 async function notify(i: Installment, kind: 'paid' | 'failed' | 'late_fee', today = todayInAthens()) {
@@ -296,6 +305,7 @@ async function notify(i: Installment, kind: 'paid' | 'failed' | 'late_fee', toda
   for (const g of guardians) {
     await sendEmail({ to: g.email, subject: `${heading} · Little Characters`, text: `${heading}\n\n${lines.join('\n\n')}`, html: emailHtml(heading, lines) });
   }
+  return guardians.length;
 }
 
 // ───────────── For families (always scoped to their household) ─────────────
