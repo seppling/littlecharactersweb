@@ -246,7 +246,6 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                   {shows.map((sh) => (
                     <li data-gel={sh.gel} data-show={sh.showSlug} data-show-child={sh.studentId}>
                       <div>
-                        <span class="classes__who">{sh.firstName}</span>
                         <strong data-role-line>{roleLine(sh)}</strong>
                         <span class="script">{sh.dates}</span>
                         {sh.rehearsals.map((r) => (

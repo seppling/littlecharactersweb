@@ -34,6 +34,9 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 | `classAttendance(sessionId)` | `/admin/classes/<id>/attendance` | A class's attendance, for `downloads()` (CSV and PDF only, §18) |
 | `calendar(month?, params?)` | `/admin/calendar?month=2026-11` (`view=week&week=`, `program`, `location`, `teacher`) | The calendar (§19) |
 | `settingsDaysOff(sessionId?)` | `/admin/settings/days-off` (`?class=<id>&which=some` pre-fills a class) | Settings → Days off (§19) |
+| `shows()` | `/admin/shows` | Shows: each show's cast and rehearsals (§21) |
+| `show(slug)` | `/admin/shows/<slug>` | One show: cast, roles, rehearsals. Pass `` `${show(slug)}/program` `` or `/cast-sheet` to `downloads()` (§21) |
+| `showEmail(slug)` | `/admin/shows/<slug>/email` | Email the cast (§21) |
 | `confirm(next)` | `/admin/confirm?next=` | Sign in again, then go on |
 | `downloads(listPath)` | `{ csv, pdf }` | A list's two downloads |
 
@@ -483,4 +486,33 @@ A child comes to one class of a weekly class and pays for that date. Hannah's gu
 - **The calendar:** a day off added on a date with booked drop-ins isn't handled here; list them with `dropInsOn`.
 - **Refunds:** a cancelled drop-in with a paid order is the one to refund (`dropInStatus` says "(paid $25)").
 - **Test-only:** `POST /dev/drop-in-day-off` (`session`, `date`; staff, development only) adds a day off for `tests/e2e/staff-drop-ins.mjs`.
+
+## 21. Shows: cast lists, roles, rehearsals (`src/server/shows.ts`)
+
+Each show (the content's events of kind `show`) gets a cast list and rehearsals. Studio Director has nothing for a cast. **No money:** casting charges nothing, because the performance fee is charged at sign-up.
+
+**Shows** (`shows()`, owners; in the top bar after Calendar and in the phone menu, not a tab): the shows coming up (soonest first, undated last), then past ones. Each shows its dates ("Date to come (December 2026)" for a `tba` show), the classes performing (`performers`) and "12 in the cast" (`castCounts`: children, not roles). Functions: `showList(events, counts, content, today)` (pure), `showDatesLabel`, `findShow`, `showUpcoming`.
+
+**A show's page** (`show(slug)`, `src/pages/admin/shows/[slug].astro`):
+- **Cast** (`castList(slug)` → `CastRow[]`, by `position`): each child with role, group, number in the order, and photo permission read from `student.photo_consent` (`photoPermission`: `yes` / `no` / `not-asked`, the badge "Photos: yes", "No photos", "Photos: not asked"; never copied into `show_cast`). Role and group are edited in place (`updateCast`; one child can't have the same role twice). ↑ and ↓ swap with the neighbor and renumber positions 0, 1, 2… (`moveCast`). **Another role** adds a row for the same child with an empty role (`addToCast`); **Remove** takes off one role (`removeCast`). The child's name links to their family's page.
+- **Add to the cast:** the performing classes' current sessions first (`performingSessions(event, content, today)`: the performing programs' staff sessions not ended by today; for a past show, the ones running on its first date), with each enrolled or trial child (`castSuggestions`) and **Add everyone from <class>**. **Find any child by name** (a form post, `findForCast`, the staff search). New rows go at the end, with an empty role.
+- **Copy emails / Copy phone numbers** of the cast's families, and **Email the cast** (`showEmail(slug)`): the Phase 1 composer with `castAudience(slug)`. The messages are logged as kind `class` with `session_id` = `showMessageKey(slug)` (`show:<slug>`), so the composer, its earlier emails and each family page's "Emails sent" work unchanged. `MessageComposer` takes an optional `emptyText`.
+- **Downloads** (a fresh sign-in; audit `admin.download.csv|pdf`, entity `list`, id `cast-program:<slug>` or `cast-sheet:<slug>`):
+
+| Download | Address | Columns |
+|---|---|---|
+| Cast list for the program | `downloads(`${show(slug)}/program`)` | Name, Role, Group (one row per role, in the cast's order) |
+| Staff cast sheet | `downloads(`${show(slug)}/cast-sheet`)` | Name, Role, Group, Photos, Class (the performing class), Parents' phones. No care details |
+
+- **Audit:** `admin.cast.add`, `.update`, `.move`, `.remove` (entity `student`, the show's slug in `detail`). Cast changes don't need a fresh sign-in (no money, no care details); viewing the page isn't logged (no care details on it).
+
+**Rehearsals** (`show_rehearsal`; on the show's page):
+- **Add, Change, Remove:** date, start and end (Athens time; stored as instants by `athensInstant(date, time)`, read back by `athensParts`; correct on both sides of the daylight-saving change), place (the content's locations, optional), a note (300 characters) and the classes that rehearse (`session_ids`; none ticked = the whole cast). Audit `admin.rehearsal.add|update|remove` (entity `show_rehearsal`, slug and date in `detail`).
+- **Who's called** (`rehearsingSessions`): the ticked classes, or for the whole cast the performing classes' current sessions on that date. A child is called (`childCalled`) when the rehearsal is for the whole cast, or they're enrolled (active or trial) in a ticked class.
+- **Calendar** (§19): a `rehearsal` entry (teal), "Rehearsal: <show>", the classes or "Whole cast", the place, linking to `show(slug)`; month, week and phone list; in the Daily Class Schedule download too. Filters: program and teacher by the rehearsing classes, location by its place. `calendarRehearsals(content, from, to)`; `CalendarData.rehearsals` is optional.
+- **The teachers' Today** (§18): `teacherRehearsals(viewer, date, content)` → `RehearsalCard[]`, beside `teachCards` (which is unchanged): a read-only card with time, show, place, classes and note, for teachers who lead or assist a rehearsing class (`teacherSeesRehearsal`); owners see every rehearsal that day. No cast, no attendance. Teachers can't open `/admin/shows`.
+- **Families:** the account's "Coming up" shows, for each child in the cast of an upcoming show, "Juniper: Narrator, Moon, in Fall 2026 Variety Show", its dates, and each rehearsal from now on that the child is called to: "Rehearsal: Sat, Nov 14, 10 am–12 pm, HQ · W Broad St" and its note (`familyShows`, `roleLine`). Nothing about other children in the cast. The class's calendar file (`/account/calendar/<enrollment>.ics`) adds those rehearsals as one-off events (`classCalendar`'s `extras`, `childRehearsals`). The show's public page is unchanged.
+- **Telling families about a change:** after Change or Remove, the notice offers **Email the families about this change**: `showEmail(slug)?about=changed|removed&start=&end=&loc=&classes=` (and `r=` for a change; times and ids only, built by `changeQuery`). The composer opens filled in (`changeEmail`: "Rehearsal changed: <show>" / "Rehearsal cancelled: <show>") with only the families called to the old or new rehearsal ticked (`rehearsalFamilies`). Nothing is sent until staff review and send it.
+
+**Not built here:** tickets, conflicts, rehearsal attendance, rehearsals in the teacher app's "This week", tags (the tags unit's).
 
