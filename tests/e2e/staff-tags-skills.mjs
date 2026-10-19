@@ -115,8 +115,8 @@ const PARENT = 'jo.sample.tags@example.com';
 const INTRO = 'intro-f26-tue';
 const TUE = nextTuesday();
 const KIDS = [
-  ['Mila', 'Quill', '2017-03-03'],
-  ['Otto', 'Quill', '2018-05-05'],
+  ['Mila', 'Larkspur', '2017-03-03'],
+  ['Otto', 'Larkspur', '2018-05-05'],
 ];
 
 // ── 1. A family signs up two children ──
@@ -124,7 +124,7 @@ const fp = await newPage();
 await fp.goto(`${BASE}/account`);
 await signIn(fp, PARENT);
 await fp.waitForSelector('#p-name');
-await fp.fill('#p-name', 'Jo Quill');
+await fp.fill('#p-name', 'Jo Larkspur');
 await fp.fill('#p-phone', '706-555-0177');
 await fp.click('button[type="submit"]');
 await fp.waitForSelector('text=Add a student');
@@ -191,39 +191,39 @@ const tagId = await hp.$eval('#roster-tag option:not([value=""])', (o) => o.valu
 await hp.selectOption('#roster-tag', tagId);
 await Promise.all([hp.waitForURL(/tag=/), hp.click('[data-tag-filter] button')]);
 const shown = await hp.$$eval('[data-roster] [data-child]', (els) => els.map((e) => e.querySelector('.kid__name')?.textContent));
-check(shown.length === 2 && shown.every((n) => /Quill/.test(n)), `the roster filtered by the tag shows only those two (${shown.join(', ')})`);
+check(shown.length === 2 && shown.every((n) => /Larkspur/.test(n)), `the roster filtered by the tag shows only those two (${shown.join(', ')})`);
 check((await hp.textContent('[data-tag-shown]')).includes('2 children'), '… and says how many');
 await shot(hp, 'roster-tags-desktop');
 await onPhone(hp, 'roster-tags', 'a roster filtered by a tag', '[data-roster-tags] button, [data-roster-tags] select, [data-roster-tags] summary');
 
 // ── 5. Tag the family and a child from the family's page ──
-await hp.goto(`${BASE}/admin/search?q=Quill`);
+await hp.goto(`${BASE}/admin/search?q=Larkspur`);
 await Promise.all([hp.waitForURL(/\/admin\/families\//), hp.locator('[data-results="families"] a.hit').first().click()]);
 const familyUrl = hp.url().split('?')[0];
 await hp.click('[data-family-tags] [data-tag-editor] details > summary');
 await hp.fill('[data-family-tags] input[name="name"]', 'Carpool');
 await Promise.all([hp.waitForURL(/tags=added/), hp.click('[data-family-tags] [data-add-tag] button')]);
 check((await hp.textContent('[data-family-tags] [data-tags]')).includes('Carpool'), 'the family is tagged “Carpool” (picked from the list)');
-const mila = hp.locator('[data-child]').filter({ hasText: 'Mila Quill' });
+const mila = hp.locator('[data-child]').filter({ hasText: 'Mila Larkspur' });
 check((await mila.locator('[data-tags]').textContent()).includes('Cast group A'), 'Mila’s card shows her roster tag');
 await mila.locator('[data-tag-editor] details > summary').click();
 await mila.locator('input[name="name"]').fill('Needs a buddy');
 await Promise.all([hp.waitForURL(/tags=created/), mila.locator('[data-add-tag] button').click()]);
-check((await hp.locator('[data-child]').filter({ hasText: 'Mila Quill' }).locator('[data-tags]').textContent()).includes('Needs a buddy'), 'a new tag typed on Mila’s card is made and added');
-await Promise.all([hp.waitForURL(/tags=removed/), hp.locator('[data-child]').filter({ hasText: 'Mila Quill' }).locator('[data-tag] [data-remove-tag]').last().click()]);
-check(!(await hp.locator('[data-child]').filter({ hasText: 'Mila Quill' }).locator('[data-tags]').textContent()).includes('Needs a buddy'), '✕ removes a tag from a child');
+check((await hp.locator('[data-child]').filter({ hasText: 'Mila Larkspur' }).locator('[data-tags]').textContent()).includes('Needs a buddy'), 'a new tag typed on Mila’s card is made and added');
+await Promise.all([hp.waitForURL(/tags=removed/), hp.locator('[data-child]').filter({ hasText: 'Mila Larkspur' }).locator('[data-tag] [data-remove-tag]').last().click()]);
+check(!(await hp.locator('[data-child]').filter({ hasText: 'Mila Larkspur' }).locator('[data-tags]').textContent()).includes('Needs a buddy'), '✕ removes a tag from a child');
 await shot(hp, 'family-tags-desktop');
 await onPhone(hp, 'family-tags', 'a family’s page with tags', '[data-tag-editor] button, [data-tag-editor] summary');
 
 // ── 6. Search by tag, and chips on search results ──
-await hp.goto(`${BASE}/admin/search?q=Quill`);
+await hp.goto(`${BASE}/admin/search?q=Larkspur`);
 check((await hp.textContent('[data-results="children"]')).includes('Cast group A'), 'search results show children’s tags');
 check((await hp.textContent('[data-results="families"]')).includes('Carpool'), '… and families’ tags');
 await hp.goto(`${BASE}/admin/search`);
 await hp.selectOption('#by-tag', tagId);
 await Promise.all([hp.waitForURL(/tag=/), hp.click('[data-tag-search] button')]);
 const tagged = await hp.$$eval('[data-results="tag"] a.hit strong', (els) => els.map((e) => e.textContent));
-check(tagged.length === 2 && tagged.includes('Mila Quill') && tagged.includes('Otto Quill'), 'search by tag lists the two children');
+check(tagged.length === 2 && tagged.includes('Mila Larkspur') && tagged.includes('Otto Larkspur'), 'search by tag lists the two children');
 check((await hp.textContent('[data-results="tag"]')).includes('Intro to Theater'), '… with their classes');
 await shot(hp, 'search-tag-desktop');
 await onPhone(hp, 'search-tag', 'search by tag', '[data-tag-search] select, [data-tag-search] button, [data-results="tag"] a');
@@ -244,7 +244,7 @@ await hp.goto(`${BASE}/admin/settings/tags`);
 check((await hp.textContent('[data-tag-row="Cast group A"] [data-tag-count]')).includes('2 children'), 'Settings → Tags counts 2 children for “Cast group A”');
 check((await hp.textContent('[data-tag-row="Carpool"] [data-tag-count]')).includes('1 family'), '… and 1 family for “Carpool”');
 const csv = await hp.request.get(BASE + (await hp.getAttribute('[data-tag-row="Cast group A"] [data-download="csv"]', 'href')));
-check(csv.status() === 200 && (await csv.text()).includes('Mila Quill'), 'the tag’s list downloads as a CSV');
+check(csv.status() === 200 && (await csv.text()).includes('Mila Larkspur'), 'the tag’s list downloads as a CSV');
 await shot(hp, 'settings-tags-desktop');
 await onPhone(hp, 'settings-tags', 'Settings → Tags', '.tags-page button, .tags-page summary, .tags-page .choice, .tags-page a.btn');
 
@@ -281,7 +281,7 @@ await tp.goto(`${BASE}/admin/teach/${INTRO}/${TUE}?on=${TUE}`);
 check(!(await tp.textContent('body')).includes('Cast group A'), 'the teacher’s attendance roster shows no tags');
 await Promise.all([tp.waitForURL(/\/skills/), tp.click('[data-view="skills"]')]);
 check(!(await tp.textContent('body')).includes('Cast group A'), 'nor does the Skills view');
-const milaRow = tp.locator('[data-kid]').filter({ hasText: 'Mila Q.' });
+const milaRow = tp.locator('[data-kid]').filter({ hasText: 'Mila L.' });
 await milaRow.locator('summary').click();
 const tickOn = async (kid, skill, label) => {
   await kid.locator('[data-skill]').filter({ hasText: skill }).locator(`button:has-text("${label}")`).click();
@@ -293,7 +293,7 @@ await tp.waitForSelector('[data-save-status][data-state="sent"]');
 check((await milaRow.locator('[data-kid-summary]').textContent()).includes('1 got it · 1 working on it'), 'Mila: one Got it, one Working on it, saved ✓');
 
 // No signal: the tick stays on screen and saves once signal is back.
-const ottoRow = tp.locator('[data-kid]').filter({ hasText: 'Otto Q.' });
+const ottoRow = tp.locator('[data-kid]').filter({ hasText: 'Otto L.' });
 await ottoRow.locator('summary').click();
 await tp.context().setOffline(true);
 await tickOn(ottoRow, 'Projects their voice', 'Working on it');
@@ -311,7 +311,7 @@ await Promise.all([tp.waitForURL(/draft=saved/), milaRow.locator('[data-save-dra
 check(await tp.locator('[data-draft-saved]').count(), 'the teacher saved a note for Hannah');
 check((await sideways(tp)) <= 0, 'the Skills view: no sideways scrolling at 390 px');
 await tapTargets(tp, '.skills-page .steps__btn, .skills-page summary, .skills-page .btn, .teach-views a', 'the Skills view');
-await tp.locator('[data-kid]').filter({ hasText: 'Mila Q.' }).locator('summary').click();
+await tp.locator('[data-kid]').filter({ hasText: 'Mila L.' }).locator('summary').click();
 await shot(tp, 'teach-skills-phone');
 await tp.setViewportSize(DESKTOP);
 await shot(tp, 'teach-skills-desktop');
@@ -327,9 +327,9 @@ check(tagCsv.status() === 404, 'a teacher can’t download a tag’s list');
 
 // ── 11. Hannah: the grid, the draft, the preview, Send ──
 await hp.goto(`${BASE}/admin/classes/${INTRO}`);
-const gridMila = hp.locator('[data-skill-grid] [data-skill-child]').filter({ hasText: 'Mila Quill' });
+const gridMila = hp.locator('[data-skill-grid] [data-skill-child]').filter({ hasText: 'Mila Larkspur' });
 check((await gridMila.textContent()).includes('Got it') && (await gridMila.textContent()).includes('Working on it'), 'the class page’s Skills grid shows Mila’s ticks');
-check((await hp.textContent('[data-notes-to-send]')).includes('Mila Quill'), '“Progress notes to send” lists the teacher’s draft');
+check((await hp.textContent('[data-notes-to-send]')).includes('Mila Larkspur'), '“Progress notes to send” lists the teacher’s draft');
 await hp.locator('[data-class-skills]').scrollIntoViewIfNeeded();
 await shot(hp, 'class-skills-desktop');
 await hp.setViewportSize(PHONE);
