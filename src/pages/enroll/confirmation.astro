@@ -3,10 +3,12 @@
 import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
 import Character from '@/components/Character.astro';
-import { autopayLine, getOrder, householdForUser, listStudents } from '@/server/family';
+import { autopayLine, familyTotals, getOrder, householdForUser, listStudents } from '@/server/family';
+import AnotherChild from '@/components/portal/AnotherChild.astro';
 import { completeCheckout, paymentsMode } from '@/server/payments';
 import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
+import { arrivalLines, isOneOff, oneOffWhen } from '@/lib/program-fit';
 
 export const prerender = false;
 const { locationById, site } = Astro.locals.content;
@@ -35,6 +37,15 @@ const loc = locationById(session.locationId);
 const first = meetings(session).find((m) => m >= todayInAthens()) ?? session.startDate;
 const firstDate = new Date(`${first}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
 const waitlist = o.plan === 'waitlist';
+// One date (a night out, the free class): its date and time in one line, no "first class".
+const oneOff = isOneOff(session);
+const arrival = arrivalLines(program, parking);
+// The whole family, read from their payments: what today's sign-ups cost, and
+// autopay on the next 1st. Shown once there's more than this one sign-up to add up.
+const totals = await familyTotals(household.id);
+const nextFirst = new Date(`${totals.nextFirst}T12:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' });
+const ownNext = o.schedule.some((c) => c.dueDate === totals.nextFirst) ? 1 : 0;
+const showTotals = !waitlist && (totals.signUpsToday > 1 || totals.nextMonthOrders > ownNext);
 ---
 
 <Base title="You’re in!" noindex>
@@ -56,11 +67,31 @@ const waitlist = o.plan === 'waitlist';
     {
       !waitlist && (
         <dl class="facts">
-          <div><dt>First class</dt><dd>{firstDate}</dd></div>
-          <div><dt>Time</dt><dd>{dayList(session.days)}, {timeRange(session.start, session.end)}</dd></div>
+          {oneOff ? (
+            <div class="wide"><dt>When</dt><dd>{oneOffWhen(program, session)}</dd></div>
+          ) : (
+            <>
+              <div><dt>First class</dt><dd>{firstDate}</dd></div>
+              <div><dt>Time</dt><dd>{dayList(session.days)}, {timeRange(session.start, session.end)}</dd></div>
+            </>
+          )}
           {loc && <div><dt>Where</dt><dd>{loc.name}<br /><span class="muted">{loc.address.join(', ')}</span></dd></div>}
           <div><dt>{o.plan === 'trial' ? 'Today' : 'Paid'}</dt><dd>{o.plan === 'trial' ? 'Your first class is free' : formatCents(o.totalCents)}</dd></div>
         </dl>
+      )
+    }
+
+    {
+      showTotals && (
+        <div class="family-totals" data-family-totals>
+          <h2>Your family</h2>
+          <dl>
+            <div><dt>Paid today</dt><dd>{formatCents(totals.paidTodayCents)} <span class="muted">for {totals.signUpsToday} {totals.signUpsToday === 1 ? 'sign-up' : 'sign-ups'}</span></dd></div>
+            {totals.nextMonthOrders > 0 && (
+              <div><dt>From {nextFirst}</dt><dd>{formatCents(totals.nextMonthCents)} a month <span class="muted">in autopay, for every class</span></dd></div>
+            )}
+          </dl>
+        </div>
       )
     }
 
@@ -74,14 +105,14 @@ const waitlist = o.plan === 'waitlist';
     }
 
     <div class="bring">
-      <h2>Before the first class</h2>
+      <h2>{oneOff ? 'Before you come' : 'Before the first class'}</h2>
       <ul>
-        <li>Wear comfy clothes and closed-toe shoes, and bring a water bottle.</li>
-        <li>{parking.walkIn}</li>
-        <li>{parking.late}</li>
+        {arrival.map((line) => <li>{line}</li>)}
         {o.plan === 'monthly' && o.schedule.length > 0 && <li>{autopayLine(o.schedule)} You can see upcoming charges in your family account.</li>}
       </ul>
     </div>
+
+    <AnotherChild />
   </EnrollShell>
 </Base>
 
@@ -92,8 +123,15 @@ const waitlist = o.plan === 'waitlist';
   .facts { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-m); padding: var(--space-l); background: var(--hall); border-radius: var(--r-md); }
   .facts dt { font-family: var(--font-script); font-weight: 700; font-size: var(--step--2); text-transform: uppercase; color: var(--purple); }
   .facts dd { margin: 0.2rem 0 0; font-weight: 600; }
+  .facts .wide { grid-column: 1 / -1; }
   .muted { color: var(--ink-mute); font-weight: 400; }
   .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .family-totals { display: grid; gap: 0.5rem; padding: var(--space-m) var(--space-l); border: 2px solid var(--ink); border-radius: var(--r-md); }
+  .family-totals h2 { font-size: var(--step-1); }
+  .family-totals dl { margin: 0; display: grid; gap: 0.4rem; }
+  .family-totals dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.2rem 1rem; }
+  .family-totals dt { font-weight: 650; }
+  .family-totals dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
   .bring h2 { font-size: var(--step-1); margin-bottom: 0.5rem; }
   .bring ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.4rem; color: var(--ink-soft); }
   @media (max-width: 520px) { .facts { grid-template-columns: 1fr; } }

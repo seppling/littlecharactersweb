@@ -7,7 +7,7 @@ export const prerender = false;
  * The public site's forms post here. With JavaScript, the page shows its own
  * confirmation (JSON reply); without it, the visitor lands on /thanks.
  */
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const wantsJson = request.headers.get('accept')?.includes('application/json') ?? false;
   const form = await request.formData().catch(() => null);
   const parsed = leadInput.safeParse(form ? Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)])) : {});
@@ -16,7 +16,8 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     return wantsJson ? Response.json({ ok: false, message }, { status: 400 }) : new Response(message, { status: 400 });
   }
   try {
-    await saveLead(parsed.data);
+    const { site } = locals.content;
+    await saveLead(parsed.data, { sender: locals.user, replyTime: site.contact.replyTime, phone: site.contact.phone });
   } catch (e) {
     console.error('Lead form failed', e);
     const message = 'Sorry, that didn’t go through. Please try again, or email us directly.';

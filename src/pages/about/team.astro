@@ -1,0 +1,127 @@
+---
+/**
+ * The team: the page's own words are edited at /admin/content/pages/team, the
+ * people under Team (/admin/content/team). The first person is shown larger.
+ */
+import Base from '@/layouts/Base.astro';
+import PhotoFrame from '@/components/PhotoFrame.astro';
+import { plain, rich } from '@/content/rich';
+import { breadcrumbLd } from '@/lib/seo';
+
+const { team, testimonial, site, vars, pages } = Astro.locals.content;
+const page = pages.team.team;
+const [lead, ...crew] = team;
+const quote = testimonial(page.quote);
+const structuredData = [breadcrumbLd([{ name: 'About', url: new URL('/about', site.url).href }, { name: page.heading }])];
+---
+
+<Base
+  title={page.heading}
+  description={plain(page.lede, vars) || undefined}
+  seo={pages.team.seo}
+  image={lead?.image}
+  structuredData={structuredData}
+  edit="/admin/content/pages/team"
+>
+  <section class="section about-sub" aria-labelledby="team-title">
+    <div class="wrap">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="/about">About</a>
+      </nav>
+      <div class="section-head">
+        {page.eyebrow && <p class="eyebrow">{page.eyebrow}</p>}
+        <h1 id="team-title">{page.heading}</h1>
+        {page.lede && <p class="lede" set:html={rich(page.lede, vars)} />}
+        {page.social && <p class="team__social" set:html={rich(page.social, vars)} />}
+      </div>
+      {
+        lead && (
+          <article class="lead" data-gel={lead.gel}>
+            <PhotoFrame shape="arch" ratio="4 / 5" gel={lead.gel} image={lead.image} sizes="(max-width: 960px) 80vw, 340px" class="lead__photo" eager />
+            <div class="lead__text">
+              <h2>{lead.name}</h2>
+              <p class="member__role">{lead.role}</p>
+              {lead.bio.map((para) => (
+                <p class="lead__bio" set:html={rich(para, vars)} />
+              ))}
+            </div>
+          </article>
+        )
+      }
+      <div class="team">
+        {
+          crew.map((m) => (
+            <article class="member" data-gel={m.gel}>
+              <PhotoFrame shape="circle" gel={m.gel} image={m.image} class="member__photo" sizes="140px" />
+              <div class="member__text">
+                <h2>{m.name}</h2>
+                <p class="member__role">{m.role}</p>
+                {m.bio.map((para) => (
+                  <p class="member__bio" set:html={rich(para, vars)} />
+                ))}
+              </div>
+            </article>
+          ))
+        }
+      </div>
+      {
+        (quote || page.hiring) && (
+          <figure class="work">
+            {quote && (
+              <>
+                <blockquote>
+                  <p>“{quote.quote}”</p>
+                </blockquote>
+                <figcaption>{quote.attribution}</figcaption>
+              </>
+            )}
+            {page.hiring && <p class="work__cta" set:html={rich(page.hiring, vars)} />}
+          </figure>
+        )
+      }
+    </div>
+  </section>
+</Base>
+
+<style>
+  .about-sub { padding-top: var(--space-xl); }
+  .crumbs { display: flex; gap: 0.5rem; margin-bottom: var(--space-l); font-size: var(--step--1); color: var(--ink-mute); }
+  .crumbs a { color: var(--ink-soft); }
+  .section-head h1 { font-size: var(--step-4); }
+  .team__social { color: var(--ink-soft); }
+
+  .lead {
+    display: grid;
+    grid-template-columns: minmax(0, 0.45fr) minmax(0, 1fr);
+    gap: var(--space-2xl);
+    align-items: center;
+    padding-bottom: var(--space-2xl);
+    margin-bottom: var(--space-2xl);
+    border-bottom: 2px solid var(--ink);
+  }
+  .lead :global(.lead__photo) { width: 100%; max-width: 340px; }
+  .lead h2 { font-size: var(--step-4); }
+  .lead__bio { color: var(--ink-soft); max-width: var(--measure); }
+  .lead__bio + .lead__bio { margin-top: 0.9em; }
+
+  .team { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--space-xl) var(--space-l); }
+  .member { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-m); align-items: start; }
+  .member :global(.member__photo) { width: 120px; box-shadow: 0 0 0 5px var(--gel-tint); }
+  .member h2 { font-size: var(--step-1); font-stretch: 92%; }
+  .member__role { font-family: var(--font-script); font-weight: 700; font-size: var(--step--1); color: var(--gel-ink); margin: 0.2rem 0 0.5rem; }
+  .member__bio { color: var(--ink-soft); font-size: var(--step--1); }
+
+  .work { margin: var(--space-2xl) 0 0; padding: var(--space-xl); background: var(--hall); border-radius: var(--r-lg); }
+  .work blockquote { margin: 0; }
+  .work p { font-family: var(--font-display); font-size: var(--step-1); font-weight: 550; line-height: 1.4; }
+  .work figcaption { margin-top: 0.6rem; font-family: var(--font-script); font-weight: 700; color: var(--purple); }
+  .work .work__cta { margin-top: var(--space-m); font-family: var(--font-body); font-size: var(--step-0); font-weight: 400; color: var(--ink-soft); }
+
+  @media (max-width: 960px) {
+    .lead { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 520px) {
+    .member { grid-template-columns: 88px 1fr; }
+    .member :global(.member__photo) { width: 88px; }
+  }
+</style>

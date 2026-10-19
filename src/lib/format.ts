@@ -1,11 +1,12 @@
 import type { Fee, Price, Program, Session, Weekday } from '@/content/types';
+import { sessionPriceParts } from '@/lib/pricing';
 
 const DAY_NAMES: Record<Weekday, string> = {
   Mon: 'Mondays', Tue: 'Tuesdays', Wed: 'Wednesdays', Thu: 'Thursdays', Fri: 'Fridays', Sat: 'Saturdays', Sun: 'Sundays',
 };
 
 /** "16:30" → "4:30" (meridiem added separately so ranges read "4:30–5:30 pm"). */
-function clock(t: string) {
+export function clock(t: string) {
   const [h, m] = t.split(':').map(Number);
   const h12 = ((h + 11) % 12) + 1;
   return m === 0 ? `${h12}` : `${h12}:${String(m).padStart(2, '0')}`;
@@ -52,7 +53,19 @@ const UNIT: Record<Price['unit'], string> = {
 export function price(p?: Price) {
   if (!p) return 'Pricing TBA';
   if (p.amount === 0) return 'Free';
+  // Parents' Night Out: the one per-child price, said the same way everywhere.
+  if (p.unit === 'child' && p.additional != null && p.additional !== p.amount) return `$${p.amount} first child, $${p.additional} each additional`;
   return `$${p.amount}${UNIT[p.unit]}`;
+}
+
+/**
+ * A price as families should read it. A class priced per session says what the
+ * session covers, from its real meetings: "$160 for 9 weeks ($17.78 a class)",
+ * not "$160/session" (read as $160 a class). Everything else as price().
+ */
+export function priceLabel(p?: Price, session?: Pick<Session, 'days' | 'startDate' | 'endDate'>) {
+  const parts = sessionPriceParts(p, session);
+  return parts ? `${parts.total} (${parts.perClass})` : price(p);
 }
 
 export function ageLabel(ages: Program['ages'], override?: string) {
@@ -60,6 +73,21 @@ export function ageLabel(ages: Program['ages'], override?: string) {
   if (ages.max == null) return ages.min >= 18 ? 'Adults 18+' : `Ages ${ages.min}+`;
   return `Ages ${ages.min}–${ages.max}`;
 }
+
+/**
+ * The ages a group of programs spans, for a heading over them: "Ages 7–17", or
+ * "Ages 7+" when any of them is shown open-ended (no top age, or a label like
+ * "Ages 9+"), so the heading agrees with the class pages. Undefined for none.
+ */
+export function agesSpan(list: Pick<Program, 'ages' | 'agesLabel'>[]) {
+  if (!list.length) return undefined;
+  const min = Math.min(...list.map((p) => p.ages.min));
+  const open = list.some((p) => p.ages.max == null || /\+$/.test(p.agesLabel?.trim() ?? ''));
+  return ageLabel({ min, max: open ? undefined : Math.max(...list.map((p) => p.ages.max!)) });
+}
+
+/** "Ages 7–10" → "7–10", for a program named beside its age. */
+export const agesShort = (label: string) => label.replace(/^Ages /, '');
 
 export const statusLabel: Record<Session['status'], string> = {
   open: 'Open',

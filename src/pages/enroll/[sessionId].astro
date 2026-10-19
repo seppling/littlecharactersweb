@@ -5,6 +5,7 @@ import { z } from 'zod';
 import Base from '@/layouts/Base.astro';
 import EnrollShell from '@/components/portal/EnrollShell.astro';
 import SignInPanel from '@/components/portal/SignInPanel.astro';
+import SignupsClosed from '@/components/portal/SignupsClosed.astro';
 import { getDb, schema } from '@/server/db';
 import {
   ageOn,
@@ -15,24 +16,31 @@ import {
   fitsAges,
   listEnrollments,
   listStudents,
+  outsideAgesNote,
+  PickError,
   studentInput,
   takenSpots,
 } from '@/server/family';
 import { ageLabel } from '@/lib/format';
+import { bookingClock, bookingProblem } from '@/lib/session-dates';
 
 export const prerender = false;
 
 const { sessionId } = Astro.params;
 const found = Astro.locals.content.findSession(sessionId ?? '');
-if (!found || found.session.status === 'closed') return new Response('Not found', { status: 404 });
+if (!found) return new Response('Not found', { status: 404 });
 const { program, session } = found;
-if (session.externalUrl && !session.externalUrl.includes('docs.google.com')) return Astro.redirect(session.externalUrl);
+// A date that has passed, is past its sign-up cut-off or was closed by staff is
+// refused with a page that leads back to the class (the server refuses it too).
+const closedProblem = bookingProblem(program, session, bookingClock(Astro.locals.content.site.lateJoinWeeks));
+if (closedProblem) Astro.response.status = 410;
+if (!closedProblem && session.externalUrl && !session.externalUrl.includes('docs.google.com')) return Astro.redirect(session.externalUrl);
 
 const user = Astro.locals.user;
 const errors: Record<string, string> = {};
 let values: Record<string, string> = {};
 
-if (user && Astro.request.method === 'POST') {
+if (!closedProblem && user && Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const action = form.get('action');
   values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
@@ -69,8 +77,13 @@ if (user && Astro.request.method === 'POST') {
     if (!ids.length) {
       errors.students = 'Pick at least one student.';
     } else {
-      const o = await createDraftOrder(h.id, user.id, session.id, ids);
-      return Astro.redirect(`/enroll/details?order=${o.id}`, 303);
+      try {
+        const o = await createDraftOrder(h.id, user.id, session.id, ids);
+        return Astro.redirect(`/enroll/details?order=${o.id}`, 303);
+      } catch (e) {
+        if (!(e instanceof PickError)) throw e;
+        errors.students = e.message;
+      }
     }
   }
 }
@@ -83,6 +96,18 @@ const statusHere = new Map(
   household ? (await listEnrollments(household.id)).filter((r) => r.enrollment.sessionId === session.id).map((r) => [r.student.id, r.enrollment.status]) : [],
 );
 const added = Astro.url.searchParams.get('added');
+const ages = ageLabel(program.ages, program.agesLabel);
+// Who can be picked: not already in this class, and within its ages (fitsAges allows a year either side).
+const picks = students.map((s) => {
+  const age = ageOn(s.birthdate);
+  const status = statusHere.get(s.id);
+  const already = status === 'active' || status === 'waitlist';
+  const fits = fitsAges(program, age);
+  return { s, age, status, already, fits, open: !already && fits };
+});
+const openPicks = picks.filter((p) => p.open);
+const noneFit = picks.length > 0 && picks.every((p) => !p.fits);
+const askUs = `/contact?topic=class&class=${encodeURIComponent(program.title)}`;
 const cap = capacityFor(program, session);
 const full = cap !== undefined && (await takenSpots(session.id)) >= cap;
 const comingSoon = session.status === 'coming-soon';
@@ -91,14 +116,16 @@ const comingSoon = session.status === 'coming-soon';
 <Base title={`Enroll: ${program.title}`} noindex>
   <EnrollShell step={1} program={program} session={session}>
     {
-      comingSoon ? (
+      closedProblem ? (
+        <SignupsClosed program={program} problem={closedProblem} />
+      ) : comingSoon ? (
         <div class="stack">
           <h1>Registration opens soon</h1>
           <p class="lede">We haven’t opened registration for this date yet.</p>
           <a class="btn btn--outline" href={`/programs/${program.slug}#notify`}>Get notified</a>
         </div>
       ) : !user ? (
-        <SignInPanel
+        <SignInPanel level="h1"
           heading="First, who’s signing up?"
           intro="Enter your email and we’ll send a 6-digit code. New here? That’s all it takes to create your family account. This device stays signed in for 90 days."
         />
@@ -125,36 +152,55 @@ const comingSoon = session.status === 'coming-soon';
             <input type="hidden" name="action" value="continue" />
             <h1>Who’s coming to {program.title}?</h1>
             {full && <p class="notice">This class is full. Choose your students to join the waitlist, and we’ll email you if a spot opens.</p>}
-            {students.length > 0 ? (
+            {noneFit && (
+              <p class="notice" data-none-fit>
+                {program.title} is for {ages.toLowerCase()}, and {picks.length === 1 ? `${students[0].firstName} is outside that range` : 'none of your saved students are in that range'}. You can add another student below, or <a href={askUs}>ask us</a> if you think it’s still a good fit.
+              </p>
+            )}
+            {picks.length > 0 ? (
               <fieldset class="picks">
                 <legend class="sr-only">Students</legend>
-                {students.map((s) => {
-                  const age = ageOn(s.birthdate);
-                  const fits = fitsAges(program, age);
-                  const status = statusHere.get(s.id);
-                  const already = status === 'active' || status === 'waitlist';
-                  return (
-                    <label class:list={['pick', { 'pick--off': already }]}>
-                      <input type="checkbox" name="studentId" value={s.id} disabled={already} checked={!already && (s.id === added || students.length === 1)} />
-                      <span class="pick__body">
-                        <strong>{s.firstName} {s.lastName}</strong>
-                        <span class="pick__meta">
-                          {age !== null ? `Age ${age}` : 'Age not set'}
-                          {already ? <span class="badge badge--ok">{status === 'waitlist' ? 'On the waitlist' : 'Already enrolled'}</span> : status === 'trial' ? <span class="badge badge--ok">Trial class taken · continue</span> : fits ? <span class="badge badge--ok">Fits {ageLabel(program.ages, program.agesLabel).toLowerCase()}</span> : <span class="badge badge--warn">Outside {ageLabel(program.ages, program.agesLabel).toLowerCase()}</span>}
-                        </span>
+                {picks.map(({ s, age, status, already, fits, open }) => (
+                  <label class:list={['pick', { 'pick--off': !open }]} data-pick={open ? 'open' : already ? 'enrolled' : 'outside-ages'}>
+                    <input
+                      type="checkbox"
+                      name="studentId"
+                      value={s.id}
+                      disabled={!open}
+                      checked={open && (s.id === added || openPicks.length === 1)}
+                      aria-describedby={!already && !fits ? `why-${s.id}` : undefined}
+                    />
+                    <span class="pick__body">
+                      <strong>{s.firstName} {s.lastName}</strong>
+                      <span class="pick__meta">
+                        {age !== null ? `Age ${age}` : 'Age not set'}
+                        {already ? (
+                          <span class="badge badge--ok">{status === 'waitlist' ? 'On the waitlist' : 'Already enrolled'}</span>
+                        ) : !fits ? (
+                          <span class="badge badge--off">Outside the ages</span>
+                        ) : status === 'trial' ? (
+                          <span class="badge badge--ok">Trial class taken · continue</span>
+                        ) : (
+                          <span class="badge badge--ok">Fits {ages.toLowerCase()}</span>
+                        )}
                       </span>
-                    </label>
-                  );
-                })}
+                      {!already && !fits && (
+                        <span class="pick__why" id={`why-${s.id}`}>
+                          {outsideAgesNote(program, s.firstName, age!)} <a href={askUs}>Ask us</a> if you think it’s still a fit.
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                ))}
               </fieldset>
             ) : (
               <p class="lede">Add your first student below.</p>
             )}
-            {errors.students && <p class="error">{errors.students}</p>}
-            {students.length > 0 && <button class="btn btn--primary" type="submit">Continue <span class="arrow" aria-hidden="true">→</span></button>}
+            {errors.students && <p class="error" role="alert">{errors.students}</p>}
+            {openPicks.length > 0 && <button class="btn btn--primary" type="submit">Continue <span class="arrow" aria-hidden="true">→</span></button>}
           </form>
 
-          <details class="add" open={students.length === 0 || !!errors.firstName || !!errors.lastName || !!errors.birthdate}>
+          <details class="add" open={students.length === 0 || noneFit || !!errors.firstName || !!errors.lastName || !!errors.birthdate}>
             <summary>{students.length ? '+ Add another student' : 'Add a student'}</summary>
             <form method="post" class="form form--inline">
               <input type="hidden" name="action" value="add-student" />
@@ -197,11 +243,16 @@ const comingSoon = session.status === 'coming-soon';
   .pick input { position: absolute; left: 1rem; top: 1.15rem; width: 1.25rem; height: 1.25rem; accent-color: var(--purple); }
   .pick__body { display: grid; gap: 0.2rem; padding: 0.9rem 1rem 0.9rem 3rem; border: 2px solid var(--line-strong); border-radius: var(--r-md); }
   .pick:has(input:checked) .pick__body { border-color: var(--ink); background: var(--gel-tint); }
-  .pick--off { cursor: default; opacity: 0.7; }
+  .pick--off { cursor: default; }
+  /* Greyed out like a disabled control, but the reason and its link stay full strength. */
+  .pick--off input, .pick--off .pick__body > :not(.pick__why) { opacity: 0.6; }
   .pick__meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; color: var(--ink-soft); font-size: var(--step--1); }
   .badge { font-size: var(--step--2); font-weight: 700; padding: 0.2em 0.6em; border-radius: 999px; }
   .badge--ok { background: var(--ok-tint); color: var(--ok); }
-  .badge--warn { background: var(--yellow-tint); color: var(--yellow-ink); }
+  .badge--off { background: var(--line); color: var(--ink-soft); }
+  .pick--off .pick__body { background: var(--hall); }
+  .pick__why { font-size: var(--step--1); color: var(--ink-soft); }
+  .pick__why a { position: relative; z-index: 1; }
   .add { border-top: 1.5px dashed var(--line-strong); padding-top: var(--space-m); }
   .add summary { cursor: pointer; font-family: var(--font-display); font-weight: 700; color: var(--purple); }
   .form--inline { margin-top: var(--space-m); }

@@ -22,6 +22,7 @@ import {
   publish,
   referencesTo,
   reorder,
+  resetContentCache,
   restoreToDraft,
   sameContent,
   saveDraft,
@@ -73,7 +74,7 @@ describe('field definitions', () => {
     for (const t of [tokens[2], tokens[0], tokens[1], 'new1']) fd.append('callSheet.items[]', String(t));
     fd.append('callSheet.items.new1.title', '');
     const data = readForm(fields, fd) as { callSheet: { items: { title: string }[] } };
-    expect(data.callSheet.items.map((i) => i.title)).toEqual(['Stories and Songs & Acting Studio', 'Registration is open for all classes', 'Jack and the Beanstalk']);
+    expect(data.callSheet.items.map((i) => i.title)).toEqual(['Stories and Songs & Acting Studio', 'Registration is open for all classes', 'Free Community Theater Class']);
   });
 
   it('says “Required” for a missing required field, and names it in the list of problems', () => {
@@ -165,6 +166,19 @@ describe('content store', () => {
     expect((await getContent('live')).programBySlug('intro-to-theater')?.tagline).toBe('A brand new tagline.');
     await publish('programs', 'intro-to-theater', STAFF, 'restore');
     expect(sameContent((await getContent()).programBySlug('intro-to-theater'), versions[1].data)).toBe(true);
+  });
+
+  it('gives a page added after launch its starting text, without touching the others', async () => {
+    const db = await getDb();
+    const { and, eq } = await import('drizzle-orm');
+    const where = and(eq(schema.contentEntry.collection, 'pages'), eq(schema.contentEntry.id, 'schools'));
+    await db.delete(schema.contentEntry).where(where);
+    resetContentCache();
+    const content = await getContent();
+    expect(content.pages.schools.schools.heading).toBe('Theater at your school');
+    expect(await getEntry('pages', 'schools')).toBeDefined();
+    // The page's quote counts as a use, so it can't be deleted from under it.
+    expect(await referencesTo('testimonials', 'gracie')).toContain('Schools & partners page');
   });
 
   it('treats saving without changes as no draft', async () => {

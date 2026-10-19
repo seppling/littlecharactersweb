@@ -52,8 +52,9 @@ Use these exact words on every listing. Search engines compare them, and differe
 | Instagram | https://www.instagram.com/littlecharactersathens/ |
 | Facebook | https://www.facebook.com/littlecharactersathens/ |
 | Founded | 2022, by Hannah Eppling |
+| Hours | See "Hours" at the end of Part 6 |
 
-**Name rule.** Google requires the name to be the real-world name, with no keywords, taglines, services or place added. So never change it to "Little Characters Kids Theater Classes Athens". That can get the profile suspended. ([Google's guidelines](https://support.google.com/business/answer/3038177).) If your sign and your website say "Little Characters Theater Troupe", the profile should say the same. If you'd like the profile to say "Little Characters" only, make sure that is also what the sign says. I have kept the name the website uses.
+**Name rule.** Google requires the name to be the real-world name, with no keywords, taglines, services or place added. So never change it to "Little Characters Kids Theater Classes Athens". That can get the profile suspended. ([Google's guidelines](https://support.google.com/business/answer/3038177).) If your sign and your website say "Little Characters Theater Troupe", the profile should say the same. If you'd like the profile to say "Little Characters" only, make sure that is also what the sign says. Confirmed by Stephen (October 13): the sign says **Little Characters Theater Troupe**, so the profile uses that name.
 
 **Second location.** Athens Academy (1281 Spartan Ln) is a school where you teach, not a place the public visits. Don't make a profile for it.
 
@@ -99,13 +100,13 @@ In Edit profile, open **Services** (or **Products**, if that is where Google sho
 | Performance Troupe (ages 9+) | For students who have worked in theater before: short performances around town all fall, then a full-length production from December to March. | $115 a month |
 | Film Creation (ages 9+) | Kids write, direct, act and shoot short films with green-screen effects and basic editing. Thursdays. | $95 a month |
 | Homeschool theater class (ages 6+) | An 8-week Friday class for homeschoolers: acting onstage, props and costumes, ending in a show. | $200 for 8 weeks |
-| Summer camp (ages 4–17) | Half-day camp weeks (9 am–1 pm) with acting, improv, crafts and games, ending in a performance for families. Teen intensives run through Geode. Summer 2027 dates coming soon. | About $50 a day (about $250 a week) |
+| Summer camp (ages 4–17) | Half-day camp weeks (9 am–1 pm) with acting, improv, crafts and games, ending in a performance for families. Teen intensives run through Geode. Summer 2027 dates coming soon. | About $50 a day (about $250 a week) in 2026. **Confirm the 2027 price** before the January posts |
 | Holiday mini camps and workshops | Half-day theater mini camps on Clarke County school holidays, plus weekend workshops. Most end with a short show at pickup. | $50 a day |
 | Free community theater class (all ages) | A free one-hour theater class once a month, with a different teacher each time. | Free |
 | Parents' Night Out (ages 4–12) | Drop the kids off for theater games, crafts and snacks, 5–8 pm, once a month. Downtown is a mile away. | $30, $10 for each additional child |
 | Birthday parties | Two-hour parties on evenings or weekends at our space, with theater games, your own party coordinator, a stage for dance parties and tables for cake. Ask for a date. | No price |
 | Private lessons | One-on-one acting, singing, audition help and playwriting help, booked by the hour. | No price |
-| Ovation: adaptive theater | Our adaptive theater class for people of all ages and abilities, caregivers welcome: games, movement and costumes. Scholarships available. | $15 a class |
+| Ovation: adaptive theater | Our adaptive theater class for people of all ages and abilities, caregivers welcome: games, movement and costumes. Scholarships available. | $15 a class (**confirm first**: Ovation's details are still being set. If the price changes, change it here and on the website) |
 | Geode Acting Studio (ages 11–17) | A weekly Tuesday acting class for tweens and teens: improv, scene work and character. Beginners welcome. | $95 a month |
 | Geode Adult Improv Night (18+) | Low-stakes improv games on the third Thursday of each month, 6:30–8:30 pm. No experience needed. | $25 |
 
@@ -125,9 +126,31 @@ Add these areas (from the answers: the Greater Athens area, including Watkinsvil
 
 All are well within Google's limit of about two hours' driving. Don't add towns families don't come from.
 
-**One catch.** Google expects a profile with a storefront address to be staffed during its listed hours. Hours are open question 1 in Part 11. Class times don't need to be office hours.
+**One catch.** Google expects a profile with a storefront address to be staffed during its listed hours. That's why the hours below are the class hours, when a teacher is at the space. They don't need to be office hours.
+
+### Hours
+
+Decided October 13: show the **class hours**, from the fall 2026 schedule at HQ, starting 15 minutes before the first class so the teacher at the door is counted. Hannah, check these against who is actually at the space:
+
+| Day | Hours | Why |
+|---|---|---|
+| Monday | 5:30–7:00 pm | Produce a Show |
+| Tuesday | 4:00–7:15 pm | Stories and Songs, Intro to Theater, Geode Acting Studio |
+| Wednesday | 4:15–7:00 pm | Yes, And… Improv, Performance Troupe |
+| Thursday | 5:15–6:30 pm | Film Creation |
+| Friday | 12:45–2:30 pm, **until Oct 30** (then closed) | Homeschool Class |
+| Saturday, Sunday | Closed | |
+
+Add the monthly nights as **special hours** for their dates, so the regular week stays accurate:
+- **Parents' Night Out:** 5–8 pm on Sat Oct 24, Sat Nov 14 and Sat Dec 19.
+- **Adult Improv Night:** until 8:30 pm on Thu Oct 15, Thu Nov 19 and Thu Dec 17.
+- **Free community class:** from 4:00 pm on Thu Oct 15 and Mon Nov 2.
+
+**Update the hours each term.** The spring schedule will change them, so check this in January.
 
 ## 7. Links and buttons
+
+**Wait until launch day for this part.** Today littlecharacters.org is still the Squarespace site, where `/programs` and `/camps` show "page not found" (checked October 13). Until the new site is live, keep the profile's current website link. Posts should link to the home page or `/events`, which work on both sites. On launch day, switch to the links below.
 
 Use these in Edit profile, then Contact (website) and then the booking and link fields. Under **Booking / appointment link** and **Menu or service links**, use the same page.
 
@@ -138,7 +161,7 @@ Use these in Edit profile, then Contact (website) and then the booking and link 
 | Posts, "Learn more" button for camps | `https://www.littlecharacters.org/camps?utm_source=google&utm_medium=organic&utm_campaign=gbp_post` |
 | Posts, "Learn more" button for events | `https://www.littlecharacters.org/events?utm_source=google&utm_medium=organic&utm_campaign=gbp_post` |
 
-The tag after the `?` tells the website's visitor counts that a visit came from the profile. It changes nothing for families. Don't put the tag on links that aren't from Google. Use `utm_source=apple`, `utm_source=bing` and so on for the other listings in Part 10.
+The tag after the `?` tells the website's visitor counts that a visit came from the profile. It only counts once visitor tracking is added to the site, which is still to be decided, and it changes nothing for families. Don't put the tag on links that aren't from Google. Use `utm_source=apple`, `utm_source=bing` and so on for the other listings in Part 10.
 
 ## 8. Photos and posts
 
@@ -156,7 +179,7 @@ The tag after the `?` tells the website's visitor counts that a visit came from 
 
 | When | Post | Notes |
 |---|---|---|
-| Mid-Oct | Free community class (Thu, Oct 15 and Mon, Nov 2) and Adult Improv Night (Thu, Oct 15) | Dates are in the program seed |
+| **This week (by Thu, Oct 15)** | Free community class (Thu, Oct 15 and Mon, Nov 2) and Adult Improv Night (Thu, Oct 15) | The first post. Before launch, link it to the home page or `/events`, not `/programs` |
 | Late Oct | Parents' Night Out, Sat Nov 14 ($30, ages 4–12) | |
 | Early Nov | Launch: "Our new website is live" with a link to /programs | After the mid-November switch |
 | Early Nov | Thanksgiving mini camp, **only if it is scheduled (ask)** | Parents search 2–4 weeks before a break |
@@ -235,7 +258,7 @@ Use the facts in Part 2 and the descriptions in Part 4 word for word. Add the ma
 
 | Order | Listing | Link | What to enter |
 |---|---|---|---|
-| 1 | **Macaroni KID Athens** (appears for camps, classes, parties and holiday camps) | [Submit a business directory listing](https://athens.macaronikid.com/directory) (button on that page); [Contact the publisher](https://athens.macaronikid.com/contact-us); [Advertising](https://athens.macaronikid.com/advertising) | Name, address, phone, website, short description, ages and categories: camps, classes, birthday parties, holiday camps. Then email the publisher using the contact page to ask for the **Summer Camp Guide**, the **Fall classes guide**, the **Birthday Party guide** and the **Thanksgiving and winter break roundups**. Ask the publisher what is free and what is a paid sponsorship. |
+| 1 | **Macaroni KID Athens** (appears for camps, classes, parties and holiday camps) | [Submit a business directory listing](https://athens.macaronikid.com/directory) (button on that page); [Contact the publisher](https://athens.macaronikid.com/contact-us); [Advertising](https://athens.macaronikid.com/advertising) | Name, address, phone, website, short description, ages and categories: camps, classes, birthday parties, holiday camps. Then email the publisher using the contact page to ask for the **Summer Camp Guide**, the **Fall classes guide**, the **Birthday Party guide** and the **Thanksgiving and winter break roundups**. Ask the publisher what is free and what is a paid sponsorship. **Decided October 13: free listings first**, then decide on sponsorship once you know the cost. |
 | 2 | **ActivityHero** (camps and classes marketplace, has an Athens, GA page) | [Athens, GA page](https://www.activityhero.com/in/athens-ga); [Help for activity providers](https://help.activityhero.com/help-for-activity-providers) | Create a free provider listing: camps, classes, ages, prices, the address, and the same description. Check the price of any paid plan before you accept. |
 | 3 | **ActiveKids / ACTIVE** (you already appear via Athens Academy) | [activekids.com](https://www.activekids.com) | Search for "Little Characters". Keep the listings you have tidy and the dates current. Only create your own listing if you want registrations there. |
 | 4 | **Apple Business Connect** (Apple Maps, Siri) | [businessconnect.apple.com](https://businessconnect.apple.com/) | Claim or add the place with the same name, address, phone, website and short description, a photo and categories. |
@@ -252,7 +275,7 @@ Use the facts in Part 2 and the descriptions in Part 4 word for word. Add the ma
 
 ## 11. Questions for Hannah
 
-1. **Hours (answer 16 was not given).** What hours should the profile show? Options: the hours someone answers the phone, or the class hours by day. Google expects the place to be staffed at the listed hours (see Part 6). Until you decide, leave hours blank and don't guess.
+1. **Hours.** *Answered October 13:* class hours, in the table at the end of Part 6. Hannah, check them.
 2. **Profile facts from Part 1** (owner, category, reviews, photos, website link). Please send these back.
 3. **Parties:** price, number of guests, ages, food rules, and days and times. The profile says "ask for a date" until you decide.
 4. **Private lessons:** price, who teaches, and where. The profile says "booked by the hour" until then.
@@ -262,5 +285,5 @@ Use the facts in Part 2 and the descriptions in Part 4 word for word. Add the ma
 8. **Parents' Night Out:** is the age range 4–12, or "all kids" (the seed says both)?
 9. **Photo permission:** which photos have family permission to be public? Please pick 15–25 for Part 8.
 10. **The Facebook page and Instagram:** are Hannah and Stephen both admins? Do you want a second admin?
-11. **Paid sponsorships:** do you want to pay for Macaroni KID sponsor spots, or use free listings only?
-12. **Is the name on your sign "Little Characters" or "Little Characters Theater Troupe"?** The profile name must match what is on the door.
+11. **Paid sponsorships.** *Answered October 13:* free listings first, then decide.
+12. **The name on the sign.** *Answered October 13:* "Little Characters Theater Troupe", which matches the profile.

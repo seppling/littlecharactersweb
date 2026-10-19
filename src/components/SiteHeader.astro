@@ -1,14 +1,24 @@
 ---
 import Logo from './Logo.astro';
 import AccountLink from './AccountLink.astro';
-import { nav } from '@/config/site';
+import { giveLink, nav } from '@/config/site';
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+/** Pages a dropdown links to by name, like /programs/parties; those aren't "Classes". */
+const named = new Set(nav.flatMap((i) => i.children ?? []).map((c) => c.href));
 const isCurrent = (href: string) => {
+  if (href.includes('#')) return false;
   const base = href.split('?')[0];
-  if (base === '/programs') return path.startsWith('/programs');
+  if (base === '/programs') return path.startsWith('/programs') && !named.has(path);
   return path === base || path.startsWith(`${base}/`);
 };
+/** A link in a dropdown is the current page only on that exact page. */
+const isPage = (href: string) => path === href;
+/** A dropdown is marked when you're on any page in it. */
+const inGroup = (children: { href: string }[]) => children.some((c) => isCurrent(c.href));
+const menuId = (label: string) => `nav-${label.toLowerCase().replace(/[^a-z]+/g, '-')}`;
+/** The phone menu opens with "Find a class", so it leaves out the near-identical "Classes". */
+const phoneNav = nav.filter((item) => item.href.split('?')[0] !== '/programs');
 ---
 
 <header class="site-header">
@@ -18,41 +28,143 @@ const isCurrent = (href: string) => {
     <nav class="site-nav" aria-label="Main">
       <ul>
         {
-          nav.map((item) => (
-            <li>
-              <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
-                {item.label}
-              </a>
-            </li>
-          ))
+          nav.map((item) =>
+            item.children ? (
+              <li class="site-nav__group" data-nav-group>
+                <button type="button" class="site-nav__toggle" aria-expanded="false" aria-controls={menuId(item.label)} aria-current={inGroup(item.children) ? 'true' : undefined}>
+                  {item.label}
+                  <svg class="site-nav__chevron" viewBox="0 0 12 8" width="12" height="8" aria-hidden="true">
+                    <path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                <ul class="site-nav__menu" id={menuId(item.label)} hidden>
+                  {item.children.map((c) => (
+                    <li>
+                      <a href={c.href} aria-current={isPage(c.href) ? 'page' : undefined}>
+                        {c.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ) : (
+              <li>
+                <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+                  {item.label}
+                </a>
+              </li>
+            ),
+          )
         }
       </ul>
     </nav>
 
     <div class="site-header__actions">
+      <a class="site-header__give" href={giveLink.href} aria-current={isCurrent(giveLink.href) ? 'page' : undefined}>
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+        </svg>
+        {giveLink.label}
+      </a>
       <AccountLink />
       <a class="btn btn--primary btn--sm site-header__cta" href="/programs">Find a class</a>
     </div>
 
-    <details class="mobile-nav">
+    <div class="mobile-account"><AccountLink compact /></div>
+
+    <details class="mobile-nav" data-mobile-nav>
       <summary aria-label="Menu">
         <span class="burger" aria-hidden="true"><span></span><span></span><span></span></span>
         <span class="mobile-nav__label">Menu</span>
       </summary>
       <div class="mobile-nav__panel">
         <ul>
-          <li><a href="/programs">Find a class</a></li>
-          {nav.map((item) => (
-            <li><a href={item.href}>{item.label}{'note' in item && <small>{item.note}</small>}</a></li>
-          ))}
-          <li><a href="/faq">FAQ</a></li>
-          <li><a href="/contact">Contact</a></li>
+          <li><a href="/programs" aria-current={path === '/programs' ? 'page' : undefined}>Find a class</a></li>
+          {
+            phoneNav.map((item) =>
+              item.children ? (
+                <li class="mobile-nav__group">
+                  <span class="mobile-nav__group-label" id={`${menuId(item.label)}-m`}>{item.label}</span>
+                  <ul aria-labelledby={`${menuId(item.label)}-m`}>
+                    {item.children.map((c) => (
+                      <li>
+                        <a href={c.href} aria-current={isPage(c.href) ? 'page' : undefined}>
+                          {c.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ) : (
+                <li>
+                  <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+                    {item.label}
+                    {item.note && <small>{item.note}</small>}
+                  </a>
+                </li>
+              ),
+            )
+          }
+          <li>
+            <a href={giveLink.href} aria-current={isCurrent(giveLink.href) ? 'page' : undefined}>{giveLink.label}</a>
+          </li>
         </ul>
         <div class="mobile-nav__account"><AccountLink block /></div>
       </div>
     </details>
   </div>
 </header>
+
+<script>
+  // The dropdowns (Shows & Events, About): a button that shows and hides a list of links. Escape
+  // closes it and puts focus back on the button; so does clicking or tabbing
+  // anywhere else. Nothing opens on hover, so it works the same by touch.
+  for (const group of document.querySelectorAll<HTMLElement>('[data-nav-group]')) {
+    const button = group.querySelector<HTMLButtonElement>('button[aria-controls]')!;
+    const menu = document.getElementById(button.getAttribute('aria-controls')!)!;
+    const setOpen = (open: boolean) => {
+      button.setAttribute('aria-expanded', String(open));
+      menu.hidden = !open;
+    };
+    const isOpen = () => button.getAttribute('aria-expanded') === 'true';
+    button.addEventListener('click', () => setOpen(!isOpen()));
+    group.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && isOpen()) {
+        event.preventDefault();
+        setOpen(false);
+        button.focus();
+      }
+    });
+    group.addEventListener('focusout', (event) => {
+      const next = event.relatedTarget as Node | null;
+      if (next && !group.contains(next)) setOpen(false);
+    });
+    document.addEventListener('click', (event) => {
+      if (isOpen() && !group.contains(event.target as Node)) setOpen(false);
+    });
+  }
+
+  // The phone menu is a <details>. Escape closes it and puts focus back on
+  // "Menu"; tabbing out of it, or tapping anywhere else, closes it too, so
+  // focus never lands on links hidden behind the open panel.
+  for (const menu of document.querySelectorAll<HTMLDetailsElement>('[data-mobile-nav]')) {
+    const summary = menu.querySelector('summary')!;
+    menu.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && menu.open) {
+        event.preventDefault();
+        menu.open = false;
+        summary.focus();
+      }
+    });
+    menu.addEventListener('focusout', (event) => {
+      const next = event.relatedTarget as Node | null;
+      if (menu.open && next && !menu.contains(next)) menu.open = false;
+    });
+    document.addEventListener('click', (event) => {
+      if (menu.open && !menu.contains(event.target as Node)) menu.open = false;
+    });
+  }
+</script>
 
 <style>
   .site-header {
@@ -87,18 +199,76 @@ const isCurrent = (href: string) => {
     font-size: 1.02rem;
     color: var(--ink);
     text-decoration: none;
+    white-space: nowrap;
   }
   .site-nav a:hover { background: var(--hall); }
   .site-nav a[aria-current='page'] {
     background: var(--orange);
   }
+  .site-nav__group { position: relative; }
+  .site-nav__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.55rem 0.8rem;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    font-family: var(--font-display);
+    font-weight: 650;
+    font-stretch: 90%;
+    font-size: 1.02rem;
+    line-height: inherit;
+    color: var(--ink);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .site-nav__toggle:hover, .site-nav__toggle[aria-expanded='true'] { background: var(--hall); }
+  .site-nav__toggle[aria-current] { background: var(--orange); }
+  .site-nav__chevron { flex: none; transition: transform 160ms var(--ease); }
+  .site-nav__toggle[aria-expanded='true'] .site-nav__chevron { transform: rotate(180deg); }
+  .site-nav ul.site-nav__menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    z-index: 60;
+    display: grid;
+    gap: 0.15rem;
+    min-width: 15rem;
+    padding: 0.5rem;
+    background: var(--paper);
+    border: 1.5px solid var(--line);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-lift);
+  }
+  .site-nav ul.site-nav__menu[hidden] { display: none; }
+  .site-nav__menu a { border-radius: var(--r-sm, 10px); white-space: nowrap; }
   .site-header__actions {
     display: flex;
     align-items: center;
     gap: var(--space-s);
   }
 
-  .mobile-nav { display: none; margin-left: auto; position: relative; }
+  .site-header__give {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 40px;
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    color: var(--ink-soft);
+    font-family: var(--font-display);
+    font-weight: 650;
+    font-stretch: 90%;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .site-header__give svg { color: var(--red-ink); }
+  .site-header__give:hover { background: var(--hall); color: var(--ink); }
+  .site-header__give[aria-current='page'] { color: var(--ink); background: var(--hall); }
+
+  .mobile-account { display: none; margin-left: auto; min-width: 0; }
+  .mobile-nav { display: none; position: relative; flex: none; }
   .mobile-nav summary {
     list-style: none;
     display: inline-flex;
@@ -126,6 +296,9 @@ const isCurrent = (href: string) => {
     border-radius: var(--r-lg);
     box-shadow: var(--shadow-lift);
     padding: var(--space-m);
+    max-height: calc(100dvh - 110px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .mobile-nav__panel ul { list-style: none; margin: 0; padding: 0; display: grid; }
   .mobile-nav__panel a {
@@ -141,14 +314,43 @@ const isCurrent = (href: string) => {
     font-size: 1.2rem;
     font-stretch: 90%;
   }
+  .mobile-nav__group-label {
+    display: block;
+    padding: 0.9rem 0.6rem 0.2rem;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .mobile-nav__group ul { list-style: none; margin: 0 0 0 0.6rem; padding: 0 0 0 0.6rem; border-left: 3px solid var(--orange); }
+  .mobile-nav__panel .mobile-nav__group a { padding-block: 0.6rem; font-size: 1.08rem; }
+  .mobile-nav__panel a[aria-current='page'] { text-decoration: underline; text-decoration-color: var(--orange); text-decoration-thickness: 3px; text-underline-offset: 5px; }
   .mobile-nav__panel small { font-family: var(--font-script); font-weight: 400; font-size: 0.8rem; color: var(--ink-mute); }
   .mobile-nav__account { padding-top: var(--space-m); }
 
-  @media (max-width: 1080px) {
-    .site-nav a { padding-inline: 0.55rem; font-size: 0.98rem; }
+  .site-header__actions { flex: none; }
+  @media (min-width: 1001px) and (max-width: 1260px) {
+    /* Six menu items, Give, the login and the button: tighten the spacing so it
+       all stays on one line down to the phone menu at 1000px. */
+    .site-header__inner { gap: var(--space-xs); padding-inline: max(20px, calc(var(--gutter) - 20px)); }
+    .site-header__inner :global(.logo__lockup) { width: 170px; }
+    .site-header__actions { gap: var(--space-2xs); }
+    .site-nav ul { gap: 0; }
+    .site-nav a, .site-nav__toggle { padding-inline: 0.42rem; font-size: 0.95rem; }
+    .site-nav__menu a { padding-inline: 0.8rem; }
+    .site-header__give { padding-inline: 0.45rem; }
+    .site-header__give svg { display: none; }
+    .site-header__actions :global(.account-link) { padding-inline: 0.5rem; }
   }
-  @media (max-width: 960px) {
+  @media (max-width: 1000px) {
     .site-nav, .site-header__actions { display: none; }
     .mobile-nav { display: block; }
+    .mobile-account { display: block; }
+  }
+  @media (max-width: 480px) {
+    /* Logo, "Sign in" and "Menu" share one row on a phone. */
+    .site-header__inner { gap: var(--space-xs); }
   }
 </style>

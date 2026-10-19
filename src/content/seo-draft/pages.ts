@@ -18,12 +18,6 @@ export const pages: PageDraft[] = [
         to: 'After 5 pm, you can stay in the car: at the crosswalk where W Hancock meets W Broad, turn into the neighbor’s circle driveway at the green building (GPS: 1655 W Hancock Ave) and pull up to our front door. From there, kids have a 10-step walk to the front, where a teacher is waiting to check them in. If you need to drop something off real quick, you can use the 5 parking spaces at the neighbor’s building.',
         why: 'Brings over the two details from the parking guide that the site didn’t have yet (the 10-step walk and the 5 quick-stop spaces), so the guide can be retired.',
       },
-      {
-        path: 'parking.guideUrl',
-        from: 'https://www.littlecharacters.org/s/Little-Characters-Parking-Instructions.pdf',
-        to: '',
-        why: 'The contact page now shows the guide’s two maps beside the directions, so the PDF link goes; the PDF’s old address forwards to the contact page’s parking section.',
-      },
     ],
   },
   {
@@ -115,11 +109,29 @@ export const pages: PageDraft[] = [
         why: 'Names Ovation’s founding partner (from the Ovation page) and links to Ovation, for families searching for adaptive or special-needs theater.',
       },
       {
+        path: 'facts.items.12.text',
+        from: 'Verified CCSD school vendor. Programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens',
+        to: 'Verified Clarke County School District (CCSD) school vendor. Programs at Athens Academy, Athens Montessori School, David C. Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Road Elementary School and Love.Craft Athens',
+        why: 'Keeps the key facts (which search engines and AI assistants quote) in step with the schools list above.',
+      },
+    ],
+  },
+  {
+    kind: 'pages',
+    id: 'team',
+    edits: [
+      {
         path: 'team.social',
         from: 'Follow along on [Instagram]({instagram}) and [Facebook]({facebook}).',
         to: 'Follow along on [Instagram]({instagram}) and [Facebook]({facebook}), or read [Macaroni KID Athens’s story about us](https://athens.macaronikid.com/articles/64cdb2aabfe2815b16aec3f8/little-characters-theatre-troupe).',
         why: 'Links the Macaroni KID Athens article about Little Characters, so families (and Google) see that a local parents’ guide has written about us.',
       },
+    ],
+  },
+  {
+    kind: 'pages',
+    id: 'schools',
+    edits: [
       {
         path: 'schools.lede',
         from: 'Little Characters is a verified CCSD school vendor. We offer after-school programs and weekend events throughout the county.',
@@ -128,15 +140,9 @@ export const pages: PageDraft[] = [
       },
       {
         path: 'schools.body',
-        from: 'We’ve run programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=general).',
-        to: 'We’ve run programs at Athens Academy, Athens Montessori School, David C. Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Road Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=general).',
+        from: 'We’ve run programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=schools).',
+        to: 'We’ve run programs at Athens Academy, Athens Montessori School, David C. Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Road Elementary School and Love.Craft Athens. [Ask about bringing us to your school](/contact?topic=schools).',
         why: 'Adds Barrow and Timothy Elementary, where programs run now, so families searching for their school’s after-school options find us.',
-      },
-      {
-        path: 'facts.items.12.text',
-        from: 'Verified CCSD school vendor. Programs at Athens Academy, Athens Montessori School, Oglethorpe Ave. Elementary School and Love.Craft Athens',
-        to: 'Verified Clarke County School District (CCSD) school vendor. Programs at Athens Academy, Athens Montessori School, David C. Barrow Elementary School, Oglethorpe Ave. Elementary School, Timothy Road Elementary School and Love.Craft Athens',
-        why: 'Keeps the key facts (which search engines and AI assistants quote) in step with the schools list above.',
       },
     ],
   },

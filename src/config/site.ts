@@ -34,10 +34,38 @@ export const site = {
   },
 } as const;
 
-export const nav = [
+/**
+ * The top menu. An item with `children` is a dropdown (a list of links on phones).
+ * Parents' Night Out and Parties sit under Shows & Events because that's where
+ * parents looked for them; Parking sits under About next to the FAQ. Give is a
+ * quieter link beside the account link (SiteHeader.astro), and in the phone menu.
+ */
+export const nav: { label: string; href: string; note?: string; children?: { label: string; href: string }[] }[] = [
   { label: 'Classes', href: '/programs?kind=class' },
   { label: 'Camps', href: '/camps' },
-  { label: 'Shows & Events', href: '/events' },
-  { label: 'About', href: '/about' },
+  {
+    label: 'Shows & Events',
+    href: '/events',
+    children: [
+      { label: 'Shows & events', href: '/events' },
+      { label: 'Parents’ Night Out', href: '/programs/parents-night-out' },
+      { label: 'Parties', href: '/programs/parties' },
+    ],
+  },
+  {
+    label: 'About',
+    href: '/about',
+    children: [
+      { label: 'Our story', href: '/about' },
+      { label: 'Team', href: '/about/team' },
+      { label: 'Schools & partners', href: '/about/schools' },
+      { label: 'FAQ', href: '/faq' },
+      { label: 'Parking & drop-off', href: '/contact#parking' },
+    ],
+  },
   { label: 'Geode', href: '/geode', note: 'Teens & adults' },
-] as const;
+  { label: 'Contact', href: '/contact' },
+];
+
+/** Links that live outside the dropdowns: Give beside the account link, and in the phone menu. */
+export const giveLink = { label: 'Give', href: '/give' };

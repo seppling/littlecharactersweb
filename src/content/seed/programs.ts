@@ -35,9 +35,6 @@ const TUITION = {
 const FALL = { term: 'Fall 2026', startDate: '2026-08-17', endDate: '2026-12-18' };
 const FALL_TO_MARCH = { term: 'Fall 2026 – Spring 2027', startDate: '2026-08-17', endDate: '2027-03-31' };
 
-const PNO_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSceXu5NWca5TztIjA44qk9WdC4FWK77re6xsBDdUg9uuAFz7w/viewform';
-const ADULT_IMPROV_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSdtbKfY86bY81dHuNwBVomyLUmm7LbEXpPS9NCg-gpXEKIHXA/viewform';
-
 function weekly(
   id: string,
   day: Weekday,
@@ -98,7 +95,7 @@ export const programs: Program[] = [
       'Class is full of games and activities geared toward learning all of the aspects of theater.',
     ],
     highlights: ['Vocality', 'Movement', 'Character exploration', 'Confidence and teamwork'],
-    showcase: 'Mid-semester showcase and a big show at the end of the term.',
+    showcase: 'Mid-season showcase and a big show at the end of the term.',
     duration: '1 hour, Tuesdays',
     priceFrom: TUITION.hour,
     fee: { amount: 30, label: 'performance fee' },
@@ -124,7 +121,7 @@ export const programs: Program[] = [
       'Through fast-paced games, creative storytelling and unscripted scenes, students grow their confidence, creativity and collaboration skills in a fun, supportive environment. Whether they’re new to improv or experienced performers, every class is full of laughter, surprises and endless possibilities. Your student might just learn that “Yes, And” works outside of theater, too.',
     ],
     highlights: ['Confidence', 'Creativity', 'Collaboration', 'Unscripted scenes'],
-    showcase: 'Mid-semester showcase and a big show at the end of the term.',
+    showcase: 'Mid-season showcase and a big show at the end of the term.',
     duration: '1 hour, Wednesdays',
     priceFrom: TUITION.hour,
     fee: { amount: 20, label: 'performance fee' },
@@ -171,11 +168,11 @@ export const programs: Program[] = [
     gel: 'purple',
     ages: { min: 9, max: 17 },
     agesLabel: 'Ages 9+',
-    tagline: 'For students itching to perform more than once a semester.',
+    tagline: 'For students itching to perform more than once a season.',
     summary:
       'Short performances around town all fall, then a full-length production from December to March. For students who have worked in theater before.',
     description: [
-      'Have a student who is itching to perform more than once a semester? This class is for students who have worked in theater before and want to sharpen their acting skills. We spend the fall putting on short performances around town, then use December through March to prepare a full-length production.',
+      'Have a student who is itching to perform more than once a season? This class is for students who have worked in theater before and want to sharpen their acting skills. We spend the fall putting on short performances around town, then use December through March to prepare a full-length production.',
       'Students dig deep into characterization through pre-written short plays, scenes and monologues, and learn more advanced improv techniques. Oh, and still have a lot of fun doing so!',
     ],
     highlights: ['Characterization', 'Scenes and monologues', 'Advanced improv', 'Performing around town'],
@@ -315,9 +312,9 @@ export const programs: Program[] = [
     gel: 'red',
     ages: { min: 4, max: 17 },
     tagline: 'Theater on school holidays and weekends.',
-    summary: 'Weekend workshops 1–2 times a semester, plus half-day workshops and mini camps on CCSD school holidays.',
+    summary: 'Weekend workshops 1–2 times a season, plus half-day workshops and mini camps on CCSD school holidays.',
     description: [
-      'We hold weekend workshops 1–2 times a semester, as well as half-day workshops and mini camps on CCSD school holidays.',
+      'We hold weekend workshops 1–2 times a season, as well as half-day workshops and mini camps on CCSD school holidays.',
       'Recent favorites include a Thanksgiving-break caroling mini camp, a Fall Break Storybook Camp, the KPop-a-Palooza and Prop Making workshops, a NEWSIES musical theater workshop, and an Into the Woods workshop.',
     ],
     highlights: ['Holiday mini camps', 'Musical theater workshops', 'Tech and prop making', 'A short show for families'],
@@ -347,8 +344,8 @@ export const programs: Program[] = [
     priceFrom: { amount: 0, unit: 'class', note: 'Free' },
     image: { src: rehearsalCircle, alt: 'Students sitting in a circle on the stage floor', position: '50% 60%' },
     sessions: [
-      oneNight('free-class-2026-10-15', 'Thu, Oct 15', 'Thu', '2026-10-15', '16:15', '17:15', { price: { amount: 0, unit: 'class' }, status: 'coming-soon' }),
-      oneNight('free-class-2026-11-02', 'Mon, Nov 2', 'Mon', '2026-11-02', '16:00', '17:00', { price: { amount: 0, unit: 'class' }, status: 'coming-soon' }),
+      oneNight('free-class-2026-10-15', 'Thu, Oct 15', 'Thu', '2026-10-15', '16:15', '17:15', { price: { amount: 0, unit: 'class' } }),
+      oneNight('free-class-2026-11-02', 'Mon, Nov 2', 'Mon', '2026-11-02', '16:00', '17:00', { price: { amount: 0, unit: 'class' } }),
     ],
   },
 
@@ -370,13 +367,13 @@ export const programs: Program[] = [
     ],
     highlights: ['Theater games', 'Crafts and snacks', 'New friends', 'Downtown is a mile away'],
     duration: '5:00 – 8:00 pm, once a month',
-    priceFrom: { amount: 30, unit: 'child', note: '$10 for each additional child' },
+    priceFrom: { amount: 30, unit: 'child', additional: 10 },
     image: { src: filmSuperhero, alt: 'A child in a superhero mask and costume', position: '50% 30%' },
     sessions: [
-      oneNight('pno-2026-09-25', 'Fri, Sep 25', 'Fri', '2026-09-25', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
-      oneNight('pno-2026-10-24', 'Sat, Oct 24', 'Sat', '2026-10-24', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
-      oneNight('pno-2026-11-14', 'Sat, Nov 14', 'Sat', '2026-11-14', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
-      oneNight('pno-2026-12-19', 'Sat, Dec 19', 'Sat', '2026-12-19', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 }, externalUrl: PNO_FORM, externalLabel: 'Register' }),
+      oneNight('pno-2026-09-25', 'Fri, Sep 25', 'Fri', '2026-09-25', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 } }),
+      oneNight('pno-2026-10-24', 'Sat, Oct 24', 'Sat', '2026-10-24', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 } }),
+      oneNight('pno-2026-11-14', 'Sat, Nov 14', 'Sat', '2026-11-14', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 } }),
+      oneNight('pno-2026-12-19', 'Sat, Dec 19', 'Sat', '2026-12-19', '17:00', '20:00', { price: { amount: 30, unit: 'child', additional: 10 } }),
     ],
   },
   {
@@ -490,9 +487,9 @@ export const programs: Program[] = [
     teachers: ['Hannah Eppling'],
     image: { src: geodeImprovNight, alt: 'Adults laughing together at a Geode improv night', position: '50% 45%' },
     sessions: [
-      oneNight('adult-improv-2026-10', 'Thu, Oct 15', 'Thu', '2026-10-15', '18:30', '20:30', { price: { amount: 25, unit: 'class' }, teacher: 'Hannah Eppling', externalUrl: ADULT_IMPROV_FORM, externalLabel: 'Register' }),
-      oneNight('adult-improv-2026-11', 'Thu, Nov 19', 'Thu', '2026-11-19', '18:30', '20:30', { price: { amount: 25, unit: 'class' }, teacher: 'Hannah Eppling', externalUrl: ADULT_IMPROV_FORM, externalLabel: 'Register' }),
-      oneNight('adult-improv-2026-12', 'Thu, Dec 17', 'Thu', '2026-12-17', '18:30', '20:30', { price: { amount: 25, unit: 'class' }, teacher: 'Hannah Eppling', externalUrl: ADULT_IMPROV_FORM, externalLabel: 'Register' }),
+      oneNight('adult-improv-2026-10', 'Thu, Oct 15', 'Thu', '2026-10-15', '18:30', '20:30', { price: { amount: 25, unit: 'class' }, teacher: 'Hannah Eppling' }),
+      oneNight('adult-improv-2026-11', 'Thu, Nov 19', 'Thu', '2026-11-19', '18:30', '20:30', { price: { amount: 25, unit: 'class' }, teacher: 'Hannah Eppling' }),
+      oneNight('adult-improv-2026-12', 'Thu, Dec 17', 'Thu', '2026-12-17', '18:30', '20:30', { price: { amount: 25, unit: 'class' }, teacher: 'Hannah Eppling' }),
     ],
   },
 ];

@@ -7,19 +7,22 @@ import { usesDevMailbox } from '@/server/email';
 
 interface Props {
   heading?: string;
+  /** h1 when the panel is the page's main content (it looks the same either way). */
+  level?: 'h1' | 'h2';
   intro?: string;
   /** Where to go after signing in. Defaults to reloading the current page. */
   next?: string;
 }
 const {
   heading = 'Sign in or get started',
+  level: H = 'h2',
   intro = 'Enter your email and we’ll send you a 6-digit code. No password needed, and this device stays signed in for 90 days.',
   next,
 } = Astro.props;
 ---
 
 <div class="signin" data-signin data-next={next}>
-  <h2>{heading}</h2>
+  <H class="signin__title">{heading}</H>
   <p class="signin__intro">{intro}</p>
 
   <form class="signin__step" data-step="email" novalidate>
@@ -63,7 +66,7 @@ const {
   </form>
 
   <p class="signin__error" role="alert" data-error hidden></p>
-  <p class="signin__fine">By continuing you agree to our <a href="/faq">policies</a>. We only use your email for your classes and, if you choose, our newsletter.</p>
+  <p class="signin__fine">By continuing you agree to our <a href="/policies">policies</a>. We only use your email for your classes and, if you choose, our newsletter.</p>
 </div>
 
 <script>
@@ -164,7 +167,7 @@ const {
 
 <style>
   .signin { display: grid; gap: var(--space-m); }
-  .signin h2 { font-size: var(--step-2); }
+  .signin__title { font-size: var(--step-2); font-stretch: 85%; letter-spacing: normal; }
   .signin__intro, .signin__sent { color: var(--ink-soft); }
   .signin__step { display: grid; gap: var(--space-m); }
   .signin__code {

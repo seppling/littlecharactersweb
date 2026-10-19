@@ -9,12 +9,26 @@ const OLD_PAGES: Record<string, string> = {
   '/classes': '/programs',
   '/classes1': '/programs',
   '/camp': '/camps',
-  '/team': '/about#team',
+  '/team': '/about/team',
   '/faqs': '/faq',
   '/giving-page': '/give',
+  // Past seasons' class pages: today's classes.
+  '/spring2024': '/programs',
+  '/athens2024': '/programs',
+  '/winterville2024': '/programs',
+  // Squarespace template pages the old site never filled in.
+  '/services': '/',
+  '/store': '/',
   // PDFs the old site linked to, now pages here (keys in lower case).
   '/s/little-characters-parking-instructions.pdf': '/contact#parking',
   '/s/hannah-eppling-experience-and-teaching-philosophy-1.pdf': '/about',
+  // Tuition guidelines, from the classes pages (Fall 2026, 2026) and the Spring 2025 class pages.
+  '/s/fall-2026-lctt-tuition-guidelines.pdf': '/policies',
+  '/s/little-characters-theater-troupe-tuition-guidelines-2026.pdf': '/policies',
+  '/s/little-characters-theater-troupe-tuition-guidelines-2025.pdf': '/policies',
+  '/s/little-characters-tuition-guidlines-spring-2025.pdf': '/policies',
+  // A past variety show's program.
+  '/s/variety-show-program.pdf': '/events',
 };
 
 /**

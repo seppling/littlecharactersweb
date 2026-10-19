@@ -5,7 +5,8 @@
  */
 import { site as siteConfig } from '@/config/site';
 import { PRICING } from '@/lib/pricing';
-import type { Field } from './fields';
+import { lateJoinWeeksOr } from '@/lib/session-dates';
+import { SELF_LINK, type Field } from './fields';
 import { pages as pageDefs } from './pages';
 import { pages as seedPages } from './seed/pages';
 import type { EventItem, Faq, Location, PageKey, Pages, Program, Session, SiteSettings, TeamMember, Testimonial } from './types';
@@ -23,13 +24,20 @@ export type WithId<T> = T & { id: string };
 
 export type SiteInfo = typeof siteConfig & {
   description: string;
-  contact: { email: string; phone: string; phoneHref: string };
+  contact: { email: string; phone: string; phoneHref: string; /** Hannah's reply-time line; empty means the site promises nothing. */ replyTime?: string };
   social: SiteSettings['social'];
+  /** The donation form. Empty: the Give page offers an email instead. */
   givingUrl?: string;
+  /** Hannah's line under "Give now" (tax-deductibility); empty shows nothing. */
+  givingTaxNote?: string;
   wishListUrl?: string;
+  /** Last day of Studio Director billing (YYYY-MM-DD), for the imported families' welcome note. */
+  studioDirectorBillingEnds?: string;
   preview: boolean;
   announcement?: SiteSettings['announcement'];
   parking: SiteSettings['parking'];
+  /** Weekly classes stop taking new students this many weeks before the last class. */
+  lateJoinWeeks: number;
 };
 
 export interface SiteContent {
@@ -73,6 +81,15 @@ export function withRequiredDefaults(fields: Field[], defaults: unknown, saved: 
   return out;
 }
 
+/**
+ * A donation link on the old site's own address (www.littlecharacters.org/giving-page)
+ * would loop back to /give once the domain moves here, so it counts as no link.
+ */
+export function offSiteLink(url: string | undefined) {
+  const value = url?.trim();
+  return value && !SELF_LINK.test(value) ? value : undefined;
+}
+
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 /** Keep a phone number on one line. */
 const nonBreaking = (phone: string) => phone.replace(/ /g, ' ').replace(/-/g, '‑');
@@ -109,13 +126,17 @@ export function buildSiteContent(rows: ContentRow[], uploads = new Map<string, U
       email: settings.contact.email,
       phone: settings.contact.phone,
       phoneHref: `tel:+1${settings.contact.phone.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '')}`,
+      replyTime: settings.contact.replyTime?.trim() || undefined,
     },
     social: settings.social ?? {},
-    givingUrl: settings.links?.giving,
+    givingUrl: offSiteLink(settings.links?.giving),
+    givingTaxNote: settings.links?.taxNote?.trim() || undefined,
     wishListUrl: settings.links?.wishList,
+    studioDirectorBillingEnds: settings.studioDirector?.billingEnds || undefined,
     preview: !!settings.previewBanner,
     announcement: settings.announcement,
     parking: settings.parking,
+    lateJoinWeeks: lateJoinWeeksOr(settings.signups?.lateJoinWeeks),
   };
 
   const programBySlug = (slug: string) => programs.find((p) => p.slug === slug);

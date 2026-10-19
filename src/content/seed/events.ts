@@ -4,8 +4,9 @@ import type { EventItem } from '../types';
  * Upcoming shows and events, from the live site's events calendar and the
  * Fall 2026 classes page (captured Sep 25, 2026).
  */
-const PNO_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSceXu5NWca5TztIjA44qk9WdC4FWK77re6xsBDdUg9uuAFz7w/viewform';
-const ADULT_IMPROV_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSdtbKfY86bY81dHuNwBVomyLUmm7LbEXpPS9NCg-gpXEKIHXA/viewform';
+// Nights that are also class dates (programSlug) are booked through that
+// class's own sign-up for the same date; the button below is only used if
+// that date is removed from the class (see eventAction in src/lib/events.ts).
 
 const pno = (slug: string, date: string): EventItem => ({
   slug,
@@ -16,8 +17,8 @@ const pno = (slug: string, date: string): EventItem => ({
   times: [{ start: `${date}T17:00`, end: `${date}T20:00` }],
   locationId: 'hq',
   summary: 'Drop your kiddo(s) off for games, theater activities and new friends while you enjoy an evening to yourself.',
-  price: '$30 first child · $10 each additional',
-  cta: { label: 'Register', href: PNO_FORM },
+  price: '$30 first child, $10 each additional',
+  cta: { label: 'Details', href: '/programs/parents-night-out' },
   programSlug: 'parents-night-out',
 });
 
@@ -32,7 +33,7 @@ const improvNight = (slug: string, date: string): EventItem => ({
   summary: 'Group and partner improv games for grown-ups. Play as little or as much as you like; BYOB with a 21+ ID.',
   ages: '18+',
   price: '$25',
-  cta: { label: 'Register', href: ADULT_IMPROV_FORM },
+  cta: { label: 'Details', href: '/programs/geode-adult-improv' },
   programSlug: 'geode-adult-improv',
 });
 
@@ -44,7 +45,7 @@ const freeClass = (slug: string, start: string, end: string): EventItem => ({
   gel: 'yellow',
   times: [{ start, end }],
   locationId: 'hq',
-  summary: 'Our monthly free class, open to all ages, with a different teacher each month. Registration opens soon.',
+  summary: 'Our monthly free class, open to all ages, with a different teacher each month.',
   price: 'Free',
   cta: { label: 'Details', href: '/programs/free-community-class' },
   programSlug: 'free-community-class',
@@ -81,7 +82,8 @@ export const events: EventItem[] = [
     tba: '2026-12',
     summary:
       'Our twice-a-year Variety Show, with performances from this fall’s classes, including Stories and Songs and Geode’s Acting Studio. Each enrolled student gets 2 free tickets.',
-    price: 'Date and tickets coming soon',
+    // The classes whose pages say they perform at the Variety Show.
+    performers: ['stories-and-songs', 'geode-acting-studio', 'film-creation'],
   },
   improvNight('improv-night-dec', '2026-12-17'),
   pno('parents-night-out-dec', '2026-12-19'),

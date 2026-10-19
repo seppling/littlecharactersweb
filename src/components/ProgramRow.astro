@@ -7,15 +7,23 @@ import type { CharacterName, Program } from '@/content/types';
 import Character from './Character.astro';
 import PhotoFrame from './PhotoFrame.astro';
 import SessionLine from './SessionLine.astro';
-import { focusLabels, kindLabels } from '@/content/catalog';
+import { focusLabels } from '@/content/catalog';
+import { kindTag } from '@/lib/program-fit';
 import { hasFreeFirstClass } from '@/lib/pricing';
-import { ageLabel, feeLabel, price } from '@/lib/format';
+import { ageLabel, feeLabel, priceLabel } from '@/lib/format';
+import { bookingClock, offeredSessions } from '@/lib/session-dates';
+import { finderLimit, schoolOnlyLabel } from '@/lib/finder';
 
 interface Props {
   program: Program;
+  /** Its place in the finder's usual order, so the page can return to it after sorting by age. */
+  order?: number;
 }
 
-const { program } = Astro.props;
+const { program, order } = Astro.props;
+// Only dates families can still sign up for (or hear about); past ones leave on their own.
+const sessions = offeredSessions(program, bookingClock(Astro.locals.content.site.lateJoinWeeks));
+const hadDates = program.sessions.length > 0 && !program.requestCta;
 
 const castByGel: Record<Program['gel'], CharacterName> = {
   red: 'royal',
@@ -26,9 +34,12 @@ const castByGel: Record<Program['gel'], CharacterName> = {
 };
 
 const maxAge = program.ages.max ?? 120;
-const days = [...new Set(program.sessions.flatMap((s) => s.days))];
-const locs = [...new Set(program.sessions.map((s) => s.locationId))];
+const days = [...new Set(sessions.flatMap((s) => s.days))];
+const locs = [...new Set(sessions.map((s) => s.locationId))];
 const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.price;
+// Classes only one school's students can join, or held in school hours, sort after the open ones (src/lib/finder.ts).
+const limit = finderLimit(program);
+const schoolOnly = limit === 'school' ? schoolOnlyLabel(program, Astro.locals.content.locationById) : undefined;
 ---
 
 <article
@@ -41,9 +52,11 @@ const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.pr
   data-brand={program.brand}
   data-age-min={program.ages.min}
   data-age-max={maxAge}
+  data-limit={limit}
+  data-order={order}
   data-days={days.join(',')}
   data-locs={locs.join(',')}
-  data-open={program.sessions.some((s) => s.status === 'open' || s.status === 'few-left') ? '1' : '0'}
+  data-open={sessions.some((s) => s.status === 'open' || s.status === 'few-left') ? '1' : '0'}
 >
   <div class="prow__summary">
     {
@@ -59,27 +72,28 @@ const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.pr
     }
     <div class="prow__text">
       <div class="prow__tags">
-        <span class="tape tape--quiet" data-tilt="flat">{kindLabels[program.kind].singular}</span>
+        <span class="tape tape--quiet" data-tilt="flat">{kindTag(program)}</span>
         {hasFreeFirstClass(program) && <span class="tape" data-gel="yellow" data-tilt="flat">First class free</span>}
         <span class="prow__age">{ageLabel(program.ages, program.agesLabel)}</span>
+        {schoolOnly && <span class="prow__only">{schoolOnly}</span>}
         {program.focus && program.focus.length > 0 && <span class="prow__focus">{program.focus.map((f) => focusLabels[f]).join(' · ')}</span>}
       </div>
       <h3><a href={`/programs/${program.slug}`}>{program.title}</a></h3>
       <p>{program.summary}</p>
       <p class="prow__foot">
         {program.duration && <span class="script">{program.duration}</span>}
-        {fromPrice && <span class="script">{fromPrice.amount === 0 ? 'Free' : `${price(fromPrice)} ${feeLabel(program.fee)}`}</span>}
+        {fromPrice && <span class="script">{fromPrice.amount === 0 ? 'Free' : `${priceLabel(fromPrice, sessions[0] ?? program.sessions.at(-1))} ${feeLabel(program.fee)}`}</span>}
         {program.showcase && <span class="prow__show">★ Ends in a show</span>}
       </p>
     </div>
   </div>
   <div class="prow__sessions">
     {
-      program.sessions.length > 0 ? (
-        program.sessions.map((session) => <SessionLine program={program} session={session} compact />)
+      sessions.length > 0 ? (
+        sessions.map((session) => <SessionLine program={program} session={session} compact />)
       ) : (
         <div class="prow__request">
-          {program.notify ? (
+          {program.notify || hadDates ? (
             <>
               <p>Dates coming soon.</p>
               <a class="btn btn--sm btn--outline" href={`/programs/${program.slug}#notify`}>Get notified</a>
@@ -128,6 +142,7 @@ const fromPrice = program.priceFrom ?? program.sessions.find((s) => s.price)?.pr
   .prow__text { display: grid; gap: 0.55rem; }
   .prow__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
   .prow__age { font-family: var(--font-display); font-weight: 750; font-stretch: 90%; color: var(--gel-ink); }
+  .prow__only { font-family: var(--font-display); font-weight: 650; font-stretch: 90%; color: var(--ink); }
   .prow__focus { font-size: var(--step--1); color: var(--ink-mute); }
   .prow h3 { font-size: var(--step-2); }
   .prow h3 a { color: var(--ink); text-decoration: none; }

@@ -73,7 +73,7 @@ const hero = (extra: Field[] = [], headlineHelp?: string): Field => ({
 export const site: PageDef = {
   key: 'site',
   label: 'Site settings & announcement',
-  intro: 'The announcement bar, contact details, social links and parking directions used across the whole site.',
+  intro: 'The announcement bar, contact details, social links, giving, parking directions and when class sign-ups close, used across the whole site.',
   url: '/',
   fields: [
     {
@@ -104,6 +104,14 @@ export const site: PageDef = {
       fields: [
         { key: 'email', label: 'Email', type: 'text', format: 'email', required: true, half: true },
         { key: 'phone', label: 'Phone', type: 'text', required: true, half: true, placeholder: '(706) 555-0123' },
+        {
+          key: 'replyTime',
+          label: 'When families can expect a reply',
+          type: 'text',
+          max: 160,
+          placeholder: 'We reply within 2 school days.',
+          help: 'Optional. Shown under the contact form and in the “on its way” email the sender gets. Leave it empty and the site doesn’t promise a reply time.',
+        },
       ],
     },
     {
@@ -120,8 +128,54 @@ export const site: PageDef = {
       label: 'Giving',
       type: 'group',
       fields: [
-        { key: 'giving', label: 'Donation link', type: 'url', help: 'Where the “Give now” buttons go.' },
+        {
+          key: 'giving',
+          label: 'Donation link',
+          type: 'url',
+          help: 'Where the “Give now” button on the Give page goes: your donation form (for example on PayPal, Givebutter or Zeffy). Leave it empty and the button reads “Email us to give” and opens an email to the address above.',
+        },
+        {
+          key: 'taxNote',
+          label: 'Tax note',
+          type: 'textarea',
+          rows: 2,
+          max: 300,
+          help: 'Optional. A line under the button on the Give page, for example whether gifts are tax-deductible and the EIN. Leave it empty and nothing is shown.',
+        },
         { key: 'wishList', label: 'Wish list', type: 'url' },
+      ],
+    },
+    {
+      key: 'studioDirector',
+      label: 'Moving from Studio Director',
+      type: 'group',
+      help: 'Families imported from Studio Director see a welcome note in their account until they enroll here.',
+      fields: [
+        {
+          key: 'billingEnds',
+          label: 'Studio Director billing ends on',
+          type: 'date',
+          help: 'Optional. Added to the welcome note (“…until the term ends on December 18”). Leave it empty and the note leaves the date out.',
+        },
+      ],
+    },
+    {
+      key: 'signups',
+      label: 'Class sign-ups',
+      type: 'group',
+      required: true,
+      help: 'Class dates leave the site on their own. One-night dates and camp weeks close when they start. Weekly classes take late joiners (the first month is prorated) until the cut-off below. Every date is gone from the site after its last day; it stays in the editor, marked “Ended”.',
+      fields: [
+        {
+          key: 'lateJoinWeeks',
+          label: 'Weekly classes: stop taking new students this many weeks before the last class',
+          type: 'number',
+          integer: true,
+          min: 0,
+          max: 52,
+          required: true,
+          help: 'For example 4: a season ending December 18 takes new students until November 19. 0 closes sign-ups on the morning of the last class.',
+        },
       ],
     },
     {
@@ -135,7 +189,6 @@ export const site: PageDef = {
         { key: 'dropOff', label: 'Drop off (after 5 pm)', type: 'textarea', rows: 3, required: true },
         { key: 'staffOnly', label: 'Please don’t', type: 'textarea', rows: 2, required: true },
         { key: 'late', label: 'Running late?', type: 'textarea', rows: 2, required: true },
-        { key: 'guideUrl', label: 'Parking guide (PDF)', type: 'url' },
         { key: 'walkInMap', label: 'Walk-in map', type: 'image', help: 'Shown beside “Walk in” on the contact page. Describe the route in words, for people who can’t see the map.' },
         { key: 'dropOffMap', label: 'Drop-off map', type: 'image', help: 'Shown beside “Drop off” on the contact page. Describe the route in words, for people who can’t see the map.' },
       ],
@@ -177,7 +230,7 @@ export const home: PageDef = {
       label: 'On the call sheet',
       type: 'group',
       required: true,
-      help: 'The three “what’s happening now” cards under the top of the page. Keep these current.',
+      help: 'The “what’s happening now” cards under the top of the page. Past cards come down on their own.',
       fields: [
         heading,
         {
@@ -193,6 +246,12 @@ export const home: PageDef = {
             { key: 'title', label: 'Title', type: 'text', required: true },
             { key: 'text', label: 'Text', type: 'text' },
             { key: 'href', label: 'Goes to', type: 'url', placeholder: '/events' },
+            {
+              key: 'until',
+              label: 'Take down after',
+              type: 'date',
+              help: 'Optional. The card leaves the home page the day after. Cards about an event or a class also leave once it’s over.',
+            },
             gel,
           ],
         },
@@ -237,7 +296,15 @@ export const home: PageDef = {
           titleKeys: ['age', 'title'],
           keepEmpty: true,
           fields: [
-            { key: 'age', label: 'Ages', type: 'text', required: true, half: true, placeholder: '4–6' },
+            {
+              key: 'age',
+              label: 'Ages',
+              type: 'text',
+              required: true,
+              half: true,
+              placeholder: '4–6',
+              help: 'Only shown when the step has no classes. Otherwise the ages come from the classes below, and each class shows its own.',
+            },
             { key: 'title', label: 'Title', type: 'text', required: true, half: true },
             { ...character, half: true },
             { ...gel, half: true },
@@ -351,7 +418,7 @@ export const home: PageDef = {
 export const about: PageDef = {
   key: 'about',
   label: 'About page',
-  intro: 'Our story, what we do, who it’s for, the team section, and the key facts. The team members themselves are edited under Team.',
+  intro: 'Our story, what we do, who it’s for, what we believe, how it works, and the key facts. The team and the schools have their own pages.',
   url: '/about',
   fields: [
     {
@@ -434,10 +501,18 @@ export const about: PageDef = {
           titleKeys: ['label'],
           keepEmpty: true,
           fields: [
-            { key: 'label', label: 'Label', type: 'text', required: true, half: true, placeholder: 'Ages 4–6' },
+            {
+              key: 'label',
+              label: 'Label',
+              type: 'text',
+              required: true,
+              half: true,
+              placeholder: 'Ages 4–6',
+              help: 'A label starting with “Ages” is filled in from the classes linked below, so it always matches them.',
+            },
             { ...gel, half: true },
             { key: 'body', label: 'Text', type: 'textarea', rows: 2, required: true },
-            { key: 'programs', label: 'Links to classes', type: 'ref', collection: 'programs', multiple: true },
+            { key: 'programs', label: 'Links to classes', type: 'ref', collection: 'programs', multiple: true, help: 'Each class is shown with its ages.' },
             {
               key: 'links',
               label: 'Other links',
@@ -475,26 +550,6 @@ export const about: PageDef = {
           ],
         },
       ],
-    },
-    {
-      key: 'team',
-      label: 'The team',
-      type: 'group',
-      required: true,
-      help: 'Team members are edited under Team.',
-      fields: [
-        ...head(),
-        { key: 'social', label: 'Social line', type: 'text', help: 'You can use {instagram} and {facebook}, like [Instagram]({instagram}).' },
-        { key: 'quote', label: 'Quote', type: 'ref', collection: 'testimonials' },
-        { key: 'hiring', label: 'Working with us', type: 'text', help: `${RICH} ${VARS}` },
-      ],
-    },
-    {
-      key: 'schools',
-      label: 'Theater at your school',
-      type: 'group',
-      required: true,
-      fields: [...head(), { key: 'body', label: 'Text', type: 'textarea', rows: 3, required: true, help: RICH }, { key: 'quote', label: 'Quote', type: 'ref', collection: 'testimonials' }],
     },
     {
       key: 'how',
@@ -553,6 +608,46 @@ export const about: PageDef = {
       type: 'group',
       required: true,
       fields: [heading, { key: 'questions', label: 'Questions to show', type: 'ref', collection: 'faqs', multiple: true, help: 'Pick from the FAQs.' }],
+    },
+    seo,
+  ],
+};
+
+export const team: PageDef = {
+  key: 'team',
+  label: 'Team page',
+  intro: 'The words at the top and bottom of the Team page (under About). The team members themselves are edited under Team.',
+  url: '/about/team',
+  fields: [
+    {
+      key: 'team',
+      label: 'The team',
+      type: 'group',
+      required: true,
+      help: 'Team members are edited under Team.',
+      fields: [
+        ...head(),
+        { key: 'social', label: 'Social line', type: 'text', help: 'You can use {instagram} and {facebook}, like [Instagram]({instagram}).' },
+        { key: 'quote', label: 'Quote', type: 'ref', collection: 'testimonials' },
+        { key: 'hiring', label: 'Working with us', type: 'text', help: `${RICH} ${VARS}` },
+      ],
+    },
+    seo,
+  ],
+};
+
+export const schools: PageDef = {
+  key: 'schools',
+  label: 'Schools & partners page',
+  intro: 'The Schools & partners page (under About): theater at your school.',
+  url: '/about/schools',
+  fields: [
+    {
+      key: 'schools',
+      label: 'Theater at your school',
+      type: 'group',
+      required: true,
+      fields: [...head(), { key: 'body', label: 'Text', type: 'textarea', rows: 3, required: true, help: RICH }, { key: 'quote', label: 'Quote', type: 'ref', collection: 'testimonials' }],
     },
     seo,
   ],
@@ -728,7 +823,7 @@ export const geode: PageDef = {
 export const give: PageDef = {
   key: 'give',
   label: 'Give page',
-  intro: 'The scholarship fund and other ways to help. The “Give now” button goes to the donation link in Site settings.',
+  intro: 'The scholarship fund and other ways to help. The “Give now” button goes to the donation link in Site settings → Giving; with no link it reads “Email us to give”. The tax note under it is set there too.',
   url: '/give',
   fields: [
     hero([
@@ -806,6 +901,33 @@ export const faq: PageDef = {
   fields: [hero(), seo],
 };
 
+const policySection = (key: string, label: string, help: string): Field => ({
+  key,
+  label,
+  type: 'group',
+  required: true,
+  help,
+  fields: [heading, { key: 'paragraphs', label: 'Text', type: 'paragraphs', rows: 12, required: true, help: `Leave a blank line between paragraphs. Start one with **a few bold words** to name it. ${RICH}` }],
+});
+
+/** Shown on the Policies page in the editor until Hannah has read it (remove then). */
+const POLICIES_DRAFT =
+  'DRAFT for Hannah to read before launch (October 2026). Written from the policy summary at enrollment, the FAQ, docs/security.md and what checkout and autopay actually do. Please check every line, and fill in what’s missing: how long we keep a family’s information after they leave, and whether “OK to share photos online” covers Instagram and Facebook. Sign-in, enrollment, the footer and the FAQ link here. The late fee, the discounts and the autopay date are set in the billing rules (ask Stephen to change them), so change the words here only to match.';
+
+export const policies: PageDef = {
+  key: 'policies',
+  label: 'Policies page',
+  intro: POLICIES_DRAFT,
+  url: '/policies',
+  fields: [
+    { ...hero(), help: POLICIES_DRAFT },
+    policySection('payments', 'Enrollment and payments', 'Families agree to this when they enroll. Keep it in step with the short version on the enrollment page.'),
+    policySection('privacy', 'Privacy', 'What the site collects, who sees it, and how to have it removed. Only say what the site really does (docs/security.md).'),
+    policySection('photos', 'Photos', 'What the photo choice at enrollment means.'),
+    seo,
+  ],
+};
+
 export const classes: PageDef = {
   key: 'classes',
   label: 'Class finder',
@@ -832,6 +954,6 @@ export const eventsPage: PageDef = {
   ],
 };
 
-export const pages: Record<PageKey, PageDef> = { site, home, about, camps, geode, give, contact, faq, classes, events: eventsPage };
+export const pages: Record<PageKey, PageDef> = { site, home, about, team, schools, camps, geode, give, contact, faq, policies, classes, events: eventsPage };
 export const pageKeys = Object.keys(pages) as PageKey[];
 export const isPageKey = (k: string): k is PageKey => k in pages;
