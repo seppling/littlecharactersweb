@@ -15,7 +15,7 @@
  * - Staff only until shared. Logged with ids (`admin.progress_note.*`,
  *   `teach.progress_note.draft`); never the text.
  */
-import { and, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { SiteContent } from '@/content/site-content';
 import { todayInAthens } from '@/lib/pricing';
 import { expectedOn, type Viewer } from './attendance';
@@ -24,7 +24,7 @@ import { familyAudience, footerFor, sendMessage, type SendOptions } from './mess
 import { audit } from './records';
 import { childSkills, skillDateFor } from './skills';
 
-const { progressNote, student, household, user } = schema;
+const { progressNote, student, household, user, staff } = schema;
 
 type Catalog = Pick<SiteContent, 'findSession'>;
 
@@ -66,16 +66,18 @@ export interface NoteView {
   updatedAt: Date;
 }
 
-const authorName = (u: { name: string | null; email: string | null }) => u.name || u.email || 'Former staff';
+/** The name in Settings → Staff first (teachers often have no account name), then the account's. */
+const authorName = (u: { staffName: string | null; name: string | null; email: string | null }) => u.staffName || u.name || u.email || 'Former staff';
 
 async function notesWhere(where: ReturnType<typeof and>, catalog: Catalog): Promise<NoteView[]> {
   const db = await getDb();
   const rows = await db
-    .select({ note: progressNote, firstName: student.firstName, lastName: student.lastName, family: household.name, authorName: user.name, authorEmail: user.email })
+    .select({ note: progressNote, firstName: student.firstName, lastName: student.lastName, family: household.name, authorName: user.name, authorEmail: user.email, staffName: staff.name })
     .from(progressNote)
     .innerJoin(student, eq(student.id, progressNote.studentId))
     .innerJoin(household, eq(household.id, progressNote.householdId))
     .leftJoin(user, eq(user.id, progressNote.authorUserId))
+    .leftJoin(staff, eq(staff.email, sql`lower(${user.email})`))
     .where(where)
     .orderBy(desc(progressNote.updatedAt));
   return rows.map((r) => ({
@@ -88,7 +90,7 @@ async function notesWhere(where: ReturnType<typeof and>, catalog: Catalog): Prom
     family: r.family,
     classTitle: r.note.sessionId ? (catalog.findSession(r.note.sessionId)?.program.title ?? null) : null,
     body: r.note.body,
-    author: authorName({ name: r.authorName, email: r.authorEmail }),
+    author: authorName({ staffName: r.staffName, name: r.authorName, email: r.authorEmail }),
     sharedAt: r.note.sharedAt,
     messageId: r.note.messageId,
     createdAt: r.note.createdAt,

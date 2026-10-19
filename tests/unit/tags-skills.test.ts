@@ -304,7 +304,7 @@ describe('skills', () => {
     expect(await tick(lead, kids.Ada, skillIds[0], 'working')).toEqual({ ok: false, why: 'retired' });
     const mine = (await childSkills([kids.Ada], await getCatalog())).get(kids.Ada)!;
     const retired = mine[0].skills.find((s) => s.id === skillIds[0]);
-    expect(retired).toMatchObject({ status: 'got_it', retired: true, markedBy: 'lead.ts@example.com' });
+    expect(retired).toMatchObject({ status: 'got_it', retired: true, markedBy: 'Lee Lead' });
     await setSkillActive(hannahUser, skillIds[0], true);
     expect((await programSkills(INTRO_SLUG)).at(-1)?.id).toBe(skillIds[0]);
   });
@@ -326,7 +326,7 @@ describe('progress notes', () => {
     // A second save changes the same draft.
     expect(await saveTeacherDraft(lead, { sessionId: INTRO, date: TUE, studentId: kids.Ada, body: 'Ada spoke up in every scene!' }, c, TUE)).toBe(id);
     const drafts = await draftsForClass(INTRO, c);
-    expect(drafts.map((d) => [d.id, d.child, d.author, d.body])).toEqual([[id, 'Ada Sample', 'lead.ts@example.com', 'Ada spoke up in every scene!']]);
+    expect(drafts.map((d) => [d.id, d.child, d.author, d.body])).toEqual([[id, 'Ada Sample', 'Lee Lead', 'Ada spoke up in every scene!']]);
     expect((await sharedNotesFor(A, c)).size).toBe(0);
   });
 

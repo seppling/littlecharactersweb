@@ -25,7 +25,7 @@ import { getDb, schema } from './db';
 import { audit } from './records';
 import { canTeach, meetsOn } from './teachers';
 
-const { skill, studentSkill, student, enrollment, user } = schema;
+const { skill, studentSkill, student, enrollment, user, staff } = schema;
 
 type Catalog = Pick<SiteContent, 'findSession'>;
 
@@ -352,9 +352,10 @@ export async function childSkills(studentIds: string[], catalog: Catalog): Promi
   const [skills, marks] = await Promise.all([
     db.select().from(skill).where(inArray(skill.programSlug, slugs)).orderBy(asc(skill.position), asc(skill.createdAt)),
     db
-      .select({ studentId: studentSkill.studentId, skillId: studentSkill.skillId, status: studentSkill.status, markedAt: studentSkill.markedAt, byName: user.name, byEmail: user.email })
+      .select({ studentId: studentSkill.studentId, skillId: studentSkill.skillId, status: studentSkill.status, markedAt: studentSkill.markedAt, byStaff: staff.name, byName: user.name, byEmail: user.email })
       .from(studentSkill)
       .leftJoin(user, eq(user.id, studentSkill.markedBy))
+      .leftJoin(staff, eq(staff.email, sql`lower(${user.email})`))
       .where(inArray(studentSkill.studentId, studentIds)),
   ]);
   const markOf = new Map(marks.map((m) => [`${m.studentId} ${m.skillId}`, m]));
@@ -365,7 +366,7 @@ export async function childSkills(studentIds: string[], catalog: Catalog): Promi
         .filter((s) => s.programSlug === slug)
         .map((s) => {
           const m = markOf.get(`${studentId} ${s.id}`);
-          return { id: s.id, name: s.name, status: (m?.status ?? 'not_yet') as SkillStatus, retired: !s.active, markedAt: m?.markedAt ?? null, markedBy: m ? m.byName || m.byEmail || 'Former staff' : null };
+          return { id: s.id, name: s.name, status: (m?.status ?? 'not_yet') as SkillStatus, retired: !s.active, markedAt: m?.markedAt ?? null, markedBy: m ? m.byStaff || m.byName || m.byEmail || 'Former staff' : null };
         })
         .filter((s) => !s.retired || s.status !== 'not_yet');
       if (list.length) classes.push({ programSlug: slug, title: p.title, sessionId: p.sessionId, skills: [...list.filter((s) => !s.retired), ...list.filter((s) => s.retired)] });
