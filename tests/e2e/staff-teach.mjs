@@ -95,7 +95,8 @@ async function tapTargets(p, selector, what) {
     els
       .filter((e) => e.offsetParent !== null)
       .map((e) => e.getBoundingClientRect())
-      .filter((r) => r.height < 44)
+      // 43.99, not 44: a button still sliding back from its hover lift measures 43.99999 px (a sub-pixel transform).
+      .filter((r) => r.height < 43.99)
       .map((r) => Math.round(r.height)),
   );
   check(small.length === 0, `${what}: tap targets at least 44 px${small.length ? ` (found ${small.join(', ')})` : ''}`);

@@ -69,7 +69,8 @@ const smallTargets = () =>
   page.evaluate(() =>
     [...document.querySelectorAll('.admin-page a, .admin-page button, .admin-page input:not([type="hidden"], [type="checkbox"], [type="radio"]), .admin-page summary')]
       .filter((el) => el.getClientRects().length && !el.closest('.sr-only') && !hiddenInDetails(el))
-      .filter((el) => el.getBoundingClientRect().height < 44)
+      // 43.99, not 44: a button still sliding back from its hover lift measures 43.99999 px (a sub-pixel transform).
+      .filter((el) => el.getBoundingClientRect().height < 43.99)
       .map((el) => `${el.tagName.toLowerCase()} “${(el.textContent || el.getAttribute('name') || '').trim().slice(0, 30)}” ${Math.round(el.getBoundingClientRect().height)}px`),
   );
 // Inside a closed <details> (not its summary), Chromium keeps boxes it doesn't show: leave those out of the checks.
