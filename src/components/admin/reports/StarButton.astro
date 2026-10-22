@@ -1,0 +1,24 @@
+---
+/** A report's star: starred reports list first in the library and under the dashboard's tiles. Posts, then comes back to `next`. */
+import { reportFavorite } from '@/lib/admin-links';
+
+interface Props {
+  reportKey: string;
+  on: boolean;
+  /** The report's name, for screen readers. */
+  name: string;
+  next: string;
+}
+const { reportKey, on, name, next } = Astro.props;
+---
+
+<form method="post" action={reportFavorite()} class="star-form">
+  <input type="hidden" name="key" value={reportKey} />
+  <input type="hidden" name="on" value={on ? '0' : '1'} />
+  <input type="hidden" name="next" value={next} />
+  <button type="submit" class="star" aria-pressed={on ? 'true' : 'false'} data-star={reportKey}>
+    <span aria-hidden="true">{on ? '★' : '☆'}</span>
+    <span class="star__label">{on ? 'Starred' : 'Star'}</span>
+    <span class="sr-only">: {name}</span>
+  </button>
+</form>

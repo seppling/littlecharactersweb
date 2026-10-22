@@ -15,19 +15,35 @@ Every staff address comes from `src/lib/admin-links.ts`. Link with these functio
 | `classPrint(sessionId)` | `/admin/classes/<id>/print` | A class's roster, ready to print (§9) |
 | `classEmail(sessionId)` | `/admin/classes/<id>/email` | Email the class (§13) |
 | `classSignInSheet(sessionId)` | `/admin/classes/<id>/sign-in-sheet.pdf` | A class's sign-in sheet (§9) |
+| `classDropIns(sessionId)` | `/admin/classes/<id>/drop-ins` | A class's Drop-ins list (on its page; the address redirects there). Pass to `downloads()` for `drop-ins.csv` and `.pdf` (§20) |
 | `search(q?)` | `/admin/search?q=` | Search (placeholder) |
 | `family(householdId)` | `/admin/families/<id>` | A family's page (§10) |
 | `familyEmail(householdId)` | `/admin/families/<id>/email` | Email this family (§13) |
 | `familyLists()` | `{ children, contacts, notes }` | The family downloads' list paths, for `downloads()` (§10) |
 | `payments(show?, month?)` | `/admin/payments`, `?show=failed` or `upcoming`, `?month=2026-10` | Payments (§11) |
 | `paymentsOrder(orderId)` | `/admin/payments/<id>` | One family's payments for a class |
+| `refundPage(orderId, installmentId?)` | `/admin/payments/<id>/refund?installment=` | Refund one payment (§21) |
+| `creditsPage(householdId)` | `/admin/families/<id>/credits` | A family's credits (§21) |
+| `familyStatement(householdId, year)` | `/admin/families/<id>/statement?year=` | Pass to `downloads()` for the yearly statement (§21) |
 | `leads()` | `/admin/leads` | Messages & sign-ups |
 | `content()` | `/admin/content` | The website editor |
 | `install()` | `/admin/install` | Put the app on your phone (teachers too) |
 | `settings()` | `/admin/settings` | Settings: a tile per settings page (§15) |
 | `settingsStaff()` | `/admin/settings/staff` | Settings → Staff (§15) |
 | `settingsStaffMember(staffId)` | `/admin/settings/staff/<id>` | One staff member: role, classes, substitute dates, turn off (§15) |
-| `teachHome()` | `/admin/teach` | The teacher app's home (§15) |
+| `teachHome()` | `/admin/teach` | The teacher app's home (§18) |
+| `teachRoster(sessionId, date, on?)` | `/admin/teach/<id>/<YYYY-MM-DD>` | One class date: roster and attendance (§18); the calendar links to it |
+| `teachMe()` | `/admin/teach/me` | The teacher app's Me tab (§18) |
+| `classAttendance(sessionId)` | `/admin/classes/<id>/attendance` | A class's attendance, for `downloads()` (CSV and PDF only, §18) |
+| `calendar(month?, params?)` | `/admin/calendar?month=2026-11` (`view=week&week=`, `program`, `location`, `teacher`) | The calendar (§19) |
+| `settingsDaysOff(sessionId?)` | `/admin/settings/days-off` (`?class=<id>&which=some` pre-fills a class) | Settings → Days off (§19) |
+| `shows()` | `/admin/shows` | Shows: each show's cast and rehearsals (§23) |
+| `show(slug)` | `/admin/shows/<slug>` | One show: cast, roles, rehearsals. Pass `` `${show(slug)}/program` `` or `/cast-sheet` to `downloads()` (§23) |
+| `showEmail(slug)` | `/admin/shows/<slug>/email` | Email the cast (§23) |
+| `reports()` | `/admin/reports` | The reports dashboard (§26) |
+| `reportsLibrary()` | `/admin/reports/library` | Every report, starred first (§26) |
+| `report(key, params?)` | `/admin/reports/<key>?season=&month=&program=&location=&class=&show=&week=&who=&sort=&dir=` | One report. Pass to `downloads()` for its CSV and PDF (§26) |
+| `reportFavorite()` | `/admin/reports/favorite` | Where a report's star posts (§26) |
 | `confirm(next)` | `/admin/confirm?next=` | Sign in again, then go on |
 | `downloads(listPath)` | `{ csv, pdf }` | A list's two downloads |
 
@@ -58,8 +74,9 @@ Ids in addresses are database or catalog ids. Children's names and notes never g
 | `teachers` | The page is part of the teacher app: teachers may open it (with `requireTeacherOrOwner`). Without it, only owners get the shell |
 
 - **Computer:** a dark top bar with the search box (it sends `GET /admin/search?q=`), the staff member's email and Sign out, then the sections: Today, Classes, Families, Payments, Messages & sign-ups, Website, Settings. Families goes to Search until there's a families list.
-- **Phone (760 px and narrower):** the page title with the optional back link and a Menu button at the top; a tab bar at the bottom: Today, Classes, Search, Alerts. The current tab follows the address (a family's page lights Search). The menu holds Families, Payments, Messages & sign-ups, Website, Settings, "Put the app on your phone" and Sign out.
-- **Teachers** get a smaller shell: one section, "Your classes" (`teachHome()`), no search and no tab bar; the phone menu holds only "Put the app on your phone" and Sign out.
+- **Phone (760 px and narrower):** the page title with the optional back link and a Menu button at the top; a tab bar at the bottom: Today, Classes, Search, Alerts. The current tab follows the address (a family's page lights Search). The menu holds Take attendance (the teacher app, §18), Families, Payments, Messages & sign-ups, Website, Settings, "Put the app on your phone" and Sign out.
+- **Teachers** get a smaller shell: one section, "Your classes" (`teachHome()`), no search; on a phone, two tabs, Today and Me (`.teach-tabs`), and the menu holds only "Put the app on your phone" and Sign out.
+- **Signing out** from any staff page also clears the teacher app's copy of today's classes on that phone (§18).
   - **Why a menu rather than links on Today:** it's on every page, so Payments is two taps away wherever Hannah is, and Today stays about today.
 - **The website editor** shows "The website editor works best on a computer." on phones, and stays usable.
 - The family site's header and footer aren't shown on staff pages (`Base.astro`'s `chrome={false}`).
@@ -95,8 +112,10 @@ Use these instead of page-level styles.
 | `new` | New | good | first enrollment created in the last 30 days |
 | `trial` | Trial | neutral | this enrollment is a free trial |
 | `birthday` | Birthday | good | birthday within 3 days either side of today (Feb 29 counts as Feb 28 in other years) |
+| `drop-in` | Drop-in | neutral | here for that one date: a booked drop-in (§20) |
+| `missed2` | Missed the last two | warning | the child's last two marks in this class were Absent (§18) |
 
-`drop-in` is reserved for Phase 2. The input is yes/no facts (`hasAllergies`, `hasMedicalNotes`, `hasPickupNote`, `restrictedPickup`, `photoConsent`, `firstEnrolledAt`, `trial`, `birthdate`), so the notes never reach the HTML. Decrypt with `readStudentNotes`, turn into booleans on the server, and pass only those.
+The input is yes/no facts (`hasAllergies`, `hasMedicalNotes`, `hasPickupNote`, `restrictedPickup`, `photoConsent`, `firstEnrolledAt`, `trial`, `dropIn`, `missedLastTwo`, `birthdate`), so the notes never reach the HTML. Decrypt with `readStudentNotes`, turn into booleans on the server, and pass only those.
 
 ## 5. Downloads: CSV and PDF
 
@@ -133,7 +152,7 @@ A home-screen web app; no app store.
 - **Manifest:** `public/admin/app.webmanifest`. "Little Characters Staff" ("LC Staff"), `start_url`, `scope` and `id` `/admin`, standalone, ink `#1c1826` theme and white background. It's a static file, so it loads without signing in (browsers fetch manifests without cookies).
 - **Icons:** `public/admin/icons/` (192, 512, maskable 512, Apple 180): the logo mark on ink, made once by `npx tsx scripts/make-staff-icons.ts`.
 - **Only staff pages** link the manifest and the Apple icon and title (through `Base.astro`'s `head` slot). The family site is unchanged.
-- **No service worker.** Chrome's install criteria no longer ask for one (web.dev, "What does it take to be installable?", updated September 2024: HTTPS, a manifest with a name, 192 and 512 px icons, `start_url` and `display`, and some engagement). Offline attendance in Phase 2 will add one.
+- **A service worker for the teacher app only** (`public/admin/teach-sw.js`, scope `/admin/teach`; §18). The rest of `/admin` and the family site have none and are never cached. Chrome's install criteria don't ask for one (web.dev, "What does it take to be installable?", updated September 2024: HTTPS, a manifest with a name, 192 and 512 px icons, `start_url` and `display`, and some engagement).
 - **`/admin/install`:** iPhone steps (Safari, Share, Add to Home Screen) with simple drawings; Android's "Install app" button when Chrome offers it, with Chrome's menu as the fallback; "You're using the app now" when it's open as the app. Linked from the phone menu.
 
 ## 8. Data added for the back office (migration `0009_back_office`)
@@ -210,10 +229,14 @@ All three go through `paymentsDownload` (`payments.csv.ts`, `payments.pdf.ts`): 
 | Kind | Tone | When | Link |
 |---|---|---|---|
 | `payments` | alert | `billingOverview().needsAttention`: failed (or on hold: the family is paying it themselves) and processing | `payments('failed')` |
+| `refund` | alert | "A refund didn't go through": a `refund` that failed, or is still `pending` 24 hours after it was made (`REFUND_PENDING_HOURS`); one item per refund (§25) | `paymentsOrder` (the refund's order, or its monthly charge's), else `family` |
 | `waitlist` | warning | a current class with a waitlist and a place open, not counting places with an open offer (§14) | `classPage` |
 | `under5` | warning | weekly classes (kind `class`, not one-off) short of 5, from 14 days before their first class to 14 days after; one item for all | `classes()?under5=1` |
+| `attendance` | warning | a class date with children expected and no `class_report`: today's once the class ended 2 hours ago, or any in the last 7 days; not on a day off. One item per class date (§18) | `teachRoster` |
+| `missed2` | warning | a child absent at their last two marked dates in a current class; one item per child (§18) | `family` |
 | `emergency` | warning | families with an active or trial enrollment in a class that hasn't ended, and no emergency contact | `family` |
 | `care` | neutral | the same children, care details not confirmed by a parent within a year (`detailsOnFile`), one item per family | `family` |
+| `notes` | neutral | "Progress notes to send": draft progress notes (`shared_at` empty) waiting, one item per class (§22, §25) | `classPage` + `#skills-h` |
 | `signups` | good | active and trial enrollments made in the last 7 days, one item per class | `classPage` |
 | `leads` | neutral | messages and sign-ups from the site's forms in the last 7 days, one item | `leads()` |
 | `birthdays` | good | enrolled children with a birthday today or in the next 6 days | `family` |
@@ -301,7 +324,7 @@ The content's `session.teacher` text stays the public name on the site. Settings
 
 **Settings → Staff** (`src/server/staff-settings.ts`; pages `src/pages/admin/settings/`): owners only; changes need a fresh sign-in (until then the page shows "Confirm it's you"). The list (name, email, role, number of classes, can sign in); **Add a person** (name, email, Teacher or Owner; nothing is emailed); each person's page: name and role, **Classes they teach** (per current or upcoming class: Not teaching / Teaches / Assists), **Substitute dates** (class, date it meets, optionally who they cover for), **Turn off** / **Turn back on**. Owners can't turn themselves off or drop their own owner role. Audit: `admin.staff.add`, `.update`, `.deactivate`, `.reactivate`, `.class_add`, `.class_role`, `.class_remove`, `.cover_add`, `.cover_remove` (entity `staff`, the class and date in `detail`). Later settings pages go under `/admin/settings/` with a tile on `settings()`.
 
-**The teacher app's home** (`/admin/teach`) is a placeholder: "Hi, <first name>", today's classes (`teacherSessions`, with Assisting / Substitute / Day off), and "Classes you teach". `?on=YYYY-MM-DD` picks the day in development.
+**The teacher app** (`/admin/teach`) is §18.
 
 ## 16. Data for Phase 2 (migrations `0011_phase2` and `0012_phase2_extras`)
 
@@ -345,3 +368,351 @@ Shared by the teacher app, the calendar and drop-ins, so all three agree on days
 | `classDayFrom(input)` | Pure half of `classDay` |
 
 `teacherSessions` (§15) takes its `dayOff` from `dayOffFrom`.
+
+## 18. The teacher app (Phase 2)
+
+Teachers take attendance on their phones, with or without signal, and send Hannah a note. Data and rules in `src/server/attendance.ts`; the phone side in `src/scripts/teach.ts` and `public/admin/teach-sw.js`.
+
+**Pages** (all `requireTeacherOrOwner`, `<AdminShell teachers section="teach">`):
+
+- **Today** (`teachHome()`, `src/pages/admin/teach/index.astro`): "Hi, <first name>", then one card per class today (`teachCards`): time, class, location, "12 children" (`classDay(...).expected`), "Assisting", "Covering for <name>" (or "Substitute"), "<Sub> is covering", and a chip: **Not taken**, **Saved on this phone, sending…** (taps on this phone not sent yet) or **Done ✓** (a `class_report`). A day off is a grey card, "No class: <reason>", with no link. No classes: "No classes today" and "Your next class is …" (`nextTeachingDay`). **This week**: the next 7 days' classes, each opening its roster (read-only). **Classes you teach** below. Owners see every class meeting today; their week is their own classes. The app icon's badge counts today's classes not done (`navigator.setAppBadge`, where supported).
+- **A class date** (`teachRoster(id, date)`, `src/pages/admin/teach/[sessionId]/[date].astro`): class, date, time, location, "Present 9 of 12", **Mark all present**; the safety strip ("2 allergy or medical · 1 pickup note"; a tap shows only those children, and back); one row per child expected (`teachRoster`): initials, "Maya R.", badges, a Present / Absent toggle (48 px), **More** with Late, Left early and a short note (200 characters); a tap on the name opens the child's sheet (a `<dialog>`): allergies and medical (red), who may pick up, parents with **Call** and **Text**, emergency contacts, photos. Nothing about payments or addresses. Then **Note to Hannah** and **Submit attendance** (until everyone's marked: "Mark everyone first (2 left)"); after: "Done ✓ Hannah has it." and **Send changes**. Read-only states say why: "No class today: <reason>", a future date, "<Sub> is covering", "Attendance was sent … Ask Hannah", or closed (more than 7 days ago).
+- **Me** (`teachMe()`): who's signed in, Sign out, what "This is a shared device" does, "Put the app on your phone".
+- `?on=YYYY-MM-DD` sets "today" on all three and on the sync endpoint in development only (`devDay`).
+
+**Who sees what** (`teachAccess`, pure; `classDateFor` reads what it needs):
+
+| Who | Sees | Marks |
+|---|---|---|
+| Owner | any class, any date it meets | any date up to today |
+| Teacher (lead or assistant) | their classes, any date they meet (`canTeach`) | today; a missed date up to 7 days back (`LATE_DAYS`) until it's submitted; after submitting, changes on the class's own day only |
+| Substitute | that class on their cover date only | that date, as above |
+| The regular teacher on a cover date | read-only, "<Sub> is covering" (the cover names them, or names nobody and they're the lead) | no |
+| Anyone else, a turned-off teacher, a date the class doesn't meet | the Staff only panel (404) | no |
+
+Nobody marks a day off (`dayOffOn`) or a future date. The server applies the same rule to every tap.
+
+**Who's expected on a date** (`expectedOn`): active and trial enrollments, booked drop-ins (`dropInsOn`, §17), and anyone already marked that date. `teachRoster` reads them with care details decrypted (`readStudentNotes`) and writes `teach.roster.view` (or `teach.roster.cache` when the phone stores it for offline) with the date in `detail`.
+
+**Taps and submitting** (`POST /api/teach/sync`, JSON `{ by, taps, reports }`):
+
+- A tap is `{ clientId, sessionId, date, studentId, status, note, reason, markedAt }` (`reason`: why absent, from Settings → Reasons); `status` is `present`, `absent`, `late` or `left_early` (Late and Left early count as there). A report is `{ clientId, sessionId, date, note, at }` (the note to Hannah, up to 2000 characters).
+- `saveTaps`: idempotent. A `client_id` already saved → `same`; the child's row has a newer `marked_at` → `older` (one upsert on (class, date, child) with `marked_at < excluded.marked_at`); else `saved`. The phone's time is held to the server's now, and a batch is applied in the order the taps were made, so of two taps held to the same now the later one wins (the upsert's `<=`). Refused: no access, a day off, a closed date, a child not expected (`refused` with `why`). A change to an existing mark writes `teach.attendance.change` (entity `student`, `detail` "<class> <date>: absent → present"). Tapped on the class's day and sent the next morning still counts as that day (`tapDay`), but only within the 7-day window: the tap's time comes from the phone, so a back-dated tap can't reopen an older or closed date.
+- A note typed for a child who isn't marked yet waits for the mark; a note alone never marks a child Present.
+- `saveReports`: one `class_report` per class date. Submitting again updates it (`teach.attendance.resubmit`); an older submission arriving late changes nothing; a changed note clears `note_read_at`, so it shows on Today again.
+- Responses: 401 signed out (the phone keeps the taps), 409 when `by` isn't the signed-in person (taps made by someone else are never saved under them), 403 non-staff or another site's origin.
+
+**Offline** (`src/scripts/teach.ts`, `public/admin/teach-sw.js`):
+
+- Each tap goes to IndexedDB (`lc-teach`: `queue` of unsent taps and submissions, `marks` for the newest mark seen per child, `meta.who`), then is sent: on the tap, when the app opens or comes back to the front, on `online`, every 20 s while something waits, and by Background Sync (`teach-sync`) where the browser has it (Android; iPhones don't). Background Sync sends the same fields as the page (the absence reason too), and leaves refused taps in the queue so the page sends them once more and shows "Not saved".
+- The status line: "Saved on this phone · sending when you have signal", "All sent ✓", "Saved on this phone · sign in again to send", or "Not saved: … Ask Hannah." for a refused tap.
+- The service worker (scope `/admin/teach`) fetches pages from the network first (4 s, then the saved copy) and keeps a page only when it sends `X-Teach-Cache: <today in Athens>`: the home page and today's rosters the person teaches or covers (an owner's only when they're on that class). The home page asks it to store today's rosters ahead (`X-Teach-Prefetch: 1`), and a page asks it to keep itself only when it's one it may keep (`data-keep`). **On a shared device nothing is kept:** the pages send no `X-Teach-Cache` and no rosters ahead, so care details never stay on a studio iPad after the hour's sign-out (`Astro.locals.sharedDevice`). It also keeps the pages' own scripts, styles, fonts and icons. Pages from another day are dropped. Cache keys are addresses (ids), never names.
+- Cleared: on sign-out from any staff page (AdminShell), when a page comes back with `X-Teach-Signed-Out` (signed out, signed in but not staff such as a family or a teacher turned off, or a shared device), when another person opens the app on the phone (`claimPhone`), and the next day. Unsent taps stay until their person signs in again (dropped after 8 days); the session stays in its HttpOnly cookie, never in the cache.
+
+**What Hannah sees:**
+
+- **Today:** "Attendance done ✓" on a class with a report, "Not taken" once a class has ended without one (`attendanceState`), nothing before; **Notes from teachers** ("Note from <teacher>: …", linking to the roster) until **Mark read** (`POST /api/teach/note-read`, `markNoteRead`, `admin.attendance.note_read`); a **Take attendance** tile and menu link.
+- **Needs attention:** `attendance` and `missed2` (§12), from `attentionAttendance(today)` (reports, days off and drop-ins over the last 7 days; `missedTwo` over 60 days).
+- **A class's page:** **Attendance**: each date so far (and any later date already marked), newest first: "9 of 12 present · taken by <teacher>", "Not taken", or "No class: <reason>", each opening that date's roster. Downloads (fresh sign-in; `admin.attendance.csv|pdf`): a row per child, a column per date (P, A, L, LE), Present and Absent totals (`attendanceTable`, `attendancePdf`, "Attendance: <class>").
+- **Rosters and the family page:** the `missed2` badge; the family page adds "Missed 2 classes this season" per child (`childAttendance`, the current term).
+
+**Substitutes:** adding a cover in Settings → Staff (`addCover`) emails the substitute ("You're covering <class> on <date>") and, when Hannah said whom they cover for, that teacher ("<Sub> is covering <class> on <date>"), each with a link to `/admin/teach` (`sendCoverEmails`). A failed email doesn't undo the cover.
+
+**Not built here:** push reminders ("Attendance not taken"), absence reasons (`attendance.reason`, from Settings later), children's photos on the roster (initials only).
+
+
+## 19. Calendar and days off
+
+Hannah's class calendar and days off (Studio Director's class calendar and each class's dates). The guide for Hannah is `staff-billing.md` → "Days off".
+
+**The calendar** (`/admin/calendar`, `src/server/calendar.ts`; owners). In the top bar after Classes, and in the phone menu (not a tab).
+
+- **Month** (the default): a grid, Sunday to Saturday, on a computer; at 760 px and narrower the same month as a list of the days with something on them. Each class shows its start time, title and "8/12" (enrolled and trials, of the places); events from the content are yellow; a day off for every class is a red band with the reason, and a class with its own day off is struck through. Today has a purple outline. Arrows and a month box, as on Payments.
+- **Week** (`?view=week&week=YYYY-MM-DD`, any date in the week): the seven days as a list, each class with its class page (`classPage`) and that date's attendance roster (`teachRoster`).
+- **Filters:** program (slug), location (id), teacher (a name: Settings → Staff's `class_teacher`, leads first, else the content's teacher). Events are hidden when filtering by teacher.
+- **Downloads** (a fresh sign-in): `calendar.csv` / `.pdf` with the month and filters: the **Daily Class Schedule** (Date, Time, Class, Location, Teacher, Students, Day off) and with `report=classes` the **Class Schedule** (Class, Time, Location, Teacher, Students, Classes, Dates, Days off). Audit `admin.download.csv|pdf`, entity `list`, id `calendar-daily|calendar-classes`, the month in `detail`.
+- **Functions:** `calendarRange(content, from, to, filters)` → `{ days: CalendarDay[], options }`; the pure `calendarDays(data, dates, filters, content)` (`CalendarDay` = `{ date, dayOff, entries: CalendarEntry[] }`, an entry has `kind`, `time`, `title`, `places`, `teacher`, `sessionId`, `href`, `rosterHref`, `dayOff`); `monthGrid`, `calendarWeek`, `teachersBySession`; `dailyScheduleTable`, `classScheduleTable`.
+
+**A class's dates:** the class page has a **Dates** part: every `meetings(session)` date (`classDates`), days off struck through with "No class: <reason>", past dates greyed, "N classes left" (from today, days off not counted), and **Add a day off**, which opens Days off with the class ticked.
+
+**Days off** (`/admin/settings/days-off`, `src/server/days-off.ts`; owners; a tile on Settings).
+
+- **Add:** a date or a range (up to 31 days), every class or some (current and upcoming classes), and a reason (up to 80 characters; families see it). "Check what changes" is a GET (`?step=check&from=&to=&which=&class=&reason=`), so the fresh sign-in can return to it.
+- **The preview** (`previewDayOff(staff, catalog, request)` → `DayOffPlan`): `classes` (each class and date, children, `refused` when attendance was taken), `alreadyOff` (left as they are), `lowered` (each monthly payment: before, after, each date's one-class amount, `later` when locked), `alreadyPaid` ("give a credit": a paid month, one being charged right now, or the month paid at sign-up), `noChange` (paid the season up front, pays by the session, free first class, no charge, payments stopped), `dropIns` (booked; "cancel and refund in Stripe for now"), `blockers`. The pure half is `planDayOff(data)`.
+- **The choice:** "Lower that month's payments by one class" or "Don't change payments", with no default, then Save (fresh sign-in). `addDayOff` works the plan out again inside one transaction and refuses when there are blockers (attendance taken; an every-class day off already there).
+- **Rows:** one `closure` per date (every class: `session_id` null) or per class and date. Rows added together share `created_at`; the list shows them as one, and Remove removes them together. "Lower" sets `adjusted_at` / `adjusted_by` on each row; "Don't change" leaves them null: that is how the choice is kept.
+- **One class's worth** (`oneClassCents`): the month's `installment.base_amount_cents` (the 15% family discount in it, Hannah's discounts not) ÷ `classDaysInMonth(session, month)` (now exported from `pricing.ts`: every time the class's weekdays fall in that calendar month), rounded up to the cent. $95 for four Thursdays: $23.75; $95 for five Tuesdays: $19.
+- **The adjustment:** one `billing_adjustment` per family's order and date: `amount`, `once`, on **that month's** installment (`installmentId`), reason "Day off Nov 26 (Thanksgiving)", shown to the family, `closure_id` set. It's made through `insertAdjustments(tx, staff, inputs, now)` in `adjustments.ts` (which `addAdjustment` now uses too), so it applies after Hannah's discounts, never below $0, and a locked payment (the pay-now form open) catches up at the billing run (`reapplyPendingAdjustments`). A payment being charged right now isn't adjusted; it's listed under "Already paid".
+- **Email:** one per family (all parents together), for dates from today on: "No class Dec 8", each child, class and date, and when their payment changed, "your December payment is now $36 (was $55)". Audit `admin.day_off.email` (entity household).
+- **Remove** (`previewRemoval`, `removeDayOff`): the payments that go back up, then confirm. Only the group's adjustments on payments still `scheduled` or `failed` are removed (and those payments re-applied); paid ones stay, with their adjustment kept. Families aren't emailed. The `closure` rows are deleted (`billing_adjustment.closure_id` goes null on any kept ones).
+- **The list** (`daysOffList(catalog, today)` → `{ upcoming, past }` of `DayOffGroup`): dates, classes ("Every class" or titles), reason, what was done ("Lowered 2 payments by $35.15 in all" / "Payments not changed"), who, the families with "Already paid, give a credit", and Remove.
+- **Audit:** `admin.day_off.add` and `admin.day_off.remove` (entity `closure`, the date and class in `detail`), `adjustment.add` / `adjustment.remove` (`detail` "day off"), and `admin.day_off.credit_due` (entity `order`, the closure id in `detail`): the record of payments already made, for the credits unit.
+
+**Elsewhere:**
+
+- **Today:** a day off for every class today shows "No classes today: <reason>" with the next classes; a class with its own day off shows "Day off: <reason>". `TodayClass` has `sessionId` and `dayOff` (the reason or null): leave closed classes out of "Not taken".
+- **Families:** the account's "Coming up" shows "No class Nov 26 (Thanksgiving)" for each day off to come, and "Next" skips them; a lowered month shows "Day off Nov 26 (Thanksgiving): −$23.75". The class's public page lists "No class …" under each date shown. Both calendar files (`/calendar/<id>.ics`, the account's) leave days off out (`EXDATE`, `classCalendar`'s `skip`).
+- **Unchanged:** prices, `meetings()`, proration and a new family's first month never change for a day off. The attendance and drop-in refusals read `dayOffOn` (§17).
+
+## 20. Drop-ins (`src/server/drop-ins.ts`)
+
+A child comes to one class of a weekly class and pays for that date. Hannah's guide is in `staff-billing.md` → Drop-ins. Not the same as Geode's "drop-in nights" (one-date sessions with their own price).
+
+**Which classes and what price.**
+- `dropInPrice(site, program, session)` → cents, or null when the class takes none: weekly classes only (`isWeeklyTuitionClass`: not camps, workshops, parties, Parents' Night Out, Ovation or one-date sessions), not registration elsewhere (`externalUrl`), not `coming-soon` or `closed`, and not when the site setting is off or the session's `dropIn.off` is ticked.
+- **The price** is the session's own (`session.dropIn.price`, dollars) or the site's (`site.dropIns`: **$25, a placeholder Hannah will confirm**). In the content, both are dollars like every other price (`SiteSettings.dropIns = { price, open }`, a money field and a tick box in Site settings → Drop-ins, with the help line "The price of one class for a drop-in. Families see it on weekly classes."; the session's group sits beside its price in the editor). `SiteInfo.dropIns` turns it into `{ priceCents, open }` (`dropInSetting`; a price that isn't a sensible amount closes drop-ins).
+- **No discounts:** no 15% family discount, no pay-in-full discount, no late fee. A drop-in isn't an enrollment, so it never counts toward the family discount (`countingEnrollments` reads enrollments only; unit-tested).
+
+**Where families see it.**
+- **The class's page:** "Drop in for one class · $25", a quiet link under the sign-up button, for the date picked above it; one per class past its sign-up cut-off but still running. Shown when `dropInsOffered`: the class takes drop-ins, has started or starts within 14 days (`DROP_IN_LEAD_DAYS`), and has a class ahead.
+- **The family account:** upcoming drop-ins under "Coming up" (`[data-drop-ins]`), and "Drop in for one class" (`dropInClasses`): the weekly classes taking drop-ins that not every child of theirs is in. Paid drop-ins appear in Payments as their order line.
+
+**The flow** (one child and one date per checkout; "Book another date" after paying):
+
+| Step | Address | What happens |
+|---|---|---|
+| 1 | `/drop-in/<sessionId>` | Sign in or make an account and add a child, as enrollment does. Pick a date (`dropInDates`: the class's meetings ahead, today's only until it starts; a day off says "No class that day", a full date "Full") and a child (one already enrolled or on a trial in the class is greyed out; outside the ages as enrollment). `startDropIn` checks again and makes the order (`plan: 'drop_in'`, `draft`, one line "Drop-in: Intro to Theater, Tue, Oct 20 (Ava)", total = price, no discount) and a **`pending`** `drop_in` row with the price and the order. It holds no place |
+| 2 | `/enroll/details?order=` | The enrollment's details step: care details and the family's part when not on file, and the drop-in policies. Then step 3 |
+| 3 | `/drop-in/pay?order=` | `readyDropIn` checks the date (ahead, not a day off, not full) and the child again and sets the order `pending_payment`; then the existing embedded checkout (`createEmbeddedCheckout`, `saveCardForMonthly: false`). Signed out (a staff pay link), it shows the sign-in first. Without Stripe keys, the test-payment button |
+| 4 | `/drop-in/confirmation?order=` | Stripe returns to `/enroll/confirmation`, which sends drop-in orders here. The class, date and time, place, how to arrive (`arrivalLines` with the site's parking), "Book another date" |
+
+- **Paying:** `fulfillOrder` hands a `drop_in` order to `fulfillDropIn` after its usual amount check. Whoever claims the order first (webhook or confirmation page) marks it paid and the row **`booked`**, once (`drop_in.booked` in the audit log), and sends the email "Drop-in booked: <class>" to the parents. A date that filled up meanwhile is **booked anyway** and shows to staff as **Over the limit**. A pay link staff cancelled but the family paid anyway is booked too. A second payment for a child already booked that date is kept `cancelled` with `PAID_TWICE` for a refund.
+- **Abandoned checkouts** leave their row `pending`, which everything ignores (class-day helpers, rosters, counts, the family's lists). Unpaid `draft` orders are never shown.
+- `/enroll/review` and `/enroll/pay` send a drop-in order to `/drop-in/pay`.
+
+**On the class's page** (`classPage`), owners only:
+- **The roster for a date:** "Drop-ins on <date>" (`?date=YYYY-MM-DD`, any of the class's dates; the next class by default, `rosterDate`) adds that day's drop-ins to the roster with the **Drop-in** badge and their care details (`dropInRoster`, logged as `admin.roster.drop_ins` with the date). They have no Remove; they're cancelled under Drop-ins. The heading counts them: "Roster (8 + 1 drop-in)".
+- **Drop-ins** (`[data-drop-ins]`, `classDropIns`): "Coming up" and "Past", each with date, child (and **Over the limit**), family (to their page) and **Paid** (`dropInStatus`: "Paid $25", "No charge: <reason>", "Pay link sent, $25 not paid yet", "Cancelled: <reason>"). A family's unfinished checkout isn't listed; a staff pay link is (a pending row made by someone outside the family). **Cancel** asks for a reason (`cancelDropIn`: `cancelled`, `cancelled_at`, `cancel_reason`; `admin.drop_in.cancel` with the date and reason) and says "Refund it in the Stripe dashboard for now" until the refunds unit. Downloads `drop-ins.csv` / `.pdf` (a fresh sign-in; `admin.download.csv|pdf`, entity `list`, id `drop-ins:<sessionId>`): Date, Child, Family, Status, Paid ($), Over the limit. No care details.
+- **Add a drop-in** (`[data-drop-in-tool]`), as Add a child (§14): find a child by form post (`findChildren`), then
+  - **Send a pay link** (`sendDropInPayLink`): pick a date (not a day off, not full); the order and a `pending` row are made and the parents get "Drop-in: <class>, <date>" with `/drop-in/pay?order=<id>`, sent and logged through `sendMessage` (kind `family`, one-time token) plus `admin.drop_in.pay_link`. It holds no place until they pay.
+  - **No charge** (`addDropInWithoutCharge`): a fresh sign-in (back to `?dropAdd=<studentId>`), a date and a reason (up to 300 characters): `booked` at once, price 0, `no_charge_reason`, no order, never a Stripe call; `admin.drop_in.add_no_charge` with the date and reason. A full date needs "If the date is full, add anyway".
+  - A child in the class (enrolled or trial), or already booked that date, is refused.
+- **The family's page** lists each child's drop-ins (booked and cancelled) under **Drop-ins**.
+- **Today** counts the day's booked drop-ins in a class's "8 of 12" (`classesOn`'s optional `dropIns`, from `dropInsToday`).
+
+**For later units.**
+- **Reports:** `drop_in.price_cents` is what was charged (0 for no charge) and equals the order's one line and total; a paid order has `plan = 'drop_in'`, `paid_at`, and `student_ids` = the child. Count `booked` rows (and `cancelled` ones whose order is paid, for refunds). Payments received already lists paid drop-in orders ("Drop-in").
+- **The teacher app:** `dropInsOn(sessionId, date)` (§17) for who drops in; `dropInRoster` returns them as `RosterChild` with `dropInId` set and `enrollmentId` empty; `attendance.drop_in_id` links a mark to the booking.
+- **The calendar:** a day off added on a date with booked drop-ins isn't handled here; list them with `dropInsOn`.
+- **Refunds:** a cancelled drop-in with a paid order is the one to refund (`dropInStatus` says "(paid $25)").
+- **Test-only:** `POST /dev/drop-in-day-off` (`session`, `date`; staff, development only) adds a day off for `tests/e2e/staff-drop-ins.mjs`.
+
+
+## 21. Refunds, credits and statements
+
+Hannah refunds and gives credits on the site instead of the Stripe dashboard; families download a yearly statement. Owners only; every change needs a fresh sign-in (`requireFreshStaff` on the whole page). Hannah's guide is `staff-billing.md` → Refunds, Credits, Statements.
+
+**Refunds** (`src/server/refunds.ts`; page `src/pages/admin/payments/[orderId]/refund.astro`, `refundPage()`):
+
+- **A payment** (`Payment`, `loadPayment({ orderId, installmentId? })`, `familyPayments(householdId)`, `orderPayments(orderId)`): a paid order over $0 (a sign-up or a drop-in, key `o-<id>`) or a paid monthly charge over $0 (`i-<id>`), with its `refund` rows and `leftCents`. `via` says how it was paid: `card` (a `pi_` payment or `cs_` checkout), `cash` (marked "Paid by cash/check", `lastError = 'paid outside Stripe'`), `test` (the local stand-in) or `none`.
+- **The most:** `refundLeft(paid, refunds)` = paid less pending and succeeded refunds. Checked again in `createRefund`'s transaction with the order's row locked (`for update`), so two refunds at once can't both pass.
+- **Once per form:** the confirm form carries a one-time id (`once`, a UUID) that becomes the refund's id. The same form sent twice (a double click, or pressed again after it went through) returns the refund it already made; the button also says "Refunding…" and can't be pressed again.
+- **Card:** the row is inserted `pending`, then the `Refunder` is called (`stripeRefunder` in `stripe.ts`: a sign-up's PaymentIntent is read from its checkout session; `refunds.create` with `metadata.refundId` and idempotency key `refund-<row id>`). Its answer is saved: `succeeded`, `pending` or `failed` (with Stripe's message). Stripe not answering leaves it `pending` with a note; **Try again** (`retryRefund`) sends the same key, and first looks for a refund Stripe already made for this row (`refunds.list` on the PaymentIntent, by `metadata.refundId`), because Stripe forgets idempotency keys after about a day. The webhook's `refund.updated` / `refund.failed` call `settleRefund` (found by `metadata.refundId`, else the Stripe id).
+- **Cash or check:** recorded `succeeded` with no Stripe id ("Record a refund given by cash or check"). **Test payments:** the same, only where `testRefundsAllowed()` (no Stripe keys, never in production).
+- **The family's email** (ticked by default): "Refund of $X for <what>", "It takes 5–10 days to reach your card" (cash: "given back by cash or check"). Not sent for a failed refund, nor when Stripe didn't answer (it may not have gone through).
+- **Where:** the family's page (**Payment history**, `FamilyMoney.astro`), the order page (**Payments made**), a class's cancelled paid drop-ins (**Refund**), and after a removal ("Refund part of a payment", `?order=` on the notice). Refunded payments show `refundNote()`: "Refunded $25", "Partly refunded: $10 of $25", "(… pending)", there and on the family's receipts. Payments received lists each pending or succeeded refund as its own line, below $0, on the day it was made (`method: 'refund'`, `signedCents`, `receivedCount`), so the month's total is net.
+- **Audit:** `admin.refund.add` (entity refund, the amount and method in `detail`), `admin.refund.retry`, `refund.succeeded|pending|failed`, `refund.email`. The reason stays in the row.
+
+**Credits** (`src/server/credits.ts`; page `src/pages/admin/families/[householdId]/credits.astro`, `creditsPage()`):
+
+- **Once per form:** Save credit's form carries a one-time id (`once`) used as the credit's id, so pressing it twice saves one credit.
+- **Credits come off last:** on a payment, discounts apply in the order they were added and credits after them (`computeChanges`), so a credit never shrinks a discount added later; what no longer fits of a credit goes back to waiting (below).
+- **Applied** through `insertAdjustments`: a one-time amount on the family's next payment that can change (`creditTargets`: scheduled or failed, not locked, over $0, earliest due date first, across their orders), labelled for the family `creditLabel()` ("Credit · Day off Dec 8 (Thanksgiving)", or "Credit" for a private reason). The credit row gets `adjustment_id`, `applied_to_installment_id`, `applied_at`. A credit bigger than the payment keeps what fits; the rest is a new row, "Rest of the credit from Oct 19", applied to the next payment (`planCredit` is the pure half, used by the preview).
+- **Waiting credits:** `applyWaitingCredits(householdId?)` applies them. Called from `fulfillOrder` after a monthly sign-up makes its payments, and at the start of `runBilling` after `reapplyPendingAdjustments`, before anything is charged. It first puts back to waiting a credit whose payment was cancelled (Stop payments), and splits one a payment shrank under (the family discount started, or a discount was added after it); a credit changed by another run meanwhile is left alone, so it's split once. A problem applying credits is logged and never stops the day's charging.
+- **Remove** (`removeCredit`): a waiting one, or one on a payment not paid yet (its adjustment is removed and the payment re-applied). A paid one, one being charged, or one under an open pay-now form is refused. On the order page, a credit's adjustment links to Credits instead of **Remove**.
+- **Lists:** `familyCredits(householdId)` → `CreditRow` with `state` (`waiting`, `applied`, `used`, `removed`) and its payment; `creditStatus()` words it.
+- **Audit:** `admin.credit.add` (the amount, or "day off <date>"), `admin.credit.remove`, `credit.applied` (the installment in `detail`), `credit.rest`, `credit.returned`.
+
+**Day-off credits** (`src/server/day-off-credits.ts`): the Days off list shows, under a day off with `admin.day_off.credit_due` entries, each family and date with one class's worth (`oneClassCents` of that month's payment, or the next month's when the first month was paid at sign-up; two classes that day add up), and **Give these credits**. Each is one credit per family and date, reason "Day off Dec 15 (Winter break)", shown to the family, id `dayoff-<closure id>-<household id>`: a second press inserts nothing, which is how they're marked done.
+- **Removing the day off** takes its credits back (waiting ones, and ones on a payment not paid yet, whose payment goes back up; `admin.credit.remove` "day off removed"). Ones already used on a paid payment stay, and the removal preview names those families. If the same date is added again, a family whose credit for it stayed isn't offered another (the date is in the credit's `admin.credit.add` entry, "day off 2026-12-08").
+
+**The yearly statement** (`src/server/statements.ts`): every payment that year (date, child, what, "card ending 4242" read from Stripe per payment, "card" when unknown, or "cash/check"), each refund that year (pending and succeeded), and Total paid, Refunds, Total paid less refunds. The heading: the site's name, HQ's address, the contact email, and the optional `site.statements` (`{ taxId?, note? }`, Site settings → Payment statements; empty lines are left out). `buildStatement` is pure; `statementTable` gives both files the same rows; `pdfResponse` takes a new optional `madeFor` (the family's name).
+
+| Download | Address | Who |
+|---|---|---|
+| Statement (CSV, PDF) | `downloads(familyStatement(id, year))` | Staff, from the family's page: a fresh sign-in, audit `admin.statement.csv|pdf` (entity household, the year in `detail`) |
+| Statement (CSV, PDF) | `/account/statement.csv|pdf?year=` | The family, from their account's **Statements**: their own household only (`householdForUser`), audit `statement.csv|pdf` |
+
+**Families see:** **Credits** in their account ("Credit: −$19, Day off Dec 8 · comes off your Dec 1 payment"), the credit on the payment as discounts show, "Partly refunded" on receipts, and **Statements** with each year they paid in.
+
+**Test:** `tests/e2e/staff-refunds.mjs`, after every other browser test.
+
+## 22. Tags, skills and progress notes
+
+Studio Director's tags, "Class Skills Worksheet", "Student Skills" and "Report Card". Server code in `src/server/tags.ts`, `src/server/skills.ts` and `src/server/progress-notes.ts`; tests in `tests/unit/tags-skills.test.ts` and `tests/e2e/staff-tags-skills.mjs`. Tables as in §16; no migration.
+
+**Links** (`src/lib/admin-links.ts`):
+
+| Function | Address | Page |
+|---|---|---|
+| `settingsTags()` | `/admin/settings/tags` | Settings → Tags (a tile on Settings) |
+| `tagList(tagId)` | `/admin/settings/tags/<id>` | Pass to `downloads()` for the tag's CSV and PDF; the address itself redirects to `searchTag` |
+| `tagEmail(tagId)` | `/admin/settings/tags/<id>/email` | Email a tag |
+| `searchTag(tagId)` | `/admin/search?tag=<id>` | Search by tag |
+| `familyTags(householdId)` | `/admin/families/<id>/tags` | Where the family page's tag forms post |
+| `classTags(sessionId)` | `/admin/classes/<id>/tags` | Where a roster's "Tag selected" posts |
+| `settingsSkills(programSlug?)` | `/admin/settings/skills?program=` | Settings → Skills (a tile on Settings) |
+| `classSkills(sessionId)` | `/admin/classes/<id>/skills` | Pass to `downloads()` for the Class Skills Worksheet; the address redirects to the class page's Skills part |
+| `teachSkills(sessionId, date, on?)` | `/admin/teach/<id>/<date>/skills` | The teacher app's Skills view |
+| `progressNote(noteId)` | `/admin/progress-notes/<id>` | A note: edit, preview, send, or see what was sent |
+| `newProgressNote(studentId, sessionId?, back?)` | `/admin/progress-notes/new?student=&class=&back=` | Write a note |
+
+**Tags** (owners only; never shown to families or teachers).
+
+- **Kinds:** `child` and `family`. A name is 1 to 40 characters, unique per kind in any case (the table's `tag_kind_name_idx`; `createTag` and `renameTag` say so in words first). `findOrCreateTag` is "pick or type a new one": an existing name in other capitals is the same tag.
+- **Settings → Tags:** each kind's tags A to Z with how many carry each (`listTags`), Add, Rename, Delete (asks first; the joins cascade, so it comes off everyone). Each row has See who, Email and the CSV/PDF.
+- **Tagging:** the family page has the family's tags and each child's (`TagEditor.astro`: ✕ to remove, "Add a tag" with the kind's tags in a `datalist`). A class roster has **Tag children**: tick children (each row's checkbox belongs to the form `tag-selected`), pick or type a tag, **Tag selected** (`tagStudents`; only children of that class count). Redirects carry `?tags=` / `?tagged=` or `?tagError=<code>` (`TAG_ERRORS`), never a name.
+- **Showing:** `TagChips.astro` (outlined `.tag-chip`, apart from the badges) on the class roster, the family page and search results. `tagsForStudents(ids)`, `tagsForHouseholds(ids)` → `Map<id, { id, name }[]>`.
+- **Filtering:** the roster's **Show** `?tag=<id>` (`withTag`, pure); search by tag (`tagMembers(tag, catalog)` → children with family and current classes, or families with parents, children and classes); **Email a tag** (`tagAudience(tag)` → `AudienceFamily[]`, the families of tagged children or the tagged families).
+- **Email a tag** uses the composer (§13) with `kind: 'tag'`: `message.kind` gained `'tag'` (a TypeScript enum on a text column, so no migration) and `message.session_id` holds the tag's id for those rows; `earlierMessages({ tagId })` lists them. Families see these emails in "Emails sent".
+- **Downloads** (fresh sign-in; `admin.download.csv|pdf`, entity `list`, id `tag:<id>`): child tag: Child, Age, Family, Current classes; family tag: Family, Parents, Emails, Phones, Children, Current classes (`tagTable`).
+- **Audit:** `admin.tag.create`, `.rename`, `.delete` (entity `tag`), `admin.tag.add` / `.remove` (entity `student` or `household`, the tag id in `detail`).
+
+**Skills.**
+
+- **Settings → Skills** (owners): programs (weekly classes first) with their counts; one program (`?program=`): its skills in order (`programSkills(slug, { retired })`), Add (`addSkill`, at the end; names don't repeat in a program, any case), Rename, ↑ ↓ (`moveSkill`, renumbers the active list 0, 1, 2…), Retire (`setSkillActive(…, false)`: progress stays, the teacher's list and the class grid drop it) and Bring back (at the end). Audit `admin.skill.*` (entity `skill`, the program in `detail`).
+- **Statuses:** `not_yet` (no `student_skill` row), `working`, `got_it`; `SKILL_LABELS` Not yet · Working on it · Got it.
+- **Who ticks** (`skillAccess`, pure; `skillDateFor(viewer, sessionId, date, catalog, today)` reads it): the people of `teachAccess` (§18). A teacher who `canTeach` that class on that date (a substitute only on their cover date; turned off: never) ticks on any date it meets up to today, not a day off; future dates are read-only. Owners open any date the class meets and tick at any time. Being covered or having submitted attendance doesn't matter: skills aren't per date.
+- **The Skills view** (`teachSkills`, `src/pages/admin/teach/[sessionId]/[date]/skills.astro`; an **Attendance · Skills** switch, `.teach-views`, sits on both pages): the children expected that date (`expectedOn`, as attendance) by first name, each a card with "1 got it · 1 working on it", and per active skill a three-step control (48 px). No tags and no care details (`skillRoster`, logged `teach.skills.view` with the date). Not cached by the service worker.
+- **Saving** needs signal: each tap posts `{ by, sessionId, date, studentId, skillId, status }` to `POST /api/teach/skills` (`setSkill`: access, the class's own active skill, the child on that date's roster; 401/403/409 as `/api/teach/sync`). Offline, the page says "Needs signal to save", keeps the tick on screen and sends it on `online` or every 20 s. A change writes `teach.skill.change` (entity `student`, `detail` "<class> <date> <skill id>: working → got_it").
+- **Hannah sees:** the class page's **Skills** part (`ClassSkills.astro`): the grid of enrolled and trial children × active skills (`classSkillGrid`), "Write a progress note" per child, and the downloads `skills.csv` / `.pdf` ("Class Skills Worksheet: <class>", `skillGridTable`, `skillGridPdf`; fresh sign-in; `admin.download.csv|pdf`, id `skills:<sessionId>`). The family page: each child's **Skills and progress notes** (`ChildSkills.astro`, `childSkills(ids, catalog)`): every program they're signed up for that has skills, each skill's status with when and by whom (the name in Settings → Staff first), retired skills only where there's progress.
+
+**Progress notes** (`progress_note`).
+
+- **Drafts** (`shared_at` empty) hold only the note's words. A teacher writes one per child and class from the Skills view ("Note for Hannah", `saveTeacherDraft`, same access as ticking; saving again changes it; `teach.progress_note.draft`). Hannah writes one from the family page or the class grid (`saveDraft`, `admin.progress_note.draft|edit`), or deletes a draft (`admin.progress_note.delete`). The class page lists **Progress notes to send** (`draftsForClass`).
+- **Sending** (owners, `src/pages/admin/progress-notes/[noteId].astro`): the note, then the child's Got it and Working on it skills in the note's class (`skillChoices`), each ticked; **Preview** (`?preview=1&got=&work=`, skill ids only) shows the email (`previewNote`: subject "Mila's progress in Intro to Theater", the note with "Got it:" and "Working on it:" lists, the class's footer) and the parents' addresses; **Send** (`sendProgressNote`, the review form's one-time token) sends through `sendMessage` (kind `family`, so it's on "Emails sent"), writes the composed text into `body` and sets `shared_at` and `message_id`. A sent note can't be changed or sent again. Audit `admin.progress_note.send`.
+  - **Exactly as previewed:** the Send form carries `seen`, a fingerprint of the previewed email (`previewKey`: subject, message, footer). Send composes it again from the note as saved now and refuses when it differs (a teacher saved the note again, a skill moved): "This note changed after you previewed it…".
+  - **Once:** the note is marked sent (`shared_at`, with the composed text) before the email goes, so two people or tabs pressing Send at once send it once; if sending fails, the mark is taken off.
+- **Families** see shared notes in their account under the child ("Mila's progress notes", `ProgressNotes.astro`, `sharedNotesFor(householdId)`: their own household, shared only).
+- The note box says "Families read this. Leave out medical details".
+
+**For later units:** reports can count `student_skill` by status and program, and `progress_note` with `shared_at` by month. Shows don't use tags (a show's cast is `show_cast`).
+
+## 23. Shows: cast lists, roles, rehearsals (`src/server/shows.ts`)
+
+Each show (the content's events of kind `show`) gets a cast list and rehearsals. Studio Director has nothing for a cast. **No money:** casting charges nothing, because the performance fee is charged at sign-up.
+
+**Shows** (`shows()`, owners; in the top bar after Calendar and in the phone menu, not a tab): the shows coming up (soonest first, undated last), then past ones. Each shows its dates ("Date to come (December 2026)" for a `tba` show), the classes performing (`performers`) and "12 in the cast" (`castCounts`: children, not roles). Functions: `showList(events, counts, content, today)` (pure), `showDatesLabel`, `findShow`, `showUpcoming`.
+
+**A show's page** (`show(slug)`, `src/pages/admin/shows/[slug].astro`):
+- **Cast** (`castList(slug)` → `CastRow[]`, by `position`): each child with role, group, number in the order, and photo permission read from `student.photo_consent` (`photoPermission`: `yes` / `no` / `not-asked`, the badge "Photos: yes", "No photos", "Photos: not asked"; never copied into `show_cast`). Role and group are edited in place (`updateCast`; one child can't have the same role twice). ↑ and ↓ swap with the neighbor and renumber positions 0, 1, 2… (`moveCast`). **Another role** adds a row for the same child with an empty role (`addToCast`); **Remove** takes off one role (`removeCast`). The child's name links to their family's page.
+- **Add to the cast:** the performing classes' current sessions first (`performingSessions(event, content, today)`: the performing programs' staff sessions not ended by today; for a past show, the ones running on its first date), with each enrolled or trial child (`castSuggestions`) and **Add everyone from <class>**. **Find any child by name** (a form post, `findForCast`, the staff search). New rows go at the end, with an empty role.
+- **Copy emails / Copy phone numbers** of the cast's families, and **Email the cast** (`showEmail(slug)`): the Phase 1 composer with `castAudience(slug)`. The messages are logged as kind `class` with `session_id` = `showMessageKey(slug)` (`show:<slug>`), so the composer, its earlier emails and each family page's "Emails sent" work unchanged. `MessageComposer` takes an optional `emptyText`.
+- **Downloads** (a fresh sign-in; audit `admin.download.csv|pdf`, entity `list`, id `cast-program:<slug>` or `cast-sheet:<slug>`):
+
+| Download | Address | Columns |
+|---|---|---|
+| Cast list for the program | `downloads(`${show(slug)}/program`)` | Name, Role, Group (one row per role, in the cast's order) |
+| Staff cast sheet | `downloads(`${show(slug)}/cast-sheet`)` | Name, Role, Group, Photos, Class (the performing class), Parents' phones. No care details |
+
+- **Audit:** `admin.cast.add`, `.update`, `.move`, `.remove` (entity `student`, the show's slug in `detail`). Cast changes don't need a fresh sign-in (no money, no care details); viewing the page isn't logged (no care details on it).
+
+**Rehearsals** (`show_rehearsal`; on the show's page):
+- **Add, Change, Remove:** date, start and end (Athens time; stored as instants by `athensInstant(date, time)`, read back by `athensParts`; correct on both sides of the daylight-saving change), place (the content's locations, optional), a note (300 characters) and the classes that rehearse (`session_ids`; none ticked = the whole cast). Audit `admin.rehearsal.add|update|remove` (entity `show_rehearsal`, slug and date in `detail`).
+- **Who's called** (`rehearsingSessions`): the ticked classes, or for the whole cast the performing classes' current sessions on that date. A child is called (`childCalled`) when the rehearsal is for the whole cast, or they're enrolled (active or trial) in a ticked class.
+- **Calendar** (§19): a `rehearsal` entry (teal), "Rehearsal: <show>", the classes or "Whole cast", the place, linking to `show(slug)`; month, week and phone list; in the Daily Class Schedule download too. Filters: program and teacher by the rehearsing classes, location by its place. `calendarRehearsals(content, from, to)`; `CalendarData.rehearsals` is optional.
+- **The teachers' Today** (§18): `teacherRehearsals(viewer, date, content)` → `RehearsalCard[]`, beside `teachCards` (which is unchanged): a read-only card with time, show, place, classes and note, for teachers who lead or assist a rehearsing class (`teacherSeesRehearsal`); owners see every rehearsal that day. No cast, no attendance. Teachers can't open `/admin/shows`.
+- **Families:** the account's "Coming up" shows, for each child in the cast of an upcoming show, "Juniper: Narrator, Moon, in Fall 2026 Variety Show", its dates, and each rehearsal from now on that the child is called to: "Rehearsal: Sat, Nov 14, 10 am–12 pm, HQ · W Broad St" and its note (`familyShows`, `roleLine`). Nothing about other children in the cast. The class's calendar file (`/account/calendar/<enrollment>.ics`) adds those rehearsals as one-off events (`classCalendar`'s `extras`, `childRehearsals`). The show's public page is unchanged.
+- **Telling families about a change:** after Change or Remove, the notice offers **Email the families about this change**: `showEmail(slug)?about=changed|removed&start=&end=&loc=&classes=` (and `r=` for a change; times and ids only, built by `changeQuery`). The composer opens filled in (`changeEmail`: "Rehearsal changed: <show>" / "Rehearsal cancelled: <show>") with only the families called to the old or new rehearsal ticked (`rehearsalFamilies`). Nothing is sent until staff review and send it.
+
+**Not built here:** tickets, conflicts, rehearsal attendance, rehearsals in the teacher app's "This week", tags (the tags unit's).
+
+
+## 24. Staff settings (`src/server/settings-store.ts`)
+
+Settings that aren't site content live in `staff_setting`, one JSON value per key. `SETTING_KEYS` lists every key with its shape (zod). Add a key there before using it.
+
+- `getSetting(key)`: the value, or null when it's unsaved or no longer fits its shape (callers fall back to their default).
+- `setSetting(userId, key, value)`: checks the shape, saves, and writes `admin.setting.update` to the audit log. Callers check the person is an owner, and ask for a fresh sign-in where the change matters.
+- `clearSetting(userId, key)`: back to the default (`admin.setting.clear`).
+
+| Key | Shape | Written by | Read by |
+|---|---|---|---|
+| `reports.baseline` | `Baseline`: `season`, optional `children` and `returning`, `classes` (title, enrolled), `monthly` (month, collected in cents) | Settings → Last season (settings unit) | the dashboard's comparisons (reports unit) |
+| `email.welcome`, `email.payNow`, `email.waitlistOffer`, `email.dropIn`, `email.refund`, `email.progressNote` | `Wording`: `{ subject, intro }` (1–200 and 1–1000 characters, with `{placeholders}`); for the progress note `intro` is the last line | Settings → Emails (§25) | each email's own code, through `emailWording(name)` |
+| `reasons.drop`, `reasons.absence` | `string[]`, up to 20, each 1–40 characters | Settings → Reasons (§25) | the class page's Remove; the teacher app's Absent (`reasonList(kind)`) |
+| `attendance.startDate` | `YYYY-MM-DD` | Settings → Attendance (§25) | `attentionAttendance` (`attendance` alerts only from that date) |
+| `attendance.kinds` | `ProgramKind[]` (`class`, `camp`, `workshop`, `lesson`, `inclusive`, `party`) | Settings → Attendance (§25) | `attentionAttendance` (only those kinds raise `attendance`) |
+
+Unset (or no longer fitting its shape), each key means today's behavior: the built-in email, the default reasons, every date and every kind. Saving the default as it is clears the key instead, so a later change to a default still applies.
+
+## 25. The rest of Settings: emails, reasons, attendance, last season
+
+Four owner pages under `/admin/settings/`, each a tile on `settings()`. Owners only (`requireStaff`); every change needs a sign-in from the last 15 minutes (`requireFreshStaff`; until then the page shows "Confirm it's you", as Settings → Staff). Keys in §24. Tests: `tests/unit/settings-rest.test.ts`, `tests/e2e/staff-settings-rest.mjs`.
+
+| Function | Address | Page |
+|---|---|---|
+| `settingsEmails(name?)` | `/admin/settings/emails` (`?email=<name>` opens one) | Settings → Emails |
+| `settingsReasons()` | `/admin/settings/reasons` | Settings → Reasons |
+| `settingsAttendance()` | `/admin/settings/attendance` | Settings → Attendance |
+| `settingsLastSeason()` | `/admin/settings/last-season` | Settings → Last season |
+
+**Emails** (`src/server/email-wording.ts`, `src/server/email-previews.ts`).
+
+- **Which:** `welcome` (the sign-up confirmation, not a waitlist one), `payNow` (a failed charge, and Send a pay link), `waitlistOffer`, `dropIn` (a paid drop-in), `refund`, `progressNote` (subject and the last line). Not the sign-in code email.
+- **`EMAIL_DEFS`:** each email's title, when it's sent, its `placeholders` (`{child}`, `{class}`, `{date}`, `{deadline}`, `{amount}`, `{payment}`, `{reason}`: each email has its own), and the built-in `subject` and `intro`, which, filled in, read as the email does.
+- **Each email's code** now builds its words in a pure function that takes the wording: `confirmationEmail` (`family.ts`), `payNowEmail` (`billing.ts`), `offerEmail` (`roster-changes.ts`), `dropInEmail` (`drop-ins.ts`), `refundEmail` (`refunds.ts`), `progressWords` (`progress-notes.ts`). With `null` (unset) each returns exactly what was sent before. With a wording, `worded(built, wording, values, facts)`: her subject (the heading in the email is the subject without " · Little Characters"), her opening in place of the first paragraph, then `facts`, a short line for what that first paragraph carried ("Amount due: $95 for … We couldn't charge it because …", "Enrolled: Ava in …", "Sign up by … to take the place.", "Booked: Ava, drop-in to …"; for a refund, the built-in first line itself), then the rest of the email unchanged: dates, links, the pay link, the late fee date, the account link.
+- **The page:** the list shows each email's subject and opening and "Your wording" or "Original wording". One email: the two boxes with the placeholders beside them, **Preview** (the whole email, built by the same function, from made-up sample details and one of the content's weekly classes), **Send me a test** (`sendTestEmail`: "[Test] …" to the signed-in owner only, through `sendEmail`, so the dev mailbox in development; audit `admin.email_wording.test`), **Save** (`saveWording`: `checkWording` tidies the opening to one paragraph and refuses an unknown placeholder in words), **Back to the original wording** (`resetWording`). Audit `admin.setting.update` / `.clear`.
+
+**Reasons** (`src/server/reasons.ts`).
+
+- `reasonList('drop' | 'absence')`: the saved list, else `DEFAULT_REASONS` (drop: Schedule, Moved, Cost, Lost interest, Other; absence: Sick, Travel, Family, Other). The page: add, rename, ↑ ↓, remove (`editReasons`, pure; names don't repeat in any capitals).
+- **Remove** (class page, §14): the confirm step asks "Why are they leaving? (optional)"; a reason named "Other" opens "In a few words" (CSS `:has`, no script). `dropReasonFrom(choice, other, list)` keeps only a listed reason ("Other: <words>", up to 120 characters), and `removeChild(…, staffId, dropReason)` saves it in `enrollment.drop_reason` with `cancelled_at`. The family page shows it beside **Cancelled** ("Why: Moved").
+- **Absent** (teacher app, §18): a child marked Absent gets the absence reasons as one optional row of 44 px buttons (`[data-why]`); a tap sends a new tap with `reason`, tapping it again clears it. Never required to submit. The tap input (`tapInput`) has an optional `reason` (up to 60 characters; not checked against the list, since a phone can hold an older one); `saveTaps` keeps it only with `absent` (Present, Late, Left early clear it), in the same idempotent upsert as before (a replayed `client_id` changes nothing; an older tap changes nothing). The phone's queue and marks keep `reason` (`src/scripts/teach.ts`); taps queued before have none. A changed reason writes `teach.attendance.change`.
+- **Hannah sees** the reason on the roster's read-only mark ("Absent · Sick") and under each date on the class page's **Attendance**: "Absent: Zara O. (Sick), Theo O." (`AttendanceDate.absent`).
+- Renaming or removing a reason never changes a saved `drop_reason` or `attendance.reason`.
+
+**Attendance** (`attentionAttendance` in `src/server/attendance.ts`). It now also returns `startDate` and `kinds` (null when unset); `attentionFrom` skips an `attendance` item when `attendanceExpected(a, program.kind, date)` is false: a date before the start date, or a kind not ticked. The help text suggests weekly classes and camps; the default is every kind. The teacher app is unchanged: anyone can take attendance for any class they teach. All six ticked saves as unset.
+
+**Last season** (`src/server/last-season.ts`). The form for `reports.baseline`: the season's name, children and how many came back, rows of class and enrolled, rows of month (`<input type="month">`) and dollars collected; **Add more rows** shows three more. `baselineFromForm` (pure) turns dollars into cents (`dollarsToCents`: "$9,500.50" → 950050), ignores empty rows, names a half-filled one, sorts months; `formFromBaseline` shows a saved value again. **Clear** removes it. Only the reports unit reads it.
+
+**Rehearsals** (`src/server/shows.ts`). `rehearsalCardsBetween(viewer, from, to, content)` → `RehearsalCard & { date }`, the same rule as `teacherRehearsals` (which now calls it): owners every rehearsal, teachers their classes' ones. **Today** (`/admin`) lists the day's rehearsals under the classes (`[data-today-rehearsals]`, linking to `show(slug)`); the teacher app's **This week** lists the next 7 days' rehearsals for the person's own classes, read-only (`[data-week-rehearsal]`), as its classes.
+
+**Needs attention:** `refund` and `notes` (§12), loaded in `loadCore` with two more queries (`refundsToCheck`, `draftNoteCounts` in `today.ts`). `refund` counts toward the urgent number; `notes` doesn't.
+
+
+## 26. Reports: the dashboard and the library (`src/server/reports/`)
+
+Stephen asked for "a dashboard view of the most important reports, and a long tail of individual reports pulled via tables (with CSV, PDF export options)". Owners only: teachers and families get the Staff only panel (404), and a report's CSV and PDF an empty 404. **Reports only read**; nothing on these pages changes data.
+
+**The rule:** every number on the dashboard is the total of a report in the library, run through the same function with the same filters (`runReport` in `library.ts`; `dashboard.ts` calls it for each tile and panel), and the tile links to that report with those filters. A unit test checks each tile's total equals its report's.
+
+**Files** (one per area; each report has a pure half that takes plain rows, unit-tested in `tests/unit/reports.test.ts`):
+
+| File | Holds |
+|---|---|
+| `common.ts` | `ReportResult` (`columns`, `rows` of `{ cells, href? }`, `total` `{ value, display, label }`, `empty`, `note?`), cell formatting (`cellText`, `csvCell`: money is cents, a percent 0–100), `sortRows`, seasons (`seasonsOf`, `thisSeason`, `lastSeason`), filters (`readFilters`, `filterQuery`, `sessionPasses`) |
+| `money.ts` | payments received (Payments' `paymentsReceived`), money by month (`collectedIn`, checked equal to `paymentsReceived`), next charge day (`billingOverview`), upcoming autopay (`upcomingCharges`), who owes (`paymentsAttention`, `agingBucket`), charges, charged vs paid by class, discounts, refunds, drop-ins (`loadMoney` once, then pure) |
+| `enrollment.ts` | fill rate (`classRows`), children this season, sign-ups by week, classes at risk (Today's under-5 rule), waitlists, drops, free class to paid, coming back |
+| `growth.ts` | how new families heard about us, ZIP codes, new families by month |
+| `safety.ts` | care details on file, missed two in a row (`missedTwo`), attendance taken (Today's "not taken" rule), absences, the allergy and medical list (`roster`), photo permission (`castList` for a show) |
+| `teachers.ts` | who teaches what (`class_teacher`, else the site's teacher name), attendance taken per teacher |
+| `library.ts` | `REPORTS`: each report's `key`, `group`, `title` (the question), `was` (Studio Director's name), `how` ("How it's counted"), `filters`, `namesChildren`, `fresh`, `run`; `Loads` (each load once per request); `runReport`; `ELSEWHERE` (reports on other pages, linked) |
+| `dashboard.ts` | the tiles, panels and comparisons |
+| `favorites.ts` | `favorites(staffId)`, `setFavorite(staffId, key, on)` on `report_favorite` |
+| `page.ts`, `downloads.ts` | a report page's filter choices and filters in words; the CSV and PDF |
+
+**Seasons.** A season is a content term (`session.term`). "This season" (`thisSeason`) is the term of the weekly classes running today, else the next to start: the same rule as a family's page. "Last season" (`lastSeason`) is the latest term that ended before this one began, so "Fall 2026 – Spring 2027" is never last season to "Fall 2026". Without one, comparisons use Settings → Last season (`getSetting('reports.baseline')`, §24); with neither, "No earlier season yet".
+
+**Counting rules** (each report's `how` says it in one sentence on its page and tile):
+- **Enrolled** is active or free-trial, as the Classes list counts places. A child in two classes is one child.
+- **Sign-ups** are enrollments made in the season, not the waitlist; a child who later dropped still signed up. Weeks count from the week of the season's first class ("3 weeks before", "Week 1").
+- **New families** had their first sign-up that season and weren't imported from Studio Director (`household.source`). ZIP codes can also count every family with a class that season (`who=all`).
+- **Free class to paid:** a child's first free-trial order in the season, and a paid monthly, season or one-time order for that child made after it, in any class.
+- **Coming back:** last season's enrolled children who are enrolled this season, with who isn't back. From Studio Director's numbers there's a count (`returning` of `children`) but no names.
+- **Charges** are paid sign-ups (tuition after the built-in discounts, and fees), paid drop-ins, and monthly charges due by today that staff didn't stop, with late fees.
+- **Discounts** are the family 15% (sign-up discount lines, and each charge's regular less base amount), the season 10%, staff discounts, days off and credits (each charge's applied adjustments, sorted by `credit.adjustment_id` and `billing_adjustment.closure_id`), as a share of full price (regular tuition). Free first classes are counted, not priced: nothing records a price for them.
+- **Who owes** buckets days overdue as 0–30, 31–60, 61–90 and 90+.
+- **Attendance taken** counts a week's class dates that met (with children, not a day off, ended 2 hours ago).
+- An empty season shows words ("None yet", "No sign-ups yet this season"), never a zero that looks like a result.
+
+**Pages** (`src/pages/admin/reports/`; styles in `src/styles/reports.css`; charts in `src/components/admin/reports/`):
+- **Dashboard** (`reports()`): six tiles (collected this month, booked for the next 1st, children this season, fill rate, coming back, free class to paid), each with its comparison ("↑ 8 on Spring 2026") and "How it's counted"; starred reports as links; panels: classes at risk and waitlists, problem payments by age with committed ahead and discounts given, money by month (bars, with "A year before" from Studio Director when typed in), sign-up pace (lines, this season and last), how new families found us (bars) and top ZIP codes, and safety (care details, missed two, attendance taken this week). Six tiles across on a wide screen, three or two narrower; panels stack on a phone.
+- **Charts** (`BarChart.astro`, `LineChart.astro`): inline SVG drawn on the server, no library. Words are HTML so they stay readable at phone width; each mark has a tooltip; **Show the numbers** opens the same data as a table. Two series are purple `#8040b8` and teal `#0f9e8e` (checked for colour-blind separation and 3:1 on white), the second line dashed.
+- **Library** (`reportsLibrary()`): Starred first, then Money, Classes and enrollment, Families and growth, Safety and attendance, Teachers, each report with "was: <Studio Director name>", then **On other pages** (rosters, sign-in sheets, skills worksheets, family and contact lists, payments lists, cast lists, schedules, messages).
+- **A report** (`report(key)`): the question as the title, "Was in Studio Director: …", a star, CSV and PDF, "How it's counted", the filters it takes (a GET form; "Sort by" too), the total with the filters in words, and the table: each column header sorts it (`?sort=<column>&dir=asc|desc`), and the CSV and PDF keep that order.
+- **Star** (`POST reportFavorite()`, `key`, `on`, `next`): per staff member.
+
+**Children's details and the audit log.** Reports that name children (`namesChildren`: children, free class to paid, coming back, care details, missed two, absences, allergies, photo permission, and the money reports whose For column names the child: what came in, booked for the next 1st, committed ahead, who owes) write `admin.report.view` (entity `report`, the key; the filters in words in `detail`) on each view. Only **allergies** decrypts care details, through `roster(sessionId, viewer, 'admin.report.allergies')`, and its page needs a fresh sign-in (`requireFreshStaff`). Downloads need a fresh sign-in and write `admin.download.csv|pdf` (entity `list`, id `report:<key>`). Class and tag emails aren't counted by any report. In the spreadsheets, money is a plain number of dollars (a refund is `-95`, never text), so a column adds up; teacher attendance's total counts each class date once, however many teachers it has.
+
+**Test:** `tests/e2e/staff-reports.mjs`, after every other browser test.

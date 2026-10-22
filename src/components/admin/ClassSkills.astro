@@ -1,0 +1,104 @@
+---
+/**
+ * A class page's Skills part (owners; src/server/skills.ts): the grid of
+ * children × the program's skills as the teachers ticked them, with the
+ * "Class Skills Worksheet" CSV and PDF, "Write a progress note" per child,
+ * and "Progress notes to send" (drafts, a teacher's or Hannah's).
+ */
+import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import { classPage, classSkills, downloads, newProgressNote, progressNote, settingsSkills } from '@/lib/admin-links';
+import type { NoteView } from '@/server/progress-notes';
+import { SKILL_LABELS, type SkillGrid } from '@/server/skills';
+
+interface Props {
+  sessionId: string;
+  programSlug: string;
+  grid: SkillGrid;
+  drafts: NoteView[];
+}
+const { sessionId, programSlug, grid, drafts } = Astro.props;
+const files = downloads(classSkills(sessionId));
+const back = `${classPage(sessionId)}#skills-h`;
+const noteDone = Astro.url.searchParams.get('note');
+const day = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' });
+---
+
+<section class="roster-section class-skills" aria-labelledby="skills-h" data-class-skills>
+  <div class="class-skills__head">
+    <h2 id="skills-h">Skills</h2>
+    {grid.skills.length > 0 && grid.children.length > 0 && <DownloadLinks csv={files.csv} pdf={files.pdf} what="the skills worksheet" />}
+  </div>
+  {noteDone === 'sent' && <p class="notice" role="status" data-note-notice>Progress note sent. The family sees it in their account.</p>}
+  {noteDone === 'deleted' && <p class="notice" role="status" data-note-notice>Draft deleted.</p>}
+  {
+    drafts.length > 0 && (
+      <div class="class-skills__drafts" data-notes-to-send>
+        <h3>Progress notes to send ({drafts.length})</h3>
+        <ul>
+          {drafts.map((n) => (
+            <li>
+              <a class="class-skills__draft" href={progressNote(n.id)} data-draft={n.id}>
+                <strong>{n.child}</strong>
+                <span class="muted">From {n.author}, {day(n.updatedAt)}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+  {
+    grid.skills.length === 0 ? (
+      <div class="class-skills__none">
+        <p class="muted">No skills for this class yet. Add them in Settings; teachers then tick them in the teacher app.</p>
+        <a class="btn btn--outline btn--sm" href={settingsSkills(programSlug)} data-add-skills>Add skills</a>
+      </div>
+    ) : grid.children.length === 0 ? (
+      <p class="muted">No one enrolled yet.</p>
+    ) : (
+      <table class="data-table class-skills__grid" data-skill-grid>
+        <thead>
+          <tr>
+            <th scope="col">Child</th>
+            {grid.skills.map((s) => <th scope="col">{s.name}</th>)}
+            <th scope="col"><span class="sr-only">Progress note</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {grid.children.map((c) => (
+            <tr data-skill-child={c.studentId}>
+              <td data-label="Child"><strong>{c.name}</strong></td>
+              {grid.skills.map((s) => {
+                const st = c.statuses[s.id] ?? 'not_yet';
+                return (
+                  <td data-label={s.name} data-skill={s.id} data-status={st}>
+                    <span class={`skill-mark skill-mark--${st}`}>{st === 'not_yet' ? '—' : SKILL_LABELS[st]}</span>
+                  </td>
+                );
+              })}
+              <td data-label="">
+                <a class="btn btn--outline btn--sm" href={newProgressNote(c.studentId, sessionId, back)} data-write-note>
+                  Write a progress note<span class="sr-only"> about {c.name}</span>
+                </a>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  }
+</section>
+
+<style>
+  .class-skills { display: grid; gap: var(--space-s); }
+  .class-skills h2 { font-size: var(--step-1); }
+  .class-skills__none { display: grid; gap: 0.4rem; justify-items: start; }
+  .class-skills__none p { margin: 0; }
+  .class-skills__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+  .class-skills__drafts { display: grid; gap: 0.4rem; padding: 0.7rem 0.9rem; border-left: 5px solid var(--purple); border-radius: var(--r-sm); background: var(--purple-tint); }
+  .class-skills__drafts h3 { margin: 0; font-size: var(--step-0); }
+  .class-skills__drafts ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.2rem; }
+  .class-skills__draft { display: flex; flex-wrap: wrap; gap: 0.2rem 0.8rem; align-items: center; min-height: 44px; }
+  .class-skills .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .class-skills__grid td { vertical-align: middle; }
+</style>

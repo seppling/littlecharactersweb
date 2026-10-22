@@ -17,6 +17,8 @@ export const pages: Pages = {
     links: { wishList: 'https://a.co/510Gges' },
     // Hannah to confirm the number (October 2026 review).
     signups: { lateJoinWeeks: 4 },
+    // A placeholder price for one class; Hannah to confirm (Phase 2, October 2026).
+    dropIns: { price: 25, open: true },
     /** How to get to HQ, from the "Parking Instructions" guide on the old site. */
     parking: {
       walkIn:

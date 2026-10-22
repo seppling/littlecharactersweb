@@ -1,0 +1,66 @@
+---
+/**
+ * Write a progress note (owners; src/server/progress-notes.ts): about one
+ * child (?student=), and a class (?class=) whose skills can be listed under
+ * it. Saving makes a draft and opens it (./[noteId].astro), straight to the
+ * preview when asked. `back` (a staff path) is where it returns after sending.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import ProgressNoteForm from '@/components/admin/ProgressNoteForm.astro';
+import { family, progressNote, safeStaffPath } from '@/lib/admin-links';
+import { getDb, schema } from '@/server/db';
+import { ProgressNoteError, saveDraft, skillChoices } from '@/server/progress-notes';
+import { requireStaff } from '@/server/staff';
+import { eq } from 'drizzle-orm';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const params = Astro.url.searchParams;
+const studentId = params.get('student') ?? '';
+const found = params.get('class') ? Astro.locals.content.findSession(params.get('class')!) : undefined;
+const sessionId = found?.session.id ?? null;
+const db = await getDb();
+const [child] = staff ? await db.select({ id: schema.student.id, firstName: schema.student.firstName, lastName: schema.student.lastName, householdId: schema.student.householdId }).from(schema.student).where(eq(schema.student.id, studentId)) : [];
+if (staff && !child) return new Response('Not found', { status: 404 });
+const back = safeStaffPath(params.get('back')) ?? (child ? family(child.householdId) : '/admin');
+
+let error = '';
+let body = '';
+if (staff && child && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  body = String(form.get('body') ?? '');
+  try {
+    const id = await saveDraft(staff.id, { studentId: child.id, sessionId, body });
+    const q = new URLSearchParams({ back });
+    if (form.get('action') === 'preview') {
+      q.set('preview', '1');
+      for (const g of form.getAll('got')) q.append('got', String(g));
+      for (const w of form.getAll('work')) q.append('work', String(w));
+    } else q.set('saved', '1');
+    return Astro.redirect(`${progressNote(id)}?${q}`, 303);
+  } catch (e) {
+    if (!(e instanceof ProgressNoteError)) throw e;
+    error = e.message;
+  }
+}
+const choices = child ? await skillChoices({ studentId: child.id, sessionId }, Astro.locals.content) : { gotIt: [], working: [] };
+---
+
+<AdminShell title="Progress note" section="families" back={{ href: back, label: 'Back' }}>
+  {
+    child && (
+      <div class="admin-page">
+        <div class="admin-head">
+          <div>
+            <h1>Progress note: {child.firstName} {child.lastName}</h1>
+            <p class="admin-intro">{found ? found.program.title : 'Not about one class'} · For the parents. You’ll see it before it’s sent.</p>
+          </div>
+        </div>
+        {error && <p class="notice notice--error" role="alert" data-error>{error}</p>}
+        <ProgressNoteForm firstName={child.firstName} body={body} choices={choices} cancel={back} />
+      </div>
+    )
+  }
+</AdminShell>

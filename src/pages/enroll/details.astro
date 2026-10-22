@@ -26,12 +26,20 @@ const orderId = Astro.url.searchParams.get('order') ?? '';
 const o = household ? await getOrder(household.id, orderId) : null;
 if (!household || !o || o.status === 'paid') return Astro.redirect('/account');
 const found = Astro.locals.content.findSession(o.sessionId)!;
+// A drop-in (one class of a weekly class, src/server/drop-ins.ts): its date is checked on the pay step instead.
+const dropIn = o.plan === 'drop_in';
 // The date closed since this order was started: the first step explains, with a link back to the class.
 const closed = () => bookingProblem(found.program, found.session, bookingClock(Astro.locals.content.site.lateJoinWeeks));
-if (closed()) return Astro.redirect(`/enroll/${o.sessionId}`, 303);
+if (!dropIn && closed()) return Astro.redirect(`/enroll/${o.sessionId}`, 303);
+const firstStep = dropIn ? `/drop-in/${o.sessionId}` : `/enroll/${o.sessionId}`;
 
 // A single date (a night out, the free class) has its own short rules, not the monthly-tuition ones.
-const policies = isOneOff(found.session)
+const policies = dropIn
+  ? [
+      'A drop-in is one class, on the date you picked, paid today. Missed classes aren’t refunded.',
+      'Doors lock 5 minutes after class starts; walk late students to the front door.',
+    ]
+  : isOneOff(found.session)
   ? oneOffPolicies(found.program, found.session)
   : [
       'Monthly tuition is charged automatically to your saved card on the 1st. Balances still unpaid after the 10th have a $15 late fee.',
@@ -76,13 +84,13 @@ if (Astro.request.method === 'POST') {
     if (familyForm?.data) await updateFamilyDetails(household.id, familyForm.data, user.id);
     const db = await getDb();
     await db.update(schema.order).set({ policyAcceptedAt: new Date() }).where(eq(schema.order.id, o.id));
-    return Astro.redirect(`/enroll/review?order=${o.id}`, 303);
+    return Astro.redirect(dropIn ? `/drop-in/pay?order=${o.id}` : `/enroll/review?order=${o.id}`, 303);
   }
 }
 ---
 
 <Base title={`Enroll: ${found.program.title}`} noindex>
-  <EnrollShell step={2} program={found.program} session={found.session}>
+  <EnrollShell step={2} program={found.program} session={found.session} dropInCents={dropIn ? o.totalCents : undefined}>
     <form method="post" class="form">
       <h1>A few details</h1>
       <p class="lede">
@@ -172,7 +180,7 @@ if (Astro.request.method === 'POST') {
       </div>
 
       <div class="actions">
-        <a class="back" href={`/enroll/${o.sessionId}`}>← Back</a>
+        <a class="back" href={firstStep}>← Back</a>
         <button class="btn btn--primary" type="submit">Review & pay <span class="arrow" aria-hidden="true">→</span></button>
       </div>
     </form>

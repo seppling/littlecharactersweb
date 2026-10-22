@@ -492,3 +492,175 @@ The foundation unit (`claude/bo2-foundation`) is merged.
   - **`src/server/class-day.ts`** (with unit tests), so the next three units agree on days off and who's expected on a class date.
 - **Stephen's test teacher account:** added on Settings → Staff once the site is deployed; not in the repository.
 - **Next:** the teacher app, the calendar and days off, and drop-ins ($25 placeholder), in parallel.
+
+### Merged to main (October 19)
+
+Stephen approved it. [Pull request #15](https://github.com/seppling/littlecharactersweb/pull/15) brought Phase 1 of the back office and the Phase 2 foundation into `main` (merge commit 648503a), after GitHub's checks passed. Nothing deployed: the production Blueprint isn't set up yet.
+
+**Stephen's steps to set it up** (`docs/infrastructure.md` → Production on Render):
+1. Resend.
+2. The Stripe test keys.
+3. The Render Blueprint (`render.production.yaml`, branch `main`).
+4. The Stripe webhook.
+5. Back up `DATA_ENCRYPTION_KEY`.
+6. Delete the two duplicate Render services.
+
+**Optional:** last season's totals from Studio Director, as a starting point for the dashboard's comparisons. Totals only, no family names; needed by the reports unit.
+
+### Resend set up (October 19)
+
+Stephen connected Resend to Claude and chose a subdomain.
+- **The domain:** `mail.littlecharacters.org`, US East, sending only, with open and click tracking off.
+- **The site's sender** is now `Little Characters <hello@mail.littlecharacters.org>`, in the code's default, `.env.example` and `render.production.yaml`. Replies still go to the studio's Gmail.
+- **DNS:** littlecharacters.org's DNS is at Squarespace Domains, which supports Resend's one-click setup. The main domain already has Google mail and a DMARC record (`p=none`); neither changes.
+- **Waiting on Stephen:**
+  - **Auto configure** in Resend, then verification;
+  - a sending-only key, limited to the subdomain, pasted straight into Render when the Blueprint is set up. It isn't created here, so it never passes through chat.
+
+### Wave 2 merged: the teacher app, the calendar and days off, drop-ins (October 19)
+
+All three units are merged (`claude/bo2-teacher-app`, `claude/bo2-calendar`, `claude/bo2-drop-ins`).
+- **Proof on the merged branch:**
+  - type check clean;
+  - 710 unit tests pass;
+  - the site builds;
+  - all 16 browser tests pass in order on one fresh database;
+  - December billing after the family journeys still charges $80.75 and $55.
+- **The teacher app** (`/admin/teach`, on a phone):
+  - Today's classes. Mark all present, then the exceptions: absent, late, left early.
+  - It works with no signal: taps wait on the phone, are sent once, and never overwrite a newer mark.
+  - A note to Hannah, and substitutes emailed when a cover is added.
+  - **Hannah sees:**
+    - "Attendance done ✓" or "Not taken" on Today, and teachers' notes until she marks them read;
+    - two new alerts: attendance not taken, and a child who missed the last two;
+    - each class's attendance, with downloads.
+- **The calendar** (`/admin/calendar`): every class, event and day off, by month, week or as a phone list, with downloads.
+  - **Days off** (Settings → Days off): for each day off, Hannah chooses to lower that month's payments by one class or leave them as they are. She sees a preview before anything changes, and families are emailed.
+  - **One class's worth:** that month's payment before Hannah's own discounts, divided by the times the class meets that calendar month, rounded in the family's favor.
+  - Months already paid are listed as "Already paid: give a credit" for the credits unit.
+  - Removing a day off restores exactly the payments it lowered that aren't paid yet.
+- **Drop-ins:**
+  - **Families:** they book and pay for one date of a weekly class, $25 (a placeholder, in Site settings → Drop-ins). There's no discount or late fee, and it never counts toward the 15%.
+  - **Hannah** can add one by pay link or at no charge, and cancel one.
+  - **On rosters:** a "Drop-in" badge on the roster and the teacher app.
+- **At the merge:** one roster link helper for the calendar and the teacher app; back-office sections 18 (teacher app), 19 (calendar), 20 (drop-ins).
+- **For Hannah to confirm:**
+  - the $25 drop-in price;
+  - whether a missed drop-in is refunded (the policy line now reuses "Missed classes aren't refunded");
+  - which one-off nights need attendance taken (workshops and parties raise "Attendance not taken" today; recommended: classes and camps only);
+  - a class's last month that ends early is still divided by every week in that month for a day off (consistent with the full-month charge).
+- **At launch:** the first week shows "Attendance not taken" for every class in the week before, since no attendance exists yet. Recommended: accept it, or set a start date.
+- **Next:** wave 3, which is refunds and credits (with a yearly statement), tags and skills (with progress notes), and shows (cast lists, roles, rehearsals).
+
+### Wave 3 merged: refunds and credits, tags and skills, shows (October 19)
+
+All three units are merged (`claude/bo2-refunds-credits`, `claude/bo2-tags-skills`, `claude/bo2-shows`).
+- **Proof on the merged branch:**
+  - type check clean;
+  - 788 unit tests pass;
+  - the site builds;
+  - December billing after the family journeys still charges $80.75 and $55.
+  - **Browser tests:** all 19 pass in order on one fresh database (the second full run).
+  - **One intermittent failure:** in the first full run, `staff-roster.mjs`'s 390 px tap-size check measured the class page's Remove button a fraction under 44 px.
+    - It passed alone, in a run up to it, in the second full run, and in 40 repeated probes of the same steps, all at exactly 44 px.
+    - Nothing on the page scales or zooms it.
+    - Recorded here, and the test is unchanged; a repeat gets looked at again.
+- **Refunds and credits:**
+  - **Refunds:** all or part of a payment, from the family's page, the order page or a cancelled drop-in.
+    - Stripe for card payments: a pending row is written first, the row's id is the idempotency key, and the order is locked while the most that can be refunded is checked. The webhook settles pending ones.
+    - Cash and check refunds are recorded without Stripe.
+    - Test refunds are never possible in production.
+  - **Credits:** they come off the family's next payment through the existing adjustments. A credit with no payment to come off waits; waiting credits are applied at a new sign-up and at the start of each billing run, before anything is charged (the one change to the run).
+  - **Days off:** "Already paid" families can get a credit, once.
+  - **Statements:** families download one for each year they paid in. The tax ID line is empty until Hannah fills it in.
+  - The webhook now needs 6 events (`docs/infrastructure.md`).
+- **Tags, skills and progress notes:**
+  - **Tags:** on children and families, for staff only, never shown to teachers or families. They filter rosters and search, and a tag can be emailed.
+  - **Skills:** per program, ticked on the teacher's phone (the same access rule as attendance; needs signal).
+  - **Progress notes:** emailed to families and shown in their account. Teachers can write drafts for Hannah.
+- **Shows:**
+  - **Cast:** each show's cast comes from its performing classes, with roles, groups, order and photo permission.
+  - **Downloads:** a cast list for the program, and a staff cast sheet.
+  - **Rehearsals:** on the staff calendar, teachers' Today, and families' accounts and calendar files.
+  - No charges.
+- **At the merge:** back-office sections 21 (refunds, credits, statements), 22 (tags, skills, progress notes), 23 (shows).
+  - The email composer's empty text now covers classes, tags and casts.
+  - Cast emails are logged as class emails with `show:<slug>`, and tag emails as `tag`; reports leave both out of class email counts.
+- **Before wave 4:** the coordinator added `src/server/settings-store.ts` (§24), with last season's numbers as its first key.
+- **Wave 4 started:** reports (the dashboard and the library) and the rest of Settings.
+- **For Hannah:**
+  - a tax ID for statements (optional);
+  - whether teachers should see tags such as a cast group (recommended: no);
+  - photo permission "Not asked" for children added through the account.
+
+### Wave 4 merged; Phase 2 complete (October 19)
+
+The settings unit (`claude/bo2-settings-rest`) and the reports unit (`claude/bo2-reports`) are merged. Every unit of Phase 2 is now on `claude/blissful-archimedes-enun5m`.
+- **Proof on the merged branch:**
+  - type check clean;
+  - 861 unit tests pass;
+  - the site builds;
+  - all 21 browser tests pass in order on one fresh database;
+  - December billing after the family journeys still charges $80.75 (Ava, family discount) and $55 (Maya, scholarship).
+- **The rest of Settings.** Unset settings keep today's behavior.
+  - **Emails:** the subject and opening of six emails, with a preview and a test send. Amounts, dates and links always stay.
+  - **Reasons:** drop reasons on Remove, and absence reasons as one optional tap in the teacher app.
+  - **Attendance:** a start date for "Attendance not taken", and which kinds of class need attendance.
+  - **Last season:** Studio Director totals for the dashboard's comparisons.
+  - **Also:**
+    - today's rehearsals on Today and in the teacher's This week;
+    - two new attention items: a refund that didn't go through, and progress notes to send.
+- **Reports** (`/admin/reports`, owners only, read-only):
+  - **The dashboard:** money, enrollment, growth and safety, each with "how it's counted". Each tile is counted by the same function as the report behind it, and a unit test checks every tile against its report.
+  - **The library:** 28 reports grouped by the question they answer, each with its Studio Director name, filters, sorting, CSV and PDF after a fresh sign-in, and stars.
+  - The allergy and medical list asks for a fresh sign-in and is logged as a roster view.
+- **At the merge:** back-office sections 25 (Settings) and 26 (Reports).
+- **For Hannah:**
+  - which kinds of class need attendance (recommended: weekly classes and camps);
+  - the attendance start date for launch (recommended: the first class day after teachers have the app);
+  - the default drop and absence reasons;
+  - typing in last season's totals (optional).
+  - The earlier lists still stand: the $25 drop-in price, a missed drop-in, a day off in a short last month, a tax ID for statements, and tags for teachers.
+
+**Phase 2 by unit** (all on `claude/blissful-archimedes-enun5m`):
+
+| Unit | What it does |
+|---|---|
+| foundation | Staff roles and teachers, substitutes, Settings → Staff, shared-device sign-in, every Phase 2 table (0011, 0012) |
+| teacher app | Today's classes on a phone, offline attendance, notes to Hannah, substitutes emailed |
+| calendar | Calendar, each class's dates, days off with their effect on monthly payments |
+| drop-ins | One class of a weekly class, booked and paid ($25 placeholder), on the roster |
+| refunds and credits | Stripe and cash refunds, credits on the next payment, day-off credits, yearly statements |
+| tags and skills | Tags for rosters, search and email; skills on the teacher's phone; progress notes |
+| shows | Cast lists, roles, rehearsals, the program download |
+| settings | Email wording, reasons, attendance settings, last season |
+| reports | The dashboard and the library of 28 reports |
+
+**Next:** bring Phase 2 into `main` with a pull request when Stephen says so, after the email setup (Squarespace DNS records) and before the Render Blueprint.
+
+## Oct 22, 2026: reviewed before main
+
+Stephen said yes to the pull request into `main`. The repo's new rules (`CLAUDE.md`, merged from `main`) ask for `/review-change` first: the checks, then a reviewer with fresh eyes. Three reviewers each read one part of Phase 2: money; the teacher app and settings; reports, tags, skills and shows. Every finding was checked against the code before fixing.
+
+- **Fixed, money:**
+  - a refund or credit form sent twice (a double click) refunds or credits once;
+  - removing a day off takes back its credits, and adding the same date again doesn't give a second one;
+  - credits come off after discounts;
+  - Try again on a card refund looks for the refund Stripe already made;
+  - no "refunded" email when Stripe didn't answer;
+  - a credit problem never stops the billing run;
+  - spreadsheets keep refunds as numbers, so totals add up.
+- **Fixed, teacher app:**
+  - absence reasons are no longer lost on Android;
+  - nothing is kept on a shared device;
+  - a back-dated tap can't reopen a closed date;
+  - taps are applied in the order they were made;
+  - a note never marks a child Present.
+- **Fixed, reports and notes:**
+  - a progress note goes out exactly as previewed, and once;
+  - teacher attendance's total counts each class date once;
+  - money reports that name children are logged when viewed;
+  - whole-cast rehearsals go only in the performing classes' calendars.
+- **Also fixed:** the trial journey test expected the season's 15% rounded the ordinary way. The site rounds it in the family's favor, as the pricing rules say; on Oct 22 the two differ by a cent.
+- **Left for later:** a day-off discount saved while a family has the pay-now form open can be lost if they pay the old amount through that form (rare: the form is open for at most two hours).
+- **For Hannah:** when a day off is saved with **Don't change payments** (a break the tuition already allows for), should families who already paid that month still be offered a credit? Today they are, through **Give these credits**. The reviewer suggests not. It's a money rule, so it waits for her answer.

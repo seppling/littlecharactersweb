@@ -54,7 +54,8 @@ const desktop = () => page.setViewportSize({ width: 1280, height: 900 });
 const smallTargets = () =>
   page.evaluate(() =>
     [...document.querySelectorAll('.admin-page :is(button, .btn, summary, label.family__pick, label.switch)')]
-      .filter((el) => el.getClientRects().length && el.getBoundingClientRect().height < 44)
+      // 43.99, not 44: a button still sliding back from its hover lift measures 43.99999 px (a sub-pixel transform).
+      .filter((el) => el.getClientRects().length && el.getBoundingClientRect().height < 43.99)
       .map((el) => el.textContent.trim().slice(0, 30)),
   );
 

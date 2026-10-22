@@ -1,6 +1,6 @@
 /**
  * The steps of the staff email pages (write → review → sent), shared by
- * "Email the class" and "Email this family". The pages load the audience;
+ * "Email the class", "Email this family" and "Email a tag". The pages load the audience;
  * this reads the form, runs the step and says what to show next.
  * Sending and the log: ./messages.ts.
  */
@@ -18,7 +18,8 @@ import {
 } from './messages';
 
 export interface ComposerContext {
-  kind: 'class' | 'family';
+  kind: 'class' | 'family' | 'tag';
+  /** The class (kind 'class'), or the tag's id (kind 'tag'). */
   sessionId?: string;
   /** The page's own address; steps come back to it. */
   here: string;
@@ -99,12 +100,12 @@ export async function composerStep(form: FormData, ctx: ComposerContext, opts: S
   }
 }
 
-/** A sent message, only when it belongs to this page (this class, or this family). */
+/** A sent message, only when it belongs to this page (this class, this tag, or this family). */
 export async function sentHere(messageId: string, ctx: Pick<ComposerContext, 'kind' | 'sessionId' | 'audience'>) {
   if (!messageId) return null;
   const m = await messageResult(messageId);
   if (!m || m.kind !== ctx.kind) return null;
-  if (ctx.kind === 'class' && m.sessionId !== ctx.sessionId) return null;
+  if (ctx.kind !== 'family' && m.sessionId !== ctx.sessionId) return null;
   if (ctx.kind === 'family' && !m.families.some((f) => f.householdId === ctx.audience[0]?.householdId)) return null;
   return m;
 }

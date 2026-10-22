@@ -1,0 +1,155 @@
+---
+/**
+ * A drop-in, the pay step: what it is and its one price, then Stripe's
+ * embedded checkout (the enrollment's helper; nothing is saved for autopay).
+ * Also where a staff pay link lands: a signed-out parent signs in here first,
+ * and policies not yet agreed send them to the details step. Without Stripe
+ * keys (local development only), a labeled test-payment button stands in.
+ */
+import Base from '@/layouts/Base.astro';
+import EnrollShell from '@/components/portal/EnrollShell.astro';
+import SignInPanel from '@/components/portal/SignInPanel.astro';
+import { config } from '@/server/env';
+import { fulfillOrder, householdForUser } from '@/server/family';
+import { completeCheckout, createEmbeddedCheckout, paymentsMode, testPaymentsAllowed } from '@/server/payments';
+import { DropInError, dropInLongDay, dropInOrder, readyDropIn } from '@/server/drop-ins';
+import { timeRange } from '@/lib/format';
+import { formatCents } from '@/lib/pricing';
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+const orderId = Astro.url.searchParams.get('order') ?? '';
+const household = user ? await householdForUser(user.id) : null;
+const b = household ? await dropInOrder(household.id, orderId) : null;
+const found = b ? Astro.locals.content.findSession(b.order.sessionId) : undefined;
+if (b?.order.status === 'paid') return Astro.redirect(`/drop-in/confirmation?order=${b.order.id}`);
+if (b && found && !b.order.policyAcceptedAt && b.dropIn.status !== 'cancelled') return Astro.redirect(`/enroll/details?order=${b.order.id}`);
+
+let error = '';
+let clientSecret = '';
+if (b && found && household && user) {
+  if (Astro.request.method === 'POST') {
+    if (!testPaymentsAllowed()) return new Response('Test payments are disabled', { status: 403 });
+    try {
+      await readyDropIn(household.id, b.order.id);
+      await fulfillOrder(b.order.id, user.id);
+      return Astro.redirect(`/drop-in/confirmation?order=${b.order.id}`, 303);
+    } catch (e) {
+      if (!(e instanceof DropInError)) throw e;
+      error = e.message;
+    }
+  } else {
+    // Paid in another tab and the webhook hasn't landed yet? Don't show a second card form.
+    if (paymentsMode === 'stripe' && b.order.stripeCheckoutSessionId) {
+      const prior = await completeCheckout(b.order.stripeCheckoutSessionId, user.id).catch(() => null);
+      if (prior?.paid && prior.orderId === b.order.id) return Astro.redirect(`/drop-in/confirmation?order=${b.order.id}`);
+    }
+    try {
+      const ready = await readyDropIn(household.id, b.order.id);
+      if (paymentsMode === 'stripe') {
+        try {
+          clientSecret = await createEmbeddedCheckout({
+            order: ready,
+            householdId: household.id,
+            householdName: household.name,
+            email: user.email,
+            title: `${found.program.title} · drop-in`,
+            saveCardForMonthly: false,
+          });
+        } catch (e) {
+          console.error(e);
+          error = 'We couldn’t start the payment form. Please refresh, or email us if it keeps happening.';
+        }
+      }
+    } catch (e) {
+      if (!(e instanceof DropInError)) throw e;
+      error = e.message;
+    }
+  }
+}
+const when = found && b ? `${dropInLongDay(b.dropIn.classDate)}${found.session.start && found.session.end ? `, ${timeRange(found.session.start, found.session.end)}` : ''}` : '';
+---
+
+<Base title={found ? `Pay: ${found.program.title}` : 'Pay for a drop-in'} noindex>
+  {
+    !user ? (
+      <section class="plain">
+        <div class="wrap narrow">
+          <SignInPanel level="h1" heading="Sign in to pay for the drop-in" intro="Use the email address we sent the link to. We’ll send a 6-digit code." />
+        </div>
+      </section>
+    ) : !b || !found ? (
+      <section class="plain">
+        <div class="wrap narrow stack" data-drop-in-missing>
+          <h1>We couldn’t find that drop-in</h1>
+          <p class="lede">It may be for another family account. Signed in as {user.email}. <a href="/contact">Ask us</a> and we’ll sort it out.</p>
+          <a class="btn btn--outline" href="/account">Go to your family account</a>
+        </div>
+      </section>
+    ) : (
+      <EnrollShell step={3} program={found.program} session={found.session} dropInCents={b.order.totalCents}>
+        <h1>Payment</h1>
+        <table class="bill">
+          <caption class="sr-only">Due today</caption>
+          <tbody>
+            {b.order.lines.map((l) => (
+              <tr><th scope="row">{l.label}</th><td>{formatCents(l.amountCents)}</td></tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr><th scope="row">Due today</th><td>{formatCents(b.order.totalCents)}</td></tr>
+          </tfoot>
+        </table>
+        <p class="when" data-drop-in-when>{b.student.firstName} drops in on {when}.</p>
+        {error ? (
+          <>
+            <p class="error" role="alert" data-drop-in-error>{error}</p>
+            <a class="btn btn--outline" href={`/drop-in/${found.session.id}`}>Pick another date</a>
+          </>
+        ) : paymentsMode === 'stripe' ? (
+          <>
+            <div id="checkout" class="checkout" data-client-secret={clientSecret} data-publishable-key={config.stripePublishableKey} />
+            <p class="fine">Secure payment by Stripe. Apple Pay and Google Pay appear automatically on supported devices.</p>
+          </>
+        ) : (
+          <form method="post" class="test-pay">
+            <span class="tape" data-gel="yellow">Test mode</span>
+            <p>Stripe keys aren’t set up yet, so this stands in for the card form. No money moves. In production this button doesn’t exist; families see Stripe’s secure payment form right here instead.</p>
+            <button class="btn btn--primary" type="submit">Complete test payment of {formatCents(b.order.totalCents)}</button>
+          </form>
+        )}
+        <p class="fine">Card payments are processed securely by Stripe. We never see or store your card number.</p>
+        <a class="back" href={`/enroll/details?order=${b.order.id}`}>← Back to details</a>
+      </EnrollShell>
+    )
+  }
+</Base>
+
+<script>
+  import { loadStripe } from '@stripe/stripe-js';
+  const el = document.getElementById('checkout');
+  if (el?.dataset.clientSecret && el.dataset.publishableKey) {
+    const stripe = await loadStripe(el.dataset.publishableKey);
+    const checkout = await stripe?.createEmbeddedCheckoutPage({ clientSecret: el.dataset.clientSecret });
+    checkout?.mount(el);
+  }
+</script>
+
+<style>
+  h1 { font-size: var(--step-3); }
+  .plain { padding-block: var(--space-2xl) var(--space-3xl); }
+  .narrow { max-width: 36rem; }
+  .bill { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .bill th, .bill td { padding: 0.65rem 0; border-bottom: 1px solid var(--line); text-align: left; font-weight: 400; }
+  .bill th { overflow-wrap: anywhere; padding-right: 1rem; }
+  .bill td { text-align: right; white-space: nowrap; }
+  .bill tfoot th, .bill tfoot td { font-family: var(--font-display); font-weight: 800; font-size: var(--step-1); border-bottom: 0; border-top: 2px solid var(--ink); }
+  .when { color: var(--ink-soft); }
+  .checkout { min-height: 420px; }
+  .test-pay { display: grid; gap: var(--space-m); justify-items: start; padding: var(--space-l); border: 2px dashed var(--yellow-ink); border-radius: var(--r-md); background: var(--yellow-tint); }
+  .test-pay p { color: var(--ink-soft); }
+  .error { color: var(--red-ink); font-weight: 600; }
+  .fine { font-size: var(--step--2); color: var(--ink-mute); }
+  .back { font-size: var(--step--1); }
+</style>

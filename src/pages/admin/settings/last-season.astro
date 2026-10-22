@@ -1,0 +1,204 @@
+---
+/**
+ * Settings → Last season (owners; src/server/last-season.ts): last season's
+ * totals typed in once from Studio Director's reports, saved as
+ * `reports.baseline` for the dashboard's comparisons (the reports unit reads
+ * it). The season's name, children and how many came back, each class with
+ * how many were enrolled, and money collected each month. "Add more rows"
+ * re-shows the form with three more empty rows. Clear removes it. Saving and
+ * clearing need a sign-in from the last 15 minutes, as Settings → Staff.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { formatCents } from '@/lib/pricing';
+import { confirm, settings, settingsLastSeason } from '@/lib/admin-links';
+import { baselineFromForm, formFromBaseline, type BaselineForm } from '@/server/last-season';
+import { clearSetting, getSetting, setSetting } from '@/server/settings-store';
+import { requireFreshStaff, requireStaff, signedInRecently } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const here = settingsLastSeason();
+let error = '';
+let typed: BaselineForm | null = null;
+let extra = 0;
+if (staff && Astro.request.method === 'POST') {
+  const stop = requireFreshStaff(Astro.locals, Astro.url);
+  if (stop) return stop;
+  const form = await Astro.request.formData();
+  const all = (k: string) => form.getAll(k).map(String);
+  const action = String(form.get('action') ?? '');
+  if (action === 'clear') {
+    await clearSetting(staff.id, 'reports.baseline');
+    return Astro.redirect(`${here}?done=cleared`, 303);
+  }
+  typed = {
+    season: String(form.get('season') ?? ''),
+    children: String(form.get('children') ?? ''),
+    returning: String(form.get('returning') ?? ''),
+    classTitle: all('classTitle'),
+    classEnrolled: all('classEnrolled'),
+    month: all('month'),
+    collected: all('collected'),
+  };
+  if (action === 'rows') extra = 3;
+  else {
+    const parsed = baselineFromForm(typed);
+    if (parsed.error !== undefined) error = parsed.error;
+    else {
+      await setSetting(staff.id, 'reports.baseline', parsed.value);
+      return Astro.redirect(`${here}?done=saved`, 303);
+    }
+  }
+}
+
+const saved = staff ? await getSetting('reports.baseline') : null;
+const f = typed ?? formFromBaseline(saved);
+// The rows to show: what's there, plus empty ones to fill in.
+const classRows = Math.max(f.classTitle.length + 1, 4) + extra;
+const monthRows = Math.max(f.month.length + 1, 4) + extra;
+const fresh = !!staff && signedInRecently(Astro.locals);
+const notice = ({ saved: 'Saved. The dashboard compares with these numbers.', cleared: 'Cleared. The dashboard has nothing to compare with until you fill this in again.' } as Record<string, string>)[Astro.url.searchParams.get('done') ?? ''];
+const monthName = (m: string) => new Date(`${m}-15T12:00:00Z`).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+---
+
+<AdminShell title="Last season" section="settings" back={{ href: settings(), label: 'Settings' }}>
+  <div class="admin-page season-settings">
+    <div class="admin-head">
+      <div>
+        <h1>Last season</h1>
+        <p class="admin-intro" data-season-note>Type these from Studio Director’s reports once, so the dashboard can compare. Totals only: no family names.</p>
+      </div>
+    </div>
+    {notice && <p class="notice" role="status" data-notice>{notice}</p>}
+    {error && <p class="notice notice--error" role="alert" data-error>{error}</p>}
+
+    {
+      !fresh ? (
+        <>
+          <div class="staff-card confirm-first">
+            <p>To fill this in or change it, confirm it’s you first. We’ll email you a code.</p>
+            <a class="btn btn--primary btn--sm" href={confirm(here)} data-confirm-first>Confirm it’s you</a>
+          </div>
+          {saved ? (
+            <section class="admin-section" aria-labelledby="saved-h" data-season-saved>
+              <h2 id="saved-h">{saved.season}</h2>
+              <p>
+                {saved.children !== undefined && <>{saved.children} children</>}
+                {saved.returning !== undefined && <>, {saved.returning} came back</>}
+              </p>
+              {saved.classes.length > 0 && (
+                <table class="data-table">
+                  <thead><tr><th scope="col">Class</th><th scope="col" class="num">Enrolled</th></tr></thead>
+                  <tbody>{saved.classes.map((c) => <tr><td data-label="Class">{c.title}</td><td data-label="Enrolled" class="num">{c.enrolled}</td></tr>)}</tbody>
+                </table>
+              )}
+              {saved.monthly.length > 0 && (
+                <table class="data-table">
+                  <thead><tr><th scope="col">Month</th><th scope="col" class="num">Collected</th></tr></thead>
+                  <tbody>{saved.monthly.map((m) => <tr><td data-label="Month">{monthName(m.month)}</td><td data-label="Collected" class="num">{formatCents(m.collectedCents)}</td></tr>)}</tbody>
+                </table>
+              )}
+            </section>
+          ) : (
+            <div class="empty-state"><strong>Not filled in yet</strong><span>The dashboard shows this season on its own until you do.</span></div>
+          )}
+        </>
+      ) : (
+        <form method="post" class="season-form" data-season-form>
+          <section class="admin-section staff-card" aria-labelledby="season-h">
+            <h2 id="season-h">The season</h2>
+            <div class="field">
+              <label for="season">Season’s name</label>
+              <input id="season" name="season" maxlength={40} placeholder="Spring 2026" value={f.season} autocomplete="off" />
+            </div>
+            <div class="pair">
+              <div class="field">
+                <label for="children">Children that season</label>
+                <input id="children" name="children" inputmode="numeric" value={f.children} autocomplete="off" />
+                <small>Each child once, however many classes.</small>
+              </div>
+              <div class="field">
+                <label for="returning">Of those, how many came back</label>
+                <input id="returning" name="returning" inputmode="numeric" value={f.returning} autocomplete="off" />
+                <small>Signed up again the next season.</small>
+              </div>
+            </div>
+          </section>
+
+          <section class="admin-section staff-card" aria-labelledby="classes-h">
+            <h2 id="classes-h">Each class</h2>
+            <p class="muted">The class and how many were enrolled. Leave extra rows empty.</p>
+            <div class="rows" data-class-rows>
+              {Array.from({ length: classRows }, (_, i) => (
+                <div class="rowpair">
+                  <div class="field">
+                    <label for={`ct-${i}`}>Class {i + 1}</label>
+                    <input id={`ct-${i}`} name="classTitle" maxlength={120} value={f.classTitle[i] ?? ''} autocomplete="off" placeholder={i === 0 ? 'Intro to Theater (Tuesdays)' : ''} />
+                  </div>
+                  <div class="field field--n">
+                    <label for={`ce-${i}`}>Enrolled</label>
+                    <input id={`ce-${i}`} name="classEnrolled" inputmode="numeric" value={f.classEnrolled[i] ?? ''} autocomplete="off" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section class="admin-section staff-card" aria-labelledby="money-h">
+            <h2 id="money-h">Money collected each month</h2>
+            <p class="muted">In dollars, from Studio Director’s payments report.</p>
+            <div class="rows" data-money-rows>
+              {Array.from({ length: monthRows }, (_, i) => (
+                <div class="rowpair">
+                  <div class="field">
+                    <label for={`mm-${i}`}>Month</label>
+                    <input id={`mm-${i}`} name="month" type="month" value={f.month[i] ?? ''} />
+                  </div>
+                  <div class="field field--n">
+                    <label for={`mc-${i}`}>Collected ($)</label>
+                    <input id={`mc-${i}`} name="collected" inputmode="decimal" value={f.collected[i] ?? ''} autocomplete="off" placeholder={i === 0 ? '9,500.00' : ''} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div class="season-actions">
+            <button class="btn btn--primary" name="action" value="save" data-save-season>Save</button>
+            <button class="btn btn--outline" name="action" value="rows" data-more-rows>Add more rows</button>
+          </div>
+        </form>
+      )
+    }
+
+    {
+      fresh && saved && (
+        <form method="post" class="clear" data-clear-season>
+          <p class="muted">Clear removes these numbers. The dashboard stops comparing until you fill them in again.</p>
+          <button class="btn btn--outline btn--sm" name="action" value="clear" data-clear>Clear last season</button>
+        </form>
+      )
+    }
+  </div>
+</AdminShell>
+
+<style>
+  .season-settings .btn { min-height: 44px; }
+  .season-settings .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .season-settings h2, .season-settings p { margin: 0; }
+  .confirm-first { display: grid; gap: 0.6rem; justify-items: start; max-width: 40rem; }
+  .season-form { display: grid; gap: var(--space-m); max-width: 44rem; }
+  .season-form .admin-section { gap: 0.6rem; }
+  .field { display: grid; gap: 0.25rem; min-width: 0; }
+  .field label { font-weight: 700; font-size: var(--step--1); }
+  .field input { min-height: 44px; min-width: 0; width: 100%; }
+  .field small { color: var(--ink-soft); font-size: var(--step--1); }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 0.6rem 1rem; }
+  .rows { display: grid; gap: 0.5rem; }
+  .rowpair { display: grid; grid-template-columns: minmax(0, 1fr) 9rem; gap: 0.6rem; align-items: end; }
+  .season-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .clear { display: grid; gap: 0.4rem; justify-items: start; max-width: 40rem; padding-top: var(--space-s); border-top: 1.5px solid var(--line); }
+  .data-table { max-width: 36rem; }
+</style>

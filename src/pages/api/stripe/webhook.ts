@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { config } from '@/server/env';
 import { completeCheckout, getStripe } from '@/server/payments';
 import { markInstallmentPaid, resumeRetries } from '@/server/billing';
+import { settleRefund } from '@/server/refunds';
 
 export const prerender = false;
 
@@ -13,6 +14,8 @@ export const prerender = false;
  *  - checkout.session.expired: a family opened "pay now" but didn't finish;
  *    automatic retries of that monthly charge resume
  *  - payment_intent.succeeded: confirms monthly autopay charges that settle later
+ *  - refund.updated: a refund made from the staff pages succeeded or failed
+ *    after Stripe first said "pending" (src/server/refunds.ts)
  * Everything here is idempotent, because Stripe may deliver an event more than once.
  */
 export const POST: APIRoute = async ({ request }) => {
@@ -40,6 +43,12 @@ export const POST: APIRoute = async ({ request }) => {
     case 'payment_intent.succeeded': {
       const pi = event.data.object;
       if (pi.metadata?.installmentId) await markInstallmentPaid(pi.metadata.installmentId, { paymentIntentId: pi.id, amountCents: pi.amount_received });
+      break;
+    }
+    case 'refund.updated':
+    case 'refund.failed': {
+      const r = event.data.object;
+      await settleRefund({ stripeRefundId: r.id, refundId: r.metadata?.refundId, status: r.status, failureReason: r.failure_reason });
       break;
     }
   }

@@ -1,0 +1,247 @@
+---
+/**
+ * Settings → Emails (owners; src/server/email-wording.ts): the subject and
+ * the opening of six emails families get. The list shows each email's
+ * current wording; ?email=<name> opens one: change the two boxes (with the
+ * placeholders it knows), Preview the whole email with sample details, Send
+ * me a test (to the signed-in owner's own address), Save, and Back to the
+ * original wording. Saving and going back need a sign-in from the last 15
+ * minutes, as Settings → Staff. Amounts, dates, links and names stay in each
+ * email's code and are always in it.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { confirm, settings, settingsEmails } from '@/lib/admin-links';
+import { previewEmail, sendTestEmail } from '@/server/email-previews';
+import { EMAIL_DEFS, EmailWordingError, checkWording, emailDef, emailWording, resetWording, saveWording, type EmailParts } from '@/server/email-wording';
+import type { Wording } from '@/server/settings-store';
+import { requireFreshStaff, requireStaff, signedInRecently } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const { content } = Astro.locals;
+const name = Astro.url.searchParams.get('email');
+const def = name ? emailDef(name) : undefined;
+if (staff && name && !def) return new Response('Not found', { status: 404 });
+const here = settingsEmails(def?.name);
+
+let error = '';
+let draft: { subject: string; intro: string } | null = null;
+let preview: EmailParts | null = null;
+let previewOf: 'draft' | 'current' = 'current';
+let testSent = '';
+
+if (staff && def && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') ?? '');
+  const typed = form.has('subject') ? { subject: String(form.get('subject') ?? ''), intro: String(form.get('intro') ?? '') } : null;
+  if (action === 'save' || action === 'reset') {
+    const stop = requireFreshStaff(Astro.locals, Astro.url);
+    if (stop) return stop;
+  }
+  try {
+    switch (action) {
+      case 'save':
+        if (!typed) break;
+        draft = typed;
+        await saveWording(staff.id, def.name, typed);
+        return Astro.redirect(`${here}&done=saved`, 303);
+      case 'reset':
+        await resetWording(staff.id, def.name);
+        return Astro.redirect(`${here}&done=reset`, 303);
+      case 'preview':
+      case 'test': {
+        draft = typed;
+        // The words in the boxes, or (no boxes) the wording in use now.
+        const w: Wording | null = typed ? checkWording(def, typed) : await emailWording(def.name);
+        preview = previewEmail(def.name, w, content);
+        previewOf = typed ? 'draft' : 'current';
+        if (action === 'test') {
+          await sendTestEmail(staff, def.name, w, content);
+          testSent = staff.email;
+        }
+        break;
+      }
+    }
+  } catch (e) {
+    if (!(e instanceof EmailWordingError)) throw e;
+    error = e.message;
+  }
+}
+
+// Each email's wording in use: Hannah's, or the built-in.
+const saved = staff ? new Map(await Promise.all(EMAIL_DEFS.map(async (d) => [d.name, await emailWording(d.name)] as const))) : new Map<string, Wording | null>();
+const current = (n: string) => saved.get(n) ?? null;
+const shown = def ? (draft ?? current(def.name) ?? { subject: def.subject, intro: def.intro }) : null;
+if (staff && def && !preview) preview = previewEmail(def.name, current(def.name), content);
+const fresh = !!staff && signedInRecently(Astro.locals);
+const done = ({ saved: 'Saved. Families get the new wording from now on.', reset: 'Back to the original wording.' } as Record<string, string>)[Astro.url.searchParams.get('done') ?? ''];
+---
+
+<AdminShell title={def ? `Emails: ${def.title}` : 'Emails'} section="settings" back={def ? { href: settingsEmails(), label: 'Emails' } : { href: settings(), label: 'Settings' }}>
+  <div class="admin-page email-settings">
+    <div class="admin-head">
+      <div>
+        <h1>{def ? def.title : 'Emails'}</h1>
+        <p class="admin-intro">
+          {def
+            ? def.when
+            : 'The emails families get from the site. You can change each one’s subject and opening. The parts that must be right (amounts, dates, links, the child’s name) are filled in for you and always there.'}
+        </p>
+      </div>
+    </div>
+
+    {done && <p class="notice" role="status" data-notice>{done}</p>}
+    {error && <p class="notice notice--error" role="alert" data-error>{error}</p>}
+    {testSent && <p class="notice" role="status" data-test-sent>Test sent to {testSent}, with sample details.</p>}
+
+    {
+      !def ? (
+        <ul class="emails" data-email-list>
+          {EMAIL_DEFS.map((d) => {
+            const w = current(d.name);
+            return (
+              <li class="staff-card email" data-email={d.name}>
+                <div class="email__head">
+                  <h2>{d.title}</h2>
+                  <span class:list={['badge', w ? 'badge--good' : 'badge--neutral']} data-wording={w ? 'yours' : 'original'}>{w ? 'Your wording' : 'Original wording'}</span>
+                </div>
+                <p class="muted">{d.when}</p>
+                <dl class="email__words">
+                  <dt>Subject</dt>
+                  <dd data-current-subject>{w?.subject ?? d.subject}</dd>
+                  <dt>{d.introLabel}</dt>
+                  <dd data-current-intro>{w?.intro ?? d.intro}</dd>
+                </dl>
+                <div class="email__actions">
+                  <a class="btn btn--primary btn--sm" href={settingsEmails(d.name)} data-change>Change<span class="sr-only"> {d.title}</span></a>
+                  <a class="btn btn--outline btn--sm" href={`${settingsEmails(d.name)}#preview-h`} data-preview-link>Preview<span class="sr-only"> {d.title}</span></a>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <>
+          <div class="email-edit">
+            <section class="staff-card words" aria-labelledby="words-h">
+              <h2 id="words-h">{fresh ? 'Change the wording' : current(def.name) ? 'Your wording' : 'The original wording'}</h2>
+              {fresh ? (
+                <form method="post" class="words__form" data-wording-form>
+                  <label for="subject">Subject</label>
+                  <input id="subject" name="subject" required maxlength={200} value={shown!.subject} autocomplete="off" />
+                  <label for="intro">{def.introLabel}</label>
+                  <textarea id="intro" name="intro" required maxlength={1000} rows="4">{shown!.intro}</textarea>
+                  <p class="muted">{def.fixed}</p>
+                  <div class="words__actions">
+                    <button class="btn btn--outline btn--sm" name="action" value="preview" data-preview>Preview</button>
+                    <button class="btn btn--outline btn--sm" name="action" value="test" data-send-test>Send me a test</button>
+                    <button class="btn btn--primary btn--sm" name="action" value="save" data-save>Save</button>
+                  </div>
+                </form>
+              ) : (
+                <div class="words__read">
+                  <dl class="email__words">
+                    <dt>Subject</dt>
+                    <dd>{shown!.subject}</dd>
+                    <dt>{def.introLabel}</dt>
+                    <dd>{shown!.intro}</dd>
+                  </dl>
+                  <p>To change the wording, confirm it’s you first. We’ll email you a code.</p>
+                  <div class="words__actions">
+                    <a class="btn btn--primary btn--sm" href={confirm(here)} data-confirm-first>Confirm it’s you</a>
+                    <form method="post">
+                      <button class="btn btn--outline btn--sm" name="action" value="test" data-send-test>Send me a test</button>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <aside class="staff-card places" aria-labelledby="places-h" data-placeholders>
+              <h2 id="places-h">You can use</h2>
+              <p class="muted">Type these in either box. Each email fills in its own.</p>
+              <dl>
+                {Object.entries(def.placeholders).map(([k, v]) => (
+                  <>
+                    <dt><code>{`{${k}}`}</code></dt>
+                    <dd>{v}</dd>
+                  </>
+                ))}
+              </dl>
+            </aside>
+          </div>
+
+          {preview && (
+            <section class="admin-section" aria-labelledby="preview-h" data-email-preview={previewOf}>
+              <h2 id="preview-h">Preview{previewOf === 'draft' ? ': not saved yet' : ''}</h2>
+              <p class="muted">With sample details: a made-up child in one of your classes. Families see their own.</p>
+              <div class="mail">
+                <p class="mail__subject"><span class="muted">Subject:</span> <strong data-preview-subject>{preview.subject}</strong></p>
+                <div class="mail__body">
+                  <p class="mail__brand">Little Characters Theater Troupe</p>
+                  <h3 class="mail__heading">{preview.heading}</h3>
+                  {preview.lines.map((p) => (typeof p === 'string' ? <p>{p}</p> : <p set:html={p.html} />))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {current(def.name) && (
+            <section class="admin-section reset" aria-labelledby="reset-h">
+              <h2 id="reset-h">Back to the original wording</h2>
+              <p class="muted">Subject: {def.subject}<br />{def.introLabel}: {def.intro}</p>
+              {fresh ? (
+                <form method="post">
+                  <button class="btn btn--outline btn--sm" name="action" value="reset" data-reset>Back to the original wording</button>
+                </form>
+              ) : (
+                <a class="btn btn--outline btn--sm" href={confirm(here)}>Confirm it’s you</a>
+              )}
+            </section>
+          )}
+        </>
+      )
+    }
+  </div>
+</AdminShell>
+
+<style>
+  .email-settings .btn, .email-settings summary.btn { min-height: 44px; }
+  .email-settings .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .emails { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-s); }
+  .email { display: grid; gap: 0.5rem; min-width: 0; }
+  .email__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 1rem; }
+  .email__head h2 { margin: 0; font-size: var(--step-1); }
+  .email p { margin: 0; }
+  .email__words { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: 0.3rem 1rem; margin: 0; }
+  .email__words dt { font-weight: 700; font-size: var(--step--1); }
+  .email__words dd { margin: 0; overflow-wrap: anywhere; }
+  .email__actions, .words__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .email-edit { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--space-m); align-items: start; }
+  .words { display: grid; gap: var(--space-s); min-width: 0; }
+  .words h2, .places h2 { margin: 0; font-size: var(--step-1); }
+  .words__form, .words__read { display: grid; gap: 0.5rem; }
+  .words__form label { font-weight: 700; }
+  .words__form input, .words__form textarea { width: 100%; min-width: 0; min-height: 44px; font: inherit; }
+  .words__form p, .words__read p { margin: 0; }
+  .places { display: grid; gap: 0.5rem; min-width: 0; }
+  .places p { margin: 0; }
+  .places dl { display: grid; gap: 0.2rem; margin: 0; }
+  .places dt code { font-weight: 700; font-size: var(--step-0); }
+  .places dd { margin: 0 0 0.4rem; font-size: var(--step--1); color: var(--ink-soft); }
+  .mail { max-width: 40rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-md); background: var(--hall); overflow: hidden; }
+  .mail__subject { margin: 0; padding: 0.7rem 1rem; border-bottom: 1.5px solid var(--line-strong); background: var(--paper); overflow-wrap: anywhere; }
+  .mail__body { margin: 1rem; padding: 1.25rem; border-radius: var(--r-md); background: var(--paper); overflow-wrap: anywhere; }
+  .mail__body p { margin: 0 0 0.75rem; color: var(--ink-soft); }
+  .mail__brand { font-size: var(--step--2); letter-spacing: 0.12em; text-transform: uppercase; color: var(--purple) !important; font-weight: 700; margin-bottom: 0.25rem !important; }
+  .mail__heading { margin: 0 0 0.75rem; font-size: var(--step-1); }
+  .reset p { margin: 0; overflow-wrap: anywhere; }
+  @media (max-width: 760px) {
+    .email-edit { grid-template-columns: minmax(0, 1fr); }
+    .email__words { grid-template-columns: minmax(0, 1fr); gap: 0.1rem; }
+    .email__words dd { margin-bottom: 0.4rem; }
+    .mail__body { margin: 0.6rem; padding: 0.9rem; }
+  }
+</style>

@@ -29,10 +29,13 @@ import { emailHtml, sendEmail } from './email';
 import { config } from './env';
 import { audit, householdGuardians } from './records';
 import { reapplyPendingAdjustments } from './adjustments';
+import { applyWaitingCredits } from './credits';
 import { formatCents, todayInAthens } from '@/lib/pricing';
 import { adjustmentLine, discountLines } from '@/lib/adjustments';
 import { refreshAllFamilyDiscounts, refreshFamilyDiscount, logFamilyDiscount } from './family-discount';
 import { getCatalog } from './content';
+import { emailWording, worded, type EmailParts } from './email-wording';
+import type { Wording } from './settings-store';
 
 const { installment, household } = schema;
 type Tx = Parameters<Parameters<DB['transaction']>[0]>[0];
@@ -112,9 +115,11 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
  */
 export async function runBilling({ charge, today = todayInAthens(), limit = Infinity }: { charge: Charger; today?: string; limit?: number }): Promise<BillingReport> {
   const db = await getDb();
-  // Before charging: the family discount (a class ended, or a month skipped earlier), then staff adjustments.
+  // Before charging: the family discount (a class ended, or a month skipped earlier), then staff adjustments, then credits waiting for a payment.
   await refreshAllFamilyDiscounts({ today });
   await reapplyPendingAdjustments();
+  // A problem with one credit never stops the day's charging: it waits for the next run.
+  await applyWaitingCredits().catch((e) => console.error('Applying waiting credits failed; charging goes on', e));
   const lateFees = await applyLateFees(today);
   const staleBefore = new Date(Date.now() - BILLING.staleAfterMinutes * 60_000);
   const due = await db
@@ -280,7 +285,6 @@ export async function sendPayLinkEmail(i: Installment, today = todayInAthens()) 
 async function notify(i: Installment, kind: 'paid' | 'failed' | 'late_fee', today = todayInAthens()) {
   const guardians = await householdGuardians(i.householdId);
   const payUrl = new URL(`/account/pay/${i.id}`, config.siteUrl).toString();
-  const lastDayNoFee = addDays(i.dueDate, BILLING.lateFeeAfterDays - 1);
   const note = adjustmentNote(i) ? ` (${adjustmentNote(i)})` : '';
   const covered = kind === 'paid' && totalDue(i) === 0;
   const heading = { paid: covered ? `Nothing to pay: ${i.label}` : `Payment received: ${formatCents(totalDue(i))}`, failed: 'We couldn’t charge your card', late_fee: `Late fee added: ${i.label}` }[kind];
@@ -291,22 +295,41 @@ async function notify(i: Installment, kind: 'paid' | 'failed' | 'late_fee', toda
         : `Thank you! We received ${formatCents(totalDue(i))} for ${i.label}${note}${i.lateFeeCents ? ' (including the late fee)' : ''}.`,
       `Your receipts are in your family account: ${new URL('/account', config.siteUrl)}`,
     ],
-    failed: [
-      `We tried to charge ${formatCents(totalDue(i))} for ${i.label}${note}, but ${failureReason(i.lastError ?? '')}.`,
-      i.retryOn ? `We’ll try again on ${fmtDate(i.retryOn)}. To pay now or use a different card, go to ${payUrl}` : `Please pay or update your card here: ${payUrl}`,
-      !i.lateFeeCents && lastDayNoFee >= today ? `To avoid the ${formatCents(BILLING.lateFeeCents)} late fee, please make sure it’s paid by ${fmtDate(lastDayNoFee)}.` : '',
-      'Questions, or need to make other arrangements? Just reply to this email.',
-    ],
+    failed: [],
     late_fee: [
       `We still haven’t been able to collect ${i.label}, so a ${formatCents(i.lateFeeCents)} late fee has been added, as in our tuition policy. The total is now ${formatCents(totalDue(i))}.`,
       `Please pay here: ${payUrl}`,
       'If something’s going on, just reply to this email. We’re happy to work something out.',
     ],
   }[kind].filter(Boolean);
+  // The failed-charge email takes Hannah's wording (Settings → Emails).
+  const email = kind === 'failed' ? payNowEmail(i, today, await emailWording('payNow')) : { subject: `${heading} · Little Characters`, heading, lines };
   for (const g of guardians) {
-    await sendEmail({ to: g.email, subject: `${heading} · Little Characters`, text: `${heading}\n\n${lines.join('\n\n')}`, html: emailHtml(heading, lines) });
+    await sendEmail({ to: g.email, subject: email.subject, text: `${email.heading}\n\n${email.lines.join('\n\n')}`, html: emailHtml(email.heading, email.lines) });
   }
   return guardians.length;
+}
+
+/**
+ * Pure: the "pay now" email for a failed charge. Hannah may change the
+ * subject and the opening (Settings → Emails); the amount, the reason, the
+ * pay link, the next try and the late fee date are always in it.
+ */
+export function payNowEmail(i: Installment, today: string, wording: Wording | null): EmailParts & { lines: string[] } {
+  const payUrl = new URL(`/account/pay/${i.id}`, config.siteUrl).toString();
+  const lastDayNoFee = addDays(i.dueDate, BILLING.lateFeeAfterDays - 1);
+  const note = adjustmentNote(i) ? ` (${adjustmentNote(i)})` : '';
+  const heading = 'We couldn’t charge your card';
+  const amount = formatCents(totalDue(i));
+  const reason = failureReason(i.lastError ?? '');
+  const lines = [
+    `We tried to charge ${amount} for ${i.label}${note}, but ${reason}.`,
+    i.retryOn ? `We’ll try again on ${fmtDate(i.retryOn)}. To pay now or use a different card, go to ${payUrl}` : `Please pay or update your card here: ${payUrl}`,
+    !i.lateFeeCents && lastDayNoFee >= today ? `To avoid the ${formatCents(BILLING.lateFeeCents)} late fee, please make sure it’s paid by ${fmtDate(lastDayNoFee)}.` : '',
+    'Questions, or need to make other arrangements? Just reply to this email.',
+  ].filter(Boolean);
+  const e = worded({ subject: `${heading} · Little Characters`, heading, lines }, wording, { amount, payment: i.label, reason }, [`Amount due: ${amount} for ${i.label}${note}. We couldn’t charge it because ${reason}.`]);
+  return { ...e, lines: e.lines as string[] };
 }
 
 // ───────────── For families (always scoped to their household) ─────────────

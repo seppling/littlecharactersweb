@@ -22,6 +22,7 @@ const orderId = Astro.url.searchParams.get('order') ?? '';
 const o = household ? await getOrder(household.id, orderId) : null;
 if (!household || !o) return Astro.redirect('/account');
 if (o.status === 'paid') return Astro.redirect(`/enroll/confirmation?order=${o.id}`);
+if (o.plan === 'drop_in') return Astro.redirect(`/drop-in/pay?order=${o.id}`);
 if (o.status !== 'pending_payment') return Astro.redirect(`/enroll/review?order=${o.id}`);
 const found = Astro.locals.content.findSession(o.sessionId)!;
 // The date closed since this order was started: no new payment form. A payment

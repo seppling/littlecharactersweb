@@ -95,8 +95,9 @@ const money = (c) => `$${(c / 100).toFixed(c % 100 === 0 ? 0 : 2)}`;
 const firstMonthCents = Math.round(95 * shares[0] * 100);
 const monthlyDueToday = firstMonthCents + FEE;
 const seasonTuition = Math.round(95 * shares.reduce((a, s) => a + s, 0) * 100);
-// Ben pays for the season while Ava is already in the class: the 15% sibling discount beats 10% for paying in full.
-const seasonDueToday = seasonTuition - Math.round(seasonTuition * 0.15) + FEE;
+// Ben pays for the season while Ava is already in the class: the 15% sibling discount beats 10% for paying in full,
+// the cent rounded in the family's favor (docs/portal.md). On Oct 22, 2026: 15% of $213.75 is $32.0625, so $32.07 off.
+const seasonDueToday = seasonTuition - Math.ceil(seasonTuition * 0.15) + FEE;
 const laterMonths = months.slice(1);
 // The family discount covers the whole family (decided Oct 13, 2026): once Ben is enrolled too, Ava's
 // later months are 15% off as well, the cent rounded in the family's favor. $95 → $80.75.

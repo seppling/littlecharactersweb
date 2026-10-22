@@ -1,0 +1,483 @@
+---
+/**
+ * Staff: one show (src/server/shows.ts). Owners only.
+ *
+ * - The cast: each child with role, group, order and photo permission (read
+ *   from the child's record). Roles and groups are edited in place; up and
+ *   down change the order; a child can have more than one role.
+ * - Add to the cast: children in the performing classes first ("Add
+ *   everyone from <class>"), or any child found by name (a form post: names
+ *   never go in the address).
+ * - Copy emails and phones of the cast's families, and Email the cast.
+ * - Rehearsals: add, change, remove. A change or removal offers "Email the
+ *   families about this change" (the composer, filled in), never automatic.
+ * - Downloads (a fresh sign-in): the cast list for the program and the staff
+ *   cast sheet, CSV and PDF.
+ *
+ * Buttons post back here and redirect with ?done= so a reload doesn't repeat
+ * them. Every change is written to the audit log. No money: casting charges
+ * nothing (the performance fee is charged at sign-up).
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import RehearsalFields from '@/components/admin/RehearsalFields.astro';
+import { classPage, downloads, family, show as showLink, showEmail, shows } from '@/lib/admin-links';
+import { formatPhone } from '@/lib/contacts';
+import { todayInAthens } from '@/lib/pricing';
+import { emailList, phoneList } from '@/server/messages';
+import {
+  GROUP_MAX,
+  ROLE_MAX,
+  ShowError,
+  addRehearsal,
+  addToCast,
+  athensParts,
+  castAudience,
+  castList,
+  castSuggestions,
+  changeQuery,
+  findForCast,
+  findShow,
+  moveCast,
+  performingPrograms,
+  performingSessions,
+  photoLabel,
+  placeOf,
+  rehearsalWhen,
+  rehearsalsFor,
+  rehearsingLabel,
+  removeCast,
+  removeRehearsal,
+  showDatesLabel,
+  updateCast,
+  updateRehearsal,
+  type CastRow,
+  type RehearsalInput,
+} from '@/server/shows';
+import { requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+const { content } = Astro.locals;
+const event = findShow(content, Astro.params.slug ?? '');
+if (!event) return new Response('Not found', { status: 404 });
+const slug = event.slug;
+const here = showLink(slug);
+const today = todayInAthens();
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const after = (done: Record<string, string | number>, anchor = '', extra = '') => `${here}?${new URLSearchParams(Object.entries(done).map(([k, v]) => [k, String(v)]))}${extra ? `&${extra}` : ''}${anchor}`;
+
+const sessions = performingSessions(event, content, today);
+const sessionLabel = (s: { program: { title: string; sessions: unknown[] }; session: { label?: string } }) => (s.program.sessions.length > 1 && s.session.label ? `${s.program.title} (${s.session.label})` : s.program.title);
+const classChoices = sessions.map((s) => ({ id: s.session.id, label: sessionLabel(s) }));
+
+let error = '';
+let errorAt = '';
+let matches: Awaited<ReturnType<typeof findForCast>> | null = null;
+let query = '';
+const readRehearsal = (form: FormData): RehearsalInput => ({
+  date: String(form.get('date') ?? ''),
+  start: String(form.get('start') ?? ''),
+  end: String(form.get('end') ?? ''),
+  locationId: String(form.get('location') ?? ''),
+  note: String(form.get('note') ?? ''),
+  sessionIds: form.getAll('classes').map(String),
+});
+
+if (staff && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const get = (k: string) => String(form.get(k) ?? '');
+  const userId = staff.id;
+  try {
+    switch (get('action')) {
+      case 'add': {
+        const n = await addToCast(slug, form.getAll('studentId').map(String), userId);
+        return Astro.redirect(after({ done: 'added', n }, '#cast-h'), 303);
+      }
+      case 'add-class': {
+        const s = (await castSuggestions(event, content, today)).find((x) => x.session.id === get('sessionId'));
+        const n = s ? await addToCast(slug, s.children.filter((c) => !c.inCast).map((c) => c.studentId), userId) : 0;
+        return Astro.redirect(after({ done: 'added', n }, '#cast-h'), 303);
+      }
+      case 'find':
+        query = get('q').trim().slice(0, 100);
+        matches = query ? await findForCast(query, slug, content) : [];
+        break;
+      case 'another-role': {
+        const n = await addToCast(slug, [get('studentId')], userId);
+        if (!n) throw new ShowError('Give this child’s empty role a name first, then add another.');
+        return Astro.redirect(after({ done: 'role-added' }, '#cast-h'), 303);
+      }
+      case 'save':
+        errorAt = get('id');
+        await updateCast(slug, get('id'), { role: get('role'), group: get('group') }, userId);
+        return Astro.redirect(after({ done: 'saved' }, `#cast-${get('id')}`), 303);
+      case 'up':
+      case 'down':
+        await moveCast(slug, get('id'), get('action') === 'up' ? 'up' : 'down', userId);
+        return Astro.redirect(after({ done: 'moved' }, `#cast-${get('id')}`), 303);
+      case 'remove':
+        await removeCast(slug, get('id'), userId);
+        return Astro.redirect(after({ done: 'removed' }, '#cast-h'), 303);
+      case 'rehearsal-add':
+        errorAt = 'rehearsal-add';
+        await addRehearsal(slug, readRehearsal(form), userId, content);
+        return Astro.redirect(after({ done: 'rehearsal-added' }, '#rehearsals-h'), 303);
+      case 'rehearsal-save': {
+        errorAt = `r-${get('id')}`;
+        const was = await updateRehearsal(slug, get('id'), readRehearsal(form), userId, content);
+        return Astro.redirect(after({ done: 'rehearsal-changed' }, '#rehearsals-h', changeQuery('changed', was, get('id'))), 303);
+      }
+      case 'rehearsal-remove': {
+        const was = await removeRehearsal(slug, get('id'), userId);
+        return Astro.redirect(was ? after({ done: 'rehearsal-removed' }, '#rehearsals-h', changeQuery('removed', was)) : after({ done: 'gone' }), 303);
+      }
+    }
+  } catch (e) {
+    if (!(e instanceof ShowError)) throw e;
+    error = e.message;
+  }
+}
+
+const [cast, suggestions, rehearsals, audience] = staff
+  ? await Promise.all([castList(slug), castSuggestions(event, content, today), rehearsalsFor(slug), castAudience(slug)])
+  : [[] as CastRow[], [], [], []];
+const children = new Set(cast.map((c) => c.studentId)).size;
+const upcomingRehearsals = rehearsals.filter((r) => athensParts(r.startsAt).date >= today);
+const pastRehearsals = rehearsals.filter((r) => athensParts(r.startsAt).date < today).reverse();
+const emails = emailList(audience);
+const phones = phoneList(audience).map((p) => formatPhone(p));
+const program = downloads(`${here}/program`);
+const sheet = downloads(`${here}/cast-sheet`);
+const performers = performingPrograms(event, content);
+const rehearsalValue = (r: (typeof rehearsals)[number]) => ({ date: athensParts(r.startsAt).date, start: athensParts(r.startsAt).time, end: athensParts(r.endsAt).time, locationId: r.locationId, note: r.note, sessionIds: r.sessionIds });
+// Classes to tick on a rehearsal: the performing classes, and any other class already ticked on it.
+const choicesFor = (ids: string[]) => [
+  ...classChoices,
+  ...ids.filter((id) => !classChoices.some((c) => c.id === id)).map((id) => ({ id, label: content.findSession(id)?.program.title ?? id })),
+];
+const params = Astro.url.searchParams;
+const n = Number(params.get('n') ?? 0);
+const changeEmailHref = `${showEmail(slug)}?${new URLSearchParams([...params].filter(([k]) => ['about', 'r', 'start', 'end', 'loc', 'classes'].includes(k)))}`;
+const notice = error
+  ? null
+  : (() => {
+      switch (params.get('done')) {
+        case 'added': return n ? `Added ${plural(n, 'child', 'children')} to the cast.` : 'Nobody new to add: they’re in the cast already.';
+        case 'role-added': return 'Added a role. Type its name and save.';
+        case 'saved': return 'Saved.';
+        case 'moved': return 'Moved.';
+        case 'removed': return 'Taken off the cast.';
+        case 'rehearsal-added': return 'Rehearsal added. Teachers and families see it now.';
+        case 'rehearsal-changed': return 'Rehearsal changed.';
+        case 'rehearsal-removed': return 'Rehearsal removed.';
+        case 'gone': return 'That was already changed by someone else.';
+        default: return null;
+      }
+    })();
+const offersEmail = params.get('done') === 'rehearsal-changed' || params.get('done') === 'rehearsal-removed';
+---
+
+<AdminShell title={event.title} section="shows" back={{ href: shows(), label: 'Shows' }}>
+  <div class="admin-page show-page" data-show-page={slug}>
+    <div class="admin-head">
+      <div>
+        <h1>{event.title}</h1>
+        <p class="admin-intro">
+          <span data-show-dates>{showDatesLabel(event)}</span>
+          {performers.length > 0 && <> · {performers.map((p) => p.title).join(', ')}</>}
+        </p>
+      </div>
+      <div class="admin-head__actions">
+        <a class="btn btn--outline btn--sm" href={`/events/${slug}`}>Show’s page</a>
+        <a class="btn btn--primary btn--sm" href={showEmail(slug)} data-email-cast>Email the cast</a>
+      </div>
+    </div>
+
+    {notice && (
+      <div class="notice" role="status" data-notice>
+        {notice}
+        {offersEmail && <> <a class="btn btn--outline btn--sm" href={changeEmailHref} data-email-change>Email the families about this change</a></>}
+      </div>
+    )}
+    {error && !errorAt && <p class="notice notice--error" role="alert" data-error>{error}</p>}
+
+    <!-- The cast -->
+    <section class="show-section" aria-labelledby="cast-h" data-cast>
+      <div class="show-section__head">
+        <h2 id="cast-h">Cast <span class="count" data-cast-count>{children} in the cast</span></h2>
+        {audience.length > 0 && (
+          <div class="copy" data-copy-tools data-emails={emails.join(', ')} data-phones={phones.join(', ')}>
+            <button class="btn btn--outline btn--sm" type="button" data-copy="emails">Copy emails</button>
+            <button class="btn btn--outline btn--sm" type="button" data-copy="phones">Copy phone numbers</button>
+          </div>
+        )}
+      </div>
+      <p class="copy-status" data-copy-status role="status"></p>
+      <div class="cf copy-fallback" data-copy-fallback hidden>
+        <label for="copy-box">Select all and copy</label>
+        <textarea id="copy-box" rows="3" readonly></textarea>
+      </div>
+      {cast.length === 0 ? (
+        <div class="empty-state">
+          <strong>No one in the cast yet</strong>
+          <p>Add children from the performing classes below, or find any child by name.</p>
+        </div>
+      ) : (
+        <ol class="cast" data-cast-list>
+          {cast.map((c, i) => (
+            <li class="cast-row" id={`cast-${c.id}`} data-cast-row={c.id} data-student={c.studentId}>
+              <span class="cast-row__num" aria-hidden="true">{i + 1}</span>
+              <div class="cast-row__who">
+                <a href={family(c.householdId)} data-cast-name>{c.firstName} {c.lastName}</a>
+                <span class:list={['badge', c.photo === 'yes' ? 'badge--good' : c.photo === 'no' ? 'badge--alert' : 'badge--neutral']} data-photo={c.photo}>{photoLabel[c.photo]}</span>
+              </div>
+              <form method="post" class="cast-row__edit" data-cast-edit>
+                <input type="hidden" name="id" value={c.id} />
+                <div class="cf">
+                  <label for={`role-${c.id}`}>Role</label>
+                  <input id={`role-${c.id}`} name="role" value={c.role} maxlength={ROLE_MAX} placeholder="Narrator" autocomplete="off" />
+                </div>
+                <div class="cf">
+                  <label for={`group-${c.id}`}>Group <span class="cf__opt">optional</span></label>
+                  <input id={`group-${c.id}`} name="group" value={c.group} maxlength={GROUP_MAX} placeholder="Ensemble" autocomplete="off" />
+                </div>
+                <button class="btn btn--primary btn--sm" type="submit" name="action" value="save" data-save>Save</button>
+              </form>
+              {errorAt === c.id && error && <p class="notice notice--error cast-row__error" role="alert" data-error>{error}</p>}
+              <form method="post" class="cast-row__tools">
+                <input type="hidden" name="id" value={c.id} />
+                <input type="hidden" name="studentId" value={c.studentId} />
+                <button class="btn btn--outline btn--sm" type="submit" name="action" value="up" disabled={i === 0} aria-label={`Move ${c.firstName} up`} data-up>↑</button>
+                <button class="btn btn--outline btn--sm" type="submit" name="action" value="down" disabled={i === cast.length - 1} aria-label={`Move ${c.firstName} down`} data-down>↓</button>
+                <button class="btn btn--outline btn--sm" type="submit" name="action" value="another-role" data-another-role>Another role</button>
+                <button class="btn btn--outline btn--sm btn--danger" type="submit" name="action" value="remove" data-remove>Remove</button>
+              </form>
+            </li>
+          ))}
+        </ol>
+      )}
+      <div class="show-downloads" aria-label="Downloads">
+        <div class="show-downloads__row"><span>Cast list for the program <span class="muted">(name, role, group, in order)</span></span><DownloadLinks {...program} what="the cast list for the program" /></div>
+        <div class="show-downloads__row"><span>Staff cast sheet <span class="muted">(adds photos, class and parents’ phones)</span></span><DownloadLinks {...sheet} what="the staff cast sheet" /></div>
+      </div>
+    </section>
+
+    <!-- Add to the cast -->
+    <section class="show-section" aria-labelledby="add-h" data-cast-add>
+      <h2 id="add-h">Add to the cast</h2>
+      {suggestions.length === 0 ? (
+        <p class="muted">{performers.length ? 'The performing classes have no current sessions.' : 'This show has no performing classes yet. Name them in the website editor, or find children by name.'}</p>
+      ) : (
+        suggestions.map((s) => {
+          const left = s.children.filter((c) => !c.inCast);
+          return (
+            <div class="suggest" data-suggest={s.session.id}>
+              <div class="suggest__head">
+                <h3>{sessionLabel(s)} <span class="muted">· {plural(s.children.length, 'child', 'children')}</span></h3>
+                {left.length > 0 && (
+                  <form method="post">
+                    <input type="hidden" name="sessionId" value={s.session.id} />
+                    <button class="btn btn--primary btn--sm" type="submit" name="action" value="add-class" data-add-class={s.session.id}>Add everyone from {s.program.title}</button>
+                  </form>
+                )}
+              </div>
+              {s.children.length === 0 ? (
+                <p class="suggest__none"><span class="muted">No one enrolled yet.</span> <a class="btn btn--outline btn--sm" href={classPage(s.session.id)}>Open the class</a></p>
+              ) : (
+                <ul class="pick-list">
+                  {s.children.map((c) => (
+                    <li class="pick" data-suggest-child={c.studentId}>
+                      <span><strong>{c.name}</strong> <span class="muted">{c.family}{c.trial ? ' · trial' : ''}</span></span>
+                      {c.inCast ? (
+                        <span class="badge badge--good">In the cast</span>
+                      ) : (
+                        <form method="post">
+                          <input type="hidden" name="studentId" value={c.studentId} />
+                          <button class="btn btn--outline btn--sm" type="submit" name="action" value="add">Add</button>
+                        </form>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })
+      )}
+      <form method="post" class="find" data-find>
+        <div class="cf">
+          <label for="find-q">Find any child by name</label>
+          <input id="find-q" name="q" value={query} autocomplete="off" maxlength="100" />
+        </div>
+        <button class="btn btn--outline btn--sm" type="submit" name="action" value="find">Find</button>
+      </form>
+      {matches && (
+        matches.length === 0 ? (
+          <p class="muted" data-no-matches>No children match “{query}”.</p>
+        ) : (
+          <ul class="pick-list" data-matches>
+            {matches.map((m) => (
+              <li class="pick" data-match={m.studentId}>
+                <span><strong>{m.name}</strong> <span class="muted">{[m.family, m.age !== null && m.age !== undefined ? `age ${m.age}` : ''].filter(Boolean).join(' · ')}</span></span>
+                <form method="post">
+                  <input type="hidden" name="studentId" value={m.studentId} />
+                  <button class="btn btn--outline btn--sm" type="submit" name="action" value={m.inCast ? 'another-role' : 'add'}>{m.inCast ? 'Add another role' : 'Add'}</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+    </section>
+
+    <!-- Rehearsals -->
+    <section class="show-section" aria-labelledby="rehearsals-h" data-rehearsals>
+      <h2 id="rehearsals-h">Rehearsals</h2>
+      <p class="muted">Rehearsals show on the calendar, on the teachers’ Today for the classes that rehearse, and in families’ accounts. Times are Athens time.</p>
+      {upcomingRehearsals.length === 0 && pastRehearsals.length === 0 && <p class="muted" data-no-rehearsals>No rehearsals yet.</p>}
+      {[...upcomingRehearsals, ...pastRehearsals].length > 0 && (
+        <ul class="reh-list">
+          {[...upcomingRehearsals, ...pastRehearsals].map((r) => (
+            <li class:list={['reh', { 'reh--past': athensParts(r.startsAt).date < today }]} data-rehearsal={r.id}>
+              <div class="reh__main">
+                <strong data-rehearsal-when>{rehearsalWhen(r)}</strong>
+                <span class="muted">{[placeOf(r, content) || 'Place not set', rehearsingLabel(r, content)].join(' · ')}</span>
+                {r.note && <span class="reh__note">{r.note}</span>}
+              </div>
+              <div class="reh__tools">
+                <details class="reh__edit" open={errorAt === `r-${r.id}` || undefined}>
+                  <summary class="btn btn--outline btn--sm">Change</summary>
+                  <form method="post" class="reh-form" data-rehearsal-edit>
+                    <input type="hidden" name="id" value={r.id} />
+                    {errorAt === `r-${r.id}` && error && <p class="notice notice--error" role="alert" data-error>{error}</p>}
+                    <RehearsalFields idPrefix={`r-${r.id}`} locations={content.locations} classes={choicesFor(r.sessionIds)} value={rehearsalValue(r)} />
+                    <button class="btn btn--primary btn--sm" type="submit" name="action" value="rehearsal-save">Save changes</button>
+                  </form>
+                </details>
+                <details class="reh__remove">
+                  <summary class="btn btn--outline btn--sm">Remove</summary>
+                  <form method="post" class="reh-remove">
+                    <input type="hidden" name="id" value={r.id} />
+                    <p>Remove the rehearsal on {rehearsalWhen(r)}? Families aren’t emailed unless you choose to.</p>
+                    <button class="btn btn--danger btn--sm" type="submit" name="action" value="rehearsal-remove" data-rehearsal-remove>Remove this rehearsal</button>
+                  </form>
+                </details>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <details class="reh-add" open={errorAt === 'rehearsal-add' || undefined} data-rehearsal-add>
+        <summary class="btn btn--primary btn--sm">Add a rehearsal</summary>
+        <form method="post" class="reh-form">
+          {errorAt === 'rehearsal-add' && error && <p class="notice notice--error" role="alert" data-error>{error}</p>}
+          <RehearsalFields idPrefix="new" locations={content.locations} classes={classChoices} />
+          <button class="btn btn--primary btn--sm" type="submit" name="action" value="rehearsal-add">Add rehearsal</button>
+        </form>
+      </details>
+    </section>
+  </div>
+</AdminShell>
+
+<script>
+  // Copy the cast's parent emails (for Gmail's BCC) or phone numbers (for a group text).
+  const tools = document.querySelector<HTMLElement>('[data-copy-tools]');
+  const status = document.querySelector<HTMLElement>('[data-copy-status]');
+  const fallback = document.querySelector<HTMLElement>('[data-copy-fallback]');
+  const box = fallback?.querySelector('textarea');
+  for (const btn of tools?.querySelectorAll<HTMLButtonElement>('[data-copy]') ?? []) {
+    btn.addEventListener('click', async () => {
+      const what = btn.dataset.copy === 'phones' ? 'phones' : 'emails';
+      const items = (tools!.dataset[what] ?? '').split(', ').filter(Boolean);
+      const label = what === 'phones' ? 'phone number' : 'email';
+      if (!items.length) {
+        if (status) status.textContent = what === 'phones' ? 'No phone numbers on file for these families.' : 'No emails on file for these families.';
+        return;
+      }
+      const text = items.join(', ');
+      if (box) box.value = text;
+      try {
+        await navigator.clipboard.writeText(text);
+        if (fallback) fallback.hidden = true;
+        if (status) status.textContent = `Copied ${items.length} ${label}${items.length === 1 ? '' : 's'}.`;
+      } catch {
+        if (fallback) fallback.hidden = false;
+        box?.focus();
+        box?.select();
+        if (status) status.textContent = `Your browser didn’t allow copying. Select the ${label}s below and copy them.`;
+      }
+    });
+  }
+</script>
+
+<style>
+  .show-page { display: grid; gap: var(--space-l); }
+  .show-page .admin-head { margin-bottom: 0; }
+  .show-section { display: grid; gap: 0.75rem; }
+  .show-section h2 { font-size: var(--step-1); margin: 0; }
+  .show-section__head { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; }
+  .count { font-family: var(--font-body, inherit); font-weight: 500; font-size: var(--step--1); color: var(--ink-soft); margin-left: 0.4rem; }
+  .copy { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .copy-status { margin: 0; font-size: var(--step--1); color: var(--ink-soft); }
+  .copy-status:empty { display: none; }
+  .muted { color: var(--ink-mute); font-size: var(--step--1); margin: 0; }
+  .notice .btn { margin-left: 0.5rem; }
+
+  .cast { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--ink); }
+  .cast-row {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1.3fr) minmax(0, 2.6fr) auto;
+    gap: 0.5rem 1rem;
+    align-items: end;
+    padding: 0.75rem 0.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .cast-row__num { align-self: center; font-weight: 700; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+  .cast-row__who { align-self: center; display: grid; gap: 0.3rem; justify-items: start; min-width: 0; overflow-wrap: anywhere; }
+  .cast-row__who a { font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; min-height: 44px; }
+  .cast-row__edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 0.5rem; align-items: end; }
+  .cast-row__edit .cf label { font-size: var(--step--2); }
+  .cast-row__tools { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: end; }
+  .cast-row__tools .btn { min-height: 44px; min-width: 44px; justify-content: center; }
+  .cast-row__error { grid-column: 2 / -1; margin: 0; }
+
+  .show-downloads { display: grid; gap: 0.5rem; padding-top: var(--space-s); border-top: 1px solid var(--line); }
+  .show-downloads__row { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: center; justify-content: space-between; font-size: var(--step--1); }
+
+  .suggest { display: grid; gap: 0.4rem; padding: 0.75rem 1rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-md); background: var(--paper); }
+  .suggest__head { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; }
+  .suggest h3 { font-size: var(--step-0); margin: 0; }
+  .suggest__none { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; margin: 0; }
+  .pick-list { list-style: none; margin: 0; padding: 0; display: grid; }
+  .pick { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; align-items: center; justify-content: space-between; min-height: 48px; padding: 0.3rem 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+  .pick:last-child { border-bottom: 0; }
+  .find { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; max-width: 32rem; }
+  .find .cf { flex: 1 1 14rem; }
+
+  .reh-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  .reh { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem 1rem; align-items: start; padding: 0.75rem 1rem; border: 1.5px solid var(--line-strong); border-left: 6px solid var(--teal); border-radius: var(--r-sm); background: var(--paper); }
+  .reh--past { opacity: 0.7; }
+  .reh__main { display: grid; gap: 0.15rem; min-width: 0; overflow-wrap: anywhere; }
+  .reh__note { font-size: var(--step--1); white-space: pre-line; }
+  .reh__tools { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: end; }
+  .reh__tools details[open] { grid-column: 1 / -1; flex-basis: 100%; }
+  .reh__tools summary, .reh-add > summary { list-style: none; cursor: pointer; }
+  .reh__tools summary::-webkit-details-marker, .reh-add > summary::-webkit-details-marker { display: none; }
+  .reh-form, .reh-remove { display: grid; gap: 0.75rem; margin-top: 0.75rem; padding: 0.75rem; border-radius: var(--r-sm); background: var(--hall); }
+  .reh-remove p { margin: 0; }
+  .reh-add { justify-self: start; width: 100%; }
+  .reh-add > summary { display: inline-flex; }
+
+  @media (max-width: 760px) {
+    .cast { border-top: 0; display: grid; gap: var(--space-s); }
+    .cast-row { grid-template-columns: 2rem minmax(0, 1fr); padding: 0.75rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-md); background: var(--paper); }
+    .cast-row__edit, .cast-row__tools, .cast-row__error { grid-column: 1 / -1; }
+    .cast-row__edit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .cast-row__edit .btn { grid-column: 1 / -1; justify-content: center; }
+    .cast-row__tools { justify-content: start; }
+    .reh { grid-template-columns: minmax(0, 1fr); }
+    .reh__tools { justify-content: start; }
+  }
+</style>

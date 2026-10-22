@@ -104,7 +104,7 @@ export function todayInAthens(now = new Date()) {
 }
 
 /** How many times the session's days fall in a calendar month ("2026-10"): the full month a class's first month is measured against. */
-function classDaysInMonth(session: Pick<Session, 'days'>, month: string) {
+export function classDaysInMonth(session: Pick<Session, 'days'>, month: string) {
   const days = new Set(session.days.map((d) => DAY_INDEX[d]));
   let n = 0;
   for (let d = toDate(`${month}-01`); monthKey(toIso(d)) === month; d.setUTCDate(d.getUTCDate() + 1)) {

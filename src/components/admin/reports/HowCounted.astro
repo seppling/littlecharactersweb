@@ -1,0 +1,12 @@
+---
+/** "How it's counted": one plain sentence, behind a small disclosure (on a dashboard tile and at the top of a report). */
+interface Props {
+  how: string;
+}
+const { how } = Astro.props;
+---
+
+<details class="how" data-how>
+  <summary>How it’s counted</summary>
+  <p>{how}</p>
+</details>

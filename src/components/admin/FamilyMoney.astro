@@ -1,0 +1,96 @@
+---
+/**
+ * On a family's staff page, under Payments: every payment the family made
+ * (sign-ups, monthly payments, drop-ins) with what was refunded and a Refund
+ * button; their credits with "Add a credit"; and the yearly statement
+ * downloads (docs/back-office.md → Refunds, credits and statements).
+ */
+import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import { creditsPage, downloads, familyStatement, refundPage } from '@/lib/admin-links';
+import { formatCents } from '@/lib/pricing';
+import { creditLabel, creditStatus, familyCredits } from '@/server/credits';
+import { familyPayments, firstNames, paymentWhat, refundDay, refundNote } from '@/server/refunds';
+import { statementYears } from '@/server/statements';
+
+interface Props {
+  householdId: string;
+}
+const { householdId } = Astro.props;
+const payments = await familyPayments(householdId);
+const credits = (await familyCredits(householdId)).filter((c) => c.state !== 'removed');
+const names = await firstNames(householdId);
+const years = statementYears(payments);
+const howText = { card: 'Card', cash: 'Cash or check', test: 'Test payment', none: '' } as const;
+const failed = (p: (typeof payments)[number]) => p.refunds.filter((r) => r.status === 'failed').length;
+---
+
+<section class="admin-section money" aria-labelledby="history-h" data-payment-history>
+  <h2 id="history-h">Payment history</h2>
+  {payments.length === 0 ? (
+    <p class="muted">No payments yet.</p>
+  ) : (
+    <table class="data-table">
+      <thead><tr><th>Paid</th><th>For</th><th>Amount</th><th>How</th><th><span class="sr-only">Refund</span></th></tr></thead>
+      <tbody>
+        {payments.map((p) => (
+          <tr data-payment-row={p.key}>
+            <td data-label="Paid">{refundDay(p.paidAt)}</td>
+            <td data-label="For">
+              <span class="for">
+                <span>{paymentWhat(p, Astro.locals.content.findSession)}{p.kind === 'signup' && p.studentIds.length > 0 && ` (${p.studentIds.map((id) => names.get(id)).filter(Boolean).join(', ')})`}</span>
+                {refundNote(p.amountCents, p.refunds) && <span class="badge badge--warning" data-refunded>{refundNote(p.amountCents, p.refunds)}</span>}
+                {failed(p) > 0 && <span class="badge badge--alert">Refund didn’t go through</span>}
+              </span>
+            </td>
+            <td data-label="Amount" class="num">{formatCents(p.amountCents)}</td>
+            <td data-label="How"><span>{howText[p.via]}</span></td>
+            <td data-label="">
+              {p.leftCents > 0 || p.refunds.length > 0 ? (
+                <a class="btn btn--outline btn--sm" href={refundPage(p.orderId, p.installmentId)} data-refund-link>{p.leftCents > 0 ? 'Refund' : 'Refunds'}<span class="sr-only"> {paymentWhat(p, Astro.locals.content.findSession)}</span></a>
+              ) : null}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</section>
+
+<section class="admin-section money" aria-labelledby="credits-h" data-family-credits>
+  <div class="admin-head">
+    <h2 id="credits-h">Credits</h2>
+    <div class="admin-head__actions"><a class="btn btn--outline btn--sm" href={creditsPage(householdId)} data-add-credit>Add a credit</a></div>
+  </div>
+  {credits.length === 0 ? (
+    <p class="muted">No credits. A credit comes off the family’s next payment instead of a refund.</p>
+  ) : (
+    <ul class="credits">
+      {credits.map((c) => (
+        <li data-credit={c.state}>
+          <strong>{formatCents(c.amountCents)}</strong> {c.reason}{c.showToFamily ? '' : ' (staff only)'}
+          <span class="muted">· {creditStatus(c)} · the family sees “{creditLabel(c)}”</span>
+        </li>
+      ))}
+    </ul>
+  )}
+</section>
+
+{years.length > 0 && (
+  <section class="admin-section money" aria-labelledby="statement-h" data-statements>
+    <h2 id="statement-h">Statements</h2>
+    <ul class="years">
+      {years.map((y) => (
+        <li><span>Statement for {y}</span> <DownloadLinks {...downloads(familyStatement(householdId, y))} what={`the statement for ${y}`} /></li>
+      ))}
+    </ul>
+    <p class="muted">Every payment that year, each refund, and the total. The family can download the same statement from their account.</p>
+  </section>
+)}
+
+<style>
+  .money .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .money .for { display: grid; gap: 0.3rem; justify-items: start; overflow-wrap: anywhere; }
+  .money .credits, .money .years { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  .money .credits li { overflow-wrap: anywhere; }
+  .money .years li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+</style>

@@ -1,0 +1,25 @@
+---
+/**
+ * A child's or a family's tags as small outlined chips (staff only). Labels,
+ * not alerts: they sit apart from the safety badges. Nothing when there are none.
+ */
+import type { TagChip } from '@/server/tags';
+
+interface Props {
+  tags: TagChip[] | undefined;
+}
+const tags = Astro.props.tags ?? [];
+---
+
+{
+  tags.length > 0 && (
+    <ul class="tag-chips" data-tags>
+      {tags.map((t) => (
+        <li class="tag-chip" data-tag={t.id}>
+          <span class="sr-only">Tag: </span>
+          {t.name}
+        </li>
+      ))}
+    </ul>
+  )
+}

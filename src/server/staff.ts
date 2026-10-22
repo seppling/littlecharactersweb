@@ -12,7 +12,7 @@
  *   (AdminShell shows both).
  * - requireTeacherOrOwner: the teacher app's pages. What a teacher sees there
  *   is filtered by their classes (src/server/teachers.ts).
- * - requireFreshStaff: downloads, staff changes and later refunds need a
+ * - requireFreshStaff: downloads, staff changes, refunds and credits need a
  *   sign-in from the last 15 minutes. Otherwise staff confirm with an emailed
  *   code at /admin/confirm and come back.
  * - readSession: staff sessions end after 30 days without use, or 1 hour on
@@ -177,7 +177,9 @@ export function requireTeacherOrOwner(locals: Pick<App.Locals, 'user' | 'staffRo
   response: Response | null;
 } {
   if (locals.user && locals.staffRole && locals.staffId) return { staff: { ...locals.user, role: locals.staffRole, staffId: locals.staffId }, response: null };
-  if (locals.user) return { staff: null, response: notFound() };
+  // Signed in but not staff (a family, or a teacher who was turned off): the teacher app's
+  // service worker clears everything it kept on this device (public/admin/teach-sw.js).
+  if (locals.user) return { staff: null, response: new Response(null, { status: 404, headers: { 'X-Teach-Signed-Out': '1' } }) };
   return { staff: null, response: null };
 }
 

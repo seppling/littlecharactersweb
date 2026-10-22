@@ -20,6 +20,7 @@ import { audit } from './records';
 import { ageOn, listOrders, readStudentNotes, studentDetailsInput } from './family';
 import { listInstallments, totalDue } from './billing';
 import { childBadges, type Badge } from '@/lib/badges';
+import { childAttendance } from './attendance';
 import { emergencyContactsInput, formatPhone, pickupPeopleInput, type EmergencyContact, type PickupPerson } from '@/lib/contacts';
 import { todayInAthens } from '@/lib/pricing';
 import type { SiteContent } from '@/content/site-content';
@@ -419,6 +420,12 @@ export async function familyPage(householdId: string, catalog: Catalog, viewerId
     familyEmails(householdId),
   ]);
   await audit(viewerId, 'admin.family.view', 'household', householdId);
+  // Classes missed this season, and "Missed the last two", from the teacher app's attendance.
+  const attended = await childAttendance(
+    kids.map((k) => k.id),
+    catalog,
+    currentTerm(catalog.programs, today),
+  );
 
   const children = kids.map((s) => {
     const { allergies, medicalNotes } = readStudentNotes(s);
@@ -434,6 +441,7 @@ export async function familyPage(householdId: string, catalog: Catalog, viewerId
         photoConsent: s.photoConsent,
         firstEnrolledAt,
         trial: counting.some((e) => e.status === 'trial' && isCurrent(catalog.findSession(e.sessionId)?.session, today)),
+        missedLastTwo: attended.get(s.id)?.missedLastTwo,
         birthdate: s.birthdate,
       },
       today,
@@ -450,6 +458,7 @@ export async function familyPage(householdId: string, catalog: Catalog, viewerId
       pickupNotes: s.pickupNotes ?? '',
       photoConsent: s.photoConsent,
       detailsConfirmedAt: s.detailsConfirmedAt,
+      missedThisSeason: attended.get(s.id)?.missed ?? 0,
     };
   });
 
@@ -469,6 +478,8 @@ export async function familyPage(householdId: string, catalog: Catalog, viewerId
         status: e.status,
         /** Added by staff without charge: why (roster-changes.ts). */
         noChargeReason: e.noChargeReason,
+        /** Why they left, when Hannah picked a reason on Remove (Settings → Reasons). */
+        dropReason: e.status === 'cancelled' ? e.dropReason : null,
       };
     })
     .sort((a, b) => Number(b.current) - Number(a.current) || STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || b.endDate.localeCompare(a.endDate) || a.title.localeCompare(b.title));

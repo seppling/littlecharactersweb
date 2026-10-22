@@ -7,7 +7,10 @@ import AdminShell from '@/components/admin/AdminShell.astro';
 import { AdjustmentError, addAdjustment, lockedReason, orderBilling, previewAdjustment, removeAdjustment, type AdjustmentInput, type PaymentChange } from '@/server/adjustments';
 import { staffReason } from '@/server/payments-admin';
 import { formatCents } from '@/lib/pricing';
-import { family, payments, paymentsOrder } from '@/lib/admin-links';
+import { creditsPage, family, payments, paymentsOrder, refundPage } from '@/lib/admin-links';
+import { orderPayments, paymentWhat, refundDay, refundNote } from '@/server/refunds';
+import { getDb, schema } from '@/server/db';
+import { inArray } from 'drizzle-orm';
 import { requireStaff } from '@/server/staff';
 import { ADJUSTMENTS, FAMILY_DISCOUNT_LABEL, adjustmentLine, describeAdjustment, familyDiscountCents, familyLabel, parseAdjustmentValue, repeatLabel, type AdjustmentKind, type AdjustmentRepeat } from '@/lib/adjustments';
 
@@ -69,7 +72,12 @@ const statusText = { scheduled: 'Scheduled', processing: 'Charging now', paid: '
 const changeable = data ? data.installments.filter((i) => !lockedReason(i)) : [];
 const active = data ? data.adjustments.filter((a) => !a.removedAt) : [];
 const removed = data ? data.adjustments.filter((a) => a.removedAt) : [];
-const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', trial: 'Free trial', once: 'One payment', waitlist: 'Waitlist' } as const)[data.order.plan] : '';
+// Payments made on this order, with refunds (src/server/refunds.ts); and which discounts are credits (removed from the family's credits instead).
+const paid = data ? await orderPayments(orderId) : [];
+const creditAdjustments = new Set(
+  active.length ? (await (await getDb()).select({ id: schema.credit.adjustmentId }).from(schema.credit).where(inArray(schema.credit.adjustmentId, active.map((a) => a.id)))).map((c) => c.id) : [],
+);
+const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', trial: 'Free trial', once: 'One payment', waitlist: 'Waitlist', drop_in: 'Drop-in (one class)' } as const)[data.order.plan] : '';
 ---
 
 <AdminShell title={data ? `${data.family}: ${title}` : 'Payments'} section="payments" back={{ href: payments(), label: 'Payments' }}>
@@ -111,7 +119,28 @@ const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', tri
               </table>
             </div>
           ) : (
-            <p class="admin-intro">No monthly payments: this family paid at enrollment. To give money back, refund it in the Stripe dashboard.</p>
+            <p class="admin-intro">No monthly payments: this family paid at enrollment. To give money back, use Refund under Payments made.</p>
+          )}
+        </section>
+
+        <section class="admin-section" aria-labelledby="made-h" data-payments-made>
+          <h2 id="made-h">Payments made</h2>
+          {paid.length === 0 ? (
+            <p class="admin-intro">Nothing paid yet.</p>
+          ) : (
+            <table class="data-table">
+              <thead><tr><th>Paid</th><th>For</th><th>Amount</th><th><span class="sr-only">Refund</span></th></tr></thead>
+              <tbody>
+                {paid.map((p) => (
+                  <tr data-payment-row={p.key}>
+                    <td data-label="Paid">{refundDay(p.paidAt)}</td>
+                    <td data-label="For"><span class="made">{paymentWhat(p, Astro.locals.content.findSession)}{p.via === 'cash' && <span class="sub">Cash or check</span>}{refundNote(p.amountCents, p.refunds) && <span class="badge badge--warning" data-refunded>{refundNote(p.amountCents, p.refunds)}</span>}</span></td>
+                    <td data-label="Amount" class="num">{formatCents(p.amountCents)}</td>
+                    <td data-label="">{(p.leftCents > 0 || p.refunds.length > 0) && <a class="btn btn--outline btn--sm" href={refundPage(p.orderId, p.installmentId)} data-refund-link>{p.leftCents > 0 ? 'Refund' : 'Refunds'}</a>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </section>
 
@@ -124,11 +153,15 @@ const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', tri
                 <li class="tile">
                   <div class="adj__head">
                     <strong>{describeAdjustment(a)}, {repeatLabel(a.repeat)}</strong>
+                    {creditAdjustments.has(a.id) ? (
+                      <a class="btn btn--outline btn--sm" href={creditsPage(data.order.householdId)}>A credit: see Credits</a>
+                    ) : (
                     <form method="post" data-confirm={`Remove “${a.reason}”? Payments not paid yet go back to their usual amount.`}>
                       <input type="hidden" name="action" value="remove" />
                       <input type="hidden" name="id" value={a.id} />
                       <button class="btn btn--outline btn--sm" type="submit">Remove</button>
                     </form>
+                    )}
                   </div>
                   <span>Reason: {a.reason}{a.showToFamily ? '' : ' (staff only)'}</span>
                   <span>The family sees: “{a.familyLabel}”</span>
@@ -237,6 +270,7 @@ const planText = data ? ({ monthly: 'Monthly autopay', full: 'Paid in full', tri
   .pay th, .pay td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
   .pay th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
   .sub { display: block; color: var(--ink-mute); font-size: var(--step--1); }
+  .made { display: grid; gap: 0.3rem; justify-items: start; overflow-wrap: anywhere; }
   .line { display: block; color: var(--ok); font-weight: 600; }
   .line--family { color: var(--ink-soft); }
   .adjs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-s, 0.75rem); }

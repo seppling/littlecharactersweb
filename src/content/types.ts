@@ -58,6 +58,8 @@ export interface Session {
   /** Registration handled by a partner (e.g. a school's own system). */
   externalUrl?: string;
   externalLabel?: string;
+  /** Drop-ins (one class of a weekly class, src/server/drop-ins.ts): this class's own price in dollars, or none at all. */
+  dropIn?: { price?: number; off?: boolean };
 }
 
 /** What students actually do, for the "What they’ll do" filter in the class finder. */
@@ -207,6 +209,10 @@ export interface SiteSettings {
   studioDirector?: { billingEnds?: string };
   /** When class sign-ups close; see src/lib/session-dates.ts. */
   signups: { lateJoinWeeks: number };
+  /** Drop-ins to one class of a weekly class: the price in dollars (Hannah to confirm), and whether families can book them. */
+  dropIns?: { price: number; open?: boolean };
+  /** Families' yearly payment statements (src/server/statements.ts): an optional tax ID line and note. Empty leaves them out. */
+  statements?: { taxId?: string; note?: string };
   parking: { walkIn: string; dropOff: string; staffOnly: string; late: string; walkInMap?: ImageRef; dropOffMap?: ImageRef };
   description: string;
   previewBanner?: boolean;

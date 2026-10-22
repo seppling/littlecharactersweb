@@ -12,13 +12,31 @@
  * change), and Offer the spot / Withdraw offer on the waitlist. Buttons post
  * back here; changes redirect with ?done= so a reload doesn't repeat them.
  * Children's names are searched by POST, never put in the address.
+ *
+ * Drop-ins (src/server/drop-ins.ts): the roster for one date (?date=, the next
+ * class by default) adds that day's drop-ins with the Drop-in badge; the
+ * Drop-ins part lists them all with Cancel; "Add a drop-in" sends a pay link,
+ * or books one with no charge after a fresh sign-in.
+ *
+ * Tags and skills (src/server/tags.ts, skills.ts): child tags on the roster,
+ * "Show tagged …" (?tag=) and "Tag selected" (posts to ./[sessionId]/tags.ts);
+ * the Skills part with the grid, its downloads and progress notes to send.
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
+import ClassSkills from '@/components/admin/ClassSkills.astro';
+import RosterTags from '@/components/admin/RosterTags.astro';
+import TagChips from '@/components/admin/TagChips.astro';
+import { draftsForClass } from '@/server/progress-notes';
+import { classSkillGrid } from '@/server/skills';
+import { listTags, tagsForStudents, withTag } from '@/server/tags';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
-import { classEmail, classes, classPage, classPrint, classSignInSheet, downloads, family, paymentsOrder } from '@/lib/admin-links';
+import { classAttendance as attendanceList, classDropIns as classDropInsLink, classEmail, classes, classPage, classPrint, classSignInSheet, downloads, family, paymentsOrder, refundPage, settingsDaysOff, teachRoster } from '@/lib/admin-links';
+import { enrollmentOrder, refundedByOrder } from '@/server/refunds';
+import { classAttendance } from '@/server/attendance';
 import { formatPhone, smsHref, telHref } from '@/lib/contacts';
-import { formatCents } from '@/lib/pricing';
+import { formatCents, isWeeklyTuitionClass, meetings, todayInAthens } from '@/lib/pricing';
+import { classDates } from '@/server/class-day';
 import { capacityFor } from '@/server/family';
 import { classLine, classRoster, type ClassRoster } from '@/server/classes';
 import { newSendToken } from '@/server/messages';
@@ -42,6 +60,21 @@ import {
   type RemovalPreview,
 } from '@/server/roster-changes';
 import { requireFreshStaff, requireStaff } from '@/server/staff';
+import { OTHER_MAX, dropReasonFrom, isOther, reasonList } from '@/server/reasons';
+import {
+  DropInError,
+  addDropInWithoutCharge,
+  cancelDropIn,
+  classDropIns,
+  dropInDates,
+  dropInDay,
+  dropInPrice,
+  dropInRoster,
+  dropInStatus,
+  rosterDate,
+  sendDropInPayLink,
+  type DropInDate,
+} from '@/server/drop-ins';
 
 export const prerender = false;
 const { staff, response } = requireStaff(Astro.locals);
@@ -60,6 +93,7 @@ const after = (done: Record<string, string | number>, anchor = '') => `${here}?$
 const freshFor = (studentId: string) => requireFreshStaff(Astro.locals, new URL(`${here}?add=${encodeURIComponent(studentId)}`, Astro.url));
 
 let removal: RemovalPreview | null = null;
+let dropReasons: string[] = [];
 let matches: AddCandidate[] | null = null;
 let query = '';
 let pick: (AddCandidate & { full: boolean }) | null = null;
@@ -67,6 +101,17 @@ let way: AddWay = 'link';
 let reason = '';
 let addError = '';
 let actionError = '';
+// Add a drop-in: find, choose a way and a date, confirm.
+let dropMatches: AddCandidate[] | null = null;
+let dropQuery = '';
+let dropPick: AddCandidate | null = null;
+let dropWay: AddWay = 'link';
+let dropDate = '';
+let dropReason = '';
+let dropError = '';
+let cancelError = '';
+/** A no-charge drop-in needs a fresh sign-in too; staff come back to this child's confirm step. */
+const freshForDrop = (studentId: string) => requireFreshStaff(Astro.locals, new URL(`${here}?dropAdd=${encodeURIComponent(studentId)}#drop-ins-h`, Astro.url));
 if (staff && Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const get = (k: string) => String(form.get(k) ?? '');
@@ -77,10 +122,15 @@ if (staff && Astro.request.method === 'POST') {
       case 'remove-check':
         removal = await previewRemoval(get('enrollmentId'), session.id, get('mode') === 'only' ? 'only' : 'stop');
         if (!removal) return Astro.redirect(after({ done: 'gone' }), 303);
+        dropReasons = await reasonList('drop');
         break;
       case 'remove': {
-        const r = await removeChild(get('enrollmentId'), session.id, get('mode') === 'only' ? 'only' : 'stop', staff.id);
-        return Astro.redirect(after(r ? { done: get('mode') === 'only' ? 'removed-only' : 'removed', n: r.stopped, fd: r.familyDiscount } : { done: 'gone' }), 303);
+        // The child's order, for the notice's "Refund part of a payment" link.
+        const removing = { orderId: await enrollmentOrder(get('enrollmentId')) };
+        // Why they left (optional; Settings → Reasons).
+        const why = dropReasonFrom(get('dropReason'), get('dropOther'), await reasonList('drop'));
+        const r = await removeChild(get('enrollmentId'), session.id, get('mode') === 'only' ? 'only' : 'stop', staff.id, why);
+        return Astro.redirect(after(r ? { done: get('mode') === 'only' ? 'removed-only' : 'removed', n: r.stopped, fd: r.familyDiscount, ...(removing?.orderId ? { order: removing.orderId } : {}) } : { done: 'gone' }), 303);
       }
       // Add: find a child, choose a way, confirm.
       case 'find':
@@ -127,11 +177,62 @@ if (staff && Astro.request.method === 'POST') {
         return Astro.redirect(after({ done: 'offered' }, '#waitlist-h'), 303);
       case 'withdraw':
         return Astro.redirect(after({ done: (await withdrawOffer(get('offerId'), session.id, staff.id)) ? 'withdrawn' : 'gone' }, '#waitlist-h'), 303);
+      // Drop-ins.
+      case 'drop-find':
+        dropQuery = get('q').trim();
+        dropMatches = dropQuery ? await findChildren(dropQuery, session.id, Astro.locals.content) : [];
+        break;
+      case 'drop-check':
+        dropWay = get('way') === 'free' ? 'free' : 'link';
+        if (dropWay === 'free') {
+          const stop = freshForDrop(get('studentId'));
+          if (stop) return stop;
+        }
+        dropPick = await addCandidate(get('studentId'), session.id, Astro.locals.content);
+        break;
+      case 'drop-link':
+      case 'drop-free': {
+        dropWay = get('action') === 'drop-free' ? 'free' : 'link';
+        if (dropWay === 'free') {
+          const stop = freshForDrop(get('studentId'));
+          if (stop) return stop;
+        }
+        dropDate = get('date');
+        dropReason = get('reason');
+        try {
+          if (dropWay === 'free') {
+            await addDropInWithoutCharge({ sessionId: session.id, studentId: get('studentId'), date: dropDate, staffId: staff.id, reason: dropReason, overFull });
+            return Astro.redirect(after({ done: 'drop-added', date: dropDate }, '#drop-ins-h'), 303);
+          }
+          const r = await sendDropInPayLink({ sessionId: session.id, studentId: get('studentId'), date: dropDate, staffId: staff.id, token: get('token') });
+          return Astro.redirect(after({ done: r.duplicate ? 'link-again' : 'drop-link', n: r.parents }, '#drop-ins-h'), 303);
+        } catch (e) {
+          if (!(e instanceof DropInError)) throw e;
+          dropError = e.message;
+          dropPick = await addCandidate(get('studentId'), session.id, Astro.locals.content);
+        }
+        break;
+      }
+      case 'drop-cancel':
+        try {
+          const ok = await cancelDropIn({ dropInId: get('dropInId'), sessionId: session.id, staffId: staff.id, reason: get('reason') });
+          return Astro.redirect(after({ done: ok ? 'drop-cancelled' : 'gone' }, '#drop-ins-h'), 303);
+        } catch (e) {
+          if (!(e instanceof DropInError)) throw e;
+          cancelError = `${get('dropInId')}:${e.message}`;
+        }
+        break;
     }
   } catch (e) {
     if (!(e instanceof RosterError)) throw e;
     actionError = e.message;
   }
+}
+// Back from a fresh sign-in: straight to that child's "Drop-in, no charge" step.
+const dropAddParam = Astro.url.searchParams.get('dropAdd');
+if (staff && !dropPick && dropAddParam && Astro.request.method === 'GET') {
+  dropWay = 'free';
+  dropPick = await addCandidate(dropAddParam, session.id, Astro.locals.content);
 }
 // Back from a fresh sign-in: straight to that child's "Add without charge" step.
 const addParam = Astro.url.searchParams.get('add');
@@ -144,6 +245,8 @@ const token = newSendToken();
 const n = Number(Astro.url.searchParams.get('n') ?? 0);
 const fd = Number(Astro.url.searchParams.get('fd') ?? 0);
 const discountEnded = fd ? ` The 15% family discount ended for this family, so ${plural(fd, 'unpaid payment')} went back to the regular price. The family is emailed the new amounts.` : '';
+// After a removal: a link to the child's payments, to refund part of one (src/server/refunds.ts).
+const removedOrder = Astro.url.searchParams.get('order');
 const notice = actionError
   ? { ok: false, text: actionError }
   : (() => {
@@ -155,6 +258,9 @@ const notice = actionError
         case 'link-again': return { ok: true, text: 'That link was already sent.' };
         case 'offered': return { ok: true, text: `Offer sent. The family has ${OFFER_HOURS} hours to sign up.` };
         case 'withdrawn': return { ok: true, text: 'Offer withdrawn. They’re still on the waitlist.' };
+        case 'drop-link': return { ok: true, text: `Pay link sent to ${plural(n, 'parent')}. The drop-in is booked once they pay.` };
+        case 'drop-added': return { ok: true, text: 'Drop-in added, with no charge.' };
+        case 'drop-cancelled': return { ok: true, text: 'Drop-in cancelled. If it was paid, press Refund next to it under Drop-ins.' };
         case 'gone': return { ok: false, text: 'That changed in the meantime. Nothing was done.' };
         default: return null;
       }
@@ -164,7 +270,37 @@ const cap = capacityFor(program, session);
 const files = downloads(classPage(session.id));
 const sheet = classSignInSheet(session.id);
 const joined = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
+// The Attendance part: each class date so far, from the teacher app.
+const att = staff ? await classAttendance(session) : { dates: [], children: [] };
+const attFiles = downloads(attendanceList(session.id));
+// Every meeting, with days off struck through (src/server/class-day.ts).
+const today = todayInAthens();
+const dates = staff ? await classDates(session) : [];
+const classesLeft = dates.filter((d) => d.date >= today && !d.dayOff).length;
+const dateLabel = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.length) === 1 ? 'place' : 'places'}${cap ? ' filled' : ''}`;
+
+// The roster's date: drop-ins are for one date. ?date= picks a class date; the next class by default.
+const classDays = meetings(session);
+const dateParam = Astro.url.searchParams.get('date');
+const onDate = dateParam && classDays.includes(dateParam) ? dateParam : rosterDate(session);
+const dropKids = staff && onDate ? await dropInRoster(session.id, onDate, staff.id) : [];
+const rosterKids = [...students, ...dropKids].sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
+const isWeekly = isWeeklyTuitionClass(program, session);
+const dropPrice = dropInPrice(Astro.locals.content.site, program, session);
+const allDropIns = staff ? await classDropIns(program, session) : [];
+const upcomingDropIns = allDropIns.filter((d) => d.date >= today);
+const pastDropIns = allDropIns.filter((d) => d.date < today).reverse();
+const refunded = await refundedByOrder(allDropIns.filter((d) => d.paid && d.orderId).map((d) => d.orderId!));
+const dropDates: DropInDate[] = dropPick ? await dropInDates(program, session) : [];
+const dropFiles = downloads(classDropInsLink(session.id));
+// Tags (staff labels) on the roster, its tag filter (?tag=), and the Skills part.
+const rosterTags = await tagsForStudents(rosterKids.map((c) => c.studentId));
+const tagFilter = Astro.url.searchParams.get('tag');
+const shownKids = withTag(rosterKids, rosterTags, tagFilter);
+const childTags = staff ? (await listTags()).filter((t) => t.kind === 'child') : [];
+const skillGrid = staff ? await classSkillGrid(program, session) : { skills: [], children: [] };
+const noteDrafts = staff ? await draftsForClass(session.id, Astro.locals.content) : [];
 ---
 
 <AdminShell title={program.title} section="classes" back={{ href: classes(), label: 'Classes' }}>
@@ -173,7 +309,7 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
       <div>
         <h1>{program.title}</h1>
         <p class="class-line">{classLine(session, location?.name)}</p>
-        <p class="class-counts" data-counts><strong>{places}</strong> · {waitlist.length} on the waitlist</p>
+        <p class="class-counts" data-counts><strong>{places}</strong> · {waitlist.length} on the waitlist{upcomingDropIns.some((d) => d.status === 'booked') && ` · ${plural(upcomingDropIns.filter((d) => d.status === 'booked').length, 'drop-in')} ahead`}</p>
       </div>
       <div class="admin-head__actions class-actions">
         <a class="btn btn--outline btn--sm" href={classPrint(session.id)} data-print-link>Print</a>
@@ -183,7 +319,7 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
       </div>
     </div>
     <p class="safety">Rosters include medical notes. Share them only with the teaching team. Views and downloads are logged.</p>
-    {notice && <p class:list={['notice', { 'notice--error': !notice.ok }]} role="status" data-notice>{notice.text}</p>}
+    {notice && <p class:list={['notice', { 'notice--error': !notice.ok }]} role="status" data-notice>{notice.text}{notice.ok && removedOrder && /^removed/.test(Astro.url.searchParams.get('done') ?? '') && <> <a href={paymentsOrder(removedOrder)} data-refund-after-remove>Refund part of a payment</a></>}</p>}
 
     <div class="roster-tools" data-roster-tools>
       <details class="tool" open={matches !== null || undefined}>
@@ -261,18 +397,111 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
           </div>
         </form>
       )}
+
+      {isWeekly && (
+        <details class="tool" open={dropMatches !== null || undefined} data-drop-in-tool>
+          <summary class="btn btn--outline btn--sm">Add a drop-in</summary>
+          <div class="tool__body">
+            {dropPrice === null && <p class="muted">Families can’t book drop-ins for this class right now (Site settings → Drop-ins, or the class’s own setting). You can still add one with no charge.</p>}
+            <form method="post" class="find" data-drop-find>
+              <label for="drop-q">Child’s name</label>
+              <div class="find__row">
+                <input id="drop-q" name="q" value={dropQuery} autocomplete="off" required maxlength="100" />
+                <button class="btn btn--primary btn--sm" name="action" value="drop-find">Find</button>
+              </div>
+            </form>
+            {dropMatches !== null && (dropMatches.length === 0 ? (
+              <p class="muted" data-no-match>No child matches “{dropQuery}”. A new family books a drop-in from the class’s page on the website.</p>
+            ) : (
+              <ul class="picks" data-drop-results>
+                {dropMatches.map((c) => {
+                  const inClass = c.status === 'active' || c.status === 'trial';
+                  return (
+                    <li class="pick" data-drop-child={c.studentId}>
+                      <div class="pick__who">
+                        <strong>{c.name}</strong>
+                        <span class="muted">{c.age !== null ? `Age ${c.age} · ` : ''}{c.family}</span>
+                        {c.ageNote && <span class="warn-line">{c.ageNote}</span>}
+                        {inClass && <span class="muted">{c.firstName} is already in this class.</span>}
+                      </div>
+                      {!inClass && (
+                        <div class="pick__actions">
+                          {dropPrice !== null && (
+                            <form method="post"><input type="hidden" name="studentId" value={c.studentId} /><input type="hidden" name="way" value="link" /><button class="btn btn--outline btn--sm" name="action" value="drop-check">Send a pay link</button></form>
+                          )}
+                          <form method="post"><input type="hidden" name="studentId" value={c.studentId} /><input type="hidden" name="way" value="free" /><button class="btn btn--outline btn--sm" name="action" value="drop-check">No charge</button></form>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ))}
+          </div>
+        </details>
+      )}
+
+      {dropPick && (
+        <form method="post" class="confirm" data-drop-confirm={dropWay}>
+          <input type="hidden" name="studentId" value={dropPick.studentId} />
+          <input type="hidden" name="token" value={token} />
+          <h2>{dropWay === 'free' ? `Add ${dropPick.name} as a drop-in, with no charge?` : `Send the ${dropPick.family} a pay link for a drop-in?`}</h2>
+          {dropWay === 'free' ? (
+            <p>{dropPick.firstName} is on the roster for that date only. No payment, and nothing else the family pays changes.</p>
+          ) : (
+            <p>The parents get an email with a link to pay {dropPrice !== null ? formatCents(dropPrice) : ''} for that date. {dropPick.firstName} is booked once they pay; until then the place isn’t held.</p>
+          )}
+          {(dropPick.status === 'active' || dropPick.status === 'trial') && <p class="notice notice--error">{dropPick.firstName} is already in this class.</p>}
+          {dropPick.ageNote && <p class="warn-box">{dropPick.ageNote} You can still go ahead.</p>}
+          <div class="field">
+            <label for="drop-date">Date</label>
+            <select id="drop-date" name="date" required data-drop-date>
+              {dropDates.map((d) => (
+                <option value={d.date} selected={d.date === dropDate} disabled={d.problem === 'day-off' || (d.problem === 'full' && dropWay === 'link')}>
+                  {d.label}{d.problem === 'day-off' ? ' (no class)' : d.problem === 'full' ? ' (full)' : d.placesLeft !== undefined ? ` (${plural(d.placesLeft, 'place')} left)` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          {dropWay === 'free' && dropDates.some((d) => d.problem === 'full') && (
+            <label class="check"><input type="checkbox" name="overFull" value="yes" /> If the date is full, add anyway</label>
+          )}
+          {dropWay === 'free' && (
+            <div class="field">
+              <label for="drop-reason">Reason</label>
+              <input id="drop-reason" name="reason" value={dropReason} required maxlength={REASON_MAX} placeholder="Make-up for a missed class, trade…" />
+              <p class="muted">Shown in the Drop-ins list as “No charge: …”, and kept in the record. Leave out medical details.</p>
+            </div>
+          )}
+          {dropError && <p class="notice notice--error" role="alert" data-drop-error>{dropError}</p>}
+          <div class="confirm__actions">
+            <button class="btn btn--primary btn--sm" name="action" value={dropWay === 'free' ? 'drop-free' : 'drop-link'} disabled={dropPick.status === 'active' || dropPick.status === 'trial' || !dropDates.length}>{dropWay === 'free' ? 'Add the drop-in' : 'Send the link'}</button>
+            <a class="btn btn--outline btn--sm" href={here}>Cancel</a>
+          </div>
+        </form>
+      )}
     </div>
 
     <section class="roster-section" aria-labelledby="roster-h">
-      <h2 id="roster-h">Roster <span class="muted">({students.length})</span></h2>
-      {students.length === 0 ? (
+      <h2 id="roster-h">Roster <span class="muted">({students.length}{dropKids.length > 0 && ` + ${dropKids.length} drop-in${dropKids.length === 1 ? '' : 's'}`})</span></h2>
+      {onDate && classDays.length > 1 && (
+        <form method="get" class="roster-date" data-roster-date>
+          <label for="roster-date">Drop-ins on</label>
+          <select id="roster-date" name="date">
+            {classDays.map((d) => <option value={d} selected={d === onDate}>{dropInDay(d)}{d === today ? ' (today)' : ''}</option>)}
+          </select>
+          <button class="btn btn--outline btn--sm">Show</button>
+        </form>
+      )}
+      <RosterTags sessionId={session.id} date={dateParam && onDate === dateParam ? onDate : null} filter={tagFilter} tags={childTags} total={rosterKids.length} shown={shownKids.length} />
+      {rosterKids.length === 0 ? (
         <div class="empty-state">
           <strong>No one enrolled yet.</strong>
           <p>Children show up here when a family signs up.</p>
         </div>
       ) : (
         <ul class="roster" data-roster>
-          {students.map((c) => {
+          {shownKids.map((c) => {
             const medical = !!(c.allergies || c.medicalNotes);
             return (
               <li class="kid" data-child={c.studentId}>
@@ -283,6 +512,7 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
                       {c.age !== null && <span class="muted">Age {c.age}</span>}
                     </span>
                     <Badges badges={c.badges} />
+                    <TagChips tags={rosterTags.get(c.studentId)} />
                     <span class="kid__more" aria-hidden="true">Care details</span>
                   </summary>
                   <div class="care" data-care>
@@ -348,8 +578,11 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
                   <a class="family-link" href={family(c.householdId)}>Family page<span class="sr-only">: {c.family}</span></a>
                 </div>
                 <div class="kid__actions" data-roster-actions>
-                  {c.noChargeReason && <p class="muted no-charge" data-no-charge>{noChargeLabel(c.noChargeReason)}</p>}
-                  {removal?.enrollmentId === c.enrollmentId ? (
+                  <label class="check" data-tag-tick><input type="checkbox" form="tag-selected" name="studentId" value={c.studentId} /> Tick to tag<span class="sr-only"> {c.name}</span></label>
+                  {c.dropInId ? (
+                    <p class="muted no-charge" data-drop-in-note>Drop-in on {dropInDay(onDate!)} only{c.noChargeReason ? `. No charge: ${c.noChargeReason}` : ''}. Cancel it under Drop-ins.</p>
+                  ) : c.noChargeReason && <p class="muted no-charge" data-no-charge>{noChargeLabel(c.noChargeReason)}</p>}
+                  {c.dropInId ? null : removal?.enrollmentId === c.enrollmentId ? (
                     <form method="post" class="confirm" data-remove-check={removal.mode} id="remove-check">
                       <input type="hidden" name="enrollmentId" value={c.enrollmentId} />
                       <input type="hidden" name="mode" value={removal.mode} />
@@ -387,7 +620,18 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
                       ) : (
                         <p class="muted">No other payment changes.</p>
                       )}
-                      <p class="muted">Nothing already paid is refunded here. To give money back, refund it in the Stripe dashboard.</p>
+                      <p class="muted">Nothing already paid is refunded here. To give money back, refund part of a payment afterwards: the next page links to it.</p>
+                      <div class="drop-why" data-drop-reason>
+                        <label for="drop-reason">Why are they leaving? <span class="muted">(optional)</span></label>
+                        <select id="drop-reason" name="dropReason">
+                          <option value="">Don’t say</option>
+                          {dropReasons.map((r) => <option value={r} data-other={isOther(r) ? '1' : undefined}>{r}</option>)}
+                        </select>
+                        <div class="drop-why__other">
+                          <label for="drop-other">In a few words</label>
+                          <input id="drop-other" name="dropOther" maxlength={OTHER_MAX} autocomplete="off" />
+                        </div>
+                      </div>
                       <div class="confirm__actions">
                         <button class="btn btn--danger btn--sm" name="action" value="remove">{removal.mode === 'only' ? 'Remove only' : 'Remove and stop payments'}</button>
                         <a class="btn btn--outline btn--sm" href={here}>Cancel</a>
@@ -414,6 +658,38 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
         </ul>
       )}
     </section>
+
+    <section class="roster-section" aria-labelledby="attendance-h" data-attendance>
+      <div class="att-head">
+        <h2 id="attendance-h">Attendance</h2>
+        {att.dates.length > 0 && <DownloadLinks csv={attFiles.csv} pdf={attFiles.pdf} what="the attendance" />}
+      </div>
+      {att.dates.length === 0 ? (
+        <p class="muted">No classes yet. Teachers take attendance in the teacher app on the day.</p>
+      ) : (
+        <ul class="att-dates">
+          {[...att.dates].reverse().map((d) => (
+            <li data-att-date={d.date}>
+              <a class="att-date" href={teachRoster(session.id, d.date)}>
+                <span class="att-date__day">{new Date(`${d.date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })}</span>
+                {d.dayOff ? (
+                  <span class="muted">No class: {d.dayOff}</span>
+                ) : d.by ? (
+                  <span><strong data-att-count>{d.present} of {d.marked}</strong> present <span class="muted">· taken by {d.by}</span></span>
+                ) : (
+                  <span class="warn-line" data-att-missing>Not taken{d.marked ? ` (${d.marked} marked)` : ''}</span>
+                )}
+                {d.absent.length > 0 && !d.dayOff && (
+                  <span class="att-absent" data-att-absent>Absent: {d.absent.map((x) => (x.reason ? `${x.name} (${x.reason})` : x.name)).join(', ')}</span>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+
+    <ClassSkills sessionId={session.id} programSlug={program.slug} grid={skillGrid} drafts={noteDrafts} />
 
     <section class="roster-section" aria-labelledby="waitlist-h" data-waitlist>
       <h2 id="waitlist-h">Waitlist <span class="muted">({waitlist.length})</span></h2>
@@ -466,6 +742,78 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
         </ol>
       )}
     </section>
+
+    <section class="roster-section" aria-labelledby="dates-h" data-class-dates>
+      <div class="dates-head">
+        <h2 id="dates-h">Dates <span class="muted">({plural(classesLeft, 'class', 'classes')} left)</span></h2>
+        <a class="btn btn--outline btn--sm" href={settingsDaysOff(session.id)} data-add-day-off>Add a day off</a>
+      </div>
+      {dates.length === 0 ? (
+        <p class="muted">No dates.</p>
+      ) : (
+        <ol class="dates">
+          {dates.map((d) => (
+            <li class:list={['date', { 'date--past': d.date < today, 'date--off': !!d.dayOff }]} data-date={d.date}>
+              {d.dayOff ? (
+                <><s>{dateLabel(d.date)}</s> <span class="date__off" data-day-off>No class: {d.dayOff.reason}</span></>
+              ) : (
+                <span>{dateLabel(d.date)}</span>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+    {(isWeekly || allDropIns.length > 0) && (
+      <section class="roster-section" aria-labelledby="drop-ins-h" data-drop-ins>
+        <div class="section-head">
+          <h2 id="drop-ins-h">Drop-ins <span class="muted">({upcomingDropIns.filter((d) => d.status === 'booked').length} ahead)</span></h2>
+          <DownloadLinks csv={dropFiles.csv} pdf={dropFiles.pdf} what="the drop-ins" />
+        </div>
+        {allDropIns.length === 0 ? (
+          <p class="muted">No drop-ins yet.{dropPrice !== null && ` Families book them from the class’s page on the website (${formatCents(dropPrice)} a class).`}</p>
+        ) : (
+          [{ title: 'Coming up', rows: upcomingDropIns, key: 'upcoming' }, { title: 'Past', rows: pastDropIns, key: 'past' }].filter((g) => g.rows.length).map((g) => (
+            <>
+              <h3 class="sub-h">{g.title}</h3>
+              <table class="data-table" data-drop-in-list={g.key}>
+                <thead><tr><th>Date</th><th>Child</th><th>Family</th><th>Paid</th><th><span class="sr-only">Actions</span></th></tr></thead>
+                <tbody>
+                  {g.rows.map((d) => (
+                    <tr data-drop-in-row={d.id} data-status={d.status}>
+                      <td data-label="Date">{dropInDay(d.date)}</td>
+                      <td data-label="Child"><span><strong>{d.child}</strong>{d.overLimit && <span class="badges"><span class="badge badge--warning" data-over-limit>Over the limit</span></span>}</span></td>
+                      <td data-label="Family"><a class="cell-link" href={family(d.householdId)}>{d.family}</a></td>
+                      <td data-label="Paid"><span>{dropInStatus(d)}{d.orderId && d.paid && <> · <a class="cell-link" href={paymentsOrder(d.orderId)}>Payment<span class="sr-only"> for {d.child}’s drop-in</span></a></>}{d.orderId && refunded.get(d.orderId) ? <span class="badge badge--warning" data-refunded>Refunded {formatCents(refunded.get(d.orderId)!)}</span> : null}</span></td>
+                      <td data-label="">
+                        {d.status === 'cancelled' && d.paid && d.orderId && (refunded.get(d.orderId) ?? 0) < d.priceCents && (
+                          <a class="btn btn--outline btn--sm" href={refundPage(d.orderId)} data-drop-in-refund>Refund<span class="sr-only"> {d.child}’s drop-in on {dropInDay(d.date)}</span></a>
+                        )}
+                        {d.status !== 'cancelled' && (
+                          <details class="tool">
+                            <summary class="btn btn--outline btn--sm">Cancel<span class="sr-only"> {d.child}’s drop-in on {dropInDay(d.date)}</span></summary>
+                            <form method="post" class="tool__body">
+                              <input type="hidden" name="dropInId" value={d.id} />
+                              <div class="field">
+                                <label for={`cancel-${d.id}`}>Reason</label>
+                                <input id={`cancel-${d.id}`} name="reason" required maxlength={REASON_MAX} placeholder="Sick, booked by mistake…" />
+                              </div>
+                              {d.paid && <p class="muted">Nothing is refunded here. Once it’s cancelled, press Refund next to it.</p>}
+                              {cancelError.startsWith(`${d.id}:`) && <p class="notice notice--error" role="alert">{cancelError.slice(d.id.length + 1)}</p>}
+                              <button class="btn btn--danger btn--sm" name="action" value="drop-cancel">Cancel the drop-in</button>
+                            </form>
+                          </details>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ))
+        )}
+      </section>
+    )}
   </div>
 </AdminShell>
 
@@ -478,6 +826,13 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
   .muted { color: var(--ink-mute); font-weight: 400; }
   .roster-section { display: grid; gap: var(--space-s); }
   .roster-section h2 { font-size: var(--step-1); }
+  .dates-head { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; }
+  .dates { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); gap: 0.4rem; }
+  .date { padding: 0.45rem 0.7rem; border: 1.5px solid var(--line); border-radius: var(--r-sm); background: var(--paper); font-size: var(--step--1); font-variant-numeric: tabular-nums; }
+  .date--past { color: var(--ink-mute); background: transparent; }
+  .date--off { border-color: var(--red); background: var(--red-tint); }
+  .date--off s { color: var(--ink-mute); }
+  .date__off { display: block; font-weight: 650; color: var(--red-ink); overflow-wrap: anywhere; }
   .roster,
   .waitlist,
   .people { list-style: none; margin: 0; padding: 0; }
@@ -557,9 +912,28 @@ const places = `${students.length}${cap ? ` of ${cap}` : ''} ${(cap ?? students.
   .warn-box { display: grid; gap: 0.4rem; padding: 0.6rem 0.8rem; border-radius: var(--r-sm); background: var(--yellow-tint); border-left: 5px solid var(--yellow); margin: 0; }
   .warn-box p { margin: 0; }
   .warn-line { color: var(--yellow-ink); font-weight: 650; font-size: var(--step--1); }
+  .att-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+  .att-dates { list-style: none; margin: 0; padding: 0; display: grid; }
+  .att-date { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: 0.2rem 1rem; align-items: center; min-height: 44px; padding: 0.4rem 0; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+  .att-date:hover { background: var(--hall); text-decoration: none; }
+  .att-date__day { font-weight: 700; }
   .check { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; font-weight: 650; }
   .check input { width: 1.25rem; height: 1.25rem; accent-color: var(--purple); }
   .no-charge { margin: 0; font-size: var(--step--1); overflow-wrap: anywhere; }
+  .roster-date { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: var(--step--1); }
+  .roster-date label { font-weight: 650; }
+  .roster-date select,
+  .confirm select { min-height: 44px; max-width: 100%; }
+  /* Remove's reason: "Other" opens a few words. */
+  .att-absent { grid-column: 2; font-size: var(--step--1); color: var(--ink-soft); overflow-wrap: anywhere; }
+  .drop-why { display: grid; gap: 0.3rem; max-width: 26rem; }
+  .drop-why label { font-weight: 650; }
+  .drop-why input { min-height: 44px; min-width: 0; }
+  .drop-why__other { display: none; gap: 0.3rem; }
+  .drop-why:has(option[data-other]:checked) .drop-why__other { display: grid; }
+  .section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem 1rem; }
+  .sub-h { font-size: var(--step-0); margin-top: var(--space-xs); }
+  .cell-link { display: inline-flex; align-items: center; min-height: 44px; }
   @media (max-width: 760px) {
     .kid,
     .wait { grid-template-columns: minmax(0, 1fr); }

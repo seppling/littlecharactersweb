@@ -1,0 +1,64 @@
+---
+/**
+ * Staff: "Email a tag". One email to each family of the children carrying a
+ * child tag, or to each family carrying a family tag, from the site, logged
+ * on each family's page. The same steps as "Email the class"
+ * (src/server/message-composer.ts); the log's rows are kind `tag`.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import MessageComposer from '@/components/admin/MessageComposer.astro';
+import { settingsTags, tagEmail } from '@/lib/admin-links';
+import { blankState, composerStep, sentHere, type ComposerContext, type ComposerState } from '@/server/message-composer';
+import { earlierMessages, footerFor } from '@/server/messages';
+import { requireStaff } from '@/server/staff';
+import { getTag, tagAudience } from '@/server/tags';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+const t = staff ? await getTag(Astro.params.tagId ?? '') : null;
+if (staff && !t) return new Response('Not found', { status: 404 });
+const here = tagEmail(Astro.params.tagId ?? '');
+
+let state: ComposerState | null = null;
+let sent: Awaited<ReturnType<typeof sentHere>> = null;
+let earlier: Awaited<ReturnType<typeof earlierMessages>> = [];
+let audience: ComposerContext['audience'] = [];
+const footer = footerFor();
+if (staff && t) {
+  audience = await tagAudience(t);
+  const ctx: ComposerContext = { kind: 'tag', sessionId: t.id, here, audience, footer, staff };
+  if (Astro.request.method === 'POST') {
+    const result = await composerStep(await Astro.request.formData(), ctx);
+    if ('redirect' in result) return Astro.redirect(result.redirect, 303);
+    state = result.state;
+  } else {
+    sent = await sentHere(Astro.url.searchParams.get('sent') ?? '', ctx);
+    if (!sent) state = blankState(ctx);
+  }
+  earlier = await earlierMessages({ tagId: t.id });
+}
+const sentNotice = Astro.url.searchParams.get('again') ? 'This email was already sent. It wasn’t sent again.' : Astro.url.searchParams.get('retried') ? 'Tried again.' : undefined;
+const line = t ? (t.kind === 'child' ? `The families of the ${t.count} ${t.count === 1 ? 'child' : 'children'} tagged ${t.name}.` : `The ${t.count} ${t.count === 1 ? 'family' : 'families'} tagged ${t.name}.`) : '';
+---
+
+<AdminShell title={t ? `Email: ${t.name}` : 'Email a tag'} section="settings" back={{ href: settingsTags(), label: 'Tags' }}>
+  {
+    staff && t && (
+      <MessageComposer
+        kind="tag"
+        heading={`Email the tag: ${t.name}`}
+        line={line}
+        here={here}
+        doneHref={settingsTags()}
+        doneLabel="Back to Tags"
+        audience={audience}
+        footer={footer}
+        state={state}
+        sent={sent}
+        sentNotice={sentNotice}
+        earlier={earlier}
+      />
+    )
+  }
+</AdminShell>

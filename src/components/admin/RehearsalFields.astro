@@ -1,0 +1,63 @@
+---
+/**
+ * A rehearsal's fields (date, start, end, place, note, the classes that
+ * rehearse), for Add a rehearsal and Change on a show's page. Times are
+ * Athens times (src/server/shows.ts stores them as instants).
+ */
+import type { Location } from '@/content/types';
+import { NOTE_MAX } from '@/server/shows';
+
+interface Props {
+  /** Keeps ids unique when the form shows more than once. */
+  idPrefix: string;
+  locations: Location[];
+  /** The performing classes, and any other class already ticked. */
+  classes: { id: string; label: string }[];
+  value?: { date: string; start: string; end: string; locationId: string | null; note: string | null; sessionIds: string[] };
+}
+const { idPrefix: p, locations, classes, value } = Astro.props;
+---
+
+<div class="reh-fields">
+  <div class="cf">
+    <label for={`${p}-date`}>Date</label>
+    <input id={`${p}-date`} type="date" name="date" value={value?.date ?? ''} required />
+  </div>
+  <div class="cf">
+    <label for={`${p}-start`}>Starts</label>
+    <input id={`${p}-start`} type="time" name="start" value={value?.start ?? ''} step="300" required />
+  </div>
+  <div class="cf">
+    <label for={`${p}-end`}>Ends</label>
+    <input id={`${p}-end`} type="time" name="end" value={value?.end ?? ''} step="300" required />
+  </div>
+  <div class="cf">
+    <label for={`${p}-loc`}>Place <span class="cf__opt">optional</span></label>
+    <select id={`${p}-loc`} name="location">
+      <option value="">Not set yet</option>
+      {locations.map((l) => <option value={l.id} selected={value?.locationId === l.id}>{l.shortName}</option>)}
+    </select>
+  </div>
+  <div class="cf reh-fields__wide">
+    <label for={`${p}-note`}>Note for teachers and families <span class="cf__opt">optional</span></label>
+    <textarea id={`${p}-note`} name="note" rows="2" maxlength={NOTE_MAX}>{value?.note ?? ''}</textarea>
+  </div>
+  <fieldset class="cf reh-fields__wide reh-fields__classes">
+    <legend class="cf__label">Who rehearses</legend>
+    <p class="cf__help">Tick the classes that come. Tick none for the whole cast.</p>
+    {classes.map((c) => (
+      <label class="reh-fields__class">
+        <input type="checkbox" name="classes" value={c.id} checked={value?.sessionIds.includes(c.id)} />
+        <span>{c.label}</span>
+      </label>
+    ))}
+  </fieldset>
+</div>
+
+<style>
+  .reh-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: 0.75rem 1rem; align-items: end; }
+  .reh-fields__wide { grid-column: 1 / -1; }
+  .reh-fields__classes { border: 0; padding: 0; margin: 0; display: grid; gap: 0.2rem; }
+  .reh-fields__class { display: flex; align-items: center; gap: 0.6rem; min-height: 44px; font-weight: 600; }
+  .reh-fields__class input { width: 1.3rem; height: 1.3rem; accent-color: var(--purple); }
+</style>

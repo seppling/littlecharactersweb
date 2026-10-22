@@ -1,0 +1,199 @@
+---
+/**
+ * One report (docs/back-office.md → Reports): its question as the title,
+ * "How it's counted", its filters, the table (sortable by any column), the
+ * total, and CSV and PDF with the same rows (src/server/reports/downloads.ts).
+ * Owners only. Reports that name children are written to the audit log when
+ * viewed; the allergy and medical list asks for a fresh sign-in first.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import HowCounted from '@/components/admin/reports/HowCounted.astro';
+import StarButton from '@/components/admin/reports/StarButton.astro';
+import { downloads, report, reportsLibrary } from '@/lib/admin-links';
+import { todayInAthens } from '@/lib/pricing';
+import { audit } from '@/server/records';
+import { cellText, readFilters, sortRows, type ReportFilters } from '@/server/reports/common';
+import { favorites } from '@/server/reports/favorites';
+import { findReport, GROUPS, Loads, runReport } from '@/server/reports/library';
+import { filterOptions, filtersLine } from '@/server/reports/page';
+import { requireFreshStaff, requireStaff } from '@/server/staff';
+import '@/styles/reports.css';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+const def = findReport(Astro.params.key ?? '');
+if (!def) return new Response(null, { status: 404 });
+// Care details: a sign-in in the last 15 minutes, as for downloads.
+if (staff && def.fresh) {
+  const stop = requireFreshStaff(Astro.locals, Astro.url);
+  if (stop) return stop;
+}
+
+const f = readFilters(Astro.url.searchParams);
+const loads = new Loads({ content: Astro.locals.content, today: todayInAthens(), now: new Date() });
+const result = staff ? await runReport(def, f, loads, staff.id) : null;
+const rows = result ? sortRows(result.rows, f.sort, f.dir) : [];
+const line = filtersLine(def, f, loads);
+if (staff && def.namesChildren) await audit(staff.id, 'admin.report.view', 'report', def.key, line || undefined);
+const starred = staff && Astro.locals.staffId ? (await favorites(Astro.locals.staffId)).includes(def.key) : false;
+const options = filterOptions(def, loads);
+const here = Astro.url.pathname + Astro.url.search;
+const params = (change: Partial<ReportFilters>) => ({ ...f, ...change }) as Record<string, string | number | undefined>;
+const files = downloads(report(def.key, params({})));
+const sortHref = (i: number) => report(def.key, params({ sort: i, dir: f.sort === i && f.dir !== 'desc' ? 'desc' : 'asc' }));
+const isNum = (k?: string) => k === 'number' || k === 'money' || k === 'percent';
+const season = f.season ?? loads.seasons().current ?? '';
+const group = GROUPS.find((g) => g.key === def.group)!.title;
+const hasFilters = def.filters.length > 0;
+---
+
+<AdminShell title={def.title} section="reports" back={{ href: reportsLibrary(), label: 'Reports' }}>
+  <div class="admin-page report-page" data-report={def.key}>
+    <div class="admin-head">
+      <div>
+        <p class="admin-crumbs"><a href={reportsLibrary()}>Reports</a> <span aria-hidden="true">›</span> {group}</p>
+        <h1>{def.title}</h1>
+        {def.was && <p class="report-was">Was in Studio Director: {def.was}</p>}
+      </div>
+      <div class="admin-head__actions">
+        <StarButton reportKey={def.key} on={starred} name={def.title} next={here} />
+        <DownloadLinks csv={files.csv} pdf={files.pdf} what={def.title} />
+      </div>
+    </div>
+    <HowCounted how={def.how} />
+
+    {
+      hasFilters && (
+        <form class="report-filters" method="get" data-report-filters>
+          {def.filters.includes('season') && (
+            <label>
+              <span>Season</span>
+              <select name="season">
+                {options.seasons.map((o) => (
+                  <option value={o.value} selected={(f.season === 'all' ? 'all' : season) === o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {def.filters.includes('month') && (
+            <label>
+              <span>Month</span>
+              <input type="month" name="month" value={f.month ?? (def.key === 'payments-received' ? todayInAthens().slice(0, 7) : '')} />
+            </label>
+          )}
+          {def.filters.includes('week') && (
+            <label>
+              <span>Week of</span>
+              <input type="date" name="week" value={f.week ?? todayInAthens()} />
+            </label>
+          )}
+          {def.filters.includes('program') && (
+            <label>
+              <span>Program</span>
+              <select name="program">
+                <option value="">All programs</option>
+                {options.programs.map((o) => <option value={o.value} selected={f.program === o.value}>{o.label}</option>)}
+              </select>
+            </label>
+          )}
+          {def.filters.includes('location') && options.locations.length > 1 && (
+            <label>
+              <span>Location</span>
+              <select name="location">
+                <option value="">All locations</option>
+                {options.locations.map((o) => <option value={o.value} selected={f.location === o.value}>{o.label}</option>)}
+              </select>
+            </label>
+          )}
+          {def.filters.includes('class') && (
+            <label class="report-filters__wide">
+              <span>Class</span>
+              <select name="class" data-filter-class>
+                <option value="">{def.key === 'allergies' ? 'Pick a class' : 'All classes'}</option>
+                {options.classes.map((o) => <option value={o.value} selected={f.class === o.value}>{o.label}</option>)}
+              </select>
+            </label>
+          )}
+          {def.filters.includes('show') && options.shows.length > 0 && (
+            <label>
+              <span>Show</span>
+              <select name="show">
+                <option value="">No show</option>
+                {options.shows.map((o) => <option value={o.value} selected={f.show === o.value}>{o.label}</option>)}
+              </select>
+            </label>
+          )}
+          {def.filters.includes('who') && (
+            <label>
+              <span>Families</span>
+              <select name="who">
+                <option value="new" selected={f.who !== 'all'}>New this season</option>
+                <option value="all" selected={f.who === 'all'}>Every family with a class</option>
+              </select>
+            </label>
+          )}
+          {result && result.columns.length > 1 && (
+            <label>
+              <span>Sort by</span>
+              <select name="sort">
+                <option value="">As listed</option>
+                {result.columns.map((c, i) => <option value={i} selected={f.sort === i}>{c.label}</option>)}
+              </select>
+            </label>
+          )}
+          <button class="btn btn--primary btn--sm" type="submit">Show</button>
+        </form>
+      )
+    }
+
+    {
+      result && (
+        <>
+          <section class="report-total" aria-label="Total" data-report-total>
+            <span class="report-total__label">{result.total.label}</span>
+            <strong data-total-value>{result.total.display}</strong>
+            {line && <span class="report-total__filters">{line}</span>}
+            {result.note && <span class="report-total__note">{result.note}</span>}
+          </section>
+          {rows.length ? (
+            <div class="report-table-wrap">
+              <table class="data-table report-table" data-report-table>
+                <thead>
+                  <tr>
+                    {result.columns.map((c, i) => (
+                      <th scope="col" class={isNum(c.kind) ? 'num' : undefined} aria-sort={f.sort === i ? (f.dir === 'desc' ? 'descending' : 'ascending') : undefined}>
+                        <a href={sortHref(i)} data-sort={i}>
+                          {c.label}
+                          {f.sort === i && <span aria-hidden="true">{f.dir === 'desc' ? ' ↓' : ' ↑'}</span>}
+                        </a>
+                        <span class="report-table__label">{c.label}</span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr>
+                      {r.cells.map((c, i) => (
+                        <td data-label={result.columns[i].label} class={isNum(result.columns[i].kind) ? 'num' : undefined}>
+                          {i === 0 && r.href ? <a href={r.href}>{cellText(c, result.columns[i].kind)}</a> : <span>{cellText(c, result.columns[i].kind) || '—'}</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div class="empty-state" data-report-empty>
+              <strong>Nothing to show</strong>
+              <p>{result.empty}</p>
+            </div>
+          )}
+        </>
+      )
+    }
+  </div>
+</AdminShell>

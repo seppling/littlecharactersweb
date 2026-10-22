@@ -1,0 +1,83 @@
+---
+/**
+ * Staff: "Email the cast". One email to each family with a child in the show's
+ * cast, through the staff composer (src/server/message-composer.ts), logged
+ * on each family's page. The log keeps it as a `class` message with the
+ * show's key (`show:<slug>`) in place of a class id.
+ *
+ * After a rehearsal changes or is removed, the show's page links here with
+ * the old times (?about=changed|removed&start=&end=&loc=&classes=, and r=
+ * for a change): the subject and message are filled in and only the
+ * families called to that rehearsal are ticked. Nothing is sent until staff
+ * review and send it.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import MessageComposer from '@/components/admin/MessageComposer.astro';
+import { show as showLink, showEmail } from '@/lib/admin-links';
+import { blankState, composerStep, sentHere, type ComposerContext, type ComposerState } from '@/server/message-composer';
+import { earlierMessages, footerFor, pickRecipients } from '@/server/messages';
+import { castAudience, changeEmail, findShow, readChangeQuery, rehearsalById, rehearsalFamilies, showDatesLabel, showMessageKey } from '@/server/shows';
+import { requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+const { content } = Astro.locals;
+const event = findShow(content, Astro.params.slug ?? '');
+if (!event) return new Response('Not found', { status: 404 });
+const here = showEmail(event.slug);
+const key = showMessageKey(event.slug);
+
+let state: ComposerState | null = null;
+let sent: Awaited<ReturnType<typeof sentHere>> = null;
+let earlier: Awaited<ReturnType<typeof earlierMessages>> = [];
+let audience: ComposerContext['audience'] = [];
+const footer = footerFor(event.title);
+if (staff) {
+  audience = await castAudience(event.slug);
+  const ctx: ComposerContext = { kind: 'class', sessionId: key, here, audience, footer, staff };
+  if (Astro.request.method === 'POST') {
+    const result = await composerStep(await Astro.request.formData(), ctx);
+    if ('redirect' in result) return Astro.redirect(result.redirect, 303);
+    state = result.state;
+  } else {
+    sent = await sentHere(Astro.url.searchParams.get('sent') ?? '', ctx);
+    if (!sent) {
+      state = blankState(ctx);
+      // "Email the families about this change": filled in, with the families called to that rehearsal ticked.
+      const change = readChangeQuery(Astro.url.searchParams);
+      if (change) {
+        const now = change.about === 'changed' && change.nowId ? await rehearsalById(event.slug, change.nowId) : null;
+        const families = await rehearsalFamilies(event.slug, change.was);
+        if (now) for (const id of await rehearsalFamilies(event.slug, now)) families.add(id);
+        const { subject, body } = changeEmail(change.about, event.title, change.was, now, content);
+        state = { ...state, subject, body, selected: families, recipients: pickRecipients(audience, { includeWaitlist: false, selected: families }) };
+      }
+    }
+  }
+  earlier = await earlierMessages({ sessionId: key });
+}
+const sentNotice = Astro.url.searchParams.get('again') ? 'This email was already sent. It wasn’t sent again.' : Astro.url.searchParams.get('retried') ? 'Tried again.' : undefined;
+---
+
+<AdminShell title={`Email: ${event.title}`} section="shows" back={{ href: showLink(event.slug), label: event.title }}>
+  {
+    staff && (
+      <MessageComposer
+        kind="class"
+        heading={`Email the cast: ${event.title}`}
+        line={showDatesLabel(event)}
+        here={here}
+        doneHref={showLink(event.slug)}
+        doneLabel="Back to the show"
+        audience={audience}
+        footer={footer}
+        state={state}
+        sent={sent}
+        sentNotice={sentNotice}
+        earlier={earlier}
+        emptyText="No one in the cast yet."
+      />
+    )
+  }
+</AdminShell>

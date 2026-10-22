@@ -1,0 +1,296 @@
+---
+/**
+ * Staff: the calendar. Every class (time, class, "8/12"), the site's events and
+ * days off, for a month or a week (src/server/calendar.ts).
+ *
+ * - Month (the default): a grid on a computer; on a phone the same month as a
+ *   list of the days with something on them.
+ * - Week (?view=week&week=YYYY-MM-DD): the seven days as a list, each class
+ *   with its class page and that date's attendance roster.
+ * - Filters (?program=, ?location=, ?teacher=) carry over to the month's
+ *   downloads: the Daily Class Schedule and the Class Schedule.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import { calendar, downloads, settingsDaysOff } from '@/lib/admin-links';
+import { timeOf } from '@/lib/format';
+import { todayInAthens } from '@/lib/pricing';
+import { isProd } from '@/server/env';
+import { requireStaff } from '@/server/staff';
+import { devDay } from '@/server/today';
+import {
+  addDays,
+  calendarFilters,
+  calendarMonth,
+  calendarRange,
+  calendarWeek,
+  monthGrid,
+  monthTitle,
+  shiftMonth,
+  weekTitle,
+  type CalendarDay,
+} from '@/server/calendar';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const params = Astro.url.searchParams;
+// Browser tests pick "today" with ?on=YYYY-MM-DD; production ignores it.
+const today = devDay(params, !isProd) ?? todayInAthens();
+const view = params.get('view') === 'week' ? 'week' : 'month';
+const f = calendarFilters(params);
+const month = calendarMonth(params.get('month'), today);
+const week = calendarWeek(params.get('week'), today);
+const keep = { program: f.program, location: f.location, teacher: f.teacher };
+const link = (m: string, more: Record<string, string | undefined> = {}) => calendar(m, { ...keep, ...more });
+const gridDates = view === 'month' ? monthGrid(month) : [];
+const from = view === 'month' ? gridDates[0] : week;
+const to = view === 'month' ? gridDates[gridDates.length - 1] : addDays(week, 6);
+const { days, options } = staff ? await calendarRange(Astro.locals.content, from, to, f) : { days: [] as CalendarDay[], options: { programs: [], locations: [], teachers: [] } };
+const inMonth = (d: string) => d.slice(0, 7) === month;
+const agenda = view === 'month' ? days.filter((d) => inMonth(d.date) && (d.entries.length || d.dayOff)) : days;
+const files = downloads(calendar(month, keep));
+const classFiles = downloads(calendar(month, { ...keep, report: 'classes' }));
+const filtered = !!(f.program || f.location || f.teacher);
+const dayNum = (d: string) => Number(d.slice(8));
+const dayHead = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' });
+const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+/** Week view from a month: this week when the month is this month, else the month's first week. */
+const weekStartFor = (m: string, t: string) => (t.slice(0, 7) === m ? t : `${m}-01`);
+const classCount = (d: CalendarDay) => d.entries.filter((e) => e.kind === 'class' && !e.dayOff).length;
+---
+
+<AdminShell title="Calendar" section="calendar">
+  <div class="admin-page cal">
+    <div class="admin-head">
+      <div>
+        <h1>Calendar</h1>
+        <p class="admin-intro">Every class, event, rehearsal and day off.</p>
+      </div>
+      <div class="admin-head__actions">
+        <a class="btn btn--outline btn--sm" href={settingsDaysOff()} data-days-off-link>Days off</a>
+      </div>
+    </div>
+
+    <div class="cal-bar">
+      <div class="chip-row" role="group" aria-label="View">
+        <a class="chip" href={link(month)} aria-pressed={view === 'month' ? 'true' : 'false'} data-view="month">Month</a>
+        <a class="chip" href={link(month, { view: 'week', week: view === 'week' ? week : weekStartFor(month, today) })} aria-pressed={view === 'week' ? 'true' : 'false'} data-view="week">Week</a>
+      </div>
+      {view === 'month' ? (
+        <form method="get" action={calendar()} class="cal-nav" data-month-picker>
+          <a class="btn btn--outline btn--sm" href={link(shiftMonth(month, -1))} data-month-prev><span aria-hidden="true">←</span> {monthTitle(shiftMonth(month, -1)).split(' ')[0]}</a>
+          <label for="cal-month" class="sr-only">Month</label>
+          <input id="cal-month" type="month" name="month" value={month} required />
+          {Object.entries(keep).map(([k, v]) => v && <input type="hidden" name={k} value={v} />)}
+          <button class="btn btn--primary btn--sm" type="submit">Show</button>
+          <a class="btn btn--outline btn--sm" href={link(shiftMonth(month, 1))} data-month-next>{monthTitle(shiftMonth(month, 1)).split(' ')[0]} <span aria-hidden="true">→</span></a>
+        </form>
+      ) : (
+        <div class="cal-nav">
+          <a class="btn btn--outline btn--sm" href={link(addDays(week, -7).slice(0, 7), { view: 'week', week: addDays(week, -7) })} data-week-prev><span aria-hidden="true">←</span> Week before</a>
+          <a class="btn btn--outline btn--sm" href={link(today.slice(0, 7), { view: 'week', week: today })}>This week</a>
+          <a class="btn btn--outline btn--sm" href={link(addDays(week, 7).slice(0, 7), { view: 'week', week: addDays(week, 7) })} data-week-next>Week after <span aria-hidden="true">→</span></a>
+        </div>
+      )}
+    </div>
+
+    <details class="cal-filters" open={filtered || undefined}>
+      <summary class="btn btn--outline btn--sm">Filter{filtered ? ' (on)' : ''}</summary>
+      <form method="get" action={calendar()} class="cal-filters__form" data-filters>
+        <input type="hidden" name="month" value={month} />
+        {view === 'week' && <><input type="hidden" name="view" value="week" /><input type="hidden" name="week" value={week} /></>}
+        <div class="field">
+          <label for="f-program">Program</label>
+          <select id="f-program" name="program">
+            <option value="">Every program</option>
+            {options.programs.map(([slug, title]) => <option value={slug} selected={f.program === slug}>{title}</option>)}
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-location">Location</label>
+          <select id="f-location" name="location">
+            <option value="">Every location</option>
+            {options.locations.map(([id, name]) => <option value={id} selected={f.location === id}>{name}</option>)}
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-teacher">Teacher</label>
+          <select id="f-teacher" name="teacher">
+            <option value="">Every teacher</option>
+            {options.teachers.map((t) => <option value={t} selected={f.teacher === t}>{t}</option>)}
+          </select>
+        </div>
+        <div class="cal-filters__go">
+          <button class="btn btn--primary btn--sm" type="submit">Show</button>
+          {filtered && <a class="btn btn--outline btn--sm" href={view === 'week' ? calendar(month, { view: 'week', week }) : calendar(month)}>Clear</a>}
+        </div>
+      </form>
+    </details>
+
+    <h2 class="cal-title" data-cal-title>{view === 'month' ? monthTitle(month) : weekTitle(week)}</h2>
+
+    {view === 'month' && (
+      <div class="cal-grid" data-cal-grid>
+        {weekdays.map((w) => <div class="cal-grid__head" aria-hidden="true">{w}</div>)}
+        {days.map((d) => (
+          <div
+            class:list={['cal-cell', { 'cal-cell--out': !inMonth(d.date), 'cal-cell--today': d.date === today, 'cal-cell--off': !!d.dayOff }]}
+            data-date={d.date}
+            aria-current={d.date === today ? 'date' : undefined}
+          >
+            <span class="cal-cell__num">{dayNum(d.date)}<span class="sr-only"> {dayHead(d.date)}</span></span>
+            {d.dayOff && <span class="cal-band" data-day-off>{d.dayOff.reason}</span>}
+            <ul class="cal-cell__list">
+              {d.entries.map((e) => (
+                <li>
+                  <a class:list={['cal-item', `cal-item--${e.kind}`, { 'cal-item--off': !!e.dayOff }]} href={e.href} data-cal-class={e.sessionId ?? undefined} data-cal-rehearsal={e.kind === 'rehearsal' ? '' : undefined} title={[e.time, e.title, e.label, e.location, e.teacher, e.dayOff && `No class: ${e.dayOff}`].filter(Boolean).join(' · ')}>
+                    <span class="cal-item__time">{e.start ? timeOf(e.start) : 'All day'}</span>
+                    {e.places && !e.dayOff && <span class="cal-item__places">{e.places}</span>}
+                    <span class="cal-item__title">{e.title}</span>
+                    {e.dayOff && <span class="sr-only"> (no class: {e.dayOff})</span>}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    )}
+
+    <div class:list={['cal-agenda', { 'cal-agenda--phone': view === 'month' }]} data-cal-agenda>
+      {agenda.length === 0 ? (
+        <div class="empty-state">
+          <strong>Nothing on {view === 'month' ? `in ${monthTitle(month)}` : 'this week'}</strong>
+          <p>{filtered ? 'Nothing matches the filters. Clear them to see everything.' : 'Classes, events and days off show here.'}</p>
+        </div>
+      ) : (
+        agenda.map((d) => (
+          <section class:list={['cal-day', { 'cal-day--today': d.date === today }]} data-date={d.date} aria-labelledby={`day-${d.date}`}>
+            <h3 id={`day-${d.date}`}>
+              {dayHead(d.date)}
+              {d.date === today && <span class="badge badge--good">Today</span>}
+              {classCount(d) > 0 && <span class="cal-day__count">{classCount(d)} {classCount(d) === 1 ? 'class' : 'classes'}</span>}
+            </h3>
+            {d.dayOff && <p class="cal-band cal-band--wide" data-day-off>Day off: {d.dayOff.reason}</p>}
+            {d.entries.length ? (
+              <ul class="cal-list">
+                {d.entries.map((e) => (
+                  <li class:list={['cal-row', `cal-row--${e.kind}`, { 'cal-row--off': !!e.dayOff }]} data-cal-class={e.sessionId ?? undefined} data-cal-rehearsal={e.kind === 'rehearsal' ? '' : undefined}>
+                    <span class="cal-row__time">{e.time || 'All day'}</span>
+                    <span class="cal-row__what">
+                      <a href={e.href}><strong>{e.title}</strong></a>
+                      {e.label && <span class="muted"> · {e.label}</span>}
+                      <span class="cal-row__meta">{e.kind === 'rehearsal' ? e.location || 'Place to come' : [e.location, e.teacher].filter(Boolean).join(' · ') || (e.kind === 'event' ? 'Event' : '')}</span>
+                      {e.dayOff && !d.dayOff && <span class="cal-row__off">No class: {e.dayOff}</span>}
+                    </span>
+                    <span class="cal-row__side">
+                      {e.kind === 'event' ? (
+                        <span class="badge badge--neutral">Event</span>
+                      ) : e.kind === 'rehearsal' ? (
+                        <span class="badge badge--rehearsal">Rehearsal</span>
+                      ) : e.dayOff ? (
+                        <span class="badge badge--warning">Day off</span>
+                      ) : (
+                        <>
+                          <span class="cal-row__places" data-places>{e.places}</span>
+                          {e.rosterHref && <a class="btn btn--outline btn--sm" href={e.rosterHref} data-roster-link>Attendance</a>}
+                        </>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              !d.dayOff && <p class="muted">Nothing on.</p>
+            )}
+          </section>
+        ))
+      )}
+    </div>
+
+    {view === 'month' && (
+      <section class="cal-downloads" aria-label="Downloads">
+        <div class="cal-downloads__row"><span>Daily Class Schedule, {monthTitle(month)}</span><DownloadLinks csv={files.csv} pdf={files.pdf} what={`the Daily Class Schedule for ${monthTitle(month)}`} /></div>
+        <div class="cal-downloads__row"><span>Class Schedule, {monthTitle(month)}</span><DownloadLinks csv={classFiles.csv} pdf={classFiles.pdf} what={`the Class Schedule for ${monthTitle(month)}`} /></div>
+      </section>
+    )}
+  </div>
+</AdminShell>
+
+<style>
+  .cal { display: grid; gap: var(--space-m); }
+  .cal .admin-head { margin-bottom: 0; }
+  .cal-bar { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; align-items: center; justify-content: space-between; }
+  .cal-bar .chip { min-height: 44px; }
+  .cal-nav { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .cal-nav input {
+    min-height: 44px;
+    padding: 0 0.75rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    background: var(--paper);
+    color: var(--ink);
+    font: inherit;
+    font-size: 1rem;
+  }
+  .cal-filters > summary { list-style: none; cursor: pointer; }
+  .cal-filters > summary::-webkit-details-marker { display: none; }
+  .cal-filters__form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: 0.75rem; align-items: end; margin-top: 0.75rem; }
+  .cal-filters__go { display: flex; gap: 0.5rem; }
+  .cal-title { font-size: var(--step-1); margin: 0; }
+
+  .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1.5px solid var(--line-strong); border-left: 1.5px solid var(--line-strong); }
+  .cal-grid__head { padding: 0.35rem 0.5rem; font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); border-right: 1.5px solid var(--line-strong); border-bottom: 1.5px solid var(--line-strong); }
+  .cal-cell { min-height: 7.5rem; min-width: 0; overflow: hidden; padding: 0.3rem; display: grid; align-content: start; gap: 0.2rem; border-right: 1.5px solid var(--line-strong); border-bottom: 1.5px solid var(--line-strong); background: var(--paper); }
+  .cal-cell--out { background: var(--hall); }
+  .cal-cell--out .cal-cell__num { color: var(--ink-mute); }
+  .cal-cell__num { font-weight: 700; font-size: var(--step--1); padding: 0 0.2rem; }
+  .cal-cell--today { box-shadow: inset 0 0 0 3px var(--purple); }
+  .cal-cell--today .cal-cell__num { color: var(--purple); }
+  .cal-cell__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.2rem; }
+  .cal-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 0.3rem; padding: 0.2rem 0.35rem; border-radius: 6px; font-size: 0.78rem; line-height: 1.25; color: var(--ink); text-decoration: none; background: var(--purple-tint); min-width: 0; }
+  .cal-item:hover { outline: 1.5px solid var(--ink); text-decoration: none; }
+  .cal-item--event { background: var(--yellow-tint); }
+  .cal-item--rehearsal { background: var(--teal-tint); box-shadow: inset 3px 0 0 var(--teal); }
+  .cal-row--rehearsal { border-left: 5px solid var(--teal); }
+  .badge--rehearsal { background: var(--teal-tint); color: var(--ink); }
+  .cal-item--off { background: transparent; color: var(--ink-mute); text-decoration: line-through; }
+  .cal-item__time { font-weight: 700; white-space: nowrap; }
+  .cal-item__title { grid-column: 1 / -1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cal-item__places { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+  .cal-band { display: block; padding: 0.15rem 0.4rem; border-radius: 6px; background: var(--red-tint); border-left: 4px solid var(--red); font-size: 0.78rem; font-weight: 700; overflow-wrap: anywhere; }
+  .cal-band--wide { font-size: var(--step--1); padding: 0.5rem 0.75rem; margin: 0; }
+
+  .cal-agenda { display: grid; gap: var(--space-m); }
+  .cal-agenda--phone { display: none; }
+  .cal-day { display: grid; gap: 0.4rem; }
+  .cal-day h3 { font-size: var(--step-0); display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; align-items: center; margin: 0; }
+  .cal-day__count { font-family: var(--font-body, inherit); font-weight: 500; font-size: var(--step--1); color: var(--ink-soft); }
+  .cal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+  .cal-row { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr) auto; gap: 0.25rem 1rem; align-items: center; padding: 0.6rem 0.9rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-sm); background: var(--paper); }
+  .cal-row--off { background: var(--hall); }
+  .cal-row--off .cal-row__what strong { text-decoration: line-through; }
+  .cal-row__time { font-weight: 700; white-space: nowrap; }
+  .cal-row__what { min-width: 0; overflow-wrap: anywhere; }
+  .cal-row__what a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); }
+  .cal-row__meta { display: block; font-size: var(--step--1); color: var(--ink-mute); }
+  .cal-row__off { display: block; font-size: var(--step--1); color: var(--red-ink); font-weight: 650; }
+  .cal-row__side { display: flex; gap: 0.5rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+  .cal-row__places { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .muted { color: var(--ink-mute); font-size: var(--step--1); margin: 0; }
+  .cal-downloads { display: grid; gap: 0.5rem; padding-top: var(--space-s); border-top: 1px solid var(--line); }
+  .cal-downloads__row { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: center; justify-content: space-between; font-size: var(--step--1); }
+
+  @media (max-width: 760px) {
+    /* A phone shows the month as a list of days: no sideways scrolling. */
+    .cal-grid { display: none; }
+    .cal-agenda--phone { display: grid; }
+    .cal-row { grid-template-columns: minmax(0, 1fr) auto; }
+    .cal-row__time { grid-column: 1 / -1; }
+    .cal-row__what { grid-column: 1 / -1; }
+    .cal-row__side { grid-column: 1 / -1; justify-content: space-between; }
+    .cal-nav .btn { flex: 1 1 auto; justify-content: center; }
+  }
+</style>

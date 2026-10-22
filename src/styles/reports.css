@@ -1,0 +1,173 @@
+/*
+ * Reports: the dashboard, the library and a report's page
+ * (docs/back-office.md → Reports). Built on admin.css's tokens and pieces.
+ */
+
+/* ───────────── How it's counted ───────────── */
+.how { font-size: var(--step--1); color: var(--ink-soft); }
+.how > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--ink-mute);
+  font-size: var(--step--1);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.how > summary:hover { color: var(--ink); }
+.how p { margin: 0 0 0.4rem; max-width: var(--measure); }
+
+/* ───────────── The dashboard's tiles ───────────── */
+.report-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-s); }
+.report-tile {
+  display: grid;
+  align-content: start;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem 0.3rem;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--paper);
+  min-width: 0;
+}
+.report-tile > a, .report-small__tile > a, .report-stats a { display: grid; gap: 0.2rem; color: var(--ink); text-decoration: none; min-height: 44px; }
+.report-tile > a:hover .report-tile__value, .report-small__tile > a:hover strong, .report-stats a:hover strong { color: var(--purple); text-decoration: underline; }
+.report-tile__name { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+.report-tile__value { font-family: var(--font-display); font-size: var(--step-2); font-stretch: 92%; line-height: 1.05; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.report-tile__label { font-size: var(--step--1); color: var(--ink-soft); }
+/* Nothing to count yet: words, not a big number. */
+.report-tile__value--words, .report-small__tile strong.report-tile__value--words, .report-stats strong.report-tile__value--words { font-family: var(--font-body); font-size: var(--step-0); font-weight: 700; color: var(--ink-soft); line-height: 1.3; padding-block: 0.2rem; }
+.report-tile__compare { font-size: var(--step--1); font-weight: 700; color: var(--ink); }
+.report-tile__compare--none { font-weight: 400; color: var(--ink-mute); }
+
+.report-starred { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.report-starred__label { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); margin-right: 0.2rem; }
+.report-starred .chip { min-height: 44px; }
+
+/* ───────────── Panels ───────────── */
+.report-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-m); align-items: start; }
+.report-panel { display: grid; gap: 0.5rem; min-width: 0; }
+.report-panel--wide { grid-column: 1 / -1; }
+.report-panel h2 a, .report-panel h3 a { color: var(--ink); }
+.report-panel h3 { font-size: var(--step-0); margin-top: 0.4rem; display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; }
+.report-panel h3 a, .report-panel h2 a { display: inline-flex; align-items: center; min-height: 44px; }
+.report-panel__count { font-weight: 400; color: var(--ink-mute); font-size: var(--step--1); }
+.report-panel__big { font-family: var(--font-display); font-size: var(--step-2); font-stretch: 92%; margin: 0; }
+.report-panel__big a { color: var(--ink); display: inline-flex; min-height: 44px; align-items: center; }
+.report-panel__note { font-size: var(--step--1); color: var(--ink-mute); margin: 0; }
+.report-panel .muted { color: var(--ink-mute); font-size: var(--step--1); margin: 0; }
+.report-mini { list-style: none; margin: 0; padding: 0; display: grid; }
+.report-mini li { display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; min-height: 44px; border-bottom: 1px solid var(--line); font-size: var(--step--1); }
+.report-mini li > a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.report-mini li > span:last-child { color: var(--ink-mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.report-aging { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
+.report-aging li { display: grid; gap: 0.15rem; padding: 0.5rem 0.6rem; border-radius: var(--r-sm); background: var(--hall); font-size: var(--step--1); }
+.report-aging span { color: var(--ink-mute); font-size: var(--step--2); }
+.report-small { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; margin-top: 0.4rem; }
+.report-small__tile { display: grid; gap: 0.15rem; padding: 0.7rem 0.8rem 0.2rem; border: 1.5px solid var(--line); border-radius: var(--r-md); min-width: 0; }
+.report-small__tile strong, .report-stats strong { font-family: var(--font-display); font-size: var(--step-1); font-stretch: 92%; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.report-stats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; }
+.report-stats li { display: grid; align-content: start; gap: 0.15rem; padding: 0.7rem 0.8rem 0.2rem; border: 1.5px solid var(--line); border-radius: var(--r-md); min-width: 0; }
+
+/* ───────────── Charts (BarChart, LineChart) ───────────── */
+.chart { margin: 0; display: grid; gap: 0.5rem; min-width: 0; }
+.chart__title { font-size: var(--step--1); color: var(--ink-soft); font-weight: 700; }
+.chart__legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: var(--step--1); color: var(--ink-soft); }
+.chart__legend li { display: inline-flex; align-items: center; gap: 0.4rem; }
+.chart__swatch { width: 0.8rem; height: 0.8rem; border-radius: 3px; display: inline-block; }
+.chart__swatch--line { width: 1.2rem; height: 0; border-radius: 0; border-top: 2px solid; }
+.chart__swatch--dash { border-top-style: dashed; }
+.chart__plot { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: 11rem auto; column-gap: 0.5rem; }
+.chart__y { position: relative; grid-row: 1; min-width: 2.6rem; font-size: 0.72rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+.chart__y span { position: absolute; right: 0; transform: translateY(50%); line-height: 1; }
+.chart__svg { grid-row: 1; grid-column: 2; width: 100%; height: 100%; overflow: visible; display: block; }
+.chart__area { grid-row: 1; grid-column: 2; position: relative; min-width: 0; }
+.chart__area .chart__svg { position: absolute; inset: 0; }
+.chart__dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; border: 2px solid; background: var(--paper); pointer-events: none; }
+.chart__dot--2 { width: 7px; height: 7px; }
+.chart__grid { stroke: var(--line); stroke-width: 1; }
+.chart__base { stroke: var(--ink-mute); stroke-width: 1; }
+.chart__svg rect:hover { opacity: 0.8; }
+.chart__x { grid-row: 2; grid-column: 2; display: grid; font-size: 0.72rem; color: var(--ink-mute); text-align: center; padding-top: 0.3rem; }
+.chart__x span { overflow: hidden; white-space: nowrap; }
+.chart__x--ends { position: relative; display: block; height: 1.4rem; }
+.chart__x--ends span { position: absolute; transform: translateX(-50%); }
+.chart__x--ends span:first-child { transform: none; }
+.chart__x--ends span:last-child { transform: translateX(-100%); }
+.chart__rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.chart__rows li { display: grid; gap: 0.2rem; }
+.chart__row-label { display: flex; justify-content: space-between; gap: 0.75rem; font-size: var(--step--1); color: var(--ink-soft); }
+.chart__row-label strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.chart__bar { width: 100%; height: 0.7rem; display: block; background: var(--hall); border-radius: 2px; }
+.chart__table > summary { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; font-size: var(--step--1); color: var(--purple); font-weight: 700; }
+.chart__table .data-table th[scope='row'] { font-family: var(--font-body); font-size: var(--step--1); text-transform: none; color: var(--ink); border-bottom: 1px solid var(--line); font-weight: 400; }
+
+/* ───────────── The library ───────────── */
+.report-group { display: grid; gap: 0.3rem; }
+.report-group h2 { font-size: var(--step-1); }
+.report-list { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--ink); }
+.report-item { display: flex; gap: 0.75rem; align-items: center; justify-content: space-between; padding: 0.35rem 0.25rem; border-bottom: 1px solid var(--line); }
+.report-item__main { display: grid; gap: 0.1rem; min-width: 0; }
+.report-item__main a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.report-was { font-size: var(--step--2); color: var(--ink-mute); }
+.star-form { margin: 0; }
+.star {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0 0.8rem;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--step--1);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.star:hover { border-color: var(--ink); color: var(--ink); }
+.star[aria-pressed='true'] { border-color: var(--yellow); background: var(--yellow-tint); color: var(--ink); }
+.star [aria-hidden] { font-size: 1.1rem; line-height: 1; color: var(--yellow-ink); }
+
+/* ───────────── A report's page ───────────── */
+.report-filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; padding: 0.8rem 1rem; background: var(--hall); border-radius: var(--r-md); }
+.report-filters label { display: grid; gap: 0.2rem; font-size: var(--step--1); min-width: 0; }
+.report-filters label > span { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+.report-filters select, .report-filters input { min-height: 44px; max-width: 100%; padding: 0 0.6rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-sm); background: var(--paper); font: inherit; }
+.report-filters__wide select { max-width: min(100%, 32rem); }
+.report-filters .btn { min-height: 44px; }
+.report-total { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; align-items: baseline; padding: 0.8rem 1rem; border-left: 4px solid var(--purple); background: var(--purple-tint); border-radius: var(--r-sm); }
+.report-total strong { font-family: var(--font-display); font-size: var(--step-2); font-stretch: 92%; font-variant-numeric: tabular-nums; }
+.report-total__label { font-weight: 700; }
+.report-total__filters, .report-total__note { font-size: var(--step--1); color: var(--ink-soft); }
+.report-table th a { color: inherit; text-decoration: none; display: inline-flex; min-height: 32px; align-items: center; }
+.report-table th a:hover { color: var(--ink); text-decoration: underline; }
+.report-table td a { font-weight: 700; }
+.report-table__label { display: none; }
+
+@media (max-width: 1180px) {
+  .report-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 960px) {
+  .report-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-stats { grid-template-columns: minmax(0, 1fr); }
+  .report-panels { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .report-tiles { gap: var(--space-s); }
+  .report-tile { padding: 0.7rem 0.75rem 0.2rem; }
+  .report-tile__value { font-size: var(--step-2); }
+  .report-aging { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-filters { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .report-filters select, .report-filters input { width: 100%; }
+  .report-item { align-items: start; }
+  .star__label { display: none; }
+  /* Phones: the header row is for screen readers only; sort with "Sort by" instead. */
+  .report-table th a { display: none; }
+  .report-table__label { display: inline; }
+  .report-table td a { display: inline-flex; align-items: center; min-height: 44px; }
+  .report-page .admin-crumbs a { display: inline-flex; align-items: center; min-height: 44px; }
+  .chart__plot { grid-template-rows: 9rem auto; }
+  .chart__x:not(.chart__x--ends) span:nth-child(even) { visibility: hidden; }
+}
