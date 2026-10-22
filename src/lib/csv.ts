@@ -10,9 +10,12 @@ const BOM = '﻿';
 
 /**
  * A cell that starts with = + - @, a tab or a carriage return could run as a
- * formula when opened in a spreadsheet, so it gets a leading apostrophe.
+ * formula when opened in a spreadsheet, so it gets a leading apostrophe. A
+ * plain negative amount ("-25.00", a refund) can't, and stays a number the
+ * spreadsheet adds up.
  */
 function safe(value: string) {
+  if (/^-\d+(\.\d+)?$/.test(value)) return value;
   return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 }
 

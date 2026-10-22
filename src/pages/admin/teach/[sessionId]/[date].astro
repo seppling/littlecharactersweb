@@ -42,7 +42,10 @@ const cd = viewer ? await classDateFor(viewer, sessionId, date, content, today) 
 if (viewer && (!cd || !cd.access.view)) return new Response(null, { status: 404 });
 
 const prefetch = Astro.request.headers.get('X-Teach-Prefetch') === '1';
-const children: TeachChild[] = viewer && cd && !cd.dayOff ? await teachRoster(sessionId, date, viewer.userId, prefetch ? 'cache' : 'view', today) : [];
+// Kept on the phone for the day: today's rosters this person teaches or covers. Never on a shared device.
+const assigned = viewer && cd ? viewer.role === 'teacher' || (await canTeach(viewer.staffId, sessionId, date)) : false;
+const keep = !!(viewer && cd && assigned && date === today && !cd.dayOff && !Astro.locals.sharedDevice);
+const children: TeachChild[] = viewer && cd && !cd.dayOff ? await teachRoster(sessionId, date, viewer.userId, prefetch && keep ? 'cache' : 'view', today) : [];
 const edit = !!cd?.access.edit;
 const present = children.filter((c) => wasThere(c.mark?.status)).length;
 const location = cd ? content.locationById(cd.session.locationId) : undefined;
@@ -61,10 +64,9 @@ const notice = !cd
         submitted: `Attendance was sent ${submittedAt}. Ask Hannah if something needs changing.`,
         covered: `${cd.coveredBy} is covering this class on this date.`,
       } as Record<string, string>)[cd.access.why] ?? null;
-// Kept on the phone for the day: today's rosters this person teaches or covers.
-const assigned = viewer && cd ? viewer.role === 'teacher' || (await canTeach(viewer.staffId, sessionId, date)) : false;
-if (viewer && cd && assigned && date === today && !cd.dayOff) Astro.response.headers.set('X-Teach-Cache', todayInAthens());
-if (!staff) Astro.response.headers.set('X-Teach-Signed-Out', '1');
+if (keep) Astro.response.headers.set('X-Teach-Cache', todayInAthens());
+// Signed out, or a shared device: the service worker keeps nothing of the teacher app on this device.
+if (!staff || Astro.locals.sharedDevice) Astro.response.headers.set('X-Teach-Signed-Out', '1');
 const back = staff?.role === 'owner' && !assigned ? { href: classPage(sessionId), label: cd?.program.title ?? 'Class' } : { href: teachHome() + (on ? `?on=${on}` : ''), label: 'Today' };
 // Absence reasons (Settings → Reasons): one optional tap under a child marked Absent.
 const reasons = edit && children.length ? await reasonList('absence') : [];
@@ -83,6 +85,7 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
         data-on={on ?? ''}
         data-edit={edit ? '1' : '0'}
         data-done={report ? '1' : '0'}
+        data-keep={keep ? '1' : '0'}
       >
         <header class="roll-head">
           <h1>{cd.program.title}</h1>
@@ -418,7 +421,12 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
         input?.addEventListener('change', () => {
           const note = input.value.trim();
           if (note === (row.dataset.note ?? '')) return;
-          tap(row, (row.dataset.status || 'present') as Mark, note);
+          // Not marked yet: the note waits for the mark. A note alone never marks a child Present.
+          if (!row.dataset.status) {
+            row.dataset.note = note;
+            return;
+          }
+          tap(row, row.dataset.status as Mark, note);
         });
       }
       root.querySelector('[data-all-present]')?.addEventListener('click', async () => {
@@ -453,7 +461,7 @@ const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, plea
     if (strip) strip.dataset.label = strip.querySelector('[data-safety-label]')!.textContent!;
 
     claimPhone(by).then(async () => {
-      registerWorker();
+      registerWorker([], root.dataset.keep === '1');
       await overlay();
       go = keepSending(by, (o) => void paint(o));
       await paint();

@@ -279,7 +279,14 @@ export interface RefundInput {
   amountCents: number;
   reason: string;
   emailFamily: boolean;
+  /**
+   * The preview form's one-time id (a UUID), used as the refund's id: pressing
+   * "Refund" twice refunds once. Without one, each call is a new refund.
+   */
+  id?: string;
 }
+
+const ONCE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** The checked input, and how it will be refunded. Throws RefundError with words for staff. */
 export function checkRefund(p: Payment | null, input: RefundInput) {
@@ -309,6 +316,17 @@ export interface RefundOutcome {
 export async function createRefund(staff: Staff, input: RefundInput, opts: { refunder?: Refunder; findSession?: FindSession; now?: Date } = {}): Promise<RefundOutcome> {
   if (!(await isOwner(staff))) throw new RefundError('Only owners can refund payments.');
   const db = await getDb();
+  const onceId = input.id && ONCE_ID.test(input.id) ? input.id : null;
+  // The same form sent twice (a double click): the refund it already made, nothing more.
+  const again = async (id: string): Promise<RefundOutcome | null> => {
+    const [r] = await db.select().from(refund).where(eq(refund.id, id));
+    const p = r ? await loadPayment(input) : null;
+    return r && p ? { refund: r, payment: p, emailed: 0 } : null;
+  };
+  if (onceId) {
+    const done = await again(onceId);
+    if (done) return done;
+  }
   // A first look outside the transaction, so a card refund without Stripe set up is refused before anything is written.
   const first = checkRefund(await loadPayment(input), input);
   const refunder = opts.refunder ?? (first.how === 'stripe' ? await defaultRefunder() : null);
@@ -317,11 +335,14 @@ export async function createRefund(staff: Staff, input: RefundInput, opts: { ref
   const { row, payment } = await db.transaction(async (tx) => {
     // Every refund of this order waits here for the one before it, so the check below sees it.
     await tx.select({ id: order.id }).from(order).where(eq(order.id, input.orderId)).for('update');
+    // The same form, sent again while the first was saving: it waited for the lock above and finds it here.
+    if (onceId && (await tx.select({ id: refund.id }).from(refund).where(eq(refund.id, onceId))).length) return { row: null, payment: null };
     const p = await loadPayment(input, tx);
     const ok = checkRefund(p, input);
     const [r] = await tx
       .insert(refund)
       .values({
+        ...(onceId ? { id: onceId } : {}),
         householdId: p!.householdId,
         orderId: p!.orderId,
         installmentId: p!.installmentId,
@@ -334,10 +355,12 @@ export async function createRefund(staff: Staff, input: RefundInput, opts: { ref
       .returning();
     return { row: r, payment: p! };
   });
+  if (!row || !payment) return (await again(onceId!))!;
   await audit(staff.id, 'admin.refund.add', 'refund', row.id, `${formatCents(row.amountCents)} ${first.how}`);
 
   const done = first.how === 'stripe' ? await sendToStripe(row, payment, refunder!) : row;
-  const emailed = input.emailFamily && done.status !== 'failed' ? await emailRefund(done, payment, first.how, opts.findSession).catch((e) => (console.error('Refund email failed', e), 0)) : 0;
+  // Not when Stripe didn't answer (pending, with a note): it may not have gone through.
+  const emailed = input.emailFamily && (done.status === 'succeeded' || (done.status === 'pending' && !done.error)) ? await emailRefund(done, payment, first.how, opts.findSession).catch((e) => (console.error('Refund email failed', e), 0)) : 0;
   return { refund: done, payment: { ...payment, refunds: [...payment.refunds, done], leftCents: refundLeft(payment.amountCents, [...payment.refunds, done]) }, emailed };
 }
 

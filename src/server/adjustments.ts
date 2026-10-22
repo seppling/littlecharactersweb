@@ -71,12 +71,19 @@ export type PaymentChange = {
   lines: AppliedAdjustment[];
 };
 
+/** A credit's line on a payment (credits.ts writes its reason with creditLabel: "Credit" or "Credit · …"). */
+const isCredit = (a: Pick<Adjustment, 'reason'>) => /^Credit( · |$)/.test(a.reason);
+
 /**
  * What each changeable payment should be under these adjustments. Pure: used
- * both to save and to preview. Adjustments apply in the order they were added.
+ * both to save and to preview. Discounts apply in the order they were added,
+ * then credits, so a credit never shrinks a discount added after it (what no
+ * longer fits of a credit goes back to waiting: reconcile in credits.ts).
  */
 export function computeChanges(installments: Installment[], adjustments: Adjustment[], now = new Date()): PaymentChange[] {
-  const active = adjustments.filter((a) => !a.removedAt).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
+  const active = adjustments
+    .filter((a) => !a.removedAt)
+    .sort((a, b) => Number(isCredit(a)) - Number(isCredit(b)) || a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
   const out: PaymentChange[] = [];
   for (const i of installments) {
     if (lockedReason(i, now)) continue;

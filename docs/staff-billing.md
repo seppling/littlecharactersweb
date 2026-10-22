@@ -112,7 +112,7 @@ For a holiday, a snow day or a week's break. Go to **Settings → Days off** (or
 
 **Families are emailed** once each: "No class Nov 26", with each child and class, and the new amount when their payment changed. Days already past aren't emailed. In their account they see "No class Nov 26 (Thanksgiving)" in their classes, and the payment shows "Day off Nov 26 (Thanksgiving): −$23.75". The class's calendar file leaves the day out.
 
-**Remove a day off:** press **Remove** next to it in the list. You see the payments that go back up; press **Remove day off** to confirm. Paid months stay as they were. Families aren't emailed about it.
+**Remove a day off:** press **Remove** next to it in the list. You see the payments that go back up, and the families whose credits for it are taken back; press **Remove day off** to confirm. Paid months stay as they were, and so do credits that already came off a paid payment (if you add the same day again, those families aren't offered a second one). Families aren't emailed about it.
 
 The days off and their effect on each class are on the **Calendar** too (in the top bar), and on Today: "No classes today: Thanksgiving".
 
@@ -153,6 +153,7 @@ A credit is money the family is owed that comes off their next payment, instead 
 - If the family has no payment to come, it waits ("Waiting for the next payment") and comes off the first payment of their next sign-up.
 - **Remove** a credit that's waiting, or one on a payment not paid yet: that payment goes back up. One that came off a paid payment stays.
 - Days off: families already paid for that month are listed on the Days off page with one class's worth each. Press **Give these credits** once; it can't be given twice.
+- A credit comes off **after** any discounts on that payment, even one you add later, so a discount is always worked out on the full amount. If a payment ends up smaller than the credit, the rest waits for the next payment.
 
 ## Statements
 

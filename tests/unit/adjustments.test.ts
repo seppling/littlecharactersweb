@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { getDb, schema } from '@/server/db';
 import { confirmOrder, createDraftOrder, createStudent, ensureHousehold, fulfillOrder } from '@/server/family';
 import { holdForManualPayment, listInstallments, runBilling, totalDue, type ChargeRequest, type ChargeResult } from '@/server/billing';
-import { addAdjustment, previewAdjustment, removeAdjustment, type AdjustmentInput, type StaffUser } from '@/server/adjustments';
+import { addAdjustment, computeChanges, previewAdjustment, removeAdjustment, type Adjustment, type AdjustmentInput, type StaffUser } from '@/server/adjustments';
 import { applyAdjustments, familyLabel, parseAdjustmentValue, type AdjustmentRule } from '@/lib/adjustments';
 import { quote } from '@/lib/pricing';
 import { getCatalog } from '@/server/content';
@@ -32,6 +32,16 @@ describe('the math', () => {
     expect(applyAdjustments(9500, [rule('amount', 20000)])).toMatchObject({ amountCents: 0, lines: [{ cents: 9500 }] });
     expect(applyAdjustments(9500, [rule('percent', 100)]).amountCents).toBe(0);
     expect(applyAdjustments(9500, [rule('amount', 9460)])).toMatchObject({ amountCents: 0, lines: [{ cents: 9500 }] });
+  });
+
+  it('a credit comes off after the discounts, even one added before them', () => {
+    const nov = { id: 'nov', dueDate: '2026-11-01', label: 'November', baseAmountCents: 9500, amountCents: 9500, adjustments: [], status: 'scheduled', payNowOpenedAt: null } as unknown as Parameters<typeof computeChanges>[0][number];
+    const adj = (id: string, kind: 'percent' | 'amount', value: number, reason: string, at: string) =>
+      ({ id, kind, value, reason, repeat: 'once', installmentId: 'nov', showToFamily: true, removedAt: null, createdAt: new Date(at) }) as unknown as Adjustment;
+    const [c] = computeChanges([nov], [adj('credit', 'amount', 5000, 'Credit · Missed class', '2026-10-01'), adj('scholarship', 'percent', 10, 'Scholarship', '2026-10-05')], new Date('2026-10-20T12:00:00Z'));
+    // 10% of $95 is $9.50 (not 10% of what the credit left), then the $50 credit: $35.50.
+    expect(c.afterCents).toBe(3550);
+    expect(c.lines.map((l) => [l.adjustmentId, l.cents])).toEqual([['scholarship', 950], ['credit', 5000]]);
   });
 
   it('applies several in the order they were added', () => {

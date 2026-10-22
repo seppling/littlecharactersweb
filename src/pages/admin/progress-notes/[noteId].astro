@@ -16,7 +16,7 @@ import AdminShell from '@/components/admin/AdminShell.astro';
 import ProgressNoteForm from '@/components/admin/ProgressNoteForm.astro';
 import { family, progressNote, safeStaffPath } from '@/lib/admin-links';
 import { MessageError, newSendToken, paragraphs } from '@/server/messages';
-import { ProgressNoteError, deleteDraft, getNote, previewNote, saveDraft, sendProgressNote, skillChoices } from '@/server/progress-notes';
+import { ProgressNoteError, deleteDraft, getNote, previewKey, previewNote, saveDraft, sendProgressNote, skillChoices } from '@/server/progress-notes';
 import { requireStaff } from '@/server/staff';
 
 export const prerender = false;
@@ -56,7 +56,7 @@ if (staff && note && Astro.request.method === 'POST') {
       return Astro.redirect(withParam(back, 'note', 'deleted'), 303);
     }
     if (action === 'send') {
-      await sendProgressNote(staff, note.id, { body: note.body, gotIt: got, working: work, token: String(form.get('token') ?? '') }, content);
+      await sendProgressNote(staff, note.id, { body: note.body, gotIt: got, working: work, token: String(form.get('token') ?? ''), seen: String(form.get('seen') ?? '') }, content);
       return Astro.redirect(withParam(back, 'note', 'sent'), 303);
     }
     body = String(form.get('body') ?? '');
@@ -118,6 +118,7 @@ const when = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'nume
             )}
             <form method="post" class="review__buttons" data-once>
               <input type="hidden" name="token" value={token} />
+              <input type="hidden" name="seen" value={previewKey(preview)} />
               {pickedGot.map((id) => <input type="hidden" name="got" value={id} />)}
               {pickedWork.map((id) => <input type="hidden" name="work" value={id} />)}
               <button class="btn btn--primary" type="submit" name="action" value="send" data-send disabled={!preview.emails.length} data-busy="Sending…">Send to the family</button>

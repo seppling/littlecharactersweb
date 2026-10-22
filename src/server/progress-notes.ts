@@ -15,6 +15,7 @@
  * - Staff only until shared. Logged with ids (`admin.progress_note.*`,
  *   `teach.progress_note.draft`); never the text.
  */
+import { createHash } from 'node:crypto';
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { SiteContent } from '@/content/site-content';
 import { todayInAthens } from '@/lib/pricing';
@@ -239,29 +240,49 @@ export async function previewNote(note: NoteView, input: NoteDraftInput, catalog
   };
 }
 
+/** A short fingerprint of the email as previewed (subject, message and footer), carried by the Send form. */
+export function previewKey(p: { subject: string; body: string; footer: string }) {
+  return createHash('sha256').update(`${p.subject}\n${p.body}\n${p.footer}`).digest('hex').slice(0, 32);
+}
+
 /**
- * Sends a note to the child's parents, once per token (the review form's).
- * The skill lists are written into the body, the note gets `shared_at` and
- * the email's id, and families see it in their account.
+ * Sends a note to the child's parents, once per token (the review form's),
+ * exactly as previewed: `seen` is the preview's previewKey, and a note that
+ * changed since (a teacher saved it again, a skill moved) is refused so
+ * Hannah checks the new version. The skill lists are written into the body,
+ * the note gets `shared_at` and the email's id, and families see it in their
+ * account. The note is marked sent before the email goes, so two people (or
+ * tabs) pressing Send at once send it once; a failed send unmarks it.
  */
-export async function sendProgressNote(staff: { id: string }, noteId: string, input: NoteDraftInput & { token: string }, catalog: Catalog, opts: SendOptions = {}, now = new Date()) {
+export async function sendProgressNote(staff: { id: string }, noteId: string, input: NoteDraftInput & { token: string; seen: string }, catalog: Catalog, opts: SendOptions = {}, now = new Date()) {
   const note = await getNote(noteId, catalog);
   if (!note) throw new ProgressNoteError('That note was deleted.');
   if (note.sharedAt) {
     if (note.messageId === input.token) return { messageId: input.token, duplicate: true };
     throw new ProgressNoteError('This note was already sent.');
   }
-  const preview = await previewNote(note, input, catalog);
+  // The note as saved now, not as the caller last saw it.
+  const preview = await previewNote(note, { ...input, body: note.body }, catalog);
   if (!preview.audience || !preview.emails.length) throw new ProgressNoteError('This family has no parent email on file.');
-  const sent = await sendMessage(
-    { token: input.token, kind: 'family', subject: preview.subject, body: preview.body, footer: preview.footer, families: [preview.audience], staffId: staff.id },
-    opts,
-  );
+  if (previewKey(preview) !== input.seen) throw new ProgressNoteError('This note changed after you previewed it (a teacher may have saved it again). Check this version, then send it.');
   const db = await getDb();
-  await db
+  const [claimed] = await db
     .update(progressNote)
-    .set({ body: preview.body, sharedAt: now, messageId: sent.messageId })
-    .where(and(eq(progressNote.id, note.id), isNull(progressNote.sharedAt)));
+    .set({ body: preview.body, sharedAt: now })
+    .where(and(eq(progressNote.id, note.id), isNull(progressNote.sharedAt)))
+    .returning({ id: progressNote.id });
+  if (!claimed) throw new ProgressNoteError('This note was already sent.');
+  let sent: Awaited<ReturnType<typeof sendMessage>>;
+  try {
+    sent = await sendMessage(
+      { token: input.token, kind: 'family', subject: preview.subject, body: preview.body, footer: preview.footer, families: [preview.audience], staffId: staff.id },
+      opts,
+    );
+  } catch (e) {
+    await db.update(progressNote).set({ body: note.body, sharedAt: null }).where(and(eq(progressNote.id, note.id), isNull(progressNote.messageId)));
+    throw e;
+  }
+  await db.update(progressNote).set({ messageId: sent.messageId }).where(eq(progressNote.id, note.id));
   if (!sent.duplicate) await audit(staff.id, 'admin.progress_note.send', 'student', note.studentId, note.id);
   return sent;
 }

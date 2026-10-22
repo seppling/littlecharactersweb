@@ -13,7 +13,7 @@ import { getDb, schema } from '@/server/db';
 import { getCatalog } from '@/server/content';
 import { teachRoster, type Viewer } from '@/server/attendance';
 import { messageResult } from '@/server/messages';
-import { composeProgressNote, draftsForClass, getNote, notesForStudents, previewNote, saveTeacherDraft, sendProgressNote, sharedNotesFor, skillChoices, ProgressNoteError } from '@/server/progress-notes';
+import { composeProgressNote, draftsForClass, getNote, notesForStudents, previewKey, previewNote, saveDraft, saveTeacherDraft, sendProgressNote, sharedNotesFor, skillChoices, ProgressNoteError } from '@/server/progress-notes';
 import {
   addSkill,
   childSkills,
@@ -349,8 +349,15 @@ describe('progress notes', () => {
     expect(preview.body).toBe('Ada spoke up in every scene!\n\nGot it:\n• Projects their voice');
 
     const box = outbox();
+    // Changed after the preview (a teacher saved it again): refused, nothing sent.
+    const stale = { body: note.body, gotIt: choices.gotIt.map((s) => s.id), working: [], token: crypto.randomUUID(), seen: previewKey(preview) };
+    await saveDraft(hannahUser, { noteId: note.id, studentId: note.studentId, body: 'Ada spoke up in every scene! She also helped the younger ones.' });
+    await expect(sendProgressNote({ id: hannahUser }, note.id, stale, c, box)).rejects.toThrow(/changed after you previewed/);
+    expect(box.sent).toHaveLength(0);
+    await saveDraft(hannahUser, { noteId: note.id, studentId: note.studentId, body: 'Ada spoke up in every scene!' });
+
     const token = crypto.randomUUID();
-    const input = { body: note.body, gotIt: choices.gotIt.map((s) => s.id), working: [], token };
+    const input = { body: note.body, gotIt: choices.gotIt.map((s) => s.id), working: [], token, seen: previewKey(preview) };
     expect(await sendProgressNote({ id: hannahUser }, note.id, input, c, box)).toEqual({ messageId: token, duplicate: false });
     // A double click sends nothing more.
     expect(await sendProgressNote({ id: hannahUser }, note.id, input, c, box)).toEqual({ messageId: token, duplicate: true });

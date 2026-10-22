@@ -14,7 +14,7 @@ import { confirmOrder, createDraftOrder, createStudent, ensureHousehold, fulfill
 import { listInstallments, markPaidOutsideStripe, runBilling, stopRemainingPayments, type ChargeRequest } from '@/server/billing';
 import type { StaffUser } from '@/server/adjustments';
 import { getCatalog } from '@/server/content';
-import { addDayOff } from '@/server/days-off';
+import { addDayOff, previewRemoval, removeDayOff } from '@/server/days-off';
 import { addStaff } from '@/server/staff-settings';
 import {
   createRefund,
@@ -208,6 +208,21 @@ describe('refunding a card payment', () => {
     expect(await db.select().from(schema.refund).where(eq(schema.refund.orderId, o.id))).toHaveLength(1);
   });
 
+  it('the same form sent twice (a double click) refunds once, even a full refund', async () => {
+    const f = await family('okoro');
+    const o = await signUp(f, INTRO, 'monthly', { checkoutSessionId: 'cs_test_okoro' });
+    const stand = standIn(() => ({ status: 'succeeded', stripeRefundId: 're_okoro' }));
+    const id = crypto.randomUUID();
+    const input = { orderId: o.id, amountCents: o.totalCents, reason: 'Moved away', emailFamily: false, id };
+    const both = await Promise.all([createRefund(hannah, input, { refunder: stand.refunder }), createRefund(hannah, input, { refunder: stand.refunder })]);
+    expect(both.map((b) => b.refund.id)).toEqual([id, id]);
+    // Pressed again after it went through: still the one refund, not "refunded in full already".
+    expect((await createRefund(hannah, input, { refunder: stand.refunder })).refund.id).toBe(id);
+    expect(stand.calls).toHaveLength(1);
+    const db = await getDb();
+    expect(await db.select().from(schema.refund).where(eq(schema.refund.orderId, o.id))).toHaveLength(1);
+  });
+
   it('a reason is required', async () => {
     const f = await family('soto');
     const o = await signUp(f, INTRO, 'monthly', { checkoutSessionId: 'cs_test_soto' });
@@ -263,6 +278,13 @@ describe('credits', () => {
     expect(target.adjustments).toEqual([expect.objectContaining({ label: 'Credit · Missed class Oct 6', cents: 1900 })]);
     expect(saved!.applied[0]).toMatchObject({ appliedToInstallmentId: target.id, adjustmentId: target.adjustments[0].adjustmentId });
     expect(saved!.applied[0].appliedAt).toBeInstanceOf(Date);
+
+    // The same Save credit form sent twice: one credit.
+    const once = crypto.randomUUID();
+    const credit = { householdId: f.h.id, amountCents: 500, reason: 'Pressed twice', showToFamily: false };
+    expect(await addCredit(hannah, credit, { id: once })).not.toBeNull();
+    expect(await addCredit(hannah, credit, { id: once })).toBeNull();
+    expect((await familyCredits(f.h.id)).filter((c) => c.reason === 'Pressed twice')).toHaveLength(1);
 
     // A private reason: families read "Credit".
     expect(creditLabel({ reason: 'Hannah’s note', showToFamily: false })).toBe('Credit');
@@ -359,9 +381,9 @@ describe('day-off credits', () => {
     const catalog = await getCatalog();
     const f = await family('baird');
     await signUp(f);
-    // November is paid when Hannah adds a day off on Nov 24 (a Tuesday) and keeps payments as they are.
+    // November is paid when Hannah adds a day off on Nov 24 (a Tuesday) and lowers payments.
     await runBilling({ charge, today: '2026-11-01' });
-    const saved = await addDayOff(hannah, catalog, { from: '2026-11-24', to: '2026-11-24', sessionIds: [INTRO], reason: 'Teacher out', payments: 'keep' });
+    const saved = await addDayOff(hannah, catalog, { from: '2026-11-24', to: '2026-11-24', sessionIds: [INTRO], reason: 'Teacher out', payments: 'lower' });
     const list = await dayOffCredits(catalog, saved.closureIds);
     const mine = list.find((c) => c.householdId === f.h.id)!;
     // $95 ÷ 4 November Tuesdays = $23.75.
@@ -373,7 +395,27 @@ describe('day-off credits', () => {
     const credits = await familyCredits(f.h.id);
     expect(credits.map((c) => [c.amountCents, c.reason, c.showToFamily, c.state])).toEqual([[2375, 'Day off Nov 24 (Teacher out)', true, 'applied']]);
     expect((await listInstallments(f.h.id))[1].adjustments).toEqual([expect.objectContaining({ label: 'Credit · Day off Nov 24 (Teacher out)', cents: 2375 })]);
+
+    // Removed (a typo, say): the credit is taken back and December goes back up; added again, it's given again, once.
+    expect((await previewRemoval(hannah, saved.closureIds[0]))!.creditsBack.map((c) => c.householdId)).toContain(f.h.id);
+    await removeDayOff(hannah, saved.closureIds[0]);
+    expect((await familyCredits(f.h.id)).map((c) => c.state)).toEqual(['removed']);
+    expect((await listInstallments(f.h.id))[1].adjustments).toEqual([]);
+    const again = await addDayOff(hannah, catalog, { from: '2026-11-24', to: '2026-11-24', sessionIds: [INTRO], reason: 'Teacher out', payments: 'lower' });
+    expect(await giveDayOffCredits(hannah, catalog, again.closureIds)).toBeGreaterThanOrEqual(1);
+    expect((await familyCredits(f.h.id)).filter((c) => c.state !== 'removed').map((c) => c.amountCents)).toEqual([2375]);
+
+    // Used on a paid December: removing the day off leaves it, and adding the day once more gives no second one.
+    await runBilling({ charge, today: '2026-12-01' });
+    const removal = (await previewRemoval(hannah, again.closureIds[0]))!;
+    expect(removal.creditsStay.map((c) => c.householdId)).toContain(f.h.id);
+    await removeDayOff(hannah, again.closureIds[0]);
+    const third = await addDayOff(hannah, catalog, { from: '2026-11-24', to: '2026-11-24', sessionIds: [INTRO], reason: 'Teacher out', payments: 'lower' });
+    expect((await dayOffCredits(catalog, third.closureIds)).find((c) => c.householdId === f.h.id)?.given).toBe(true);
+    await giveDayOffCredits(hannah, catalog, third.closureIds);
+    expect((await familyCredits(f.h.id)).filter((c) => c.state !== 'removed')).toHaveLength(1);
   });
+
 });
 
 describe('the yearly statement', () => {

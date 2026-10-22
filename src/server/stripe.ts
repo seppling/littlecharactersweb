@@ -80,7 +80,12 @@ export const stripeRefunder: Refunder = async (req) => {
   }
   if (!paymentIntent) return { status: 'failed', stripeRefundId: null, error: 'Stripe has no card payment for this.' };
   try {
-    const r = await s.refunds.create({ payment_intent: paymentIntent, amount: req.amountCents, metadata: { refundId: req.refundId } }, { idempotencyKey: `refund-${req.refundId}` });
+    // Stripe forgets idempotency keys after about a day: a "Try again" days after a lost answer
+    // first looks for the refund Stripe already made for this row.
+    const made = await s.refunds.list({ payment_intent: paymentIntent, limit: 100 });
+    const r =
+      made.data.find((x) => x.metadata?.refundId === req.refundId) ??
+      (await s.refunds.create({ payment_intent: paymentIntent, amount: req.amountCents, metadata: { refundId: req.refundId } }, { idempotencyKey: `refund-${req.refundId}` }));
     const status = r.status === 'succeeded' ? 'succeeded' : r.status === 'failed' || r.status === 'canceled' ? 'failed' : 'pending';
     return { status, stripeRefundId: r.id, error: status === 'failed' ? (r.failure_reason ?? 'Stripe couldn’t complete the refund.') : null };
   } catch (e) {

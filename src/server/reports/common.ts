@@ -68,9 +68,14 @@ export function cellText(c: Cell, kind: ColumnKind = 'text') {
   return c;
 }
 
-/** A cell for a spreadsheet: money as plain dollars ("95.00") so it adds up; everything else as it reads. */
+/**
+ * A cell for a spreadsheet: money as a plain number of dollars (95, -95.5) so
+ * it adds up; everything else as it reads. A number, not text: text starting
+ * with "-" gets the formula guard's apostrophe (src/lib/csv.ts), which would
+ * turn a refund into text that sums as nothing.
+ */
 export function csvCell(c: Cell, kind: ColumnKind = 'text'): Cell {
-  if (typeof c === 'number' && kind === 'money') return (c / 100).toFixed(2);
+  if (typeof c === 'number' && kind === 'money') return c / 100;
   if (typeof c === 'number' && kind === 'percent') return Math.round(c);
   return c;
 }

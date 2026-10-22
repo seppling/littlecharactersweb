@@ -149,7 +149,12 @@ export async function claimPhone(by: string) {
   for (const q of await allQueued()) if (Date.parse(q.kind === 'tap' ? q.markedAt : q.at) < oldest) await del('queue', q.clientId);
 }
 
-export function registerWorker(precache: string[] = []) {
+/**
+ * Starts the service worker and asks it to keep `precache` (today's rosters)
+ * and, when `keepThis` (the page sent X-Teach-Cache), this page too. A page
+ * that may not be kept isn't fetched again for nothing.
+ */
+export function registerWorker(precache: string[] = [], keepThis = false) {
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker
     .register('/admin/teach-sw.js', { scope: '/admin/teach' })
@@ -160,7 +165,7 @@ export function registerWorker(precache: string[] = []) {
         .getEntriesByType('resource')
         .map((e) => e.name)
         .filter((u) => u.startsWith(location.origin) && /\/(_astro|fonts|admin\/icons)\/|\.(woff2?|css|js)$/.test(new URL(u).pathname));
-      reg.active?.postMessage({ type: 'precache', pages: [location.pathname + location.search, ...precache], assets });
+      reg.active?.postMessage({ type: 'precache', pages: keepThis ? [location.pathname + location.search, ...precache] : precache, assets });
     })
     .catch(() => {
       /* No service worker (a private window): the app still works online. */

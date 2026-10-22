@@ -41,7 +41,11 @@ if (staff && Astro.locals.session) {
           ) : (
             <p data-shared-note>You stay signed in on this phone. If other people use it, sign out when you’re done, or tick “This is a shared device” when you sign in: you’re then signed out after {SHARED_IDLE_MINUTES / 60} hour without use.</p>
           )}
-          <p>Today’s classes are kept on this phone so they open without signal. Signing out clears them.</p>
+          {shared ? (
+            <p>Nothing is kept on a shared device, so today’s classes need signal to open.</p>
+          ) : (
+            <p>Today’s classes are kept on this phone so they open without signal. Signing out clears them.</p>
+          )}
           <form method="post" action="/account/sign-out">
             <input type="hidden" name="next" value={teachHome()} />
             <button type="submit" class="btn btn--outline btn--block me__out" data-me-signout>Sign out</button>

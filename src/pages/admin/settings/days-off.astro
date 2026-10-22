@@ -174,6 +174,8 @@ const payLabel = (g: { lowered: boolean; adjustments: { count: number; cents: nu
           <p>No payments change.</p>
         )}
         {removal.paidStay.length > 0 && <p class="muted">Already paid, so they stay as they were: {names([...new Set(removal.paidStay.map((p) => p.family))])}.</p>}
+        {removal.creditsBack.length > 0 && <p data-remove-credits><strong>The credits given for it are taken back:</strong> {names([...new Set(removal.creditsBack.map((c) => c.family))])}. One already on a payment not paid yet comes off it.</p>}
+        {removal.creditsStay.length > 0 && <p class="muted">Credits already used on a paid payment stay: {names([...new Set(removal.creditsStay.map((c) => c.family))])}. If you add this day again, they aren’t given another.</p>}
         {fresh ? (
           <form method="post" class="check__actions">
             <input type="hidden" name="id" value={removeId} />

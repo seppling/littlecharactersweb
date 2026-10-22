@@ -338,9 +338,11 @@ const clamp = (iso: string, now: Date) => new Date(Math.min(Date.parse(iso), now
 /**
  * Teachers may change marks on the class's own day even after submitting. A
  * tap made that day and sent the next morning (no signal) still counts as
- * made that day.
+ * made that day, within the late window: the phone sets the tap's time, so an
+ * older class date is judged from today, and a back-dated tap can't reopen it.
  */
-const tapDay = (classDate: string, markedAt: Date, today: string) => (todayInAthens(markedAt) === classDate ? classDate : today);
+export const tapDay = (classDate: string, markedAt: Date, today: string) =>
+  todayInAthens(markedAt) === classDate && classDate <= today && daysBetween(classDate, today) <= LATE_DAYS ? classDate : today;
 
 async function accessFor(viewer: Viewer, sessionId: string, date: string, catalog: Catalog, today: string) {
   return classDateFor(viewer, sessionId, date, catalog, today);
@@ -357,7 +359,9 @@ export async function saveTaps(viewer: Viewer, taps: Tap[], catalog: Catalog, no
   const results: SyncResult[] = [];
   const dates = new Map<string, Awaited<ReturnType<typeof accessFor>>>();
   const rosters = new Map<string, Awaited<ReturnType<typeof expectedOn>>>();
-  for (const tap of taps) {
+  // In the order they were made, so when a fast phone clock holds several to the same "now", the last one made wins.
+  const ordered = taps.map((t, i) => ({ t, i })).sort((a, b) => Date.parse(a.t.markedAt) - Date.parse(b.t.markedAt) || a.i - b.i);
+  for (const { t: tap } of ordered) {
     const key = `${tap.sessionId} ${tap.date}`;
     const markedAt = clamp(tap.markedAt, now);
     const day = tapDay(tap.date, markedAt, today);
@@ -398,7 +402,8 @@ export async function saveTaps(viewer: Viewer, taps: Tap[], catalog: Catalog, no
         .onConflictDoUpdate({
           target: [attendance.sessionId, attendance.classDate, attendance.studentId],
           set: { status: tap.status, note, reason, markedBy: viewer.userId, markedAt, clientId: tap.clientId, updatedAt: now },
-          setWhere: sql`${attendance.markedAt} < excluded.marked_at`,
+          // A tie (two taps held to the same "now") goes to the one made later, which comes second.
+          setWhere: sql`${attendance.markedAt} <= excluded.marked_at`,
         })
         .returning({ id: attendance.id });
     } catch (e) {

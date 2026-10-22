@@ -44,8 +44,10 @@ if (staff && fam && Astro.request.method === 'POST') {
     if (amountCents === null) throw new CreditError('Enter an amount, like 19 or 12.50.');
     const input = { householdId, amountCents, reason: values.reason ?? '', showToFamily: values.show === 'on' };
     if (values.action === 'add') {
-      const r = await addCredit(staff, input);
-      return Astro.redirect(`${here}?done=${r && r.applied.length ? 'applied' : 'waiting'}`, 303);
+      // The preview form's one-time id: pressing Save credit twice saves one credit (addCredit returns null the second time).
+      const once = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(values.once ?? '') ? values.once : undefined;
+      const r = await addCredit(staff, input, { id: once });
+      return Astro.redirect(`${here}?done=${!r ? 'saved' : r.applied.length ? 'applied' : 'waiting'}`, 303);
     }
     const p = await previewCredit(staff, input);
     preview = { ...p.input, pieces: p.pieces, waitingCents: p.waitingCents };
@@ -65,6 +67,7 @@ const doneText: Record<string, string> = {
   applied: 'Credit saved. It comes off the payment shown below, and the family sees it in their account.',
   waiting: 'Credit saved. It’s waiting: it comes off the family’s next payment once there is one.',
   removed: 'Credit removed. If it was on a payment not paid yet, that payment is back to its amount before.',
+  saved: 'Credit saved.',
 };
 const done = Astro.url.searchParams.get('done');
 const tone = { waiting: 'warning', applied: 'good', used: 'neutral', removed: 'neutral' } as const;
@@ -140,8 +143,9 @@ const tone = { waiting: 'warning', applied: 'good', used: 'neutral', removed: 'n
             <input type="hidden" name="amount" value={(preview.amountCents / 100).toFixed(2)} />
             <input type="hidden" name="reason" value={preview.reason} />
             {preview.showToFamily && <input type="hidden" name="show" value="on" />}
+            <input type="hidden" name="once" value={crypto.randomUUID()} />
             <div class="row">
-              <button class="btn btn--primary" type="submit" name="action" value="add" data-save-credit>Save credit</button>
+              <button class="btn btn--primary" type="submit" name="action" value="add" data-save-credit data-busy="Saving…">Save credit</button>
               <a class="btn btn--outline" href={here}>Cancel</a>
             </div>
           </form>
@@ -180,6 +184,13 @@ const tone = { waiting: 'warning', applied: 'good', used: 'neutral', removed: 'n
 </AdminShell>
 
 <script>
+  // One press: the button says "Saving…" and can't be pressed again (the server saves once either way).
+  for (const b of document.querySelectorAll<HTMLButtonElement>('[data-save-credit]')) {
+    b.form?.addEventListener('submit', () => {
+      b.textContent = b.dataset.busy!;
+      setTimeout(() => (b.disabled = true));
+    });
+  }
   for (const form of document.querySelectorAll<HTMLFormElement>('form[data-confirm]')) {
     form.addEventListener('submit', (e) => {
       if (!confirm(form.dataset.confirm)) e.preventDefault();

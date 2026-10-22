@@ -90,6 +90,8 @@ export const REPORTS: ReportDef[] = [
     was: 'Payment Summary, Payment List, Deposit Summary',
     how: 'Payments received this month, all programs, less refunds.',
     filters: ['month', 'program', 'location'],
+    // The For column names the child ("November tuition: Maya, Acting Studio").
+    namesChildren: true,
     run: (i) => paymentsReceivedReport(ctxOf(i), i.f),
   },
   {
@@ -107,6 +109,8 @@ export const REPORTS: ReportDef[] = [
     title: 'What’s booked for the next 1st?',
     how: 'Monthly charges scheduled for the next billing day.',
     filters: ['program', 'location'],
+    // The For column names the child ("November tuition: Maya, Acting Studio").
+    namesChildren: true,
     run: (i) => nextChargeDayReport(ctxOf(i), i.f),
   },
   {
@@ -115,6 +119,8 @@ export const REPORTS: ReportDef[] = [
     title: 'What’s committed ahead?',
     how: 'Charges scheduled for the next 90 days.',
     filters: ['program', 'location'],
+    // The For column names the child ("November tuition: Maya, Acting Studio").
+    namesChildren: true,
     run: (i) => upcomingReport(ctxOf(i), i.f),
   },
   {
@@ -124,6 +130,8 @@ export const REPORTS: ReportDef[] = [
     was: 'Overdue List, Aging / Collections List',
     how: 'Failed or overdue charges, how many and the total, by days since they were due (0–30, 31–60, 61–90, 90+).',
     filters: ['program', 'location'],
+    // The For column names the child ("November tuition: Maya, Acting Studio").
+    namesChildren: true,
     run: (i) => whoOwesReport(ctxOf(i), i.f),
   },
   {

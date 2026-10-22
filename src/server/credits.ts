@@ -159,7 +159,12 @@ async function reconcile(householdId: string | undefined, now: Date) {
     // Locked for now (the pay-now form is open): leave it until it can change.
     if (i && !gone && lockedReason(i, now)) continue;
     await db.transaction(async (tx) => {
-      const [locked] = await tx.select().from(credit).where(and(eq(credit.id, c.id), isNotNull(credit.appliedAt), isNull(credit.removedAt))).for('update');
+      // Unchanged since it was read: two runs at once (the billing run and a sign-up) put back or split it once.
+      const [locked] = await tx
+        .select()
+        .from(credit)
+        .where(and(eq(credit.id, c.id), isNotNull(credit.appliedAt), isNull(credit.removedAt), eq(credit.amountCents, c.amountCents)))
+        .for('update');
       if (!locked) return;
       if (gone || line <= 0) {
         // Back to waiting: the adjustment is taken off (it does nothing on a cancelled payment).

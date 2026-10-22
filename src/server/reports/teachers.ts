@@ -61,10 +61,13 @@ export interface TeacherAttendanceInput {
 /**
  * For each teacher, the season's class dates so far that needed attendance
  * (children expected, not a day off, ended 2 hours ago) and how many were
- * taken. A class with two teachers counts for both.
+ * taken. A class with two teachers counts for both, and once in the total.
  */
 export function teacherAttendanceFrom(input: TeacherAttendanceInput, season: string | null, today: string, now: Date, f: ReportFilters): ReportResult {
   const by = new Map<string, { classes: Set<string>; due: number; taken: number }>();
+  // The total counts each class date once, however many teachers it has.
+  const dueDates = new Set<string>();
+  const takenDates = new Set<string>();
   for (const r of input.classes) {
     if (!season || r.term !== season || !sessionPasses(f, r)) continue;
     const teachers = teachersOf(r, input.teacherLinks);
@@ -72,6 +75,10 @@ export function teacherAttendanceFrom(input: TeacherAttendanceInput, season: str
       const key = `${r.session.id} ${d}`;
       if (d > today || (d === today && !endedHoursAgo(d, r.session.end, now))) continue;
       if (dayOffFrom(input.daysOff, r.session.id, d) || (r.filled === 0 && !input.dropIns.get(key))) continue;
+      if (teachers.length) {
+        dueDates.add(key);
+        if (input.reports.has(key)) takenDates.add(key);
+      }
       for (const t of teachers) {
         const g = by.get(t.name) ?? { classes: new Set(), due: 0, taken: 0 };
         g.classes.add(r.session.id);
@@ -82,8 +89,8 @@ export function teacherAttendanceFrom(input: TeacherAttendanceInput, season: str
     }
   }
   const rows = [...by.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  const due = sum(rows.map(([, g]) => g.due));
-  const taken = sum(rows.map(([, g]) => g.taken));
+  const due = dueDates.size;
+  const taken = takenDates.size;
   return {
     columns: [{ label: 'Teacher' }, { label: 'Classes', kind: 'number' }, { label: 'Class dates so far', kind: 'number' }, { label: 'Taken', kind: 'number' }, { label: 'Not taken', kind: 'number' }, { label: 'Taken', kind: 'percent' }],
     rows: rows.map(([name, g]) => ({ cells: [name, g.classes.size, g.due, g.taken, g.due - g.taken, percent(g.taken, g.due)] })),

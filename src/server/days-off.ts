@@ -24,7 +24,7 @@
  * Days added together (a range, or several classes) share `created_at`, and
  * the list shows and removes them as one.
  */
-import { and, asc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, like, lte, or } from 'drizzle-orm';
 import type { SiteContent } from '@/content/site-content';
 import type { Program, Session } from '@/content/types';
 import { classDaysInMonth, formatCents, meetings, todayInAthens } from '@/lib/pricing';
@@ -37,7 +37,7 @@ import { emailHtml, sendEmail } from './email';
 import { audit, householdGuardians } from './records';
 import { isOwner } from './staff';
 
-const { attendance, billingAdjustment, closure, dropIn, enrollment, household, installment, order, student, user } = schema;
+const { attendance, billingAdjustment, closure, credit, dropIn, enrollment, household, installment, order, student, user } = schema;
 
 type Installment = typeof installment.$inferSelect;
 type Catalog = Pick<SiteContent, 'programs' | 'findSession'>;
@@ -679,7 +679,21 @@ async function removalPlan(q: Q, id: string, now: Date) {
     }
   }
   const paidStay = keeping.map((a) => ({ orderId: a.orderId, householdId: a.householdId, family: families.find((x) => x.id === a.orderId)?.family ?? 'Family', cents: a.value, reason: a.reason }));
-  return { rows, removing, changes: changes.sort((a, b) => a.family.localeCompare(b.family)), paidStay };
+
+  // "Give these credits" for these days (ids dayoff-<closure>-<family>, day-off-credits.ts): taken back unless already
+  // on a payment that's paid (or being charged), like the day's own discounts.
+  const credits = await q
+    .select({ c: credit, family: household.name })
+    .from(credit)
+    .innerJoin(household, eq(household.id, credit.householdId))
+    .where(and(or(...ids.map((id) => like(credit.id, `dayoff-${id}-%`))), isNull(credit.removedAt)));
+  const onPayments = credits.some((x) => x.c.appliedToInstallmentId)
+    ? await q.select({ id: installment.id, orderId: installment.orderId, status: installment.status }).from(installment).where(inArray(installment.id, credits.flatMap((x) => (x.c.appliedToInstallmentId ? [x.c.appliedToInstallmentId] : []))))
+    : [];
+  const paymentOf = (c: typeof credit.$inferSelect) => onPayments.find((i) => i.id === c.appliedToInstallmentId);
+  const creditsBack = credits.filter((x) => !x.c.appliedAt || ['scheduled', 'failed'].includes(paymentOf(x.c)?.status ?? '')).map((x) => ({ ...x.c, family: x.family, orderId: paymentOf(x.c)?.orderId ?? null }));
+  const creditsStay = credits.filter((x) => !creditsBack.some((b) => b.id === x.c.id)).map((x) => ({ ...x.c, family: x.family }));
+  return { rows, removing, changes: changes.sort((a, b) => a.family.localeCompare(b.family)), paidStay, creditsBack, creditsStay };
 }
 
 export async function previewRemoval(staff: StaffUser, id: string, now = new Date()) {
@@ -687,7 +701,11 @@ export async function previewRemoval(staff: StaffUser, id: string, now = new Dat
   return removalPlan(await getDb(), id, now);
 }
 
-/** Remove a day off (and the days added with it): its unpaid adjustments come off and those payments go back up. Paid ones stay as they were. */
+/**
+ * Remove a day off (and the days added with it): its unpaid adjustments come
+ * off and those payments go back up, and the credits given for it are taken
+ * back (waiting ones, and ones on a payment not paid yet). Paid ones stay as they were.
+ */
 export async function removeDayOff(staff: StaffUser, id: string, now = new Date()) {
   await requireOwner(staff);
   const db = await getDb();
@@ -708,8 +726,13 @@ export async function removeDayOff(staff: StaffUser, id: string, now = new Date(
             isNull(billingAdjustment.removedAt),
           ),
         );
-      for (const orderId of new Set(plan.removing.map((a) => a.orderId))) settled.push(...(await reapply(tx, orderId, now)).settled);
     }
+    for (const c of plan.creditsBack) {
+      if (c.adjustmentId) await tx.update(billingAdjustment).set({ removedAt: now, removedBy: staff.id }).where(and(eq(billingAdjustment.id, c.adjustmentId), isNull(billingAdjustment.removedAt)));
+      await tx.update(credit).set({ removedAt: now, removedBy: staff.id }).where(and(eq(credit.id, c.id), isNull(credit.removedAt)));
+    }
+    const orderIds = new Set([...plan.removing.map((a) => a.orderId), ...plan.creditsBack.flatMap((c) => (c.orderId ? [c.orderId] : []))]);
+    for (const orderId of orderIds) settled.push(...(await reapply(tx, orderId, now)).settled);
     await tx.delete(closure).where(
       inArray(
         closure.id,
@@ -721,6 +744,7 @@ export async function removeDayOff(staff: StaffUser, id: string, now = new Date(
   if (!result) return null;
   for (const r of result.rows) await audit(staff.id, 'admin.day_off.remove', 'closure', r.id, `${r.date} ${r.sessionId ?? 'every class'}`);
   for (const a of result.removing) await audit(staff.id, 'adjustment.remove', 'billing_adjustment', a.id, 'day off removed');
+  for (const c of result.creditsBack) await audit(staff.id, 'admin.credit.remove', 'credit', c.id, 'day off removed');
   await logSettled(staff.id, result.settled);
   return result;
 }

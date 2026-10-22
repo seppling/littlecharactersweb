@@ -174,7 +174,8 @@ async function flush() {
     const { by, on } = batch[0];
     const body = {
       by,
-      taps: batch.filter((q) => q.kind === 'tap').map(({ clientId, sessionId, date, studentId, status, note, markedAt }) => ({ clientId, sessionId, date, studentId, status, note, markedAt })),
+      // The same fields as the page sends (send() in src/scripts/teach.ts), absence reason included.
+      taps: batch.filter((q) => q.kind === 'tap').map(({ clientId, sessionId, date, studentId, status, note, reason, markedAt }) => ({ clientId, sessionId, date, studentId, status, note, reason: reason || '', markedAt })),
       reports: batch.filter((q) => q.kind === 'report').map(({ clientId, sessionId, date, note, at }) => ({ clientId, sessionId, date, note, at })),
     };
     const res = await fetch(`/api/teach/sync${on ? `?on=${encodeURIComponent(on)}` : ''}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' });
@@ -184,7 +185,8 @@ async function flush() {
       continue;
     }
     const { results } = await res.json();
-    for (const r of results) await storeOp(d, 'readwrite', (s) => s.delete(r.clientId));
+    // Refused ones stay, so the page sends them once more and tells the teacher ("Not saved: … Ask Hannah.").
+    for (const r of results) if (r.result !== 'refused') await storeOp(d, 'readwrite', (s) => s.delete(r.clientId));
   }
   for (const c of await self.clients.matchAll()) c.postMessage({ type: 'synced' });
   if (failed) throw new Error('retry');

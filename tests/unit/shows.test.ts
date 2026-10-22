@@ -305,6 +305,8 @@ describe('who sees which rehearsal', () => {
     const forSongs = await childRehearsals(kid.Ada, 'songs-f26', content, new Date('2026-11-02T12:00:00Z'));
     expect(forSongs.map((r) => r.id)).toEqual([songsOnly, wholeCast]);
     expect((await childRehearsals(kid.Bo, 'acting-f26', content, new Date('2026-11-02T12:00:00Z'))).map((r) => r.id)).toEqual([wholeCast]);
+    // Ada's other class doesn't perform: the whole-cast rehearsal isn't in its calendar too.
+    expect(await childRehearsals(kid.Ada, 'other-f26', content, new Date('2026-11-02T12:00:00Z'))).toEqual([]);
     const ics = classCalendar({
       session: sess('songs-f26'),
       first: '2026-11-03',

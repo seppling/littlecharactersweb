@@ -13,7 +13,8 @@ import { getDb, schema } from '@/server/db';
 import { confirmOrder, createDraftOrder, createStudent, ensureHousehold, fulfillOrder } from '@/server/family';
 import { paymentsReceived, sumCents, type AttentionItem } from '@/server/payments-admin';
 import { requireStaff } from '@/server/staff';
-import { lastSeason, readFilters, filterQuery, seasonsOf, sortRows, thisSeason, weekStart, type Content } from '@/server/reports/common';
+import { csvCell, lastSeason, readFilters, filterQuery, seasonsOf, sortRows, thisSeason, weekStart, type Content } from '@/server/reports/common';
+import { toCsv } from '@/lib/csv';
 import { compareText, dashboard } from '@/server/reports/dashboard';
 import { atRiskFrom, childrenFrom, classesFrom, comingBackFrom, dropsFrom, freeClassFrom, signupsByWeekFrom, type EnrollRow, type OrderLite } from '@/server/reports/enrollment';
 import { favorites, setFavorite } from '@/server/reports/favorites';
@@ -311,6 +312,8 @@ describe('safety and teachers', () => {
     ]);
     const r = teacherAttendanceFrom({ classes, teacherLinks: links, reports: new Set(['intro-f26 2026-08-18']), daysOff: [], dropIns: new Map() }, 'Fall 2026', '2026-08-26', at('2026-08-26'), {});
     expect(r.rows.find((x) => x.cells[0] === 'Lee')!.cells.slice(1, 5)).toEqual([1, 2, 1, 1]);
+    // Lee and Ari share Intro's two dates: the total counts each class date once.
+    expect(r.total.display).toBe('1 of 3');
   });
 });
 
@@ -394,5 +397,16 @@ describe('with the database', () => {
     const teacher = { user: { id: 'u-t', email: 't@example.com' } as App.Locals['user'], isAdmin: false };
     expect(requireStaff(teacher).response?.status).toBe(404);
     expect(requireStaff({ user: HANNAH as unknown as App.Locals['user'], isAdmin: true }).response).toBeNull();
+  });
+});
+
+describe('report spreadsheets', () => {
+  it('writes money as numbers, so a refund adds up instead of becoming text', () => {
+    expect(csvCell(95000, 'money')).toBe(950);
+    expect(csvCell(-9500, 'money')).toBe(-95);
+    expect(csvCell(-1, 'money')).toBe(-0.01);
+    const csv = toCsv(['What', 'Amount'], [['Tuition', csvCell(95000, 'money')], ['Refund', csvCell(-9500, 'money')]]);
+    expect(csv).toContain('Refund,-95\r\n');
+    expect(csv).not.toContain("'-95");
   });
 });

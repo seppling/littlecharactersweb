@@ -585,14 +585,22 @@ export async function familyShows(householdId: string, content: Content, now = n
 export const roleLine = (s: Pick<FamilyShow, 'firstName' | 'roles' | 'showTitle'>) =>
   s.roles.length ? `${s.firstName}: ${s.roles.join(', ')}, in ${s.showTitle}` : `${s.firstName} is in the cast of ${s.showTitle}`;
 
-/** A child's rehearsals called for one of their classes (or the whole cast), from `from` on: for the class's calendar file. */
-export async function childRehearsals(studentId: string, sessionId: string, content: Pick<Content, 'events'>, from: Date) {
+/**
+ * A child's rehearsals called for one of their classes, from `from` on: for
+ * the class's calendar file. A whole-cast rehearsal goes in the calendars of
+ * the show's performing classes only, so a child also in a camp doesn't get it twice.
+ */
+export async function childRehearsals(studentId: string, sessionId: string, content: Pick<Content, 'events' | 'findSession'>, from: Date) {
   const db = await getDb();
   const shows = await db.selectDistinct({ showSlug: showCast.showSlug }).from(showCast).where(eq(showCast.studentId, studentId));
   const slugs = shows.map((s) => s.showSlug).filter((slug) => findShow(content, slug));
   if (!slugs.length) return [];
   const rows = await db.select().from(showRehearsal).where(and(inArray(showRehearsal.showSlug, slugs), gte(showRehearsal.endsAt, from))).orderBy(asc(showRehearsal.startsAt));
-  return rows.filter((r) => childCalled(r, new Set([sessionId]))).map((r) => ({ ...r, showTitle: findShow(content, r.showSlug)!.title }));
+  const programSlug = content.findSession(sessionId)?.program.slug;
+  const performs = (slug: string) => !!programSlug && (findShow(content, slug)?.performers ?? []).includes(programSlug);
+  return rows
+    .filter((r) => (r.sessionIds.length ? childCalled(r, new Set([sessionId])) : performs(r.showSlug)))
+    .map((r) => ({ ...r, showTitle: findShow(content, r.showSlug)!.title }));
 }
 
 /** Families to tell about a rehearsal change: those with a child in the cast who's called to it. */

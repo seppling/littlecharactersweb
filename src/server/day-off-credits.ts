@@ -8,7 +8,7 @@
  * One credit per family and date. Its id is fixed (`dayoff-<closure>-<family>`),
  * so giving them twice adds nothing: that is how they're marked done.
  */
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, like } from 'drizzle-orm';
 import type { SiteContent } from '@/content/site-content';
 import { addCredit, CreditError } from './credits';
 import { getDb, schema } from './db';
@@ -73,7 +73,15 @@ export async function dayOffCredits(catalog: Catalog, closureIds: string[]): Pro
     };
   });
   const given = new Set((await db.select({ id: credit.id }).from(credit).where(inArray(credit.id, list.map((c) => c.id)))).map((c) => c.id));
-  return list.map((c) => ({ ...c, given: given.has(c.id) })).sort((a, b) => a.date.localeCompare(b.date) || a.family.localeCompare(b.family));
+  // A day off removed and added again: a family whose credit for that date stayed (it was already used) isn't given another.
+  // The date travels in the credit's audit entry ("day off 2026-12-08").
+  const kept = await db
+    .select({ householdId: credit.householdId, detail: auditLog.detail })
+    .from(credit)
+    .innerJoin(auditLog, and(eq(auditLog.entityId, credit.id), eq(auditLog.action, 'admin.credit.add')))
+    .where(and(like(credit.id, 'dayoff-%'), isNull(credit.removedAt), inArray(credit.householdId, [...new Set(list.map((c) => c.householdId))])));
+  const keptFor = new Set(kept.map((k) => `${k.householdId} ${k.detail}`));
+  return list.map((c) => ({ ...c, given: given.has(c.id) || keptFor.has(`${c.householdId} day off ${c.date}`) })).sort((a, b) => a.date.localeCompare(b.date) || a.family.localeCompare(b.family));
 }
 
 /**

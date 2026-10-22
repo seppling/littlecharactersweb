@@ -58,15 +58,16 @@ const time = (c: TeachCard) => (c.session.start && c.session.end ? timeRange(c.s
 const role = (c: TeachCard) =>
   c.as === 'cover' ? (c.coveringFor ? `Covering for ${c.coveringFor}` : 'Substitute') : c.as === 'assistant' ? 'Assisting' : c.as === 'owner' && c.session.teacher ? c.session.teacher : '';
 const kids = (n: number) => `${n} ${n === 1 ? 'child' : 'children'}`;
-// Today's rosters this person may mark: kept on the phone with this page.
-const precache = today.filter((c) => !c.dayOff && c.as !== 'owner').map((c) => teachRoster(c.sessionId, date, on));
+// Today's rosters this person may mark: kept on the phone with this page. Nothing is kept on a shared device.
+const keep = !!staff && !Astro.locals.sharedDevice;
+const precache = keep ? today.filter((c) => !c.dayOff && c.as !== 'owner').map((c) => teachRoster(c.sessionId, date, on)) : [];
 
-if (staff) Astro.response.headers.set('X-Teach-Cache', todayInAthens());
+if (keep) Astro.response.headers.set('X-Teach-Cache', todayInAthens());
 else Astro.response.headers.set('X-Teach-Signed-Out', '1');
 ---
 
 <AdminShell title="Your classes" section="teach" teachers>
-  <div class="admin-page teach" data-teach-home data-by={staff?.id} data-date={date} data-on={on ?? ''} data-precache={JSON.stringify(precache)}>
+  <div class="admin-page teach" data-teach-home data-by={staff?.id} data-date={date} data-on={on ?? ''} data-precache={JSON.stringify(precache)} data-keep={keep ? '1' : '0'}>
     <div class="admin-head">
       <div>
         <h1>{firstName ? `Hi, ${firstName}` : 'Your classes'}</h1>
@@ -244,7 +245,7 @@ else Astro.response.headers.set('X-Teach-Signed-Out', '1');
     }
 
     claimPhone(by).then(() => {
-      registerWorker(JSON.parse(root.dataset.precache || '[]'));
+      registerWorker(JSON.parse(root.dataset.precache || '[]'), root.dataset.keep === '1');
       const go = keepSending(by, paint);
       paint().then(go);
     });

@@ -285,6 +285,13 @@ describe('saving taps', () => {
     await saveTaps(sub, [tap(kids[0], 'absent', '2026-10-21T09:00:00Z')], await catalog(), now, TUE);
     expect((await rowOf(kids[0]))[0].markedAt.toISOString()).toBe(now.toISOString());
   });
+  it('a clock running ahead: of two taps held to the same now, the one made later wins', async () => {
+    const present = tap(kids[0], 'present', '2026-10-21T09:00:05Z');
+    const absent = tap(kids[0], 'absent', '2026-10-21T09:00:10Z');
+    // Five minutes after the last test's tap, so both are newer than Ada's mark.
+    await saveTaps(sub, [present, absent], await catalog(), new Date('2026-10-20T22:05:00Z'), TUE);
+    expect((await rowOf(kids[0]))[0].status).toBe('absent');
+  });
   it('a child not on the roster, another teacher, a day off: refused', async () => {
     const db = await getDb();
     const [stranger] = await db.insert(schema.student).values({ householdId, firstName: 'Zed', lastName: 'Test' }).returning();
@@ -301,6 +308,11 @@ describe('saving taps', () => {
     expect((await late('2026-10-20'))[0].result).toBe('saved');
     const owned = await saveTaps(owner, [tap(kids[1], 'absent', '2026-12-01T15:00:00Z', undefined, date)], await catalog(), new Date('2026-12-01T16:00:00Z'), '2026-12-01');
     expect(owned[0].result).toBe('saved');
+  });
+  it('a tap back-dated to an old class date doesn’t reopen it', async () => {
+    const [res] = await saveTaps(lead, [tap(kids[0], 'absent', '2026-09-29T21:30:00Z', undefined, '2026-09-29')], await getCatalog(), new Date('2026-10-20T16:00:00Z'), '2026-10-20');
+    expect(res).toMatchObject({ result: 'refused', why: 'too-late' });
+    expect(await rowOf(kids[0], '2026-09-29')).toHaveLength(0);
   });
 });
 

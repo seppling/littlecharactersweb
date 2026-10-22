@@ -177,7 +177,9 @@ export function requireTeacherOrOwner(locals: Pick<App.Locals, 'user' | 'staffRo
   response: Response | null;
 } {
   if (locals.user && locals.staffRole && locals.staffId) return { staff: { ...locals.user, role: locals.staffRole, staffId: locals.staffId }, response: null };
-  if (locals.user) return { staff: null, response: notFound() };
+  // Signed in but not staff (a family, or a teacher who was turned off): the teacher app's
+  // service worker clears everything it kept on this device (public/admin/teach-sw.js).
+  if (locals.user) return { staff: null, response: new Response(null, { status: 404, headers: { 'X-Teach-Signed-Out': '1' } }) };
   return { staff: null, response: null };
 }
 

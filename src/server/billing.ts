@@ -118,7 +118,8 @@ export async function runBilling({ charge, today = todayInAthens(), limit = Infi
   // Before charging: the family discount (a class ended, or a month skipped earlier), then staff adjustments, then credits waiting for a payment.
   await refreshAllFamilyDiscounts({ today });
   await reapplyPendingAdjustments();
-  await applyWaitingCredits();
+  // A problem with one credit never stops the day's charging: it waits for the next run.
+  await applyWaitingCredits().catch((e) => console.error('Applying waiting credits failed; charging goes on', e));
   const lateFees = await applyLateFees(today);
   const staleBefore = new Date(Date.now() - BILLING.staleAfterMinutes * 60_000);
   const due = await db
