@@ -637,3 +637,30 @@ The settings unit (`claude/bo2-settings-rest`) and the reports unit (`claude/bo2
 | reports | The dashboard and the library of 28 reports |
 
 **Next:** bring Phase 2 into `main` with a pull request when Stephen says so, after the email setup (Squarespace DNS records) and before the Render Blueprint.
+
+## Oct 22, 2026: reviewed before main
+
+Stephen said yes to the pull request into `main`. The repo's new rules (`CLAUDE.md`, merged from `main`) ask for `/review-change` first: the checks, then a reviewer with fresh eyes. Three reviewers each read one part of Phase 2: money; the teacher app and settings; reports, tags, skills and shows. Every finding was checked against the code before fixing.
+
+- **Fixed, money:**
+  - a refund or credit form sent twice (a double click) refunds or credits once;
+  - removing a day off takes back its credits, and adding the same date again doesn't give a second one;
+  - credits come off after discounts;
+  - Try again on a card refund looks for the refund Stripe already made;
+  - no "refunded" email when Stripe didn't answer;
+  - a credit problem never stops the billing run;
+  - spreadsheets keep refunds as numbers, so totals add up.
+- **Fixed, teacher app:**
+  - absence reasons are no longer lost on Android;
+  - nothing is kept on a shared device;
+  - a back-dated tap can't reopen a closed date;
+  - taps are applied in the order they were made;
+  - a note never marks a child Present.
+- **Fixed, reports and notes:**
+  - a progress note goes out exactly as previewed, and once;
+  - teacher attendance's total counts each class date once;
+  - money reports that name children are logged when viewed;
+  - whole-cast rehearsals go only in the performing classes' calendars.
+- **Also fixed:** the trial journey test expected the season's 15% rounded the ordinary way. The site rounds it in the family's favor, as the pricing rules say; on Oct 22 the two differ by a cent.
+- **Left for later:** a day-off discount saved while a family has the pay-now form open can be lost if they pay the old amount through that form (rare: the form is open for at most two hours).
+- **For Hannah:** when a day off is saved with **Don't change payments** (a break the tuition already allows for), should families who already paid that month still be offered a credit? Today they are, through **Give these credits**. The reviewer suggests not. It's a money rule, so it waits for her answer.
