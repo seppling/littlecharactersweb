@@ -75,7 +75,7 @@ Decided Sep 2026: charge monthly tuition automatically on the 1st, retry failed 
 5. **Late fee** (decided Sep 2026): a month still unpaid on the **11th** gets a one-time **$15** fee, added by that morning's run.
    - The family is emailed the new total and a pay link. The next charge or payment collects tuition and fee together.
    - A family who opened "pay now" before the 11th and pays the tuition alone isn't charged the fee.
-   - Staff can **Waive late fee** on `/admin/payments`.
+   - Staff can **Waive late fee** on `/admin/payments`. It stays waived: the next run's `applyLateFees` skips a month with an `installment.late_fee_waived` audit entry, so those entries must never be deleted.
 6. **Withdrawals:** staff click **Stop payments**, check what changes (including any family discount that ends), then confirm. The remaining months are cancelled. Refunds are issued in the Stripe dashboard.
 
 **Never charges twice.**

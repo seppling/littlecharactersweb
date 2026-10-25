@@ -14,19 +14,32 @@
  * (src/content/seo-draft/) as unpublished drafts for Hannah to review in the
  * preview's editor. Nothing is published.
  *
+ * On a freshly unpacked database it then plays the demo story
+ * (scripts/demo-data.ts): made-up families, payments and attendance from
+ * August to today, so the back office and reports have something to show.
+ * Only where emails stay at /dev/mailbox: with RESEND_API_KEY set, the
+ * story's emails would really be sent, so it isn't made. The story's clock
+ * starts in August and moves forward, so it's set before the database opens.
+ * If the story fails, the half-made database is removed and the build fails,
+ * so it's never reused. `npm run db:prepare-preview` caps Node's heap at 128 MB
+ * (NODE_OPTIONS in package.json): without it, garbage from the story piles up
+ * and the peak reached 419–433 MB; with it, 347–401 MB.
+ *
  * The database lives in the project folder (PGLITE_DIR=.data/pglite), because
  * Render keeps files written during the build but not /tmp. Each deploy and
  * each wake from sleep starts from this database, so content edited on the
  * preview is lost when it restarts.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { getDb } from '../src/server/db';
 import { getContent } from '../src/server/content';
 import { config } from '../src/server/env';
+import { usesDevMailbox } from '../src/server/email';
 import { drafts } from '../src/content/seo-draft';
 import { describeOutcomes, loadDrafts } from './seo-drafts';
+import { DEMO_START, fakeClock, seedDemo } from './demo-data';
 
 if (config.databaseUrl) {
   console.log('DATABASE_URL is set, so there is no embedded database to prepare.');
@@ -36,7 +49,13 @@ if (config.databaseUrl) {
 const dir = config.pgliteDir;
 if (dir.startsWith('memory://')) throw new Error('PGLITE_DIR must be a folder for the preview, not memory://');
 
-if (!existsSync(path.join(dir, 'PG_VERSION'))) {
+const fresh = !existsSync(path.join(dir, 'PG_VERSION'));
+if (!fresh) console.log(`${dir} already has a database: no demo data is made (only on a freshly unpacked one).`);
+else if (!usesDevMailbox) console.log('Emails would really be sent here (RESEND_API_KEY is set), so no demo data is made.');
+// The real "now", before the demo's clock takes over until the story ends.
+const until = new Date();
+const clock = fresh && usesDevMailbox ? fakeClock(DEMO_START) : null;
+if (fresh) {
   mkdirSync(dir, { recursive: true });
   // stderr is kept for the error message only: tar notes that it strips the archive's leading '/'.
   execFileSync('tar', ['-xzf', path.resolve('scripts/pglite-empty.tar.gz'), '-C', dir], { stdio: ['ignore', 'inherit', 'pipe'] });
@@ -50,8 +69,22 @@ try {
   console.error('The empty database snapshot did not open. After a PGlite upgrade, run `npm run db:snapshot` and commit the result.');
   throw e;
 }
+const close = () => (db as unknown as { $client: { close(): Promise<void> } }).$client.close();
+if (clock) {
+  try {
+    const demo = await seedDemo({ until, setNow: clock.set });
+    console.log(`Demo data: ${demo.families} families, ${demo.children} children, ${demo.enrollments} sign-ups, ${demo.billingRuns} billing runs, ${demo.taps} attendance taps.`);
+  } catch (e) {
+    // Half made: removed, so the next run starts again from the empty snapshot.
+    await close().catch(() => {});
+    rmSync(dir, { recursive: true, force: true });
+    throw e;
+  } finally {
+    clock.restore();
+  }
+}
 if (drafts.length) console.log(`Wording drafts:\n${describeOutcomes(await loadDrafts(drafts, { commit: true }), true)}\n`);
-await (db as unknown as { $client: { close(): Promise<void> } }).$client.close();
+await close();
 
 const peakMb = Math.round(Number(readFileSync('/proc/self/status', 'utf8').match(/VmHWM:\s+(\d+)/)?.[1] ?? 0) / 1024);
 console.log(`Demo database ready in ${dir} (peak memory ${peakMb} MB).`);
