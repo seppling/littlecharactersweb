@@ -168,25 +168,22 @@ const slug = (x: string) => x.toLowerCase().replace(/[^a-z]+/g, '');
 
 /**
  * For the build: sets "now" for this whole process, starting at `start` and
- * moved forward only. `restore()` goes back to the real clock (forward, since
- * the story ends before the real now).
+ * moved forward only. `new Date()`, `Date.now()` and `Date()` read the story's
+ * time; everything else is the real Date. `restore()` goes back to the real
+ * clock (forward, since the story ends before the real now).
  */
 export function fakeClock(start: Date) {
   const Real = Date;
   let offset = start.getTime() - Real.now();
-  class Clock extends Real {
-    constructor(...args: unknown[]) {
-      if (args.length === 0) super(Real.now() + offset);
-      else super(...(args as [number]));
-    }
-    static now() {
-      return Real.now() + offset;
-    }
-  }
-  globalThis.Date = Clock as DateConstructor;
+  const now = () => Real.now() + offset;
+  globalThis.Date = new Proxy(Real, {
+    construct: (target, args, newTarget) => Reflect.construct(target, args.length ? args : [now()], newTarget),
+    apply: () => new Real(now()).toString(),
+    get: (target, prop, receiver) => (prop === 'now' ? now : Reflect.get(target, prop, receiver)),
+  });
   return {
     set(at: Date) {
-      if (at.getTime() > Clock.now()) offset = at.getTime() - Real.now();
+      if (at.getTime() > now()) offset = at.getTime() - Real.now();
     },
     restore() {
       offset = 0;
@@ -203,7 +200,6 @@ export interface DemoSummary {
   enrollments: number;
   taps: number;
   billingRuns: number;
-  skipped: string[];
 }
 
 /** When the story starts: the owner sets up staff a fortnight before the term. */
@@ -224,7 +220,7 @@ export async function seedDemo({ until, setNow }: { until: Date; setNow: (at: Da
   if ((await db.select({ id: schema.household.id }).from(schema.household).limit(1)).length) throw new Error('The database already has families; the demo is only made on an empty one.');
   const catalog = await getCatalog();
   const today = todayInAthens(until);
-  const summary: DemoSummary = { families: 0, children: 0, enrollments: 0, taps: 0, billingRuns: 0, skipped: [] };
+  const summary: DemoSummary = { families: 0, children: 0, enrollments: 0, taps: 0, billingRuns: 0 };
   const events: Event[] = [];
   const add = (date: string, time: string, what: string, run: () => Promise<unknown>) => events.push({ at: athensInstant(date, time), what, run });
   const found = (id: string) => {
@@ -381,20 +377,19 @@ export async function seedDemo({ until, setNow }: { until: Date; setNow: (at: Da
     }
   });
   add('2026-09-28', '15:00', 'paid by check', async () => {
-    const i = await monthPayment('Hughes', 'Nora', INTRO, '2026-10');
-    if (i) await markPaidOutsideStripe(i.id, ownerUser.id);
+    // Two families pay October by check: the Sullivans' is refunded by check later, which works with Stripe keys set or not.
+    for (const [last, first, session] of [['Hughes', 'Nora', INTRO], ['Sullivan', 'Iris', FILM]] as const) {
+      const i = await monthPayment(last, first, session, '2026-10');
+      if (i) await markPaidOutsideStripe(i.id, ownerUser.id);
+    }
   });
   add('2026-10-05', '11:00', 'Iris leaves Film, refund', async () => {
     const e = await enrollmentOf(kidId('Sullivan', 'Iris'), FILM);
     if (e) await removeChild(e, FILM, 'stop', ownerUser.id, 'Schedule');
     const oct = await monthPayment('Sullivan', 'Iris', FILM, '2026-10');
     if (!oct) return;
-    try {
-      await createRefund(owner, { orderId: oct.orderId, installmentId: oct.id, amountCents: Math.round(oct.amountCents / 2), reason: 'Left Film after the first week of October', emailFamily: true });
-    } catch (err) {
-      // With Stripe test keys set on the preview, a test payment can't be refunded.
-      summary.skipped.push(`refund: ${(err as Error).message}`);
-    }
+    // Paid by check, so refunded by check: recorded, no Stripe call.
+    await createRefund(owner, { orderId: oct.orderId, installmentId: oct.id, amountCents: Math.round(oct.amountCents / 2), reason: 'Left Film after the first week of October', emailFamily: true });
   });
   add('2026-10-12', '09:30', 'late fee waived', async () => {
     const i = await monthPayment('Walker', 'Zoe', INTRO, '2026-10');
@@ -519,10 +514,9 @@ export async function seedDemo({ until, setNow }: { until: Date; setNow: (at: Da
     }
     if (latest) await saveTeacherDraft(teacher, { sessionId: session.id, date, studentId: kidId('Rivera', 'Mia'), body: 'Mia led the warm-up today and helped a new friend find her place on stage.' }, catalog);
   }
-  let introCache: string[] | null = null;
+  /** Intro's class dates so far, worked out each time: days off are added as the story goes. */
   async function introDates() {
-    introCache ??= (await classDates(found(INTRO).session)).filter((d) => !d.dayOff && d.date < today).map((d) => d.date);
-    return introCache;
+    return (await classDates(found(INTRO).session)).filter((d) => !d.dayOff && d.date < today).map((d) => d.date);
   }
 
   // ── Play it, in order ──

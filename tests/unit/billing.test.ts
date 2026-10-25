@@ -264,6 +264,12 @@ describe('late fee', () => {
     // It stays waived: the next day's run doesn't add it back (or email the family about it again).
     expect(await applyLateFees('2026-11-13')).toBe(0);
     expect((await byDue(P.h.id, '2026-11-01')).lateFeeCents).toBe(0);
+    // A waiver is for that month only: the family's December, failed and unpaid on the 11th, still gets its fee.
+    const pDec = await byDue(P.h.id, '2026-12-01');
+    await (await getDb()).update(schema.installment).set({ status: 'failed' }).where(eq(schema.installment.id, pDec.id));
+    expect(await applyLateFees('2026-12-11')).toBeGreaterThanOrEqual(1);
+    expect((await byDue(P.h.id, '2026-12-01')).lateFeeCents).toBe(1500);
+    expect((await byDue(P.h.id, '2026-11-01')).lateFeeCents).toBe(0);
     await markInstallmentPaid(pNov.id, { paymentIntentId: 'pi_p', amountCents: 10_000 });
     expect((await byDue(P.h.id, '2026-11-01')).status).toBe('failed'); // wrong amount still refused
   });

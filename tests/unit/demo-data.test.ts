@@ -4,11 +4,12 @@
  * Oct 25, 2026, and leaves made-up families with a term's payments,
  * attendance and the rest, every address @example.com and every phone 555.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, like } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { getCatalog } from '@/server/content';
 import { getDb, schema } from '@/server/db';
 import { missedTwo } from '@/server/attendance';
+import { readStudentNotes } from '@/server/family';
 import { dashboard } from '@/server/reports/dashboard';
 import { findReport, Loads, runReport } from '@/server/reports/library';
 import { readFilters, type Content } from '@/server/reports/common';
@@ -30,7 +31,7 @@ const rows = async <T>(q: Promise<T[]>) => (await q).length;
 
 describe('the demo story', () => {
   it('makes the families, children and sign-ups', () => {
-    expect(summary).toMatchObject({ families: 30, children: 36, skipped: [] });
+    expect(summary).toMatchObject({ families: 30, children: 36 });
     expect(summary.enrollments).toBeGreaterThanOrEqual(45);
     expect(summary.taps).toBeGreaterThan(300);
   });
@@ -59,13 +60,42 @@ describe('the demo story', () => {
     expect(await count('stories-songs-f26', 'active')).toBe(3);
   });
 
-  it('has the term’s money: two failed payments (one late fee, one waived), a check, a refund, credits', async () => {
+  it('has a teacher on every class, and allergy notes stored encrypted', async () => {
     const db = await getDb();
+    const leads = await db.select({ sessionId: schema.classTeacher.sessionId }).from(schema.classTeacher).where(eq(schema.classTeacher.role, 'lead'));
+    expect(new Set(leads.map((l) => l.sessionId)).size).toBe(8);
+    const [ada] = await db.select().from(schema.student).where(eq(schema.student.firstName, 'Ada'));
+    expect(ada.allergiesEnc).toBeTruthy();
+    expect(ada.allergiesEnc).not.toContain('Peanuts');
+    expect(readStudentNotes(ada).allergies).toContain('Peanuts');
+  });
+
+  it('has free classes that went on to monthly, and two that didn’t', async () => {
+    const db = await getDb();
+    for (const first of ['Ava', 'Lucas']) {
+      const [kid] = await db.select().from(schema.student).where(eq(schema.student.firstName, first));
+      const orders = await db.select({ plan: schema.order.plan }).from(schema.order).where(eq(schema.order.householdId, kid.householdId));
+      expect(orders.map((o) => o.plan).sort(), first).toEqual(['monthly', 'trial']);
+      expect((await db.select({ s: schema.enrollment.status }).from(schema.enrollment).where(eq(schema.enrollment.studentId, kid.id)))[0].s).toBe('active');
+    }
+    const left = await db.select({ reason: schema.enrollment.dropReason }).from(schema.enrollment).innerJoin(schema.student, eq(schema.student.id, schema.enrollment.studentId)).where(inArray(schema.student.firstName, ['Tess', 'Leah']));
+    expect(left.map((l) => l.reason).filter(Boolean).sort()).toEqual(['Cost', 'Schedule']);
+  });
+
+  it('has the term’s money: two failed payments (one late fee, one waived), a check, a refund, credits, the family discount', async () => {
+    const db = await getDb();
+    // The 15% family discount: a payment's base below its regular price (src/server/family-discount.ts).
+    const discounted = (await db.select({ base: schema.installment.baseAmountCents, regular: schema.installment.regularAmountCents }).from(schema.installment)).filter((i) => i.base < i.regular);
+    expect(discounted.length).toBeGreaterThan(5);
+    // The fall break's credits, for the families who'd already paid October.
+    expect(await rows(db.select().from(schema.credit).where(like(schema.credit.id, 'dayoff-%')))).toBeGreaterThanOrEqual(3);
     const failed = await db.select().from(schema.installment).where(eq(schema.installment.status, 'failed'));
     expect(failed).toHaveLength(2);
     expect(failed.map((i) => i.lateFeeCents).sort()).toEqual([0, 1500]);
-    expect(await rows(db.select().from(schema.installment).where(eq(schema.installment.lastError, 'paid outside Stripe')))).toBe(1);
-    expect(await rows(db.select().from(schema.refund))).toBe(1);
+    expect(await rows(db.select().from(schema.installment).where(eq(schema.installment.lastError, 'paid outside Stripe')))).toBe(2);
+    // Refunded by check, so it works on the preview with Stripe test keys set as well.
+    const refunds = await db.select().from(schema.refund);
+    expect(refunds.map((r) => [r.status, r.stripeRefundId])).toEqual([['succeeded', null]]);
     expect(await rows(db.select().from(schema.credit))).toBeGreaterThanOrEqual(2);
     expect(await rows(db.select().from(schema.dropIn).where(eq(schema.dropIn.status, 'booked')))).toBe(1);
   });

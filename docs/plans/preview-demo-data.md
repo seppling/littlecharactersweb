@@ -64,12 +64,16 @@ After each deploy, and each time the preview wakes from sleep, it has:
 ## Needs a person's approval
 
 - This plan, before any code.
-- Nothing here touches the live site, prices, billing rules, Stripe, emails to real families or database migrations.
+- Nothing in the demo data touches the live site, prices, billing rules, Stripe, emails to real families or database migrations.
+- The late-fee fix found while building it (below, Decisions) is a billing change: it waits for Stephen's yes.
 
 ## Decisions
 
 - **Approved** by Stephen on Oct 25, 2026.
-- **Made when the preview is built.** The data is made once per deploy, so each wake starts from the same data. Dates are counted from the build day. After a few weeks without a deploy, "today" drifts away from the data; to refresh it, Render dashboard → the preview → Manual Deploy → "Deploy latest commit".
+- **Made when the preview is built.** The data is made once per deploy, so each wake starts from the same data. The story uses the Fall 2026 term's dates and stops at the build day. After a few weeks without a deploy, "today" drifts past the data; to bring it up to date, Render dashboard → the preview → Manual Deploy → "Deploy latest commit". After Fall 2026 ends, the story needs new dates (`docs/todo.md`).
+- **Only where emails stay in the mailbox.** With `RESEND_API_KEY` set, the story's 180-odd emails would really be sent (two of them to the studio's inbox), so the build skips it and says so. A demo that fails partway is deleted, so a half-made database is never reused.
+- **`ADMIN_EMAILS` stays empty on the preview.** The shared `owner@example.com` sign-in can open Settings → Staff, which lists every `ADMIN_EMAILS` address, so a real address there would be visible to anyone with the link. `render.yaml` and `docs/infrastructure.md` now say to leave it empty. If it's set on the existing preview, Stephen removes it (Render → the preview → Environment).
+- **Found while building it: a waived late fee came back** (Oct 25). The daily billing run added the $15 to any failed month whose fee was $0, which is what **Waive late fee** sets, so the next morning it was back and the family was emailed about it again. The fix is in `src/server/billing.ts` (`applyLateFees` skips a month with an `installment.late_fee_waived` entry), with a test that a waiver covers only its own month. It changes how billing behaves, so it waits for Stephen's yes in the pull request.
 - **A shared owner sign-in.** Anyone with the preview link can sign in as `owner@example.com`, because the preview's mailbox is public. That is already true for any email on the preview. It's acceptable because everything there is made up and resets on restart.
 - **Built with the site's own code.** Families sign up, pay, take attendance and so on through the same code the site uses (checkout uses a test payment, and the 1st-of-the-month charge uses the billing run). That way the numbers match what the pages work out. The dates are then moved back, so it looks like two months of use rather than one busy afternoon.
 
