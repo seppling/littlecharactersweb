@@ -17,6 +17,8 @@ declare namespace App {
     staffRole: 'owner' | 'teacher' | null;
     /** Their row in the staff table (what classes are assigned to), when staffRole is set. */
     staffId: string | null;
+    /** Signed in with "This is a shared device" ticked: the teacher app keeps nothing on the device (src/server/staff.ts). */
+    sharedDevice: boolean;
     /** The site's content: published, or with unpublished edits while staff preview them. */
     content: import('./content/site-content').SiteContent;
     /** Staff are previewing unpublished edits. */

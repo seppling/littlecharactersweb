@@ -1,0 +1,209 @@
+---
+/**
+ * Settings → Skills (owners; src/server/skills.ts): each program's skills,
+ * in the order teachers see them. With ?program=<slug>, one program: add,
+ * rename, move up or down, retire (children's progress stays; the skill
+ * drops off the teacher's list) and bring back. Changes post back here and
+ * redirect with ?done= so a reload doesn't repeat them.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { settings, settingsSkills } from '@/lib/admin-links';
+import { requireStaff } from '@/server/staff';
+import { SKILL_NAME_MAX, SkillError, addSkill, moveSkill, programSkills, renameSkill, setSkillActive, skillCounts } from '@/server/skills';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const { content } = Astro.locals;
+const slug = Astro.url.searchParams.get('program');
+const program = slug ? content.programBySlug(slug) : undefined;
+if (staff && slug && !program) return new Response('Not found', { status: 404 });
+const here = settingsSkills(program?.slug);
+
+let error = '';
+let failed = '';
+let values: Record<string, string> = {};
+if (staff && program && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+  failed = `${values.action}:${values.id ?? ''}`;
+  const id = values.id ?? '';
+  const done = (what: string, at = id) => Astro.redirect(`${here}&done=${what}${at ? `#skill-${encodeURIComponent(at)}` : ''}`, 303);
+  try {
+    switch (values.action) {
+      case 'add': {
+        const row = await addSkill(staff.id, program.slug, values.name ?? '');
+        return done('added', row.id);
+      }
+      case 'rename':
+        await renameSkill(staff.id, id, values.name ?? '');
+        return done('renamed');
+      case 'up':
+      case 'down':
+        await moveSkill(staff.id, id, values.action);
+        return done('moved');
+      case 'retire':
+        await setSkillActive(staff.id, id, false);
+        return done('retired', '');
+      case 'restore':
+        await setSkillActive(staff.id, id, true);
+        return done('restored');
+    }
+  } catch (e) {
+    if (!(e instanceof SkillError)) throw e;
+    error = e.message;
+  }
+}
+
+const counts = staff ? await skillCounts() : new Map();
+const skills = staff && program ? await programSkills(program.slug, { retired: true }) : [];
+const active = skills.filter((s) => s.active);
+const retired = skills.filter((s) => !s.active);
+// Weekly classes first, then camps and workshops; parties and lessons last.
+const order = { class: 0, inclusive: 1, camp: 2, workshop: 3, lesson: 4, party: 5 } as const;
+const programs = [...content.programs].sort((a, b) => order[a.kind] - order[b.kind] || a.title.localeCompare(b.title));
+const notice = (
+  { added: 'Skill added.', renamed: 'Skill renamed.', moved: 'Order saved.', retired: 'Skill retired. Children keep their progress; teachers no longer see it.', restored: 'Skill brought back, at the end of the list.' } as Record<string, string>
+)[Astro.url.searchParams.get('done') ?? ''];
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+---
+
+<AdminShell title={program ? `Skills: ${program.title}` : 'Skills'} section="settings" back={program ? { href: settingsSkills(), label: 'Skills' } : { href: settings(), label: 'Settings' }}>
+  <div class="admin-page skills-settings">
+    <div class="admin-head">
+      <div>
+        <h1>{program ? `Skills: ${program.title}` : 'Skills'}</h1>
+        <p class="admin-intro">
+          {program
+            ? 'In the order teachers see them. Teachers tick Not yet, Working on it or Got it for each child in the teacher app, and you can send families a progress note.'
+            : 'What each class works on. Teachers tick them for each child in the teacher app; you see them on the class and family pages and can send families a progress note.'}
+        </p>
+      </div>
+    </div>
+    {notice && <p class="notice" role="status" data-notice>{notice}</p>}
+    {error && <p class="notice notice--error" role="alert" data-error>{error}</p>}
+
+    {
+      !program ? (
+        <ul class="programs" data-skill-programs>
+          {programs.map((p) => {
+            const c = counts.get(p.slug);
+            return (
+              <li>
+                <a class="program" href={settingsSkills(p.slug)} data-program={p.slug}>
+                  <strong>{p.title}</strong>
+                  <span class="muted">{c?.active ? plural(c.active, 'skill') : 'No skills yet'}{c?.retired ? ` · ${c.retired} retired` : ''}</span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <>
+          <section class="admin-section" aria-labelledby="active-h">
+            <h2 id="active-h">Skills <span class="muted">({active.length})</span></h2>
+            {active.length === 0 ? (
+              <p class="muted">No skills yet. Add the first one below.</p>
+            ) : (
+              <ol class="skills" data-skill-list>
+                {active.map((s, i) => {
+                  const open = failed === `rename:${s.id}`;
+                  return (
+                    <li class="skill staff-card" id={`skill-${s.id}`} data-skill-row={s.name}>
+                      <span class="skill__name"><span class="skill__n">{i + 1}.</span> {s.name}</span>
+                      <div class="skill__tools">
+                        <form method="post" class="skill__move">
+                          <input type="hidden" name="id" value={s.id} />
+                          <button class="btn btn--outline btn--sm" name="action" value="up" disabled={i === 0} aria-label={`Move ${s.name} up`}>↑</button>
+                          <button class="btn btn--outline btn--sm" name="action" value="down" disabled={i === active.length - 1} aria-label={`Move ${s.name} down`}>↓</button>
+                        </form>
+                        <details class="tool" open={open || undefined}>
+                          <summary class="btn btn--outline btn--sm">Rename<span class="sr-only"> {s.name}</span></summary>
+                          <form method="post" class="tool__body">
+                            <input type="hidden" name="action" value="rename" />
+                            <input type="hidden" name="id" value={s.id} />
+                            <label for={`rename-${s.id}`}>New name</label>
+                            <div class="row">
+                              <input id={`rename-${s.id}`} name="name" required maxlength={SKILL_NAME_MAX} value={open ? values.name : s.name} autocomplete="off" />
+                              <button class="btn btn--primary btn--sm" type="submit">Save</button>
+                            </div>
+                          </form>
+                        </details>
+                        <details class="tool">
+                          <summary class="btn btn--outline btn--sm">Retire<span class="sr-only"> {s.name}</span></summary>
+                          <form method="post" class="tool__body">
+                            <input type="hidden" name="action" value="retire" />
+                            <input type="hidden" name="id" value={s.id} />
+                            <p>Teachers stop seeing it. Children keep what was marked, and it stays on their family page. You can bring it back.</p>
+                            <button class="btn btn--danger btn--sm" type="submit" data-retire>Retire the skill</button>
+                          </form>
+                        </details>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+            <form method="post" class="add staff-card" data-add-skill>
+              <input type="hidden" name="action" value="add" />
+              <label for="skill-name">Add a skill</label>
+              <div class="row">
+                <input id="skill-name" name="name" required maxlength={SKILL_NAME_MAX} autocomplete="off" placeholder="Projects voice to the back row" value={values.action === 'add' ? values.name : ''} />
+                <button class="btn btn--primary btn--sm" type="submit">Add</button>
+              </div>
+              <p class="muted">Short and plain: families see these in progress notes.</p>
+            </form>
+          </section>
+
+          {retired.length > 0 && (
+            <section class="admin-section" aria-labelledby="retired-h" data-retired>
+              <h2 id="retired-h">Retired <span class="muted">({retired.length})</span></h2>
+              <ul class="skills">
+                {retired.map((s) => (
+                  <li class="skill staff-card skill--retired" id={`skill-${s.id}`} data-skill-retired={s.name}>
+                    <span class="skill__name">{s.name}</span>
+                    <form method="post">
+                      <input type="hidden" name="action" value="restore" />
+                      <input type="hidden" name="id" value={s.id} />
+                      <button class="btn btn--outline btn--sm" type="submit">Bring back<span class="sr-only"> {s.name}</span></button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
+      )
+    }
+  </div>
+</AdminShell>
+
+<style>
+  /* Phones: a full 44 px for every button, not 43.x after rounding. */
+  .skills-settings .btn, .skills-settings summary.btn { min-height: 44px; }
+  .skills-settings .muted { color: var(--ink-mute); font-size: var(--step--1); font-weight: 400; }
+  .programs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr)); gap: 0.6rem; }
+  .program { display: grid; gap: 0.15rem; min-height: 44px; padding: 0.7rem 0.9rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-md); background: var(--paper); color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+  .program:hover { border-color: var(--ink); }
+  .skills { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  .skill { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; min-width: 0; }
+  .skill__name { font-weight: 700; overflow-wrap: anywhere; min-width: 0; }
+  .skill__n { color: var(--ink-mute); font-weight: 650; font-variant-numeric: tabular-nums; }
+  .skill--retired .skill__name { color: var(--ink-mute); }
+  .skill__tools { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: start; }
+  .skill__move { display: flex; gap: 0.3rem; }
+  .skill__move .btn { min-width: 44px; justify-content: center; }
+  .tool { min-width: 0; max-width: 100%; }
+  .tool > summary { list-style: none; cursor: pointer; }
+  .tool > summary::-webkit-details-marker { display: none; }
+  .tool[open] > summary { background: var(--hall); }
+  .tool__body { display: grid; gap: 0.5rem; margin-top: 0.5rem; max-width: 26rem; }
+  .tool__body label { font-weight: 650; font-size: var(--step--1); }
+  .tool__body p { margin: 0; font-size: var(--step--1); }
+  .add { display: grid; gap: 0.35rem; margin-top: var(--space-s); max-width: 36rem; }
+  .add label { font-weight: 700; }
+  .add .muted { margin: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .row input { flex: 1 1 12rem; min-width: 0; min-height: 44px; }
+</style>

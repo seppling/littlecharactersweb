@@ -6,6 +6,8 @@ import Base from '@/layouts/Base.astro';
 import Character from '@/components/Character.astro';
 import SignInPanel from '@/components/portal/SignInPanel.astro';
 import { getDb, schema } from '@/server/db';
+import ProgressNotes from '@/components/ProgressNotes.astro';
+import { sharedNotesFor } from '@/server/progress-notes';
 import { ageOn, confirmFamilyDetails, createStudent, detailsFresh, ensureHousehold, getFamilyDetails, householdAccount, listEnrollments, listOrders, listStudents, studentInput } from '@/server/family';
 import { familyDetailsComplete, familyDetailsOnFile, personLine } from '@/lib/family-details';
 import { today as staffToday } from '@/lib/admin-links';
@@ -13,8 +15,15 @@ import { dayList, timeRange } from '@/lib/format';
 import { formatCents, meetings, todayInAthens } from '@/lib/pricing';
 import { bookingClock, canBook, sessionState } from '@/lib/session-dates';
 import { failureReason, listInstallments, totalDue } from '@/server/billing';
+import { dayOffFrom, daysOffBetween } from '@/server/class-day';
+import { noClassLine } from '@/server/days-off';
 import { adjustmentLine, discountLines } from '@/lib/adjustments';
 import { cardLabel, groupAutopay, namesList, studioDirectorWelcome } from '@/lib/account';
+import { dropInClasses, dropInDay, familyDropIns } from '@/server/drop-ins';
+import { familyPayments, refundNote } from '@/server/refunds';
+import { familyCredits } from '@/server/credits';
+import { statementYears } from '@/server/statements';
+import { familyShows, roleLine } from '@/server/shows';
 
 export const prerender = false;
 const { locationById, site } = Astro.locals.content;
@@ -59,6 +68,8 @@ if (user && Astro.request.method === 'POST') {
 const needsProfile = !!user && !user.name?.trim();
 const household = user && !needsProfile ? await ensureHousehold(user) : null;
 const students = household ? await listStudents(household.id) : [];
+// Progress notes staff sent about each child (src/server/progress-notes.ts); drafts never show here.
+const progress = household ? await sharedNotesFor(household.id, Astro.locals.content) : new Map();
 const enrollments = household ? await listEnrollments(household.id) : [];
 const orders = household ? await listOrders(household.id) : [];
 const installments = household ? await listInstallments(household.id) : [];
@@ -89,31 +100,52 @@ const familyNote = [...needsAttention, ...autopay].some(withFamilyDiscount)
     ? 'Your family discount (15% off for multiple students or classes) ended when fewer than two were still enrolled, so the months not yet paid are back to the regular price.'
     : '';
 const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-const receipts: { date: Date; label: string; amountCents: number; discounts?: ReturnType<typeof discountLines> }[] = [
+// Refunds on each payment, the family's credits, and the years they can download a statement for (src/server/refunds.ts, credits.ts, statements.ts).
+const paidList = household ? await familyPayments(household.id) : [];
+const refundedOn = new Map(paidList.map((p) => [p.key, refundNote(p.amountCents, p.refunds)]));
+const credits = household ? (await familyCredits(household.id)).filter((c) => c.state !== 'removed') : [];
+const statementYearsList = statementYears(paidList);
+const receipts: { key: string; date: Date; label: string; amountCents: number; discounts?: ReturnType<typeof discountLines> }[] = [
   ...orders.map((o) => ({
+    key: `o-${o.id}`,
     date: o.paidAt!,
-    label: `${namesList(orderKids.get(o.id) ?? [])}${orderKids.get(o.id)?.length ? ': ' : ''}${Astro.locals.content.findSession(o.sessionId)?.program.title ?? o.sessionId}${o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (full season)' : o.plan === 'monthly' ? ' (first month + fees)' : ''}`,
+    label:
+      o.plan === 'drop_in' && o.lines[0]
+        ? o.lines[0].label
+        : `${namesList(orderKids.get(o.id) ?? [])}${orderKids.get(o.id)?.length ? ': ' : ''}${Astro.locals.content.findSession(o.sessionId)?.program.title ?? o.sessionId}${o.plan === 'trial' ? ' (free trial)' : o.plan === 'full' ? ' (full season)' : o.plan === 'monthly' ? ' (first month + fees)' : ''}`,
     amountCents: o.totalCents,
   })),
   ...installments
     .filter((i) => i.status === 'paid')
-    .map((i) => ({ date: i.paidAt!, label: `${i.label}${i.lateFeeCents ? ' + late fee' : ''}`, amountCents: totalDue(i), discounts: discountLines(i) })),
+    .map((i) => ({ key: `i-${i.id}`, date: i.paidAt!, label: `${i.label}${i.lateFeeCents ? ' + late fee' : ''}`, amountCents: totalDue(i), discounts: discountLines(i) })),
 ].sort((a, b) => b.date.getTime() - a.date.getTime());
 const today = todayInAthens();
 const clock = bookingClock(Astro.locals.content.site.lateJoinWeeks);
 
+// Days off from today on: "No class Nov 26 (Thanksgiving)" in each class's line, and the next class skips them.
+const daysOff = enrollments.length ? await daysOffBetween(today, '9999-12-31') : [];
 const upcoming = enrollments
   .map(({ enrollment, student }) => {
     const found = Astro.locals.content.findSession(enrollment.sessionId);
     if (!found) return null;
-    const next = meetings(found.session).find((m) => m >= today);
+    const left = meetings(found.session).filter((m) => m >= today);
+    const next = left.find((m) => !dayOffFrom(daysOff, found.session.id, m)) ?? (left.length ? left[0] : undefined);
+    const off = left.map((m) => dayOffFrom(daysOff, found.session.id, m)).filter((d): d is NonNullable<typeof d> => !!d);
     // After a free class, continuing is a new sign-up: only while the class still takes new students.
     const canContinue = enrollment.status === 'trial' && canBook(found.program, found.session, clock);
-    return { enrollment, student, ...found, next, canContinue };
+    return { enrollment, student, ...found, next, off, canContinue };
   })
   // A waitlist place shows until the class has ended.
   .filter((x): x is NonNullable<typeof x> => !!x && (!!x.next || (x.enrollment.status === 'waitlist' && sessionState(x.program, x.session, clock) !== 'ended')))
   .sort((a, b) => (a.next ?? '9999').localeCompare(b.next ?? '9999'));
+
+// Drop-ins (src/server/drop-ins.ts): the ones booked ahead, and the weekly classes a child of theirs could drop in to.
+const dropInsAhead = household ? (await familyDropIns(household.id, { from: today })).filter((d) => d.status === 'booked') : [];
+const inClass = (sessionId: string, studentId: string) => enrollments.some((e) => e.enrollment.sessionId === sessionId && e.student.id === studentId && (e.enrollment.status === 'active' || e.enrollment.status === 'trial'));
+const dropInOffers = students.length ? dropInClasses(Astro.locals.content).filter((c) => students.some((s) => !inClass(c.session.id, s.id))) : [];
+
+// Shows (src/server/shows.ts): each child's role in an upcoming show and the rehearsals they're called to; nothing about the rest of the cast.
+const shows = household ? await familyShows(household.id, Astro.locals.content) : [];
 
 const statusLabel = { active: 'Enrolled', trial: 'Free trial class', waitlist: 'Waitlist', cancelled: 'Cancelled' } as const;
 const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
@@ -186,6 +218,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                       <div class="classes__side">
                         <span class:list={['badge', `badge--${u.enrollment.status}`]}>{statusLabel[u.enrollment.status]}</span>
                         {u.next && <span class="classes__next">Next: {fmtDate(u.next)}</span>}
+                        {u.enrollment.status !== 'waitlist' && u.off.map((d) => <span class="classes__off" data-no-class>{noClassLine(d)}</span>)}
                         {u.canContinue && <a href={`/enroll/${u.session.id}`}>Continue after the trial</a>}
                         {u.enrollment.status === 'trial' && !u.canContinue && (
                           <span>Sign-ups for this season have closed. <a href={`/contact?topic=class&class=${encodeURIComponent(u.program.title)}`}>Ask us</a></span>
@@ -198,8 +231,64 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                     </li>
                   ))}
                 </ul>
-              ) : (
+              ) : dropInsAhead.length ? null : (
                 <p class="empty">No classes yet. <a href="/programs">Find one for your crew</a>.</p>
+              )}
+              {dropInsAhead.length > 0 && (
+                <ul class="classes" data-drop-ins>
+                  {dropInsAhead.map((d) => {
+                    const f = Astro.locals.content.findSession(d.sessionId);
+                    return f && (
+                      <li data-gel={f.program.gel} data-drop-in={d.id}>
+                        <div>
+                          <span class="classes__who">{d.firstName}</span>
+                          <strong>{f.program.title}</strong>
+                          <span class="script">{dropInDay(d.date)} · {timeRange(f.session.start, f.session.end)} · {locationById(f.session.locationId)?.shortName}</span>
+                        </div>
+                        <div class="classes__side">
+                          <span class="badge badge--trial">Drop-in</span>
+                          <span class="classes__next">{dropInDay(d.date)}</span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {shows.length > 0 && (
+                <ul class="classes" data-shows>
+                  {shows.map((sh) => (
+                    <li data-gel={sh.gel} data-show={sh.showSlug} data-show-child={sh.studentId}>
+                      <div>
+                        <strong data-role-line>{roleLine(sh)}</strong>
+                        <span class="script">{sh.dates}</span>
+                        {sh.rehearsals.map((r) => (
+                          <span class="classes__rehearsal" data-rehearsal={r.id}>
+                            {r.line}
+                            {r.note && <span class="classes__rehearsal-note">{r.note}</span>}
+                          </span>
+                        ))}
+                      </div>
+                      <div class="classes__side">
+                        <span class="badge badge--active">Show</span>
+                        <a class="classes__link" href={`/events/${sh.showSlug}`}>About the show</a>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {dropInOffers.length > 0 && (
+                <details class="drop-ins" data-drop-in-offers>
+                  <summary>Drop in for one class</summary>
+                  <p class="fine">Try a weekly class for one date, or come along with a brother or sister.</p>
+                  <ul>
+                    {dropInOffers.map((c) => (
+                      <li>
+                        <span><strong>{c.program.title}</strong> <span class="script">{dayList(c.session.days)} · {timeRange(c.session.start, c.session.end)}</span></span>
+                        <a href={`/drop-in/${c.session.id}`} data-drop-in-link>Drop in · {formatCents(c.priceCents)}</a>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               )}
             </section>
             )}
@@ -222,6 +311,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                       </a>
                     )}
                     <a href={`/account/students/${s.id}`}>Edit</a>
+                    <ProgressNotes firstName={s.firstName} notes={progress.get(s.id)} />
                   </li>
                 ))}
               </ul>
@@ -346,7 +436,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
                     {receipts.map((r) => (
                       <tr>
                         <td>{shortDate(r.date)}</td>
-                        <td>{r.label}{r.discounts?.map((l) => (l.family ? <span class="adj" data-family-discount>{adjustmentLine(l)}</span> : <span class="adj" data-adjustment>{adjustmentLine(l)}</span>))}</td>
+                        <td>{r.label}{r.discounts?.map((l) => (l.family ? <span class="adj" data-family-discount>{adjustmentLine(l)}</span> : <span class="adj" data-adjustment>{adjustmentLine(l)}</span>))}{refundedOn.get(r.key) && <span class="adj refunded" data-refunded>{refundedOn.get(r.key)}</span>}</td>
                         <td>{formatCents(r.amountCents)}</td>
                       </tr>
                     ))}
@@ -355,7 +445,32 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
               ) : (
                 <p class="empty">No payments yet.</p>
               )}
-              <p class="fine" data-statement>Need a statement for taxes or an FSA? <a href={`mailto:${email}?subject=${encodeURIComponent('Payment statement')}`}>Email us at {email}</a>.</p>
+              {credits.length > 0 && (
+                <div class="credits" data-credits>
+                  <h3>Credits</h3>
+                  <ul>
+                    {credits.map((c) => (
+                      <li data-credit={c.state}>
+                        <strong>Credit: −{formatCents(c.amountCents)}</strong>{c.showToFamily && `, ${c.reason}`}
+                        <span class="fine"> · {c.state === 'waiting' ? 'comes off your next payment' : c.state === 'applied' ? `comes off your ${fmtDate(c.payment!.dueDate)} payment` : `taken off your ${fmtDate(c.payment!.dueDate)} payment`}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {statementYearsList.length > 0 ? (
+                <div class="statements" data-statement>
+                  <h3>Statements</h3>
+                  <ul>
+                    {statementYearsList.map((y) => (
+                      <li>Statement for {y}: <a href={`/account/statement.pdf?year=${y}`} data-statement-pdf={y}>PDF</a> · <a href={`/account/statement.csv?year=${y}`} data-statement-csv={y}>spreadsheet (CSV)</a></li>
+                    ))}
+                  </ul>
+                  <p class="fine">Every payment that year, any refunds, and the total. For taxes or an FSA.</p>
+                </div>
+              ) : (
+                <p class="fine" data-statement>Need a statement for taxes or an FSA? It’s here once you’ve made a payment.</p>
+              )}
             </section>
             )}
             <p class="fine">Signed in as {user.email} on this device for 90 days. Questions about billing? Email <a href={`mailto:${email}`}>{email}</a>.</p>
@@ -381,6 +496,13 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
   .dash__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .panel { display: grid; gap: var(--space-m); padding: var(--space-xl); background: var(--paper); border-radius: var(--r-lg); border: 1.5px solid var(--line); }
   .panel h2 { font-size: var(--step-2); }
+  .classes + .classes { margin-top: 0.6rem; }
+  .drop-ins { margin-top: var(--space-m); border-top: 1.5px dashed var(--line-strong); padding-top: var(--space-s); }
+  .drop-ins summary { cursor: pointer; font-family: var(--font-display); font-weight: 700; color: var(--purple); min-height: 44px; display: flex; align-items: center; }
+  .drop-ins ul { list-style: none; margin: 0.4rem 0 0; padding: 0; display: grid; gap: 0.3rem; }
+  .drop-ins li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.2rem 1rem; }
+  .drop-ins li a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 650; }
+  .drop-ins .script { font-size: var(--step--1); color: var(--ink-soft); }
   .classes, .kids { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
   .classes li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem; padding: 0.9rem 1.1rem; border-left: 6px solid var(--gel); background: var(--gel-tint); border-radius: var(--r-sm) var(--r-md) var(--r-md) var(--r-sm); }
   .classes li > div:first-child { display: grid; gap: 0.1rem; }
@@ -388,6 +510,10 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
   .classes strong { font-family: var(--font-display); font-size: 1.15rem; }
   .classes .script { font-size: var(--step--1); color: var(--ink-soft); }
   .classes__side { display: grid; gap: 0.2rem; justify-items: end; font-size: var(--step--1); }
+  .classes__off { font-weight: 700; color: var(--red-ink); }
+  .classes__rehearsal { font-size: var(--step--1); font-weight: 650; margin-top: 0.2rem; }
+  .classes__rehearsal-note { display: block; font-weight: 400; color: var(--ink-soft); }
+  .classes__link { display: inline-flex; align-items: center; min-height: 44px; }
   .kids li { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; padding: 0.7rem 0; border-bottom: 1px solid var(--line); }
   .muted { color: var(--ink-mute); }
   .badge { font-size: var(--step--2); font-weight: 700; padding: 0.25em 0.7em; border-radius: 999px; }
@@ -418,6 +544,9 @@ const fmtDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString
   .alert p { margin: 0; flex: 1 1 22rem; }
   .autopay { display: grid; gap: 0.5rem; }
   .receipts { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .adj.refunded { color: var(--ink-soft); }
+  .credits ul, .statements ul { margin: 0.4rem 0 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; overflow-wrap: anywhere; }
+  .statements a { display: inline-block; min-height: 44px; line-height: 44px; }
   .receipts th, .receipts td { text-align: left; padding: 0.55rem 0; border-bottom: 1px solid var(--line); }
   .receipts th { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
   .receipts td:last-child, .receipts th:last-child { text-align: right; }

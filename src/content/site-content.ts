@@ -38,6 +38,10 @@ export type SiteInfo = typeof siteConfig & {
   parking: SiteSettings['parking'];
   /** Weekly classes stop taking new students this many weeks before the last class. */
   lateJoinWeeks: number;
+  /** Drop-ins to one class of a weekly class (src/server/drop-ins.ts): the price in cents, and whether families can book. */
+  dropIns: { priceCents: number; open: boolean };
+  /** Families' yearly statements: Hannah's tax ID and note, both optional (empty: left out). */
+  statements: { taxId?: string; note?: string };
 };
 
 export interface SiteContent {
@@ -90,6 +94,13 @@ export function offSiteLink(url: string | undefined) {
   return value && !SELF_LINK.test(value) ? value : undefined;
 }
 
+/** The drop-in setting in cents. A price that isn't a sensible amount closes drop-ins rather than charging it. */
+export function dropInSetting(value: SiteSettings['dropIns']): SiteInfo['dropIns'] {
+  const price = value?.price;
+  const ok = typeof price === 'number' && Number.isFinite(price) && price > 0 && price <= 1000;
+  return { priceCents: ok ? Math.round(price * 100) : 0, open: ok && value?.open === true };
+}
+
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 /** Keep a phone number on one line. */
 const nonBreaking = (phone: string) => phone.replace(/ /g, ' ').replace(/-/g, '‑');
@@ -137,6 +148,8 @@ export function buildSiteContent(rows: ContentRow[], uploads = new Map<string, U
     announcement: settings.announcement,
     parking: settings.parking,
     lateJoinWeeks: lateJoinWeeksOr(settings.signups?.lateJoinWeeks),
+    dropIns: dropInSetting(settings.dropIns),
+    statements: { taxId: settings.statements?.taxId?.trim() || undefined, note: settings.statements?.note?.trim() || undefined },
   };
 
   const programBySlug = (slug: string) => programs.find((p) => p.slug === slug);

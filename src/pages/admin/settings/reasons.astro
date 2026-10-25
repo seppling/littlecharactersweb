@@ -1,0 +1,189 @@
+---
+/**
+ * Settings → Reasons (owners; src/server/reasons.ts): two short lists. Drop
+ * reasons are asked (optionally) when a child is removed from a class;
+ * absence reasons are one optional tap in the teacher app when a child is
+ * marked Absent. Add, rename, move up or down, remove. Records keep the words
+ * they were saved with. Changes need a sign-in from the last 15 minutes, as
+ * Settings → Staff, and redirect with ?done= so a reload doesn't repeat them.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { confirm, settings, settingsReasons } from '@/lib/admin-links';
+import { REASON_NAME_MAX, ReasonError, editReasons, isOther, reasonList, saveReasons, type ReasonKind } from '@/server/reasons';
+import { requireFreshStaff, requireStaff, signedInRecently } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const here = settingsReasons();
+let error = '';
+let failed = '';
+let values: Record<string, string> = {};
+if (staff && Astro.request.method === 'POST') {
+  const stop = requireFreshStaff(Astro.locals, Astro.url);
+  if (stop) return stop;
+  const form = await Astro.request.formData();
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+  const kind: ReasonKind = values.kind === 'absence' ? 'absence' : 'drop';
+  failed = `${kind}:${values.action}:${values.name ?? ''}`;
+  try {
+    const list = await reasonList(kind);
+    const name = values.name ?? '';
+    const next =
+      values.action === 'add'
+        ? editReasons.add(list, values.to ?? '')
+        : values.action === 'rename'
+          ? editReasons.rename(list, name, values.to ?? '')
+          : values.action === 'up' || values.action === 'down'
+            ? editReasons.move(list, name, values.action)
+            : values.action === 'remove'
+              ? editReasons.remove(list, name)
+              : list;
+    await saveReasons(staff.id, kind, next);
+    return Astro.redirect(`${here}?done=${encodeURIComponent(values.action ?? 'saved')}#${kind}-h`, 303);
+  } catch (e) {
+    if (!(e instanceof ReasonError)) throw e;
+    error = e.message;
+  }
+}
+
+const lists = staff ? { drop: await reasonList('drop'), absence: await reasonList('absence') } : { drop: [], absence: [] };
+const fresh = !!staff && signedInRecently(Astro.locals);
+const notice = (
+  { add: 'Reason added.', rename: 'Reason renamed. Records already saved keep the old words.', up: 'Order saved.', down: 'Order saved.', remove: 'Reason removed. Records that have it keep it.' } as Record<string, string>
+)[Astro.url.searchParams.get('done') ?? ''];
+const sections: { kind: ReasonKind; title: string; intro: string; example: string }[] = [
+  {
+    kind: 'drop',
+    title: 'Why children leave a class',
+    intro: 'Asked when you remove a child from a class, and optional. “Other” opens a few words.',
+    example: 'Started another activity',
+  },
+  {
+    kind: 'absence',
+    title: 'Why children miss a class',
+    intro: 'In the teacher app, a child marked Absent gets these as one optional tap. It never holds up attendance.',
+    example: 'School event',
+  },
+];
+---
+
+<AdminShell title="Reasons" section="settings" back={{ href: settings(), label: 'Settings' }}>
+  <div class="admin-page reasons-settings">
+    <div class="admin-head">
+      <div>
+        <h1>Reasons</h1>
+        <p class="admin-intro">Short lists to pick from, so you can see later why children left or missed class. Changing a list never changes what was already saved.</p>
+      </div>
+    </div>
+    {notice && <p class="notice" role="status" data-notice>{notice}</p>}
+    {error && <p class="notice notice--error" role="alert" data-error>{error}</p>}
+    {
+      !fresh && (
+        <div class="staff-card confirm-first">
+          <p>To change these lists, confirm it’s you first. We’ll email you a code.</p>
+          <a class="btn btn--primary btn--sm" href={confirm(here)} data-confirm-first>Confirm it’s you</a>
+        </div>
+      )
+    }
+
+    {
+      sections.map((sec) => {
+        const list = lists[sec.kind];
+        return (
+          <section class="admin-section" aria-labelledby={`${sec.kind}-h`} data-reasons={sec.kind}>
+            <div>
+              <h2 id={`${sec.kind}-h`}>{sec.title}</h2>
+              <p class="muted">{sec.intro}</p>
+            </div>
+            {list.length === 0 ? (
+              <p class="muted">No reasons: nothing is asked.</p>
+            ) : (
+              <ol class="reasons">
+                {list.map((r, i) => {
+                  const open = failed === `${sec.kind}:rename:${r}`;
+                  return (
+                    <li class="reason staff-card" data-reason={r}>
+                      <span class="reason__name">
+                        <span class="reason__n">{i + 1}.</span> {r}
+                        {sec.kind === 'drop' && isOther(r) && <span class="muted"> (opens a few words)</span>}
+                      </span>
+                      {fresh && (
+                        <div class="reason__tools">
+                          <form method="post" class="reason__move">
+                            <input type="hidden" name="kind" value={sec.kind} />
+                            <input type="hidden" name="name" value={r} />
+                            <button class="btn btn--outline btn--sm" name="action" value="up" disabled={i === 0} aria-label={`Move ${r} up`}>↑</button>
+                            <button class="btn btn--outline btn--sm" name="action" value="down" disabled={i === list.length - 1} aria-label={`Move ${r} down`}>↓</button>
+                          </form>
+                          <details class="tool" open={open || undefined}>
+                            <summary class="btn btn--outline btn--sm">Rename<span class="sr-only"> {r}</span></summary>
+                            <form method="post" class="tool__body">
+                              <input type="hidden" name="kind" value={sec.kind} />
+                              <input type="hidden" name="action" value="rename" />
+                              <input type="hidden" name="name" value={r} />
+                              <label for={`rename-${sec.kind}-${i}`}>New name</label>
+                              <div class="row">
+                                <input id={`rename-${sec.kind}-${i}`} name="to" required maxlength={REASON_NAME_MAX} value={open ? values.to : r} autocomplete="off" />
+                                <button class="btn btn--primary btn--sm" type="submit">Save</button>
+                              </div>
+                            </form>
+                          </details>
+                          <form method="post">
+                            <input type="hidden" name="kind" value={sec.kind} />
+                            <input type="hidden" name="name" value={r} />
+                            <button class="btn btn--outline btn--sm" name="action" value="remove" data-remove-reason>Remove<span class="sr-only"> {r}</span></button>
+                          </form>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+            {fresh && (
+              <form method="post" class="add staff-card" data-add-reason={sec.kind}>
+                <input type="hidden" name="kind" value={sec.kind} />
+                <input type="hidden" name="action" value="add" />
+                <label for={`add-${sec.kind}`}>Add a reason</label>
+                <div class="row">
+                  <input id={`add-${sec.kind}`} name="to" required maxlength={REASON_NAME_MAX} autocomplete="off" placeholder={sec.example} value={failed === `${sec.kind}:add:` ? values.to : ''} />
+                  <button class="btn btn--primary btn--sm" type="submit">Add</button>
+                </div>
+                <p class="muted">A word or two. It goes at the end of the list.</p>
+              </form>
+            )}
+          </section>
+        );
+      })
+    }
+  </div>
+</AdminShell>
+
+<style>
+  .reasons-settings .btn, .reasons-settings summary.btn { min-height: 44px; }
+  .reasons-settings .muted { color: var(--ink-mute); font-size: var(--step--1); font-weight: 400; }
+  .reasons-settings h2 { margin: 0; }
+  .reasons-settings .admin-section p { margin: 0.25rem 0 0; }
+  .confirm-first { display: grid; gap: 0.6rem; justify-items: start; max-width: 36rem; }
+  .confirm-first p { margin: 0; }
+  .reasons { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; max-width: 40rem; }
+  .reason { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; min-width: 0; }
+  .reason__name { font-weight: 700; overflow-wrap: anywhere; min-width: 0; }
+  .reason__n { color: var(--ink-mute); font-weight: 650; font-variant-numeric: tabular-nums; }
+  .reason__tools { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: start; }
+  .reason__move { display: flex; gap: 0.3rem; }
+  .reason__move .btn { min-width: 44px; justify-content: center; }
+  .tool { min-width: 0; max-width: 100%; }
+  .tool > summary { list-style: none; cursor: pointer; }
+  .tool > summary::-webkit-details-marker { display: none; }
+  .tool[open] > summary { background: var(--hall); }
+  .tool__body { display: grid; gap: 0.5rem; margin-top: 0.5rem; max-width: 26rem; }
+  .tool__body label { font-weight: 650; font-size: var(--step--1); }
+  .add { display: grid; gap: 0.35rem; max-width: 40rem; }
+  .add label { font-weight: 700; }
+  .add .muted { margin: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .row input { flex: 1 1 12rem; min-width: 0; min-height: 44px; }
+</style>

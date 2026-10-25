@@ -1,0 +1,163 @@
+---
+/**
+ * Settings → Attendance (owners): when "Attendance not taken" starts
+ * (`attendance.startDate`: only class dates on or after it) and which kinds
+ * of class raise it (`attendance.kinds`). Unset: every date and every kind,
+ * as before. Read by attentionAttendance (src/server/attendance.ts). The
+ * teacher app still lets anyone take attendance for any class they teach.
+ * Saving needs a sign-in from the last 15 minutes, as Settings → Staff.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import type { ProgramKind } from '@/content/types';
+import { confirm, settings, settingsAttendance } from '@/lib/admin-links';
+import { clearSetting, getSetting, programKindSchema, setSetting } from '@/server/settings-store';
+import { requireFreshStaff, requireStaff, signedInRecently } from '@/server/staff';
+import { longDay } from '@/server/today';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const { content } = Astro.locals;
+const here = settingsAttendance();
+const KINDS: { kind: ProgramKind; label: string }[] = [
+  { kind: 'class', label: 'Weekly classes' },
+  { kind: 'camp', label: 'Camps' },
+  { kind: 'workshop', label: 'Workshops' },
+  { kind: 'inclusive', label: 'Inclusive classes' },
+  { kind: 'lesson', label: 'Lessons' },
+  { kind: 'party', label: 'Parties and nights out' },
+];
+const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
+
+let error = '';
+if (staff && Astro.request.method === 'POST') {
+  const stop = requireFreshStaff(Astro.locals, Astro.url);
+  if (stop) return stop;
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') ?? '');
+  if (action === 'start') {
+    const start = String(form.get('startDate') ?? '').trim();
+    if (!start) {
+      await clearSetting(staff.id, 'attendance.startDate');
+      return Astro.redirect(`${here}?done=start-cleared`, 303);
+    }
+    if (!isDate(start)) error = 'Pick a date.';
+    else {
+      await setSetting(staff.id, 'attendance.startDate', start);
+      return Astro.redirect(`${here}?done=start`, 303);
+    }
+  } else if (action === 'start-clear') {
+    await clearSetting(staff.id, 'attendance.startDate');
+    return Astro.redirect(`${here}?done=start-cleared`, 303);
+  } else if (action === 'kinds') {
+    const picked = form.getAll('kind').map(String).filter((k): k is ProgramKind => programKindSchema.safeParse(k).success);
+    // Every kind ticked is the same as unset: today's behavior.
+    if (KINDS.every((k) => picked.includes(k.kind))) await clearSetting(staff.id, 'attendance.kinds');
+    else await setSetting(staff.id, 'attendance.kinds', [...new Set(picked)]);
+    return Astro.redirect(`${here}?done=kinds`, 303);
+  }
+}
+
+const startDate = staff ? await getSetting('attendance.startDate') : null;
+const kinds = staff ? await getSetting('attendance.kinds') : null;
+const ticked = (k: ProgramKind) => !kinds || kinds.includes(k);
+const examples = (k: ProgramKind) =>
+  content.programs
+    .filter((p) => p.kind === k)
+    .map((p) => p.title)
+    .slice(0, 4);
+const fresh = !!staff && signedInRecently(Astro.locals);
+const notice = (
+  {
+    start: 'Saved. Classes before that date no longer show as “Attendance not taken”.',
+    'start-cleared': 'Start date removed. Every class date counts again.',
+    kinds: 'Saved.',
+  } as Record<string, string>
+)[Astro.url.searchParams.get('done') ?? ''];
+---
+
+<AdminShell title="Attendance" section="settings" back={{ href: settings(), label: 'Settings' }}>
+  <div class="admin-page attendance-settings">
+    <div class="admin-head">
+      <div>
+        <h1>Attendance</h1>
+        <p class="admin-intro">
+          When a class ends without attendance, it shows on Needs attention as “Attendance not taken”. Choose when that starts, and which kinds of class need it. Teachers can still take attendance for any class they teach.
+        </p>
+      </div>
+    </div>
+    {notice && <p class="notice" role="status" data-notice>{notice}</p>}
+    {error && <p class="notice notice--error" role="alert" data-error>{error}</p>}
+    {
+      !fresh && (
+        <div class="staff-card confirm-first">
+          <p>To change these, confirm it’s you first. We’ll email you a code.</p>
+          <a class="btn btn--primary btn--sm" href={confirm(here)} data-confirm-first>Confirm it’s you</a>
+        </div>
+      )
+    }
+
+    <section class="admin-section staff-card" aria-labelledby="start-h" data-start>
+      <h2 id="start-h">Start date</h2>
+      <p class="muted">“Attendance not taken” shows only for classes on or after this date. Useful for the first week, before teachers have the app.</p>
+      <p data-start-now>{startDate ? <>Now: from <strong>{longDay(startDate)}</strong>.</> : 'Now: every class date counts.'}</p>
+      {fresh && (
+        <form method="post" class="start-form">
+          <input type="hidden" name="action" value="start" />
+          <label for="start-date">Start date</label>
+          <div class="row">
+            <input id="start-date" name="startDate" type="date" value={startDate ?? ''} />
+            <button class="btn btn--primary btn--sm" type="submit" data-save-start>Save</button>
+          </div>
+        </form>
+      )}
+      {fresh && startDate && (
+        <form method="post">
+          <button class="btn btn--outline btn--sm" name="action" value="start-clear" data-clear-start>Remove the start date</button>
+        </form>
+      )}
+    </section>
+
+    <section class="admin-section staff-card" aria-labelledby="kinds-h" data-kinds>
+      <h2 id="kinds-h">Which classes need attendance</h2>
+      <p class="muted">Only these raise “Attendance not taken”. We suggest weekly classes and camps; one-off workshops and parties often don’t need it.</p>
+      <form method="post" class="kinds">
+        <input type="hidden" name="action" value="kinds" />
+        <fieldset disabled={!fresh || undefined}>
+          <legend class="sr-only">Kinds of class</legend>
+          {KINDS.map((k) => {
+            const ex = examples(k.kind);
+            return (
+              <label class="choice">
+                <input type="checkbox" name="kind" value={k.kind} checked={ticked(k.kind)} data-kind={k.kind} />
+                <span>
+                  <strong>{k.label}</strong>
+                  {ex.length > 0 && <small>{ex.join(', ')}</small>}
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+        {fresh && <button class="btn btn--primary btn--sm" type="submit" data-save-kinds>Save</button>}
+      </form>
+    </section>
+  </div>
+</AdminShell>
+
+<style>
+  .attendance-settings .btn { min-height: 44px; }
+  .attendance-settings .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .attendance-settings .admin-section { max-width: 40rem; gap: 0.6rem; }
+  .attendance-settings h2, .attendance-settings p { margin: 0; }
+  .confirm-first { display: grid; gap: 0.6rem; justify-items: start; max-width: 40rem; }
+  .start-form { display: grid; gap: 0.35rem; }
+  .start-form label { font-weight: 700; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .row input { flex: 1 1 12rem; min-width: 0; min-height: 44px; }
+  .kinds { display: grid; gap: 0.6rem; justify-items: start; }
+  .kinds fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+  .choice { display: flex; gap: 0.6rem; align-items: flex-start; min-height: 44px; cursor: pointer; }
+  .choice input { width: 1.25rem; height: 1.25rem; margin-top: 0.2rem; flex: none; }
+  .choice small { display: block; color: var(--ink-soft); font-size: var(--step--1); overflow-wrap: anywhere; }
+</style>

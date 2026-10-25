@@ -1,0 +1,125 @@
+---
+/**
+ * A class roster's tag tools (owners; src/server/tags.ts): show only the
+ * children with one child tag, and "Tag selected" for the children ticked on
+ * the roster (each row's checkbox belongs to this form, `form="tag-selected"`).
+ * It posts to classTags(); the result comes back as ?tagged= or ?tagError=.
+ */
+import { classPage, classTags, settingsTags } from '@/lib/admin-links';
+import { TAG_ERRORS, TAG_NAME_MAX, type TagErrorCode, type TagRow } from '@/server/tags';
+
+interface Props {
+  sessionId: string;
+  /** The roster's date (?date=), kept through the forms. */
+  date: string | null;
+  /** The tag the roster is filtered by, if any. */
+  filter: string | null;
+  /** Every child tag. */
+  tags: TagRow[];
+  /** Children on the roster, and how many the filter shows. */
+  total: number;
+  shown: number;
+}
+const { sessionId, date, filter, tags, total, shown } = Astro.props;
+const params = Astro.url.searchParams;
+const tagged = params.get('tagged');
+const of = Number(params.get('of') ?? 0);
+const errorCode = params.get('tagError') as TagErrorCode | null;
+const filterTag = tags.find((t) => t.id === filter);
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const notice =
+  tagged !== null
+    ? `Tagged ${plural(Number(tagged), 'child', 'children')}.${of > Number(tagged) ? ` ${plural(of - Number(tagged), 'child', 'children')} already had it.` : ''}`
+    : null;
+---
+
+<div class="roster-tags" data-roster-tags>
+  {notice && <p class="notice" role="status" data-tagged>{notice}</p>}
+  {errorCode && TAG_ERRORS[errorCode] && <p class="notice notice--error" role="alert" data-tag-error>{TAG_ERRORS[errorCode]}</p>}
+  {
+    tags.length > 0 && (
+      <form method="get" action={classPage(sessionId)} class="roster-tags__filter" data-tag-filter>
+        {date && <input type="hidden" name="date" value={date} />}
+        <label for="roster-tag">Show</label>
+        <select id="roster-tag" name="tag">
+          <option value="">Everyone</option>
+          {tags.map((t) => (
+            <option value={t.id} selected={t.id === filter}>
+              Tagged {t.name}
+            </option>
+          ))}
+        </select>
+        <button class="btn btn--outline btn--sm">Show</button>
+      </form>
+    )
+  }
+  {filterTag && <p class="roster-tags__shown" data-tag-shown>{shown ? `${plural(shown, 'child', 'children')} of ${total} tagged ${filterTag.name}.` : `No one on this roster is tagged ${filterTag.name}.`} <a class="roster-tags__link" href={`${classPage(sessionId)}${date ? `?date=${encodeURIComponent(date)}` : ''}#roster-h`}>Show everyone</a></p>}
+  {
+    total > 0 && (
+      <details class="roster-tags__tool" data-tag-tool>
+        <summary class="btn btn--outline btn--sm">Tag children</summary>
+        <form method="post" action={classTags(sessionId)} id="tag-selected" class="roster-tags__form">
+          {date && <input type="hidden" name="date" value={date} />}
+          {filter && <input type="hidden" name="tag" value={filter} />}
+          <p class="muted">Tick children on the roster below, then pick a tag or type a new one. Tags are for staff: families and teachers don’t see them. <a class="roster-tags__link" href={settingsTags()}>All tags</a></p>
+          <button type="button" class="btn btn--outline btn--sm" data-tick-all>Tick everyone shown</button>
+          <label for="tag-selected-name">Tag</label>
+          <div class="roster-tags__row">
+            <input id="tag-selected-name" name="name" list="roster-tag-options" required maxlength={TAG_NAME_MAX} autocomplete="off" />
+            <button class="btn btn--primary btn--sm" type="submit" data-tag-selected>Tag selected</button>
+          </div>
+          <datalist id="roster-tag-options">
+            {tags.map((t) => <option value={t.name} />)}
+          </datalist>
+          <p class="muted" data-ticked-count aria-live="polite"></p>
+        </form>
+      </details>
+    )
+  }
+</div>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#tag-selected');
+  if (form) {
+    const ticks = () => [...document.querySelectorAll<HTMLInputElement>('input[form="tag-selected"][name="studentId"]')];
+    const count = form.querySelector('[data-ticked-count]')!;
+    const paint = () => {
+      const n = ticks().filter((t) => t.checked).length;
+      count.textContent = n ? `${n} ${n === 1 ? 'child' : 'children'} ticked` : 'No one ticked yet';
+    };
+    // The ticks show once the tool is open, so the roster stays plain otherwise.
+    const tool = form.closest('details')!;
+    const show = () => document.querySelectorAll<HTMLElement>('[data-tag-tick]').forEach((el) => (el.hidden = !tool.open));
+    tool.addEventListener('toggle', show);
+    show();
+    for (const t of ticks()) t.addEventListener('change', paint);
+    form.querySelector('[data-tick-all]')!.addEventListener('click', () => {
+      for (const t of ticks()) if (t.closest('[hidden]') === null) t.checked = true;
+      paint();
+    });
+    form.addEventListener('submit', (e) => {
+      if (!ticks().some((t) => t.checked)) {
+        e.preventDefault();
+        count.textContent = 'Tick at least one child on the roster.';
+      }
+    });
+  }
+</script>
+
+<style>
+  .roster-tags { display: grid; gap: 0.6rem; min-width: 0; }
+  .roster-tags .notice { margin: 0; }
+  .roster-tags__filter { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: var(--step--1); }
+  .roster-tags__filter label { font-weight: 650; }
+  .roster-tags__filter select { min-height: 44px; max-width: 100%; }
+  .roster-tags__shown { margin: 0; font-size: var(--step--1); }
+  .roster-tags__link { display: inline-flex; align-items: center; min-height: 44px; }
+  .roster-tags__tool > summary { list-style: none; cursor: pointer; }
+  .roster-tags__tool > summary::-webkit-details-marker { display: none; }
+  .roster-tags__tool[open] > summary { background: var(--hall); }
+  .roster-tags__form { display: grid; gap: 0.4rem; margin-top: 0.6rem; max-width: var(--measure); justify-items: start; }
+  .roster-tags__form label { font-weight: 650; font-size: var(--step--1); }
+  .roster-tags__form .muted { margin: 0; font-size: var(--step--1); color: var(--ink-mute); }
+  .roster-tags__row { display: flex; flex-wrap: wrap; gap: 0.5rem; width: 100%; }
+  .roster-tags__row input { flex: 1 1 12rem; min-width: 0; min-height: 44px; }
+</style>

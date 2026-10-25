@@ -187,7 +187,8 @@ export const order = pgTable(
     /** Catalog session id (a session of a program in the site content). */
     sessionId: text('session_id').notNull(),
     status: text('status', { enum: ['draft', 'pending_payment', 'paid', 'cancelled'] }).notNull().default('draft'),
-    plan: text('plan', { enum: ['monthly', 'full', 'trial', 'once', 'waitlist'] }).notNull().default('monthly'),
+    /** drop_in: one class of a weekly class (src/server/drop-ins.ts); plain text in the database, so no migration. */
+    plan: text('plan', { enum: ['monthly', 'full', 'trial', 'once', 'waitlist', 'drop_in'] }).notNull().default('monthly'),
     studentIds: jsonb('student_ids').$type<string[]>().notNull().default([]),
     lines: jsonb('lines').$type<OrderLine[]>().notNull().default([]),
     subtotalCents: integer('subtotal_cents').notNull().default(0),
@@ -346,11 +347,11 @@ export const householdNote = pgTable(
   (t) => [index('household_note_household_idx').on(t.householdId)],
 );
 
-/** An email staff sent from the site: to a whole class, or to one family. */
+/** An email staff sent from the site: to a whole class, to one family, or to the families with a tag. */
 export const message = pgTable('message', {
   id: id(),
-  kind: text('kind', { enum: ['class', 'family'] }).notNull(),
-  /** The class it went to (kind 'class'). */
+  kind: text('kind', { enum: ['class', 'family', 'tag'] }).notNull(),
+  /** The class it went to (kind 'class'), or the tag's id (kind 'tag'). */
   sessionId: text('session_id'),
   subject: text('subject').notNull(),
   body: text('body').notNull(),

@@ -8,7 +8,10 @@ import { rich } from '@/content/rich';
 import { ageLabel, feeLabel, priceLabel, spotsLabel } from '@/lib/format';
 import { cardParts, performanceLabel, sessionLines, sessionPrice, whenSummary } from '@/lib/class-summary';
 import { enrollHref, enrollLabel, isExternal } from '@/lib/enroll';
-import { hasFreeFirstClass, joiningNow, sessionPriceParts, todayInAthens } from '@/lib/pricing';
+import { formatCents, hasFreeFirstClass, joiningNow, meetings, sessionPriceParts, todayInAthens } from '@/lib/pricing';
+import { dayOffFrom, daysOffBetween } from '@/server/class-day';
+import { noClassLine } from '@/server/days-off';
+import { dropInPrice, dropInsOffered } from '@/server/drop-ins';
 import { bookingClock, offeredSessions, sessionState } from '@/lib/session-dates';
 import { breadcrumbLd, courseLd, isCourse } from '@/lib/seo';
 import { faqsFor, highlightsHeading, isAdult, kindTag, moneyLines, perChild } from '@/lib/program-fit';
@@ -38,6 +41,15 @@ const hadDates = program.sessions.length > 0 && !program.requestCta;
 const datesSoon = bookable.length === 0 && (program.notify || hadDates);
 const running = program.sessions.find((s) => s.status !== 'closed' && sessionState(program, s, clock) === 'signups-closed' && s.startDate !== s.endDate);
 const monthly = program.priceFrom?.unit === 'month';
+// Days off still to come for the dates shown: "No class Nov 26 (Thanksgiving)".
+const offFrom = todayInAthens();
+const daysOff = bookable.some((s) => s.endDate >= offFrom) ? await daysOffBetween(offFrom, '9999-12-31') : [];
+const noClass = (s: (typeof bookable)[number]) =>
+  meetings(s)
+    .filter((m) => m >= offFrom)
+    .map((m) => dayOffFrom(daysOff, s.id, m))
+    .filter((d): d is NonNullable<typeof d> => !!d)
+    .map(noClassLine);
 // A class priced per session says what the session covers: "$160 for 9 weeks ($17.78 a class)".
 const priceSession = firstOpen ?? program.sessions.at(-1);
 const sessionParts = sessionPriceParts(fromPrice, priceSession);
@@ -45,6 +57,10 @@ const sessionParts = sessionPriceParts(fromPrice, priceSession);
 const today = todayInAthens();
 const joining = new Map(bookable.filter((s) => s.status !== 'coming-soon' && !partnerOnly).map((s) => [s.id, joiningNow(program, s, today)] as const));
 const freeTrial = hasFreeFirstClass(program) && !partnerOnly;
+
+// "Drop in for one class": weekly classes that have started or start within 14 days (src/server/drop-ins.ts).
+// One under the button for the date picked above; one each for a class past its sign-up cut-off.
+const dropIns = program.sessions.filter((s) => dropInsOffered(site, program, s)).map((s) => ({ s, label: `Drop in for one class · ${formatCents(dropInPrice(site, program, s)!)}`, listed: bookable.includes(s) }));
 
 // What fits this kind of program: its pricing lines, FAQs and the heading over its highlights.
 const money = moneyLines(program);
@@ -171,6 +187,7 @@ const structuredData = [
                         <span class="opt__body">
                           <span class="opt__when script">{title}</span>
                           {meta && <span class="opt__meta">{meta}</span>}
+                          {noClass(s).map((line) => <span class="opt__meta opt__off" data-no-class>{line}</span>)}
                           <span class="opt__foot">
                             {parts.price && <strong>{sessionPrice(s)}</strong>}
                             <span class="status" data-status={s.status}>{spotsLabel(s)}</span>
@@ -196,6 +213,11 @@ const structuredData = [
                     <span class="arrow" aria-hidden="true">→</span>
                   </a>
                 )}
+                {dropIns.filter((d) => d.listed).map((d) => (
+                  <p class="enroll__drop-in" data-drop-in-for={d.s.id} hidden={d.s.id !== firstOpen?.id}>
+                    <a href={`/drop-in/${d.s.id}`} data-drop-in-link>{d.label}</a>
+                  </p>
+                ))}
                 <p class="enroll__note">
                   {partnerOnly
                     ? 'Registration for this program is handled by the school.'
@@ -230,6 +252,12 @@ const structuredData = [
               </div>
             )
           }
+          {dropIns.filter((d) => !d.listed).map((d) => (
+            <p class="enroll__drop-in">
+              <a href={`/drop-in/${d.s.id}`} data-drop-in-link>{d.label}</a>
+              {dropIns.length > 1 && <span class="enroll__drop-in-when">{sessionLines(d.s, parts, locationById(d.s.locationId)?.shortName).title}</span>}
+            </p>
+          ))}
           {(comingSoon || datesSoon) && (
             <form
               class="notify"
@@ -332,6 +360,7 @@ const structuredData = [
       const picked = form.querySelector<HTMLInputElement>('input[name="session"]:checked');
       if (!picked) return;
       form.querySelectorAll<HTMLElement>('[data-joining-for]').forEach((el) => (el.hidden = el.dataset.joiningFor !== picked.value));
+      form.querySelectorAll<HTMLElement>('[data-drop-in-for]').forEach((el) => (el.hidden = el.dataset.dropInFor !== picked.value));
       cta.href = picked.dataset.href ?? '#';
       const text = picked.dataset.label ?? 'Enroll';
       label.textContent = text === 'Enroll' ? 'Continue to enrollment' : text;
@@ -426,12 +455,16 @@ const structuredData = [
   .opt input:focus-visible + .opt__body { outline: 3px solid var(--focus); outline-offset: 2px; }
   .opt__when { font-weight: 700; }
   .opt__meta { font-size: var(--step--1); color: var(--ink-soft); }
+  .opt__off { font-weight: 650; color: var(--ink); }
   .opt__foot { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-top: 0.2rem; }
   .opt__foot strong { font-family: var(--font-display); font-size: 1.1rem; }
   .joining { display: grid; gap: 0.3rem; padding: 0.75rem 0.9rem; background: var(--hall); border-radius: var(--r-md); font-size: var(--step--1); }
   .joining[hidden] { display: none; }
   .joining__title { font-weight: 700; color: var(--ink); }
   .joining ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; color: var(--ink-soft); }
+  .enroll__drop-in { margin: 0; text-align: center; font-size: var(--step--1); }
+  .enroll__drop-in a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink-soft); }
+  .enroll__drop-in-when { display: block; color: var(--ink-mute); }
   .enroll__note, .enroll__help { font-size: var(--step--1); color: var(--ink-soft); }
   .enroll__help { padding-top: var(--space-s); border-top: 1.5px dashed var(--line-strong); }
   .notify { display: grid; gap: 0.5rem; padding-top: var(--space-s); border-top: 1.5px dashed var(--line-strong); }

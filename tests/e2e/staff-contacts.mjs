@@ -44,7 +44,8 @@ async function phoneCheck(name, scope) {
   const wide = await sideways();
   const small = scope
     ? await page.$$eval(`${scope} :is(input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]), select, button, a.btn)`, (els) =>
-        els.filter((e) => e.offsetParent && e.getBoundingClientRect().height < 44).map((e) => e.id || e.textContent?.trim()),
+        // 43.99, not 44: a button still sliding back from its hover lift measures 43.99999 px (a sub-pixel transform).
+        els.filter((e) => e.offsetParent && e.getBoundingClientRect().height < 43.99).map((e) => e.id || e.textContent?.trim()),
       )
     : [];
   await desktop();

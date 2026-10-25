@@ -5,15 +5,28 @@
  * classes; a payments summary; staff notes; emails sent from the site.
  * Staff can change care details, contacts and notes here; every change and
  * every view is logged.
+ *
+ * Tags and skills: the family's tags and each child's (added and removed
+ * through ./[householdId]/tags.ts), and each child's skills by class with
+ * their progress notes (src/server/skills.ts, progress-notes.ts).
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import Badges from '@/components/admin/Badges.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import FamilyMoney from '@/components/admin/FamilyMoney.astro';
+import ChildSkills from '@/components/admin/ChildSkills.astro';
+import TagEditor from '@/components/admin/TagEditor.astro';
+import { familyTags } from '@/lib/admin-links';
+import { notesForStudents } from '@/server/progress-notes';
+import { childSkills } from '@/server/skills';
+import { TAG_ERRORS, listTags, tagsForHouseholds, tagsForStudents, type TagErrorCode } from '@/server/tags';
 import { classPage, downloads, family, familyEmail, familyLists, paymentsOrder, safeStaffPath, search } from '@/lib/admin-links';
 import { MAX_CONTACTS, formatPhone, smsHref, telHref } from '@/lib/contacts';
 import { formatCents } from '@/lib/pricing';
 import { FamilyEditError, addNote, contactRows, deleteNote, editNote, familyPage, staffUpdateCareDetails, staffUpdateContacts, NOTE_MAX } from '@/server/families';
 import { noChargeLabel } from '@/server/roster-changes';
+import { dropInDay, dropInStatus, familyDropIns } from '@/server/drop-ins';
+import { todayInAthens } from '@/lib/pricing';
 import { requireStaff } from '@/server/staff';
 
 export const prerender = false;
@@ -86,12 +99,28 @@ const when = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'nume
 const isoDay = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 const statusLabel = { active: 'Enrolled', trial: 'Trial', waitlist: 'Waitlist', cancelled: 'Cancelled' } as const;
 const statusTone = { active: 'good', trial: 'neutral', waitlist: 'warning', cancelled: 'neutral' } as const;
-const planLabel = { monthly: 'Monthly autopay', full: 'Paid in full', trial: 'Free trial', once: 'One payment', waitlist: 'Waitlist' } as const;
+const planLabel = { monthly: 'Monthly autopay', full: 'Paid in full', trial: 'Free trial', once: 'One payment', waitlist: 'Waitlist', drop_in: 'Drop-in' } as const;
 const photoText = (v: boolean | null) => (v === true ? 'OK to share photos' : v === false ? 'No photos, please' : 'Not asked yet');
 const rows = <T,>(list: T[]) => Array.from({ length: MAX_CONTACTS }, (_, i) => list[i]);
 const childName = new Map(data?.children.map((c) => [c.id, c.firstName]) ?? []);
 const notesFiles = downloads(familyLists().notes);
 const editing = (id: string) => failed === 'note-edit' && values.id === id;
+// Drop-ins (src/server/drop-ins.ts): each child's, booked or cancelled, by date.
+const dropIns = data ? await familyDropIns(data.household.id) : [];
+const todayIso = todayInAthens();
+// Tags, skills and progress notes, for the family and each child.
+const childIds = data?.children.map((c) => c.id) ?? [];
+const [allTags, famTags, kidTags, kidSkills, kidNotes] = data
+  ? await Promise.all([listTags(), tagsForHouseholds([data.household.id]), tagsForStudents(childIds), childSkills(childIds, Astro.locals.content), notesForStudents(childIds, Astro.locals.content)])
+  : [[], new Map(), new Map(), new Map(), new Map()];
+const tagsAction = familyTags(householdId);
+const tagNotice = (() => {
+  const t = Astro.url.searchParams.get('tags');
+  const e = Astro.url.searchParams.get('tagError') as TagErrorCode | null;
+  if (e && TAG_ERRORS[e]) return { ok: false, text: TAG_ERRORS[e] };
+  return t === 'created' ? { ok: true, text: 'New tag made and added.' } : t === 'added' ? { ok: true, text: 'Tag added.' } : t === 'removed' ? { ok: true, text: 'Tag removed.' } : null;
+})();
+const noteDone = Astro.url.searchParams.get('note');
 ---
 
 <AdminShell title={data?.household.name ?? 'Family'} section="families" back={back}>
@@ -115,6 +144,16 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
 
         {saved && savedText[saved] && <p class="notice" role="status">{savedText[saved]}</p>}
         {error && <p class="notice notice--error" role="alert">{error}</p>}
+        {tagNotice && <p class:list={['notice', { 'notice--error': !tagNotice.ok }]} role="status" data-tag-notice>{tagNotice.text}</p>}
+        {noteDone === 'sent' && <p class="notice" role="status" data-note-notice>Progress note sent. The family sees it in their account.</p>}
+        {noteDone === 'saved' && <p class="notice" role="status" data-note-notice>Draft saved.</p>}
+        {noteDone === 'deleted' && <p class="notice" role="status" data-note-notice>Draft deleted.</p>}
+
+        <section class="admin-section" id="family-tags" aria-labelledby="family-tags-h" data-family-tags>
+          <h2 id="family-tags-h">Tags</h2>
+          <p class="muted">For staff: families and teachers don’t see tags.</p>
+          <TagEditor action={tagsAction} kind="family" who="the family" tags={famTags.get(data.household.id) ?? []} options={allTags.filter((t) => t.kind === 'family')} />
+        </section>
 
         <section class="admin-section" aria-labelledby="parents-h" data-parents>
           <h2 id="parents-h">Parents</h2>
@@ -147,7 +186,10 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
                     <h3>{c.name}</h3>
                     <span class="muted">{[c.age !== null && `Age ${c.age}`, c.birthdate && `Birthday ${isoDay(c.birthdate)}`].filter(Boolean).join(' · ')}</span>
                     <Badges badges={c.badges} />
+                    {c.missedThisSeason > 0 && <span class="muted" data-missed>Missed {c.missedThisSeason} {c.missedThisSeason === 1 ? 'class' : 'classes'} this season</span>}
+                    <TagEditor action={tagsAction} kind="child" studentId={c.id} who={c.firstName} tags={kidTags.get(c.id) ?? []} options={allTags.filter((t) => t.kind === 'child')} />
                   </div>
+                  <ChildSkills studentId={c.id} firstName={c.firstName} classes={kidSkills.get(c.id) ?? []} notes={kidNotes.get(c.id) ?? []} back={`${here}#child-${c.id}`} />
                   <details class="care" data-care open={open}>
                     <summary>Care details</summary>
                     <dl class:list={['care__list', { 'care__list--alert': medical }]}>
@@ -264,6 +306,7 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
                       <span class="class-status">
                         <span class:list={['badge', `badge--${statusTone[e.status]}`]}>{statusLabel[e.status]}</span>
                         {e.noChargeReason && e.status !== 'cancelled' && <span class="no-charge" data-no-charge>{noChargeLabel(e.noChargeReason)}</span>}
+                        {e.dropReason && <span class="no-charge" data-drop-reason>Why: {e.dropReason}</span>}
                       </span>
                     </td>
                   </tr>
@@ -272,6 +315,25 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
             </table>
           )}
         </section>
+
+        {dropIns.length > 0 && (
+          <section class="admin-section" aria-labelledby="family-drop-ins-h" data-family-drop-ins>
+            <h2 id="family-drop-ins-h">Drop-ins</h2>
+            <table class="data-table">
+              <thead><tr><th>Date</th><th>Class</th><th>Child</th><th>Status</th></tr></thead>
+              <tbody>
+                {dropIns.map((d) => (
+                  <tr class:list={{ past: d.date < todayIso }}>
+                    <td data-label="Date">{dropInDay(d.date)}</td>
+                    <td data-label="Class"><a href={classPage(d.sessionId)}>{Astro.locals.content.findSession(d.sessionId)?.program.title ?? 'A class'}</a></td>
+                    <td data-label="Child"><span>{d.firstName}</span></td>
+                    <td data-label="Status"><span>{dropInStatus(d)}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
 
         <section class="admin-section" aria-labelledby="pay-h" data-payments>
           <h2 id="pay-h">Payments</h2>
@@ -304,6 +366,8 @@ const editing = (id: string) => failed === 'note-edit' && values.id === id;
             </ul>
           )}
         </section>
+
+        <FamilyMoney householdId={data.household.id} />
 
         <section class="admin-section" id="notes" aria-labelledby="notes-h" data-notes>
           <div class="admin-head">

@@ -39,7 +39,7 @@ export const config = {
   cronSecret: env.CRON_SECRET ?? '',
 
   resendApiKey: env.RESEND_API_KEY ?? '',
-  emailFrom: env.EMAIL_FROM ?? 'Little Characters <hello@littlecharacters.org>',
+  emailFrom: env.EMAIL_FROM ?? 'Little Characters <hello@mail.littlecharacters.org>',
   /** Who gets contact-form messages from the site. */
   leadsTo: env.LEADS_EMAIL ?? 'littlecharacterstheater@gmail.com',
   /** Where replies to our emails go. */

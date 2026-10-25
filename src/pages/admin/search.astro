@@ -3,9 +3,14 @@
  * Staff: one search box for families, children and classes (src/server/families.ts).
  * With no words, the Families list: every family A to Z, a page at a time.
  * Downloads (the Family, Student / Class and Contact lists) are on the list.
+ * Search by tag (?tag=<id>, src/server/tags.ts): the children or families
+ * carrying it, with their classes; results show their tags as chips.
  */
 import AdminShell from '@/components/admin/AdminShell.astro';
 import DownloadLinks from '@/components/admin/DownloadLinks.astro';
+import TagChips from '@/components/admin/TagChips.astro';
+import { settingsTags, tagEmail, tagList } from '@/lib/admin-links';
+import { getTag, kindLabel, listTags, tagMembers, tagsForHouseholds, tagsForStudents } from '@/server/tags';
 import { classPage, downloads, family, familyLists, search } from '@/lib/admin-links';
 import { familiesPage, familyDirectory, searchStaff, type SearchResults } from '@/server/families';
 import { requireStaff } from '@/server/staff';
@@ -17,7 +22,12 @@ if (response) return response;
 const q = (Astro.url.searchParams.get('q') ?? '').trim();
 const pageNo = Number(Astro.url.searchParams.get('page') ?? '1');
 const results: SearchResults | null = staff && q ? await searchStaff(q, Astro.locals.content) : null;
-const list = staff && !q ? familiesPage(await familyDirectory(Astro.locals.content), pageNo) : null;
+// Search by tag: ?tag=<id>.
+const allTags = staff ? await listTags() : [];
+const tagged = staff && !q && Astro.url.searchParams.get('tag') ? await getTag(Astro.url.searchParams.get('tag')!) : null;
+const members = tagged ? await tagMembers(tagged, Astro.locals.content) : null;
+const [famTags, kidTags] = results ? await Promise.all([tagsForHouseholds(results.families.map((f) => f.id)), tagsForStudents(results.children.map((c) => c.id))]) : [new Map(), new Map()];
+const list = staff && !q && !tagged ? familiesPage(await familyDirectory(Astro.locals.content), pageNo) : null;
 const found = results ? results.families.length + results.children.length + results.classes.length : 0;
 const pageHref = (n: number) => (n > 1 ? `${search()}?page=${n}` : search());
 const ageText = (age: number | null) => (age === null ? '' : `Age ${age}`);
@@ -28,13 +38,13 @@ const files = {
 };
 ---
 
-<AdminShell title={q ? 'Search' : 'Families'} section="families">
+<AdminShell title={q || tagged ? 'Search' : 'Families'} section="families">
   <div class="admin-page">
     <div class="admin-head">
       <div>
-        <h1>{q ? 'Search' : 'Families'}</h1>
+        <h1>{q ? 'Search' : tagged ? `Tagged ${tagged.name}` : 'Families'}</h1>
         <p class="admin-intro">
-          {q ? (found ? `${found} ${found === 1 ? 'match' : 'matches'} for “${q}”.` : `Nothing matches “${q}”.`) : list ? `${list.total} ${list.total === 1 ? 'family' : 'families'}, A to Z.` : ''}
+          {tagged ? `${tagged.count} ${tagged.kind === 'child' ? (tagged.count === 1 ? 'child' : 'children') : tagged.count === 1 ? 'family' : 'families'} with this tag.` : q ? (found ? `${found} ${found === 1 ? 'match' : 'matches'} for “${q}”.` : `Nothing matches “${q}”.`) : list ? `${list.total} ${list.total === 1 ? 'family' : 'families'}, A to Z.` : ''}
         </p>
       </div>
     </div>
@@ -45,6 +55,67 @@ const files = {
       <button class="btn btn--primary" type="submit">Search</button>
     </form>
     <p class="hint">Finds families, parents (name, email or phone), children and classes. Part of a word is enough.</p>
+    {allTags.length > 0 && (
+      <form class="by-tag" method="get" action={search()} data-tag-search>
+        <label for="by-tag">Or find by tag</label>
+        <select id="by-tag" name="tag">
+          <option value="">Choose a tag</option>
+          {(['child', 'family'] as const).map((k) => (
+            <optgroup label={kindLabel(k)}>
+              {allTags.filter((t) => t.kind === k).map((t) => <option value={t.id} selected={t.id === tagged?.id}>{t.name} ({t.count})</option>)}
+            </optgroup>
+          ))}
+        </select>
+        <button class="btn btn--outline btn--sm" type="submit">Show</button>
+        <a class="by-tag__all" href={settingsTags()}>All tags</a>
+      </form>
+    )}
+
+    {
+      tagged && members && (
+        <section class="admin-section" aria-labelledby="r-tag" data-results="tag">
+          <div class="tag-head">
+            <h2 id="r-tag">{kindLabel(tagged.kind)}</h2>
+            <div class="tag-head__actions">
+              <a class="btn btn--outline btn--sm" href={tagEmail(tagged.id)} data-tag-email>Email the families</a>
+              {tagged.count > 0 && <DownloadLinks {...downloads(tagList(tagged.id))} what={`the ${tagged.name} list`} />}
+            </div>
+          </div>
+          {members.kind === 'child' ? (
+            members.children.length === 0 ? (
+              <p class="hint">No children have this tag yet. Add it on a family’s page or from a class roster.</p>
+            ) : (
+              <ul class="hits">
+                {members.children.map((c) => (
+                  <li>
+                    <a class="hit" href={family(c.householdId)} data-tagged-child={c.studentId}>
+                      <strong>{c.name}</strong>
+                      <span>{[ageText(c.age), c.family].filter(Boolean).join(' · ')}</span>
+                      <span>{c.classes.length ? c.classes.join(', ') : 'No current classes'}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : members.families.length === 0 ? (
+            <p class="hint">No families have this tag yet. Add it on a family’s page.</p>
+          ) : (
+            <ul class="hits">
+              {members.families.map((f) => (
+                <li>
+                  <a class="hit" href={family(f.householdId)} data-tagged-family={f.householdId}>
+                    <strong>{f.name}</strong>
+                    {f.parents.map((p) => <span>{p.name} · {p.email}{p.phone && ` · ${p.phone}`}</span>)}
+                    {f.children.length > 0 && <span>Children: {f.children.join(', ')}</span>}
+                    <span>{f.classes.length ? f.classes.join(', ') : 'No current classes'}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )
+    }
 
     {
       results && (
@@ -65,6 +136,7 @@ const files = {
                       <strong>{f.name}</strong>
                       {f.parents.map((p) => <span>{p.name} · {p.email}{p.phone && ` · ${p.phone}`}</span>)}
                       {f.children.length > 0 && <span>Children: {f.children.join(', ')}</span>}
+                      <TagChips tags={famTags.get(f.id)} />
                     </a>
                   </li>
                 ))}
@@ -80,6 +152,7 @@ const files = {
                     <a class="hit" href={family(c.householdId)}>
                       <strong>{c.name}</strong>
                       <span>{[ageText(c.age), c.family].filter(Boolean).join(' · ')}</span>
+                      <TagChips tags={kidTags.get(c.id)} />
                     </a>
                   </li>
                 ))}
@@ -163,5 +236,11 @@ const files = {
   .lists > div { display: grid; gap: 0.25rem; }
   .lists__name { font-weight: 700; font-size: var(--step--1); }
   .fam { font-weight: 700; color: var(--ink); display: inline-block; min-height: 44px; padding-block: 0.6rem; margin-block: -0.6rem; }
+  .by-tag { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: var(--step--1); }
+  .by-tag label { font-weight: 650; }
+  .by-tag select { min-height: 44px; max-width: 100%; }
+  .by-tag__all { display: inline-flex; align-items: center; min-height: 44px; }
+  .tag-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+  .tag-head__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
   .pager { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: var(--step--1); color: var(--ink-mute); }
 </style>

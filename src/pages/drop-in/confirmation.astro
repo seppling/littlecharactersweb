@@ -1,0 +1,79 @@
+---
+/** A drop-in, done: the date, time and place, how to arrive, and "Book another date". */
+import Base from '@/layouts/Base.astro';
+import EnrollShell from '@/components/portal/EnrollShell.astro';
+import Character from '@/components/Character.astro';
+import { householdForUser } from '@/server/family';
+import { completeCheckout, paymentsMode } from '@/server/payments';
+import { dropInDetails, dropInOrder } from '@/server/drop-ins';
+import { formatCents } from '@/lib/pricing';
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/account');
+const household = await householdForUser(user.id);
+const orderId = Astro.url.searchParams.get('order') ?? '';
+let b = household ? await dropInOrder(household.id, orderId) : null;
+if (!household || !b) return Astro.redirect('/account');
+
+// Returning from Stripe: confirm the payment (the webhook may not have landed yet).
+const checkoutId = Astro.url.searchParams.get('checkout');
+if (b.order.status !== 'paid' && checkoutId && paymentsMode === 'stripe') {
+  const done = await completeCheckout(checkoutId, user.id);
+  if (done.paid && done.orderId === b.order.id) b = await dropInOrder(household.id, b.order.id);
+}
+if (!b) return Astro.redirect('/account');
+if (b.order.status !== 'paid') return Astro.redirect(`/drop-in/pay?order=${b.order.id}`);
+
+const d = (await dropInDetails(b.dropIn.id, Astro.locals.content))!;
+const booked = b.dropIn.status === 'booked';
+---
+
+<Base title="You’re booked!" noindex>
+  <EnrollShell step={4} program={d.program} session={d.session} dropInCents={b.order.totalCents}>
+    <div class="done" data-drop-in-done={booked ? 'booked' : 'check'}>
+      <div class="done__cast" aria-hidden="true">
+        <Character name="artist" size={66} />
+        <Character name="magician" size={56} />
+      </div>
+      <h1>{booked ? 'You’re booked!' : 'Paid. We’ll be in touch.'}</h1>
+      <p class="lede">
+        {booked
+          ? `${d.firstName} is dropping in to ${d.program.title}. We sent a confirmation to ${user.email}.`
+          : `Your payment went through, and ${d.firstName} was already booked for that day. We’ll sort out the second payment and email you.`}
+      </p>
+    </div>
+
+    <dl class="facts">
+      <div><dt>Date</dt><dd>{d.day}</dd></div>
+      {d.time && <div><dt>Time</dt><dd>{d.time}</dd></div>}
+      {d.location && <div><dt>Where</dt><dd>{d.location.name}<br /><span class="muted">{d.location.address}</span></dd></div>}
+      <div><dt>Paid</dt><dd>{formatCents(b.order.totalCents)}</dd></div>
+    </dl>
+
+    <div class="actions">
+      <a class="btn btn--primary" href={`/drop-in/${d.session.id}`} data-book-another>Book another date</a>
+      <a class="btn btn--outline" href="/account">Go to your family account</a>
+    </div>
+
+    <div class="bring">
+      <h2>Before you come</h2>
+      <ul>{d.arrival.map((line) => <li>{line}</li>)}</ul>
+    </div>
+  </EnrollShell>
+</Base>
+
+<style>
+  .done { display: grid; gap: var(--space-s); }
+  .done__cast { display: flex; align-items: flex-end; gap: 0.3rem; }
+  h1 { font-size: var(--step-4); }
+  .facts { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-m); padding: var(--space-l); background: var(--hall); border-radius: var(--r-md); }
+  .facts dt { font-family: var(--font-script); font-weight: 700; font-size: var(--step--2); text-transform: uppercase; color: var(--purple); }
+  .facts dd { margin: 0.2rem 0 0; font-weight: 600; }
+  .muted { color: var(--ink-mute); font-weight: 400; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .bring h2 { font-size: var(--step-1); margin-bottom: 0.5rem; }
+  .bring ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.4rem; color: var(--ink-soft); }
+  @media (max-width: 520px) { .facts { grid-template-columns: 1fr; } }
+</style>

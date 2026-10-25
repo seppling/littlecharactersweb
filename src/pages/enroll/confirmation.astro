@@ -20,6 +20,8 @@ const household = await householdForUser(user.id);
 const orderId = Astro.url.searchParams.get('order') ?? '';
 let o = household ? await getOrder(household.id, orderId) : null;
 if (!household || !o) return Astro.redirect('/account');
+// A drop-in's checkout returns here (createEmbeddedCheckout's return address); it has its own page.
+if (o.plan === 'drop_in') return Astro.redirect(`/drop-in/confirmation${Astro.url.search}`);
 
 // Returning from Stripe: confirm the payment (the webhook may not have landed yet).
 const checkoutId = Astro.url.searchParams.get('checkout');

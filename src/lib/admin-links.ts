@@ -22,6 +22,8 @@ export const classes = () => '/admin/classes';
 export const classPage = (sessionId: string) => `/admin/classes/${seg(sessionId)}`;
 export const classPrint = (sessionId: string) => `/admin/classes/${seg(sessionId)}/print`;
 export const classEmail = (sessionId: string) => `/admin/classes/${seg(sessionId)}/email`;
+/** A class's drop-ins: the Drop-ins part of its page; pass to downloads() for the CSV and PDF (docs/back-office.md → Drop-ins). */
+export const classDropIns = (sessionId: string) => `/admin/classes/${seg(sessionId)}/drop-ins`;
 /** A class's printable sign-in sheet (a PDF download: names and the next class dates, no care details). */
 export const classSignInSheet = (sessionId: string) => `/admin/classes/${seg(sessionId)}/sign-in-sheet.pdf`;
 
@@ -34,6 +36,22 @@ export const familyLists = () => ({ children: `${search()}/children`, contacts: 
 /** Payments: everything, or one section. `month` ("2026-10") picks the month of Payments received. */
 export const payments = (show?: 'failed' | 'upcoming', month?: string) => `/admin/payments${query({ show, month })}`;
 export const paymentsOrder = (orderId: string) => `/admin/payments/${seg(orderId)}`;
+/** Refund one payment: the order's sign-up payment, or one of its monthly charges (`installmentId`). Owners, with a fresh sign-in. */
+export const refundPage = (orderId: string, installmentId?: string | null) => `/admin/payments/${seg(orderId)}/refund${query({ installment: installmentId ?? undefined })}`;
+/** A family's credits: add one (it comes off their next payment), or remove one. */
+export const creditsPage = (householdId: string) => `/admin/families/${seg(householdId)}/credits`;
+/** A family's yearly statement: pass to downloads() for the CSV and PDF. */
+export const familyStatement = (householdId: string, year: number) => `/admin/families/${seg(householdId)}/statement${query({ year: String(year) })}`;
+
+/** The calendar: every class, event and day off. `month` ("2026-11"); the page also takes view=week&week=, and filters. */
+export const calendar = (month?: string, params: Record<string, string | undefined> = {}) => `/admin/calendar${query({ month, ...params })}`;
+
+/** Shows: each show's cast list and rehearsals (docs/back-office.md → Shows). */
+export const shows = () => '/admin/shows';
+/** One show: the cast, roles, rehearsals. Pass `${show(slug)}/program` or `/cast-sheet` to downloads(). */
+export const show = (slug: string) => `/admin/shows/${seg(slug)}`;
+/** Email the cast's families (the staff composer). */
+export const showEmail = (slug: string) => `/admin/shows/${seg(slug)}/email`;
 
 /** Messages & sign-ups from the site's forms. */
 export const leads = () => '/admin/leads';
@@ -43,10 +61,18 @@ export const content = () => '/admin/content';
 export const settings = () => '/admin/settings';
 /** Settings → Staff: who works here, their role, their classes and substitute dates. */
 export const settingsStaff = () => '/admin/settings/staff';
+/** Settings → Days off: the list, and Add a day off (`sessionId` pre-fills one class). */
+export const settingsDaysOff = (sessionId?: string) => `/admin/settings/days-off${query({ class: sessionId, which: sessionId ? 'some' : undefined })}`;
 /** One staff member: name and role, classes, substitute dates, deactivate. */
 export const settingsStaffMember = (staffId: string) => `/admin/settings/staff/${seg(staffId)}`;
 /** The teacher app's home: today's classes for a teacher (owners can open it too). */
 export const teachHome = () => '/admin/teach';
+/** One class date in the teacher app: the roster and attendance. `on` carries a test day (development only). */
+export const teachRoster = (sessionId: string, date: string, on?: string | null) => `/admin/teach/${seg(sessionId)}/${seg(date)}${query({ on: on ?? undefined })}`;
+/** The teacher app's Me tab: sign out, shared devices, the app on your phone. */
+export const teachMe = () => '/admin/teach/me';
+/** A class's attendance downloads: pass to downloads() (CSV and PDF, a column per class date). */
+export const classAttendance = (sessionId: string) => `/admin/classes/${seg(sessionId)}/attendance`;
 /** How to put the staff app on a phone's home screen. */
 export const install = () => '/admin/install';
 /** Sign in again before a download or another sensitive step, then go on to `next`. */
@@ -84,3 +110,52 @@ export function safeStaffPath(next: string | null | undefined): string | null {
   if (/(^|\/)\.\.?(\/|$)/.test(decoded)) return null;
   return url.pathname + url.search;
 }
+
+// ───────────── Tags, skills and progress notes (docs/back-office.md → Tags and skills) ─────────────
+
+/** Settings → Tags: every child and family tag, with add, rename, delete, email and downloads. */
+export const settingsTags = () => '/admin/settings/tags';
+/** One tag's list: pass to downloads() for its CSV and PDF; the page itself opens the tag's search results. */
+export const tagList = (tagId: string) => `/admin/settings/tags/${seg(tagId)}`;
+/** Email a tag: the families of the children (or the families) carrying it. */
+export const tagEmail = (tagId: string) => `/admin/settings/tags/${seg(tagId)}/email`;
+/** Search by tag: the children or families carrying it, with their classes. */
+export const searchTag = (tagId: string) => `/admin/search${query({ tag: tagId })}`;
+/** Where the family page's tag forms post (add and remove, for the family and each child). */
+export const familyTags = (householdId: string) => `/admin/families/${seg(householdId)}/tags`;
+/** Where a class roster's "Tag selected" posts. */
+export const classTags = (sessionId: string) => `/admin/classes/${seg(sessionId)}/tags`;
+/** Settings → Skills: each program's skills in order (`program` opens one). */
+export const settingsSkills = (programSlug?: string) => `/admin/settings/skills${query({ program: programSlug })}`;
+/** A class's skills grid: pass to downloads() for the "Class Skills Worksheet" CSV and PDF; the page itself is the class page's Skills part. */
+export const classSkills = (sessionId: string) => `/admin/classes/${seg(sessionId)}/skills`;
+/** The teacher app's Skills view for one class date, beside its attendance. */
+export const teachSkills = (sessionId: string, date: string, on?: string | null) => `/admin/teach/${seg(sessionId)}/${seg(date)}/skills${query({ on: on ?? undefined })}`;
+/** A progress note: write, preview and send a draft, or see one that was sent. */
+export const progressNote = (noteId: string) => `/admin/progress-notes/${seg(noteId)}`;
+/** Write a new progress note about a child (and a class). `back` is where Cancel and Send return to. */
+export const newProgressNote = (studentId: string, sessionId?: string, back?: string) =>
+  `/admin/progress-notes/new${query({ student: studentId, class: sessionId, back: back ? (safeStaffPath(back) ?? undefined) : undefined })}`;
+
+// ───────────── The rest of Settings (docs/back-office.md → Settings: emails, reasons, attendance, last season) ─────────────
+
+/** Settings → Emails: each email's subject and opening. `name` opens one (`welcome`, `payNow`, `waitlistOffer`, `dropIn`, `refund`, `progressNote`). */
+export const settingsEmails = (name?: string) => `/admin/settings/emails${query({ email: name })}`;
+/** Settings → Reasons: why children drop, why they're absent. */
+export const settingsReasons = () => '/admin/settings/reasons';
+/** Settings → Attendance: when "Attendance not taken" starts, and which kinds of class need it. */
+export const settingsAttendance = () => '/admin/settings/attendance';
+/** Settings → Last season: last season's totals from Studio Director, for the dashboard's comparisons. */
+export const settingsLastSeason = () => '/admin/settings/last-season';
+
+// ───────────── Reports (docs/back-office.md → Reports) ─────────────
+
+/** The reports dashboard: the most important numbers, each opening its report. Owners only. */
+export const reports = () => '/admin/reports';
+/** Every report, grouped by the question it answers, starred ones first. */
+export const reportsLibrary = () => '/admin/reports/library';
+/** One report, with its filters (season, month, program, location, class, show, week, who). Pass to downloads() for its CSV and PDF. */
+export const report = (key: string, params: Record<string, string | number | undefined> = {}) =>
+  `/admin/reports/${seg(key)}${query(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, v === undefined ? undefined : String(v)])))}`;
+/** Where a report's star posts (on or off). */
+export const reportFavorite = () => '/admin/reports/favorite';

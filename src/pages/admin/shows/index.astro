@@ -1,0 +1,92 @@
+---
+/**
+ * Staff: Shows. The content's shows (events of kind `show`), upcoming first
+ * then past, each with its dates, the classes performing and how many
+ * children are in the cast (src/server/shows.ts). Owners only.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { content as editor, show } from '@/lib/admin-links';
+import { todayInAthens } from '@/lib/pricing';
+import { castCounts, showList, type ShowSummary } from '@/server/shows';
+import { requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const { content } = Astro.locals;
+const list = staff ? showList(content.events, await castCounts(), content, todayInAthens()) : { upcoming: [], past: [] };
+const inCast = (n: number) => `${n} in the cast`;
+const groups: { key: string; title: string; shows: ShowSummary[] }[] = [
+  { key: 'upcoming', title: 'Coming up', shows: list.upcoming },
+  { key: 'past', title: 'Past shows', shows: list.past },
+].filter((g) => g.shows.length);
+---
+
+<AdminShell title="Shows" section="shows">
+  <div class="admin-page shows">
+    <div class="admin-head">
+      <div>
+        <h1>Shows</h1>
+        <p class="admin-intro">Cast lists, roles and rehearsals. Add a show in the website editor, under Events.</p>
+      </div>
+    </div>
+
+    {groups.length === 0 ? (
+      <div class="empty-state">
+        <strong>No shows yet</strong>
+        <p>Shows you add in the <a href={editor()}>website editor</a> show up here.</p>
+      </div>
+    ) : (
+      groups.map((g) => (
+        <section class="shows__group" aria-labelledby={`shows-${g.key}`} data-shows={g.key}>
+          <h2 id={`shows-${g.key}`}>{g.title}</h2>
+          <ul class="show-list">
+            {g.shows.map((s) => (
+              <li>
+                <a class="show-row" href={show(s.event.slug)} data-show={s.event.slug}>
+                  <span class="show-row__name">
+                    <strong>{s.event.title}</strong>
+                    <span class="muted" data-show-dates>{s.dates}</span>
+                  </span>
+                  <span class="show-row__classes" data-label="Classes performing">{s.performers.length ? s.performers.map((p) => p.title).join(', ') : 'No classes named yet'}</span>
+                  <span class="show-row__cast" data-cast-count>{inCast(s.cast)}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    )}
+  </div>
+</AdminShell>
+
+<style>
+  .shows__group { display: grid; gap: 0.4rem; }
+  .shows__group h2 { font-size: var(--step-1); }
+  .show-list { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--ink); }
+  .show-row {
+    display: grid;
+    grid-template-columns: minmax(0, 2.4fr) minmax(0, 2fr) 8rem;
+    gap: 0.75rem;
+    align-items: center;
+    min-height: 44px;
+    padding: 0.8rem 0.5rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    text-decoration: none;
+    font-size: var(--step--1);
+  }
+  .show-row:hover { background: var(--hall); text-decoration: none; }
+  .show-row:hover strong { text-decoration: underline; }
+  .show-row > * { min-width: 0; overflow-wrap: anywhere; }
+  .show-row__name { display: grid; gap: 0.2rem; }
+  .show-row__name strong { font-size: var(--step-0); color: var(--purple); }
+  .show-row__cast { font-weight: 700; text-align: right; white-space: nowrap; }
+  .muted { color: var(--ink-mute); }
+  @media (max-width: 760px) {
+    .show-list { display: grid; gap: var(--space-s); border-top: 0; }
+    .show-row { grid-template-columns: minmax(0, 1fr); gap: 0.35rem; padding: 0.8rem 1rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-md); background: var(--paper); }
+    .show-row__cast { text-align: left; }
+  }
+</style>

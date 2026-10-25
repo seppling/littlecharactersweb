@@ -16,6 +16,8 @@ describe('toCsv', () => {
   it('keeps spreadsheet formulas from running', () => {
     const csv = toCsv(['x'], [['=HYPERLINK("http://evil")'], ['+1'], ['-2+3'], ['@SUM(A1)'], ['\tTab'], ['\rCR'], ['safe=still']]);
     expect(csv.split('\r\n').slice(1, 8)).toEqual(['"\'=HYPERLINK(""http://evil"")"', "'+1", "'-2+3", "'@SUM(A1)", "'\tTab", `"'\rCR"`, 'safe=still']);
+    // A refund's amount stays a number the spreadsheet adds up.
+    expect(toCsv(['Amount ($)'], [['-25.00'], ['-1-1']]).split('\r\n').slice(1, 3)).toEqual(['-25.00', "'-1-1"]);
   });
 
   it('writes numbers, dates, yes/no and blanks', () => {

@@ -104,9 +104,11 @@ The app **fails closed**: unless it's explicitly told it's in development, it re
 ### Setting it up (about 30 minutes, in this order)
 
 1. **Resend (email):**
-   - Create an account at resend.com, then add the domain `littlecharacters.org`.
-   - Add the DNS records it shows wherever the domain is managed. They only allow sending email; the current website doesn't change.
-   - Create an API key with sending access.
+   - **Done October 19:** the account, and the sending domain `mail.littlecharacters.org` (US East). Its DNS records go in Squarespace Domains, which manages littlecharacters.org: Resend → Domains → `mail.littlecharacters.org` → **Auto configure**.
+     - A subdomain keeps the site's email separate from the main domain and its Google mail; the website doesn't change.
+     - Open and click tracking are off.
+     - The site sends as `Little Characters <hello@mail.littlecharacters.org>` (`EMAIL_FROM`), and replies go to the studio's Gmail (`EMAIL_REPLY_TO`).
+   - **Still to do,** when setting up Render: in Resend → **API Keys**, create a key with **Sending access**, limited to `mail.littlecharacters.org`, and paste it straight into Render as `RESEND_API_KEY`.
 2. **Stripe (test mode):** copy the two test keys (Developers → API keys).
 3. **Render:**
    - Choose **New → Blueprint**, then pick this repository and the branch `main`.
@@ -183,18 +185,20 @@ Each push to that branch redeploys the preview automatically.
 **What it is:** Stripe calling our site to say "this payment went through" (or "this checkout expired"). The site already checks with Stripe itself when a family lands on the confirmation page. The webhook covers the times that doesn't happen:
 - a family closes the tab mid-redirect;
 - a bank payment settles later;
-- a "pay now" form expires unused, so automatic retries can resume.
+- a "pay now" form expires unused, so automatic retries can resume;
+- a refund Hannah made finishes later, or fails.
 
 **Why it waits for deployment:** Stripe has to reach the site over the internet, so it needs the real (or preview) URL. It can't reach a laptop or this development environment. Until then, nothing breaks: test enrollments work without it.
 
 **Setting it up (about 3 minutes, once per mode):**
 1. In the Stripe dashboard, open **Developers → Webhooks**. Newer dashboards call this **Workbench → Webhooks → Add destination**.
 2. Endpoint URL: `https://littlecharacters.org/api/stripe/webhook` (or the preview URL while testing).
-3. Select these 4 events:
+3. Select these 6 events:
    - `checkout.session.completed`
    - `checkout.session.async_payment_succeeded`
    - `checkout.session.expired`
    - `payment_intent.succeeded`
+   - `refund.updated` and `refund.failed` (a refund made from the staff pages finishes, or fails, after Stripe first said "pending")
 4. Save, then click **Reveal** under *Signing secret*. It starts with `whsec_`.
 5. Put it in the **host's** environment settings as `STRIPE_WEBHOOK_SECRET` and redeploy.
 

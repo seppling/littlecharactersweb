@@ -1,0 +1,166 @@
+---
+/**
+ * One progress note (owners; src/server/progress-notes.ts).
+ *
+ * - A draft: change it, pick the skills listed under it, Save draft or
+ *   Preview; Delete draft.
+ * - The preview (?preview=1&got=&work=, skill ids only): the email as the
+ *   parents get it and who it goes to, then Send. The review form's
+ *   one-time token means a double click sends once.
+ * - Sent: what the family got, when and by whom. It can't be changed.
+ *
+ * `back` (a staff path) is where Cancel and Send return to; the family page
+ * by default.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import ProgressNoteForm from '@/components/admin/ProgressNoteForm.astro';
+import { family, progressNote, safeStaffPath } from '@/lib/admin-links';
+import { MessageError, newSendToken, paragraphs } from '@/server/messages';
+import { ProgressNoteError, deleteDraft, getNote, previewKey, previewNote, saveDraft, sendProgressNote, skillChoices } from '@/server/progress-notes';
+import { requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+
+const { content } = Astro.locals;
+const noteId = Astro.params.noteId ?? '';
+const note = staff ? await getNote(noteId, content) : null;
+if (staff && !note) return new Response('Not found', { status: 404 });
+const params = Astro.url.searchParams;
+const back = safeStaffPath(params.get('back')) ?? (note ? family(note.householdId) : '/admin');
+const withParam = (path: string, k: string, v: string) => {
+  const u = new URL(path, 'http://staff.invalid');
+  u.searchParams.set(k, v);
+  // Back at the part of the page the note came from.
+  const at = u.pathname.startsWith('/admin/classes/') ? '#skills-h' : note && u.pathname.startsWith('/admin/families/') ? `#child-${note.studentId}` : '';
+  return u.pathname + u.search + at;
+};
+const here = (q: Record<string, string | string[]>) => {
+  const s = new URLSearchParams({ back });
+  for (const [k, v] of Object.entries(q)) for (const x of [v].flat()) s.append(k, x);
+  return `${progressNote(noteId)}?${s}`;
+};
+
+let error = '';
+let body = note?.body ?? '';
+let picks: Set<string> | null = params.has('got') || params.has('work') || params.get('preview') ? new Set([...params.getAll('got'), ...params.getAll('work')]) : null;
+if (staff && note && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') ?? '');
+  const got = form.getAll('got').map(String);
+  const work = form.getAll('work').map(String);
+  try {
+    if (action === 'delete') {
+      await deleteDraft(staff.id, note.id);
+      return Astro.redirect(withParam(back, 'note', 'deleted'), 303);
+    }
+    if (action === 'send') {
+      await sendProgressNote(staff, note.id, { body: note.body, gotIt: got, working: work, token: String(form.get('token') ?? ''), seen: String(form.get('seen') ?? '') }, content);
+      return Astro.redirect(withParam(back, 'note', 'sent'), 303);
+    }
+    body = String(form.get('body') ?? '');
+    picks = new Set([...got, ...work]);
+    await saveDraft(staff.id, { noteId: note.id, studentId: note.studentId, body });
+    return Astro.redirect(action === 'preview' ? here({ preview: '1', got, work }) : here({ saved: '1' }), 303);
+  } catch (e) {
+    if (!(e instanceof ProgressNoteError) && !(e instanceof MessageError)) throw e;
+    error = e.message;
+  }
+}
+
+const choices = note ? await skillChoices(note, content) : { gotIt: [], working: [] };
+const reviewing = !!note && !note.sharedAt && params.get('preview') === '1' && !error;
+const pickedGot = choices.gotIt.filter((s) => !picks || picks.has(s.id)).map((s) => s.id);
+const pickedWork = choices.working.filter((s) => !picks || picks.has(s.id)).map((s) => s.id);
+const preview = note && reviewing ? await previewNote(note, { body: note.body, gotIt: pickedGot, working: pickedWork }, content) : null;
+const token = newSendToken();
+const when = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
+---
+
+<AdminShell title="Progress note" section="families" back={{ href: back, label: 'Back' }}>
+  {
+    note && (
+      <div class="admin-page progress-note" data-progress-note={note.sharedAt ? 'sent' : reviewing ? 'review' : 'draft'}>
+        <div class="admin-head">
+          <div>
+            <h1>Progress note: {note.child}</h1>
+            <p class="admin-intro">
+              {note.classTitle ?? 'Not about one class'} · {note.sharedAt ? `Sent ${when(note.sharedAt)}` : `Draft by ${note.author}, ${when(note.updatedAt)}`}
+            </p>
+          </div>
+        </div>
+        {params.get('saved') && !error && <p class="notice" role="status" data-saved>Draft saved. It isn’t sent until you preview it and press Send.</p>}
+        {error && <p class="notice notice--error" role="alert" data-error>{error}</p>}
+
+        {note.sharedAt ? (
+          <section class="staff-card preview-card" data-sent-note>
+            <p class="preview__label">Sent to the {note.family}</p>
+            <div class="preview">{paragraphs(note.body).map((p) => <p>{p}</p>)}</div>
+            <p class="muted">The family sees it in their account, under {note.childFirst}. The email is in “Emails sent” on the <a href={family(note.householdId)}>family’s page</a>.</p>
+          </section>
+        ) : preview ? (
+          <section class="review" aria-labelledby="review-h" data-note-review>
+            <h2 id="review-h">Check it, then send</h2>
+            <div class="staff-card preview-card">
+              <p class="preview__label">Subject</p>
+              <p class="preview__subject" data-review-subject>{preview.subject}</p>
+              <p class="preview__label">Message</p>
+              <div class="preview" data-review-body>
+                {paragraphs(preview.body).map((p) => <p>{p}</p>)}
+                <p class="preview__footer">— {preview.footer}. Reply to this email to reach us.</p>
+              </div>
+            </div>
+            {preview.emails.length ? (
+              <p data-sending-to><strong>Sending to {preview.emails.join(', ')}</strong>, one email to all of the {note.family}’s parents. They also see it in their account.</p>
+            ) : (
+              <p class="notice notice--error">This family has no parent email on file, so it can’t be sent.</p>
+            )}
+            <form method="post" class="review__buttons" data-once>
+              <input type="hidden" name="token" value={token} />
+              <input type="hidden" name="seen" value={previewKey(preview)} />
+              {pickedGot.map((id) => <input type="hidden" name="got" value={id} />)}
+              {pickedWork.map((id) => <input type="hidden" name="work" value={id} />)}
+              <button class="btn btn--primary" type="submit" name="action" value="send" data-send disabled={!preview.emails.length} data-busy="Sending…">Send to the family</button>
+              <a class="btn btn--outline" href={here({ got: pickedGot, work: pickedWork, edit: '1' })} data-back-to-edit>Back to edit</a>
+            </form>
+          </section>
+        ) : (
+          <ProgressNoteForm firstName={note.childFirst} body={body} choices={choices} ticked={picks} cancel={back} canDelete />
+        )}
+      </div>
+    )
+  }
+</AdminShell>
+
+<script>
+  // One click sends once: the button says "Sending…" and can't be pressed again.
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-once]')) {
+    form.addEventListener('submit', () => {
+      const b = form.querySelector<HTMLButtonElement>('button[data-busy]');
+      if (b) {
+        b.textContent = b.dataset.busy!;
+        setTimeout(() => (b.disabled = true));
+      }
+    });
+  }
+  for (const b of document.querySelectorAll<HTMLButtonElement>('[data-delete-draft]')) {
+    b.addEventListener('click', (e) => {
+      if (!confirm('Delete this draft? It can’t be brought back.')) e.preventDefault();
+    });
+  }
+</script>
+
+<style>
+  .progress-note .review { display: grid; gap: var(--space-m); max-width: 40rem; }
+  .progress-note .review h2 { font-size: var(--step-1); }
+  .preview-card { display: grid; gap: 0.3rem; max-width: 40rem; }
+  .preview__label { margin: 0; font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+  .preview__subject { margin: 0 0 0.5rem; font-weight: 700; overflow-wrap: anywhere; }
+  .preview { display: grid; gap: 0.6rem; }
+  .preview p { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+  .preview__footer { color: var(--ink-mute); font-size: var(--step--1); }
+  .progress-note .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .review__buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  [data-sending-to] { margin: 0; overflow-wrap: anywhere; }
+</style>

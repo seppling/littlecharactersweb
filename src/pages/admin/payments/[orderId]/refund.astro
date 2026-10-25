@@ -1,0 +1,234 @@
+---
+/**
+ * Staff: refund one payment (src/server/refunds.ts). Owners, with a fresh
+ * sign-in. The payment and what's been refunded already; the amount (all of
+ * what's left, or a part), a reason for staff, and whether to email the
+ * family; a preview; then "Refund $X". Card payments go to Stripe; cash and
+ * check payments are recorded ("Record a refund given by cash or check").
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import { family, paymentsOrder, refundPage } from '@/lib/admin-links';
+import { formatCents } from '@/lib/pricing';
+import { RefundError, REFUNDS, createRefund, loadPayment, parseDollars, paymentWhat, refundAuthors, refundDay, refundNote, retryRefund, testRefundsAllowed } from '@/server/refunds';
+import { getDb, schema } from '@/server/db';
+import { eq } from 'drizzle-orm';
+import { requireFreshStaff, requireStaff } from '@/server/staff';
+
+export const prerender = false;
+const { staff, response } = requireStaff(Astro.locals);
+if (response) return response;
+// A fresh sign-in for every refund: the form itself waits for it.
+if (staff) {
+  const stop = requireFreshStaff(Astro.locals, Astro.url);
+  if (stop) return stop;
+}
+
+const orderId = Astro.params.orderId ?? '';
+const installmentId = Astro.url.searchParams.get('installment');
+const here = refundPage(orderId, installmentId);
+let payment = staff ? await loadPayment({ orderId, installmentId }) : null;
+if (staff && !payment) return new Response('Not found', { status: 404 });
+
+const db = await getDb();
+const [fam] = payment ? await db.select({ name: schema.household.name }).from(schema.household).where(eq(schema.household.id, payment.householdId)) : [];
+
+let error = '';
+let values: Record<string, string> = {};
+let preview: { amountCents: number; reason: string; emailFamily: boolean } | null = null;
+
+if (staff && payment && Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));
+  try {
+    if (values.action === 'retry') {
+      const r = await retryRefund(staff, values.id ?? '');
+      return Astro.redirect(`${here}${here.includes('?') ? '&' : '?'}done=${encodeURIComponent(r.id)}`, 303);
+    }
+    const amountCents = values.how === 'part' ? parseDollars(values.amount ?? '') : payment.leftCents;
+    if (values.action === 'refund') {
+      // createRefund checks it all, and the form's one-time id makes a second press refund nothing more.
+      const out = await createRefund(staff, { orderId, installmentId, amountCents: amountCents ?? 0, reason: values.reason ?? '', emailFamily: values.email === 'on', id: values.once }, { findSession: Astro.locals.content.findSession });
+      return Astro.redirect(`${here}${here.includes('?') ? '&' : '?'}done=${encodeURIComponent(out.refund.id)}`, 303);
+    }
+    if (amountCents === null) throw new RefundError('Enter the amount to refund, like 25 or 12.50.');
+    if (amountCents > payment.leftCents) throw new RefundError(`That’s more than is left to refund. You can refund up to ${formatCents(payment.leftCents)}.`);
+    const reason = (values.reason ?? '').trim();
+    if (!reason) throw new RefundError('Write a reason. Only staff see it.');
+    if (reason.length > REFUNDS.reasonMax) throw new RefundError(`Keep the reason under ${REFUNDS.reasonMax} characters.`);
+    const emailFamily = values.email === 'on';
+    preview = { amountCents, reason, emailFamily };
+  } catch (e) {
+    if (!(e instanceof RefundError)) throw e;
+    error = e.message;
+  }
+  payment = await loadPayment({ orderId, installmentId });
+}
+
+const what = payment ? paymentWhat(payment, Astro.locals.content.findSession) : '';
+const cash = payment?.via === 'cash';
+const testOnly = payment?.via === 'test';
+const blocked = testOnly && !testRefundsAllowed();
+const who = payment ? await refundAuthors(payment.refunds) : new Map<string, string>();
+const done = payment?.refunds.find((r) => r.id === Astro.url.searchParams.get('done'));
+const viaText = { card: 'Card', cash: 'Cash or check', test: 'Test payment', none: 'Nothing charged' } as const;
+const statusText = { pending: 'Pending', succeeded: 'Refunded', failed: 'Didn’t go through' } as const;
+const statusTone = { pending: 'warning', succeeded: 'good', failed: 'alert' } as const;
+const left = payment?.leftCents ?? 0;
+const partChecked = values.how === 'part';
+---
+
+<AdminShell title="Refund a payment" section="payments" back={{ href: payment ? paymentsOrder(payment.orderId) : '/admin/payments', label: 'Payments' }}>
+  {
+    payment && (
+      <div class="admin-page refund">
+        <div class="admin-head">
+          <div>
+            <h1>Refund a payment</h1>
+            <p class="admin-intro">{fam?.name ?? 'Family'}</p>
+          </div>
+          <div class="admin-head__actions">
+            <a class="btn btn--outline btn--sm" href={family(payment.householdId)}>Family page</a>
+            <a class="btn btn--outline btn--sm" href={paymentsOrder(payment.orderId)}>Payments &amp; discounts</a>
+          </div>
+        </div>
+
+        {done && done.status === 'succeeded' && <p class="notice" role="status" data-refund-done>{cash ? `Recorded: ${formatCents(done.amountCents)} given back by cash or check.` : `Refunded ${formatCents(done.amountCents)}.`} It shows on the family’s page and in their account.</p>}
+        {done && done.status === 'pending' && <p class="notice" role="status" data-refund-done>{done.error ? `${formatCents(done.amountCents)} is saved, but ${done.error}` : `Stripe is sending back ${formatCents(done.amountCents)}. It usually finishes within a day; this page shows when it has.`}</p>}
+        {done && done.status === 'failed' && <p class="notice notice--error" role="alert" data-refund-done>The refund of {formatCents(done.amountCents)} didn’t go through: {done.error}</p>}
+        {error && <p class="notice notice--error" role="alert" data-refund-error>{error}</p>}
+
+        <section class="staff-card pay" aria-labelledby="pay-h" data-payment>
+          <h2 id="pay-h">{what}</h2>
+          <dl class="facts">
+            <div><dt>Paid</dt><dd>{formatCents(payment.amountCents)}</dd></div>
+            <div><dt>On</dt><dd>{refundDay(payment.paidAt)}</dd></div>
+            <div><dt>How</dt><dd>{viaText[payment.via]}</dd></div>
+            <div><dt>Left to refund</dt><dd data-left>{formatCents(left)}</dd></div>
+          </dl>
+          {refundNote(payment.amountCents, payment.refunds) && <p class="muted" data-refund-note>{refundNote(payment.amountCents, payment.refunds)}</p>}
+        </section>
+
+        {payment.refunds.length > 0 && (
+          <section class="admin-section" aria-labelledby="earlier-h">
+            <h2 id="earlier-h">Refunds so far</h2>
+            <table class="data-table" data-refunds>
+              <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th>Reason</th><th>By</th></tr></thead>
+              <tbody>
+                {payment.refunds.map((r) => (
+                  <tr data-refund={r.status}>
+                    <td data-label="Date">{refundDay(r.createdAt)}</td>
+                    <td data-label="Amount" class="num">{formatCents(r.amountCents)}</td>
+                    <td data-label="Status">
+                      <span class="status">
+                        <span class={`badge badge--${statusTone[r.status]}`}>{statusText[r.status]}</span>
+                        {r.error && <span class="muted">{r.error}</span>}
+                        {r.status === 'pending' && !r.stripeRefundId && (
+                          <form method="post"><input type="hidden" name="action" value="retry" /><input type="hidden" name="id" value={r.id} /><button class="btn btn--outline btn--sm" type="submit">Try again</button></form>
+                        )}
+                      </span>
+                    </td>
+                    <td data-label="Reason"><span>{r.reason}</span></td>
+                    <td data-label="By"><span>{r.createdBy ? (who.get(r.createdBy) ?? 'staff') : 'staff'}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
+
+        {blocked ? (
+          <p class="notice notice--error">This was a test payment, not a real one, so there’s nothing to refund.</p>
+        ) : left <= 0 ? (
+          <p class="admin-intro" data-refunded-in-full>This payment has been refunded in full.</p>
+        ) : preview ? (
+          <form method="post" class="cf-group confirm" data-refund-preview>
+            <h2>Check before refunding</h2>
+            <p class="big"><strong>{cash ? `Record ${formatCents(preview.amountCents)} given back by cash or check` : `Refund ${formatCents(preview.amountCents)} to the card`}</strong></p>
+            <ul class="lines">
+              <li>For: {what}, paid {refundDay(payment.paidAt)}</li>
+              <li>Left to refund after this: {formatCents(left - preview.amountCents)}</li>
+              <li>Reason (staff only): {preview.reason}</li>
+              <li>{preview.emailFamily ? `The family is emailed: “Refund of ${formatCents(preview.amountCents)} for ${what}”${cash ? '.' : `, and that it takes ${REFUNDS.cardDays} to reach their card.`}` : 'The family isn’t emailed.'}</li>
+              {!cash && !testOnly && <li>Stripe sends it back to the card it was paid with. It can’t be undone.</li>}
+              <li>Nothing else changes: the child stays in the class, and payments to come are the same.</li>
+            </ul>
+            <input type="hidden" name="how" value="part" />
+            <input type="hidden" name="amount" value={(preview.amountCents / 100).toFixed(2)} />
+            <input type="hidden" name="reason" value={preview.reason} />
+            {preview.emailFamily && <input type="hidden" name="email" value="on" />}
+            <input type="hidden" name="once" value={crypto.randomUUID()} />
+            <div class="row">
+              <button class="btn btn--danger" type="submit" name="action" value="refund" data-refund-confirm data-busy="Refunding…">{cash ? `Record ${formatCents(preview.amountCents)} refund` : `Refund ${formatCents(preview.amountCents)}`}</button>
+              <a class="btn btn--outline" href={here}>Cancel</a>
+            </div>
+          </form>
+        ) : (
+          <form method="post" class="cf-group" data-refund-form>
+            <h2>{cash ? 'Record a refund given by cash or check' : 'Refund'}</h2>
+            {cash && <p class="cf__help">This was paid by cash or check, so nothing goes through Stripe. Give the money back yourself, then record it here so statements and the Payments page are right.</p>}
+            <fieldset class="cf-choices">
+              <legend>Amount</legend>
+              <div class="choices">
+                <label class="choice"><input type="radio" name="how" value="all" checked={!partChecked} />All of it ({formatCents(left)} left to refund)</label>
+                <label class="choice"><input type="radio" name="how" value="part" checked={partChecked} data-part />Part of it</label>
+              </div>
+            </fieldset>
+            <div class="cf amount">
+              <label for="refund-amount">Amount to refund ($)</label>
+              <input id="refund-amount" name="amount" inputmode="decimal" placeholder={`Up to ${(left / 100).toFixed(2)}`} value={values.amount ?? ''} />
+              <p class="cf__help">Dollars and cents, like 12.50. Only for “Part of it”.</p>
+            </div>
+            <div class="cf">
+              <label for="refund-reason">Reason</label>
+              <textarea id="refund-reason" name="reason" rows="2" required maxlength={REFUNDS.reasonMax} placeholder="Withdrew after the first class, paid twice…">{values.reason ?? ''}</textarea>
+              <p class="cf__help">Only staff see it.</p>
+            </div>
+            <label class="cf-toggle"><input type="checkbox" name="email" checked={Object.keys(values).length ? values.email === 'on' : true} />Email the family</label>
+            <button class="btn btn--primary" type="submit" name="action" value="preview">Check the refund</button>
+          </form>
+        )}
+        <p class="muted">Refunds are for this payment only. To take money off a payment still to come, give a credit on the family’s page instead.</p>
+      </div>
+    )
+  }
+</AdminShell>
+
+<script>
+  // One press: the button says "Refunding…" and can't be pressed again (the server refunds once either way).
+  for (const b of document.querySelectorAll<HTMLButtonElement>('[data-refund-confirm]')) {
+    b.form?.addEventListener('submit', () => {
+      b.textContent = b.dataset.busy!;
+      setTimeout(() => (b.disabled = true));
+    });
+  }
+  // Typing an amount picks "Part of it".
+  const amount = document.querySelector<HTMLInputElement>('#refund-amount');
+  const part = document.querySelector<HTMLInputElement>('[data-part]');
+  amount?.addEventListener('input', () => {
+    if (part && amount.value.trim()) part.checked = true;
+  });
+</script>
+
+<style>
+  .refund .pay { display: grid; gap: 0.6rem; }
+  .refund .pay h2 { font-size: var(--step-0); margin: 0; overflow-wrap: anywhere; }
+  .facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr)); gap: 0.6rem; }
+  .facts div { padding: 0.5rem 0.7rem; border: 1.5px solid var(--line); border-radius: var(--r-sm); }
+  .facts dt { font-family: var(--font-script); font-size: var(--step--2); text-transform: uppercase; color: var(--ink-mute); }
+  .facts dd { margin: 0.2rem 0 0; font-weight: 700; }
+  .muted { color: var(--ink-mute); font-size: var(--step--1); }
+  .status { display: grid; gap: 0.3rem; justify-items: start; }
+  .choices { display: grid; gap: 0.4rem; }
+  .choice { display: flex; align-items: center; gap: 0.6rem; min-height: 44px; padding: 0.4rem 0.8rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-sm); font-weight: 600; cursor: pointer; }
+  .choice input { width: 1.2rem; height: 1.2rem; accent-color: var(--purple); flex: none; }
+  .choice:has(input:checked) { border-color: var(--ink); background: var(--hall); }
+  .cf input, .cf textarea { font-size: 1rem; }
+  .cf-toggle { min-height: 44px; }
+  .confirm { background: var(--yellow-tint); border-color: var(--yellow); }
+  .cf-group h2 { font-size: var(--step-1); margin: 0; }
+  .big { margin: 0; font-size: var(--step-1); }
+  .lines { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; overflow-wrap: anywhere; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .row .btn, .cf-group > .btn { min-height: 44px; }
+  .cf-group > .btn { justify-self: start; }
+</style>

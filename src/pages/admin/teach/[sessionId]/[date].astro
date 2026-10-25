@@ -1,0 +1,575 @@
+---
+/**
+ * One class on one date in the teacher app (docs/back-office.md → The teacher
+ * app): the children expected (enrolled, trial, booked drop-ins), Present /
+ * Absent in a tap, Late and Left early, a short note per child, each child's
+ * care details on a sheet, and the note to Hannah with Submit attendance.
+ *
+ * Who: a teacher who canTeach this class on this date, or an owner; anyone
+ * else gets the Staff only panel (teachAccess in src/server/attendance.ts).
+ * Days off show "No class today"; future dates are read-only.
+ *
+ * Taps are saved on the phone first and sent when there's signal
+ * (src/scripts/teach.ts). Today's assigned rosters are kept on the phone for
+ * the day (X-Teach-Cache), so they open with no signal. Opening the page is
+ * written to the audit log (teach.roster.view), like a Phase 1 roster.
+ */
+import AdminShell from '@/components/admin/AdminShell.astro';
+import Badges from '@/components/admin/Badges.astro';
+import { classPage, teachHome, teachRoster as rosterLink, teachSkills } from '@/lib/admin-links';
+import { formatPhone, smsHref, telHref } from '@/lib/contacts';
+import { timeRange } from '@/lib/format';
+import { todayInAthens } from '@/lib/pricing';
+import { classDateFor, MARK_LABELS, NOTE_MAX, REPORT_NOTE_MAX, safetyLine, teachRoster, wasThere, type TeachChild } from '@/server/attendance';
+import { isProd } from '@/server/env';
+import { requireTeacherOrOwner } from '@/server/staff';
+import { canTeach } from '@/server/teachers';
+import { devDay, longDay } from '@/server/today';
+import { reasonList } from '@/server/reasons';
+
+export const prerender = false;
+const { staff, response } = requireTeacherOrOwner(Astro.locals);
+if (response) return response;
+
+const { content } = Astro.locals;
+const on = devDay(Astro.url.searchParams, !isProd);
+const today = on ?? todayInAthens();
+const sessionId = Astro.params.sessionId ?? '';
+const date = Astro.params.date ?? '';
+const viewer = staff ? { userId: staff.id, staffId: staff.staffId, role: staff.role } : null;
+const cd = viewer ? await classDateFor(viewer, sessionId, date, content, today) : null;
+// Not theirs, not a date the class meets, or not a class: the Staff only panel (teachers), or Not found.
+if (viewer && (!cd || !cd.access.view)) return new Response(null, { status: 404 });
+
+const prefetch = Astro.request.headers.get('X-Teach-Prefetch') === '1';
+// Kept on the phone for the day: today's rosters this person teaches or covers. Never on a shared device.
+const assigned = viewer && cd ? viewer.role === 'teacher' || (await canTeach(viewer.staffId, sessionId, date)) : false;
+const keep = !!(viewer && cd && assigned && date === today && !cd.dayOff && !Astro.locals.sharedDevice);
+const children: TeachChild[] = viewer && cd && !cd.dayOff ? await teachRoster(sessionId, date, viewer.userId, prefetch && keep ? 'cache' : 'view', today) : [];
+const edit = !!cd?.access.edit;
+const present = children.filter((c) => wasThere(c.mark?.status)).length;
+const location = cd ? content.locationById(cd.session.locationId) : undefined;
+const time = cd && cd.session.start && cd.session.end ? timeRange(cd.session.start, cd.session.end) : '';
+const safety = safetyLine(children);
+const flagged = children.filter((c) => c.badges.some((b) => b.key === 'medical' || b.key === 'pickup')).length;
+const report = cd?.report;
+const submittedAt = report ? report.submittedAt.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '';
+const notice = !cd
+  ? null
+  : cd.dayOff
+    ? `No class today: ${cd.dayOff.reason}`
+    : ({
+        future: `This class is on ${longDay(date)}. You can take attendance on the day.`,
+        'too-late': 'Attendance for this date is closed. Ask Hannah if something needs changing.',
+        submitted: `Attendance was sent ${submittedAt}. Ask Hannah if something needs changing.`,
+        covered: `${cd.coveredBy} is covering this class on this date.`,
+      } as Record<string, string>)[cd.access.why] ?? null;
+if (keep) Astro.response.headers.set('X-Teach-Cache', todayInAthens());
+// Signed out, or a shared device: the service worker keeps nothing of the teacher app on this device.
+if (!staff || Astro.locals.sharedDevice) Astro.response.headers.set('X-Teach-Signed-Out', '1');
+const back = staff?.role === 'owner' && !assigned ? { href: classPage(sessionId), label: cd?.program.title ?? 'Class' } : { href: teachHome() + (on ? `?on=${on}` : ''), label: 'Today' };
+// Absence reasons (Settings → Reasons): one optional tap under a child marked Absent.
+const reasons = edit && children.length ? await reasonList('absence') : [];
+const careText = (c: TeachChild) => (c.photoConsent === false ? 'No photos, please.' : c.photoConsent === true ? 'Photos are OK.' : 'Not asked yet.');
+---
+
+<AdminShell title={cd?.program.title ?? 'Attendance'} section="teach" teachers back={back}>
+  {
+    cd && (
+      <div
+        class="admin-page roster-page"
+        data-teach-roster
+        data-session={sessionId}
+        data-date={date}
+        data-by={staff?.id}
+        data-on={on ?? ''}
+        data-edit={edit ? '1' : '0'}
+        data-done={report ? '1' : '0'}
+        data-keep={keep ? '1' : '0'}
+      >
+        <header class="roll-head">
+          <h1>{cd.program.title}</h1>
+          <p class="roll-head__when" data-roll-when>{[longDay(date), time, location?.shortName].filter(Boolean).join(' · ')}</p>
+          <nav class="teach-views" aria-label="This class">
+            <a href={rosterLink(sessionId, date, on)} aria-current="page" data-view="attendance">Attendance</a>
+            <a href={teachSkills(sessionId, date, on)} data-view="skills">Skills</a>
+          </nav>
+          {cd.covers.length > 0 && <p class="roll-head__covers">{cd.covers.map((c) => (c.coveringForName ? `${c.name} covering for ${c.coveringForName}` : `${c.name} substituting`)).join(' · ')}</p>}
+          {!cd.dayOff && (
+            <div class="roll-head__count">
+              <p class="count" aria-live="polite">
+                Present <strong data-present>{present}</strong> of <strong data-total>{children.length}</strong>
+              </p>
+              {edit && children.length > 0 && (
+                <button type="button" class="btn btn--primary all-present" data-all-present>
+                  Mark all present
+                </button>
+              )}
+            </div>
+          )}
+        </header>
+
+        {notice && <p class:list={['notice', { 'notice--warning': !!cd.dayOff }]} data-roll-notice={cd.dayOff ? 'day-off' : cd.access.why}>{notice}</p>}
+        <p class="sync-line" data-sync-status hidden></p>
+
+        {safety && (
+          <button type="button" class="safety-strip" data-safety aria-pressed="false">
+            <span>{safety}</span>
+            <span class="safety-strip__do" data-safety-label>Show {flagged === 1 ? 'that child' : 'those children'}</span>
+          </button>
+        )}
+
+        {!cd.dayOff && (
+          children.length === 0 ? (
+            <div class="empty-state">
+              <strong>No children on this class yet</strong>
+              <span>Children show here when a family signs up or books a drop-in.</span>
+            </div>
+          ) : (
+            <ul class="roll" data-roll>
+              {children.map((c) => {
+                const flag = c.badges.some((b) => b.key === 'medical' || b.key === 'pickup');
+                const st = c.mark?.status ?? '';
+                return (
+                  <li
+                    class="kid-row"
+                    data-kid={c.studentId}
+                    data-status={st}
+                    data-note={c.mark?.note ?? ''}
+                    data-reason={c.mark?.reason ?? ''}
+                    data-marked-at={c.mark?.markedAt.toISOString() ?? ''}
+                    data-flagged={flag ? '1' : '0'}
+                  >
+                    <button type="button" class="kid-row__who" data-open-sheet aria-haspopup="dialog">
+                      <span class:list={['initials', { 'initials--alert': c.badges.some((b) => b.key === 'medical') }]} aria-hidden="true">
+                        {c.initials}
+                      </span>
+                      <span class="kid-row__name">
+                        <strong>{c.shortName}</strong>
+                        <Badges badges={c.badges} />
+                      </span>
+                    </button>
+                    {edit ? (
+                      <div class="kid-row__mark">
+                        <div class="toggle" role="group" aria-label={`${c.shortName}: here today?`}>
+                          <button type="button" class="toggle__btn toggle__btn--in" data-mark="present" aria-pressed={wasThere(st) ? 'true' : 'false'}>
+                            Present
+                          </button>
+                          <button type="button" class="toggle__btn toggle__btn--out" data-mark="absent" aria-pressed={st === 'absent' ? 'true' : 'false'}>
+                            Absent
+                          </button>
+                        </div>
+                        <details class="kid-more" data-more>
+                          <summary aria-label={`More for ${c.shortName}`}>
+                            <span data-more-label>{st === 'late' || st === 'left_early' ? MARK_LABELS[st] : 'More'}</span>
+                          </summary>
+                          <div class="kid-more__panel">
+                            <div class="kid-more__marks">
+                              <button type="button" class="btn btn--outline btn--sm" data-mark="late" aria-pressed={st === 'late' ? 'true' : 'false'}>
+                                Late
+                              </button>
+                              <button type="button" class="btn btn--outline btn--sm" data-mark="left_early" aria-pressed={st === 'left_early' ? 'true' : 'false'}>
+                                Left early
+                              </button>
+                            </div>
+                            <label class="kid-more__note">
+                              <span>Note about {c.firstName} (optional)</span>
+                              <input data-kid-note maxlength={NOTE_MAX} value={c.mark?.note ?? ''} autocomplete="off" placeholder="Picked up by grandma" />
+                            </label>
+                            <p class="muted">Leave out medical details.</p>
+                          </div>
+                        </details>
+                      </div>
+                    ) : (
+                      <p class="kid-row__shown" data-shown-status>
+                        {st ? MARK_LABELS[st as keyof typeof MARK_LABELS] : 'Not marked'}
+                        {st === 'absent' && c.mark?.reason && ` · ${c.mark.reason}`}
+                        {c.mark?.note && <span class="muted"> · {c.mark.note}</span>}
+                      </p>
+                    )}
+                    {edit && reasons.length > 0 && (
+                      <div class="kid-why" data-why role="group" aria-label={`Why is ${c.shortName} absent? Optional`}>
+                        <span class="kid-why__q" aria-hidden="true">Why? <span class="muted">(optional)</span></span>
+                        {reasons.map((r) => (
+                          <button type="button" class="kid-why__btn" data-reason-choice={r} aria-pressed={st === 'absent' && c.mark?.reason === r ? 'true' : 'false'}>
+                            {r}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <dialog class="sheet" data-sheet aria-labelledby={`sheet-h-${c.studentId}`}>
+                      <div class="sheet__head">
+                        <div>
+                          <h2 id={`sheet-h-${c.studentId}`}>{c.firstName} {c.lastName}</h2>
+                          <p class="muted">{[c.age !== null && `Age ${c.age}`, c.kind === 'drop-in' ? 'Drop-in today' : c.kind === 'trial' ? 'Free trial' : ''].filter(Boolean).join(' · ')}</p>
+                        </div>
+                        <button type="button" class="btn btn--outline btn--sm" data-close-sheet>
+                          Close
+                        </button>
+                      </div>
+                      <div class="care">
+                        <div class:list={['care__block', { 'care__block--alert': !!(c.allergies || c.medicalNotes) }]} data-medical={c.allergies || c.medicalNotes ? 'yes' : 'no'}>
+                          <h3>Allergies and medical</h3>
+                          {c.allergies || c.medicalNotes ? (
+                            <>
+                              {c.allergies && <p><strong>Allergies:</strong> {c.allergies}</p>}
+                              {c.medicalNotes && <p><strong>Medical notes:</strong> {c.medicalNotes}</p>}
+                            </>
+                          ) : (
+                            <p class="muted">Nothing on file.</p>
+                          )}
+                        </div>
+                        <div class:list={['care__block', { 'care__block--warning': !!c.pickupNotes }]}>
+                          <h3>Who may pick up</h3>
+                          {c.pickupNotes && <p><strong>Note:</strong> {c.pickupNotes}</p>}
+                          {c.pickupPeople.length ? (
+                            <ul class="people">
+                              {c.pickupPeople.map((p) => (
+                                <li>
+                                  <span>{p.name} <span class="muted">({p.relationship}){p.phone && ` ${formatPhone(p.phone)}`}</span></span>
+                                  {p.phone && <a class="btn btn--outline btn--sm" href={telHref(p.phone)}>Call<span class="sr-only"> {p.name}</span></a>}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p class="muted">Parents only.</p>
+                          )}
+                        </div>
+                        <div class="care__block" data-parents>
+                          <h3>Parents</h3>
+                          <ul class="people">
+                            {c.parents.map((p) => (
+                              <li>
+                                <span>{p.name}{p.phone && <span class="muted"> {formatPhone(p.phone)}</span>}</span>
+                                {p.phone && (
+                                  <span class="contact-links">
+                                    <a class="btn btn--outline btn--sm" href={telHref(p.phone)} data-call>Call<span class="sr-only"> {p.name}</span></a>
+                                    <a class="btn btn--outline btn--sm" href={smsHref(p.phone)} data-text>Text<span class="sr-only"> {p.name}</span></a>
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div class:list={['care__block', { 'care__block--warning': !c.emergencyContacts.length }]}>
+                          <h3>Emergency contacts</h3>
+                          {c.emergencyContacts.length ? (
+                            <ul class="people">
+                              {c.emergencyContacts.map((p) => (
+                                <li>
+                                  <span>{p.name} <span class="muted">({p.relationship}) {formatPhone(p.phone)}</span></span>
+                                  <a class="btn btn--outline btn--sm" href={telHref(p.phone)}>Call<span class="sr-only"> {p.name}</span></a>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p>No emergency contact on file.</p>
+                          )}
+                        </div>
+                        <div class="care__block">
+                          <h3>Photos</h3>
+                          <p>{careText(c)}</p>
+                        </div>
+                      </div>
+                    </dialog>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        )}
+
+        {!cd.dayOff && children.length > 0 && (edit || report?.note) && (
+          <section class="send" aria-labelledby="send-h">
+            <h2 id="send-h">Note to Hannah</h2>
+            {edit ? (
+              <>
+                <label class="sr-only" for="report-note">Anything Hannah should know?</label>
+                <textarea id="report-note" data-report-note rows="3" maxlength={REPORT_NOTE_MAX} placeholder="Anything Hannah should know?">{report?.note ?? ''}</textarea>
+                <p class="muted">Leave out medical details: they belong in the family’s care details.</p>
+                <button type="button" class="btn btn--primary submit" data-submit>
+                  {report ? 'Send changes' : 'Submit attendance'}
+                </button>
+                <p class="send__state" data-submit-state aria-live="polite">{report ? `Done ✓ Sent ${submittedAt}.` : ''}</p>
+              </>
+            ) : (
+              <p class="send__note">{report?.note}</p>
+            )}
+          </section>
+        )}
+      </div>
+    )
+  }
+</AdminShell>
+
+<script>
+  import { allMarks, allQueued, claimPhone, enqueue, keepSending, markKey, newId, registerWorker, type Mark, type SyncOutcome } from '@/scripts/teach';
+
+  const root = document.querySelector<HTMLElement>('[data-teach-roster]');
+  const by = root?.dataset.by;
+  if (root && by) {
+    const { session: sessionId = '', date = '', on = '' } = root.dataset;
+    const edit = root.dataset.edit === '1';
+    const rows = [...root.querySelectorAll<HTMLElement>('[data-kid]')];
+    const status = root.querySelector<HTMLElement>('[data-sync-status]')!;
+    const submitState = root.querySelector<HTMLElement>('[data-submit-state]');
+    const submit = root.querySelector<HTMLButtonElement>('[data-submit]');
+    const labels: Record<string, string> = { present: 'Present', absent: 'Absent', late: 'Late', left_early: 'Left early' };
+    const there = (s: string | undefined) => !!s && s !== 'absent';
+
+    /** Shows a child's mark on their row. */
+    function show(row: HTMLElement, st: string, note?: string, reason = st === 'absent' ? (row.dataset.reason ?? '') : '') {
+      row.dataset.status = st;
+      if (note !== undefined) row.dataset.note = note;
+      row.dataset.reason = st === 'absent' ? reason : '';
+      for (const b of row.querySelectorAll<HTMLButtonElement>('[data-reason-choice]')) b.setAttribute('aria-pressed', String(st === 'absent' && b.dataset.reasonChoice === reason));
+      for (const b of row.querySelectorAll<HTMLButtonElement>('[data-mark]')) {
+        const m = b.dataset.mark;
+        b.setAttribute('aria-pressed', String(m === 'present' ? there(st) : m === st));
+      }
+      const more = row.querySelector('[data-more-label]');
+      if (more) more.textContent = st === 'late' || st === 'left_early' ? labels[st] : 'More';
+      const input = row.querySelector<HTMLInputElement>('[data-kid-note]');
+      if (input && note !== undefined && document.activeElement !== input) input.value = note;
+      const shown = row.querySelector('[data-shown-status]');
+      if (shown) shown.textContent = st ? labels[st] + (st === 'absent' && reason ? ` · ${reason}` : '') + (note ? ` · ${note}` : '') : 'Not marked';
+    }
+
+    function count() {
+      root!.querySelector('[data-present]')!.textContent = String(rows.filter((r) => there(r.dataset.status)).length);
+      const left = rows.filter((r) => !r.dataset.status).length;
+      if (submit) {
+        submit.disabled = left > 0;
+        submit.textContent = left > 0 ? `Mark everyone first (${left} left)` : root!.dataset.done === '1' ? 'Send changes' : 'Submit attendance';
+      }
+    }
+
+    async function paint(outcome?: SyncOutcome) {
+      const waiting = (await allQueued()).filter((q) => q.by === by);
+      const here = waiting.filter((q) => q.sessionId === sessionId && q.date === date);
+      if (outcome?.done.some((d) => d.kind === 'report' && d.sessionId === sessionId && d.date === date)) root!.dataset.done = '1';
+      const refused = outcome?.refused.filter((r) => r.item.sessionId === sessionId && r.item.date === date) ?? [];
+      status.hidden = false;
+      if (refused.length) {
+        status.textContent = `Not saved: ${refused.some((r) => r.why === 'day-off') ? 'there’s no class on this date' : refused.some((r) => r.why === 'submitted' || r.why === 'too-late') ? 'attendance for this date is closed' : 'this class date can’t be changed'}. Ask Hannah.`;
+        status.dataset.state = 'error';
+      } else if (outcome?.state === 'signed-out') {
+        status.textContent = 'Saved on this phone · sign in again to send';
+        status.dataset.state = 'waiting';
+      } else if (outcome?.state === 'other-person') {
+        status.textContent = 'Saved on this phone by someone else · it’s sent when they sign in';
+        status.dataset.state = 'waiting';
+      } else if (waiting.length) {
+        status.textContent = 'Saved on this phone · sending when you have signal';
+        status.dataset.state = 'waiting';
+      } else {
+        status.textContent = 'All sent ✓';
+        status.dataset.state = 'sent';
+      }
+      const reportWaiting = here.some((q) => q.kind === 'report');
+      if (submitState) {
+        submitState.textContent = reportWaiting ? 'Saved on this phone, sending…' : root!.dataset.done === '1' ? 'Done ✓ Hannah has it.' : '';
+        submitState.dataset.state = reportWaiting ? 'waiting' : root!.dataset.done === '1' ? 'done' : '';
+      }
+      count();
+    }
+
+    let go: () => Promise<void> = async () => {};
+
+    async function tap(row: HTMLElement, st: Mark, note = row.dataset.note ?? '', reason = st === 'absent' ? (row.dataset.reason ?? '') : '') {
+      show(row, st, note, reason);
+      count();
+      await enqueue({ kind: 'tap', clientId: newId(), by: by!, on, sessionId, date, studentId: row.dataset.kid!, status: st, note, reason, markedAt: new Date().toISOString() });
+      await paint();
+      go();
+    }
+
+    // Marks seen on this phone that are newer than the page (opened from the cache, or before they were sent).
+    async function overlay() {
+      const known = new Map((await allMarks()).filter((m) => m.by === by).map((m) => [m.key, m]));
+      for (const row of rows) {
+        const m = known.get(markKey(sessionId, date, row.dataset.kid!));
+        if (m && (!row.dataset.markedAt || Date.parse(m.markedAt) > Date.parse(row.dataset.markedAt))) show(row, m.status, m.note, m.reason ?? '');
+      }
+      const report = (await allQueued()).filter((q) => q.by === by && q.kind === 'report' && q.sessionId === sessionId && q.date === date).pop();
+      const box = root!.querySelector<HTMLTextAreaElement>('[data-report-note]');
+      if (report && report.kind === 'report' && box) box.value = report.note;
+      count();
+    }
+
+    if (edit) {
+      for (const row of rows) {
+        for (const b of row.querySelectorAll<HTMLButtonElement>('[data-mark]')) {
+          b.addEventListener('click', () => {
+            const m = b.dataset.mark as Mark;
+            // Present on a child marked Late or Left early keeps that (they were there).
+            if (m === 'present' && there(row.dataset.status)) return;
+            tap(row, m);
+            b.closest('details')?.removeAttribute('open');
+          });
+        }
+        // Why absent: one optional tap; tapping the chosen reason again clears it.
+        for (const b of row.querySelectorAll<HTMLButtonElement>('[data-reason-choice]')) {
+          b.addEventListener('click', () => {
+            if (row.dataset.status !== 'absent') return;
+            const r = b.dataset.reasonChoice ?? '';
+            tap(row, 'absent', row.dataset.note ?? '', row.dataset.reason === r ? '' : r);
+          });
+        }
+        const input = row.querySelector<HTMLInputElement>('[data-kid-note]');
+        input?.addEventListener('change', () => {
+          const note = input.value.trim();
+          if (note === (row.dataset.note ?? '')) return;
+          // Not marked yet: the note waits for the mark. A note alone never marks a child Present.
+          if (!row.dataset.status) {
+            row.dataset.note = note;
+            return;
+          }
+          tap(row, row.dataset.status as Mark, note);
+        });
+      }
+      root.querySelector('[data-all-present]')?.addEventListener('click', async () => {
+        for (const row of rows) if (!row.dataset.status) await tap(row, 'present');
+      });
+      submit?.addEventListener('click', async () => {
+        const note = root.querySelector<HTMLTextAreaElement>('[data-report-note]')?.value.trim() ?? '';
+        submit.disabled = true;
+        await enqueue({ kind: 'report', clientId: newId(), by, on, sessionId, date, note, at: new Date().toISOString() });
+        await paint();
+        await go();
+        count();
+      });
+    }
+
+    // Tap a child: their sheet. Close by the button, a tap outside it, or Escape.
+    for (const row of rows) {
+      const sheet = row.querySelector<HTMLDialogElement>('[data-sheet]')!;
+      row.querySelector('[data-open-sheet]')!.addEventListener('click', () => sheet.showModal());
+      sheet.querySelector('[data-close-sheet]')!.addEventListener('click', () => sheet.close());
+      sheet.addEventListener('click', (e) => e.target === sheet && sheet.close());
+    }
+
+    // The safety strip shows only the children with an allergy, medical or pickup note, and back.
+    const strip = root.querySelector<HTMLButtonElement>('[data-safety]');
+    strip?.addEventListener('click', () => {
+      const only = strip.getAttribute('aria-pressed') !== 'true';
+      strip.setAttribute('aria-pressed', String(only));
+      strip.querySelector('[data-safety-label]')!.textContent = only ? 'Show everyone' : strip.dataset.label!;
+      for (const row of rows) row.hidden = only && row.dataset.flagged !== '1';
+    });
+    if (strip) strip.dataset.label = strip.querySelector('[data-safety-label]')!.textContent!;
+
+    claimPhone(by).then(async () => {
+      registerWorker([], root.dataset.keep === '1');
+      await overlay();
+      go = keepSending(by, (o) => void paint(o));
+      await paint();
+      await go();
+    });
+  }
+</script>
+
+<style>
+  .roster-page { display: grid; gap: var(--space-m); }
+  .roll-head { display: grid; gap: 0.35rem; }
+  .roll-head h1 { margin: 0; }
+  .roll-head__when, .roll-head__covers { margin: 0; color: var(--ink-soft); font-size: var(--step--1); }
+  .roll-head__count { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-s); margin-top: var(--space-xs); }
+  .count { margin: 0; font-size: var(--step-1); }
+  .all-present { min-height: 52px; padding-inline: 1.4rem; font-size: var(--step-0); }
+  .sync-line { margin: 0; padding: 0.6rem 0.9rem; border-radius: var(--r-sm); font-weight: 650; font-size: var(--step--1); background: var(--yellow-tint); }
+  .sync-line[data-state='sent'] { background: var(--ok-tint); color: #1c6b3e; }
+  .sync-line[data-state='error'] { background: var(--red-tint); color: var(--red-ink); }
+  .safety-strip {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.3rem 1rem;
+    min-height: 48px;
+    padding: 0.5rem 0.9rem;
+    border: 0;
+    border-left: 5px solid var(--red);
+    border-radius: var(--r-sm);
+    background: var(--red-tint);
+    color: var(--red-ink);
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+  }
+  .safety-strip__do { font-size: var(--step--1); text-decoration: underline; }
+  .roll { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  .kid-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem 0.75rem;
+    align-items: center;
+    padding: 0.6rem 0.75rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: var(--r-md);
+    background: var(--paper);
+  }
+  .kid-row[data-status='absent'] { background: var(--hall); }
+  .kid-row__who { display: flex; align-items: center; gap: 0.7rem; min-height: 48px; min-width: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+  .kid-row__name { display: grid; gap: 0.2rem; min-width: 0; overflow-wrap: anywhere; }
+  .kid-row__name strong { font-size: var(--step-0); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+  .initials { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--purple-tint); color: var(--purple-ink); font-weight: 800; font-size: 0.95rem; }
+  .initials--alert { background: var(--red-tint); color: var(--red-ink); box-shadow: inset 0 0 0 2px var(--red); }
+  .kid-row__mark { display: flex; align-items: center; gap: 0.4rem; }
+  .toggle { display: inline-flex; border: 2px solid var(--ink); border-radius: 999px; overflow: hidden; }
+  .toggle__btn { min-height: 48px; min-width: 5.2rem; padding: 0 0.8rem; border: 0; background: var(--paper); color: var(--ink); font: inherit; font-weight: 750; cursor: pointer; }
+  .toggle__btn + .toggle__btn { border-left: 2px solid var(--ink); }
+  .toggle__btn--in[aria-pressed='true'] { background: #1c6b3e; color: #fff; }
+  .toggle__btn--out[aria-pressed='true'] { background: var(--red-ink); color: #fff; }
+  .kid-more { position: relative; }
+  .kid-more > summary { display: inline-grid; place-items: center; min-width: 48px; min-height: 48px; padding: 0 0.5rem; border-radius: var(--r-sm); font-size: var(--step--1); font-weight: 700; color: var(--purple); list-style: none; cursor: pointer; }
+  .kid-more > summary::-webkit-details-marker { display: none; }
+  .kid-more[open] > summary { background: var(--hall); }
+  .kid-more__panel { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; width: min(17rem, calc(100vw - 2 * var(--gutter))); display: grid; gap: 0.6rem; padding: 0.75rem; border-radius: var(--r-md); background: var(--paper); box-shadow: var(--shadow-lift); border: 1.5px solid var(--line-strong); }
+  .kid-more__marks { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .kid-more__marks [aria-pressed='true'] { background: var(--ink); color: var(--paper); }
+  .kid-more__note { display: grid; gap: 0.25rem; font-size: var(--step--1); font-weight: 650; }
+  .kid-more__note input { min-height: 44px; min-width: 0; }
+  .kid-more__panel .muted { margin: 0; font-size: var(--step--2); }
+  .kid-why { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+  .kid-row:not([data-status='absent']) .kid-why { display: none; }
+  .kid-why__q { font-size: var(--step--1); font-weight: 700; margin-right: 0.2rem; }
+  .kid-why__btn { min-height: 44px; padding: 0 0.9rem; border: 1.5px solid var(--line-strong); border-radius: 999px; background: var(--paper); color: var(--ink); font: inherit; font-size: var(--step--1); font-weight: 700; cursor: pointer; }
+  .kid-why__btn[aria-pressed='true'] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .kid-row__shown { margin: 0; font-weight: 700; font-size: var(--step--1); text-align: right; }
+  .muted { color: var(--ink-mute); font-weight: 400; }
+  .sheet { width: min(34rem, calc(100vw - 1rem)); max-height: calc(100dvh - 2rem); padding: 1rem; border: 0; border-radius: var(--r-md); box-shadow: var(--shadow-lift); overflow: auto; }
+  .sheet::backdrop { background: rgb(28 24 38 / 0.55); }
+  .sheet__head { display: flex; justify-content: space-between; align-items: start; gap: 1rem; margin-bottom: 0.75rem; }
+  .sheet__head h2 { margin: 0; font-size: var(--step-1); }
+  .sheet__head p { margin: 0.2rem 0 0; }
+  .care { display: grid; gap: 0.6rem; }
+  .care__block { padding: 0.6rem 0.8rem; border-radius: var(--r-sm); background: var(--hall); font-size: var(--step--1); display: grid; gap: 0.35rem; }
+  .care__block h3 { margin: 0; font-family: var(--font-script); font-size: var(--step--2); font-weight: 400; text-transform: uppercase; color: var(--ink-mute); }
+  .care__block p { margin: 0; overflow-wrap: anywhere; }
+  .care__block--alert { background: var(--red-tint); color: var(--red-ink); border-left: 5px solid var(--red); }
+  .care__block--alert h3 { color: var(--red-ink); }
+  .care__block--warning { background: var(--yellow-tint); border-left: 5px solid var(--yellow); }
+  .people { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+  .people li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.3rem 0.6rem; }
+  .people li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+  .contact-links { display: flex; gap: 0.35rem; }
+  .send { display: grid; gap: 0.5rem; padding-top: var(--space-s); border-top: 1.5px solid var(--line); }
+  .send h2 { font-size: var(--step-1); margin: 0; }
+  .send textarea { width: 100%; min-height: 6rem; font: inherit; }
+  .send .muted { margin: 0; font-size: var(--step--1); }
+  .submit { min-height: 56px; font-size: var(--step-0); }
+  .send__state { margin: 0; font-weight: 700; min-height: 1.4em; }
+  .send__state[data-state='done'] { color: #1c6b3e; }
+  .send__state[data-state='waiting'] { color: var(--yellow-ink); }
+  .send__note { margin: 0; white-space: pre-line; }
+  @media (max-width: 520px) {
+    .kid-row { grid-template-columns: minmax(0, 1fr); }
+    .kid-row__mark { justify-content: space-between; }
+    .toggle { flex: 1; }
+    .toggle__btn { flex: 1; min-width: 0; }
+    .all-present { width: 100%; }
+  }
+</style>

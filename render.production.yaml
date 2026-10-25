@@ -59,7 +59,11 @@ services:
       # Made by Stripe when you add the webhook (docs/infrastructure.md).
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+      # A sending-only key for mail.littlecharacters.org (Resend → API Keys).
       - key: RESEND_API_KEY
         sync: false
+      # Sent from the subdomain verified in Resend; replies go to the studio's Gmail.
+      - key: EMAIL_FROM
+        value: Little Characters <hello@mail.littlecharacters.org>
       # SITE_URL is added on launch day (https://www.littlecharacters.org).
       # Until then the site uses its Render address.

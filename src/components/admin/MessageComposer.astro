@@ -3,7 +3,7 @@
  * The staff email composer: write (who gets it, subject, message, "Send me
  * a test"), review ("Sending to 12 families"), and the sent confirmation with
  * "Try again for the failed ones". Below it, earlier emails from this page.
- * Used by "Email the class" and "Email this family"; the steps run in
+ * Used by "Email the class", "Email this family" and "Email a tag"; the steps run in
  * src/server/message-composer.ts.
  */
 import { formatPhone } from '@/lib/contacts';
@@ -11,7 +11,7 @@ import { familiesText, type ComposerState } from '@/server/message-composer';
 import { BODY_MAX, SUBJECT_MAX, emailList, paragraphs, phoneList, type AudienceFamily, type messageResult, type earlierMessages } from '@/server/messages';
 
 interface Props {
-  kind: 'class' | 'family';
+  kind: 'class' | 'family' | 'tag';
   heading: string;
   /** The class's when and where, or the family's parents. */
   line?: string;
@@ -25,8 +25,10 @@ interface Props {
   sent: NonNullable<Awaited<ReturnType<typeof messageResult>>> | null;
   sentNotice?: string;
   earlier: Awaited<ReturnType<typeof earlierMessages>>;
+  /** Shown when nobody can be emailed yet (a show's cast uses its own words). */
+  emptyText?: string;
 }
-const { kind, heading, line, here, doneHref, doneLabel, audience, footer, state, sent, sentNotice, earlier } = Astro.props;
+const { kind, heading, line, here, doneHref, doneLabel, audience, footer, state, sent, sentNotice, earlier, emptyText } = Astro.props;
 
 const when = (d: Date) => d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
 const enrolled = audience.filter((f) => !f.waitlist);
@@ -58,7 +60,7 @@ const sentOk = sent ? sent.families.length - sent.failed : 0;
           <p class="notice" role="status" data-sent-ok>Sent to {familiesText(sentOk)}.</p>
         )}
         <h2 id="sent-h">{sent.subject}</h2>
-        <p class="muted">Sent {when(sent.createdAt)} by {sent.sender}{kind === 'class' && <> · {familiesText(sent.families.length)}</>}</p>
+        <p class="muted">Sent {when(sent.createdAt)} by {sent.sender}{kind !== 'family' && <> · {familiesText(sent.families.length)}</>}</p>
         <ul class="families families--sent" data-sent-list>
           {sent.families.map((f) => (
             <li class="family" data-sent-family={f.failed ? 'failed' : 'sent'}>
@@ -102,7 +104,7 @@ const sentOk = sent ? sent.families.length - sent.failed : 0;
             <p class="preview__footer">— {footer}. Reply to this email to reach us.</p>
           </div>
         </div>
-        <p class="sending-to" data-sending-to><strong>Sending to {familiesText(state.recipients.length)}</strong>{kind === 'class' && ', one email each, to all of their parents.'}</p>
+        <p class="sending-to" data-sending-to><strong>Sending to {familiesText(state.recipients.length)}</strong>{kind !== 'family' && ', one email each, to all of their parents.'}</p>
         <ul class="families families--plain">
           {state.recipients.map((f) => (
             <li class="family" data-family data-emails={emailsOf(f)} data-phones={phonesOf(f)}>
@@ -115,7 +117,7 @@ const sentOk = sent ? sent.families.length - sent.failed : 0;
           <input type="hidden" name="subject" value={state.subject} />
           <input type="hidden" name="body" value={state.body} />
           {state.includeWaitlist && <input type="hidden" name="waitlist" value="1" />}
-          {kind === 'class' && state.recipients.map((f) => <input type="hidden" name="family" value={f.householdId} />)}
+          {kind !== 'family' && state.recipients.map((f) => <input type="hidden" name="family" value={f.householdId} />)}
           <button class="btn btn--primary" type="submit" name="action" value="send" data-send data-busy="Sending…">Send to {familiesText(state.recipients.length)}</button>
           <button class="btn btn--outline" type="submit" name="action" value="edit" formnovalidate>Back to edit</button>
         </form>
@@ -132,7 +134,7 @@ const sentOk = sent ? sent.families.length - sent.failed : 0;
         <fieldset class="cf-group who" aria-describedby="who-help">
           <legend class="cf__label">Who gets it</legend>
           {audience.length === 0 ? (
-            <p class="muted">No families in this class yet.</p>
+            <p class="muted">{emptyText ?? (kind === 'tag' ? 'No families have this tag yet.' : 'No families in this class yet.')}</p>
           ) : kind === 'family' ? (
             <ul class="families families--plain">
               {audience.map((f) => (
@@ -216,14 +218,14 @@ const sentOk = sent ? sent.families.length - sent.failed : 0;
         <p class="muted">No emails sent from here yet.</p>
       ) : (
         <table class="data-table">
-          <thead><tr><th>Sent</th><th>Subject</th><th>From</th>{kind === 'class' && <th class="num">Families</th>}<th>Status</th></tr></thead>
+          <thead><tr><th>Sent</th><th>Subject</th><th>From</th>{kind !== 'family' && <th class="num">Families</th>}<th>Status</th></tr></thead>
           <tbody>
             {earlier.map((m) => (
               <tr data-earlier-row>
                 <td data-label="Sent"><span>{when(m.sentAt)}</span></td>
                 <td data-label="Subject"><a href={`${here}?sent=${encodeURIComponent(m.id)}`}>{m.subject}</a></td>
                 <td data-label="From"><span>{m.sender}</span></td>
-                {kind === 'class' && <td data-label="Families" class="num"><span>{m.families}</span></td>}
+                {kind !== 'family' && <td data-label="Families" class="num"><span>{m.families}</span></td>}
                 <td data-label="Status">{m.failed > 0 ? <span class="badge badge--alert">{m.failed} didn’t send</span> : <span class="badge badge--good">Sent</span>}</td>
               </tr>
             ))}

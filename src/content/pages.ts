@@ -179,6 +179,27 @@ export const site: PageDef = {
       ],
     },
     {
+      key: 'dropIns',
+      label: 'Drop-ins',
+      type: 'group',
+      required: true,
+      help: 'A child can drop in to one class of a weekly class and pay for it. A class can have its own price, or none, under its dates.',
+      fields: [
+        { key: 'price', label: 'Price of one class ($)', type: 'money', required: true, half: true, help: 'The price of one class for a drop-in. Families see it on weekly classes.' },
+        { key: 'open', label: 'Families can book drop-ins', type: 'toggle', half: true },
+      ],
+    },
+    {
+      key: 'statements',
+      label: 'Payment statements',
+      type: 'group',
+      help: 'Families can download a statement of each year’s payments from their account. It shows our name, address and email, and these if you fill them in.',
+      fields: [
+        { key: 'taxId', label: 'Tax ID', type: 'text', max: 40, half: true, help: 'Optional. Printed as “Tax ID: …”. Leave it empty and the line is left out.' },
+        { key: 'note', label: 'Note', type: 'textarea', rows: 2, max: 300, help: 'Optional. A line at the top of every statement. Leave it empty and nothing is shown.' },
+      ],
+    },
+    {
       key: 'parking',
       label: 'Parking & drop-off at HQ',
       type: 'group',

@@ -19,7 +19,7 @@ import { hasShowPage } from '@/lib/events';
 /** A readable, non-sensitive hint so public pages know to ask /api/me who's signed in. */
 const HINT_COOKIE = 'lc_signed_in';
 
-const PORTAL = /^\/(account|enroll|admin|api|dev)(\/|$)/;
+const PORTAL = /^\/(account|enroll|drop-in|admin|api|dev)(\/|$)/;
 
 const SECURITY_HEADERS: Record<string, string> = {
   'Content-Security-Policy': [
@@ -70,6 +70,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   ctx.locals.isAdmin = false;
   ctx.locals.staffRole = null;
   ctx.locals.staffId = null;
+  ctx.locals.sharedDevice = false;
 
   if (portal || wantsPreview) {
     // Staff sessions end after 30 days without use, or 1 hour on a shared device (src/server/staff.ts).
@@ -78,6 +79,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     ctx.locals.session = result?.session ?? null;
     ctx.locals.staffRole = result?.role ?? null;
     ctx.locals.staffId = result?.staffId ?? null;
+    ctx.locals.sharedDevice = !!result?.sharedDevice;
     ctx.locals.isAdmin = result?.role === 'owner';
 
     if (result?.user && !ctx.cookies.has(HINT_COOKIE)) {

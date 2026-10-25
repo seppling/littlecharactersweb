@@ -20,8 +20,11 @@ import { bookingClock, bookingProblem } from '@/lib/session-dates';
 import { PRICING, availablePlans, defaultPlan, formatCents, isWeeklyTuitionClass, meetings, quote, todayInAthens, type Plan } from '@/lib/pricing';
 import { countingEnrollments, effects, logFamilyDiscount, previewEnrollmentEffect, refreshFamilyDiscount, type FamilyDiscountChange } from './family-discount';
 import { detailsOnFile } from '@/lib/student-details';
+import { applyWaitingCredits } from './credits';
 import type { FamilyDetails, FamilyDetailsInput } from '@/lib/family-details';
 import { isAdult, isOneOff, oneOffWhen } from '@/lib/program-fit';
+import { emailWording, worded, type EmailParts } from './email-wording';
+import type { Wording } from './settings-store';
 
 const { household, householdMember, student, order, enrollment, installment, waitlistOffer } = schema;
 
@@ -484,6 +487,8 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
     console.error(`Order ${o.id}: Stripe checkout ${payment.checkoutSessionId} paid ${payment.amountCents}¢ but the order is ${o.totalCents}¢. Not enrolling; reconcile in Stripe.`);
     return o;
   }
+  // One class of a weekly class: a booking, not an enrollment (src/server/drop-ins.ts).
+  if (o.plan === 'drop_in') return (await import('./drop-ins')).fulfillDropIn(o, userId, payment);
   const found = await findSession(o.sessionId);
   if (!found) throw new Error('Unknown session');
 
@@ -544,6 +549,8 @@ export async function fulfillOrder(orderId: string, userId: string | null, payme
   await audit(userId, o.totalCents > 0 ? 'order.paid' : 'order.confirmed', 'order', o.id);
   for (const a of result.accepted) await audit(userId, 'waitlist_offer.accepted', 'waitlist_offer', a.id);
   if (result.family) await logFamilyDiscount(userId, o.householdId, result.family);
+  // Credits waiting for a payment come off the new monthly payments (src/server/credits.ts).
+  if (o.plan === 'monthly' && o.schedule.length) await applyWaitingCredits(o.householdId).catch((e) => console.error('Applying waiting credits failed', e));
   const lowered = result.family?.changes.filter((c) => c.orderId !== o.id && c.afterCents < c.beforeCents) ?? [];
   await sendOrderConfirmation(done, lowered).catch((e) => console.error('Confirmation email failed', e));
   return done;
@@ -573,31 +580,64 @@ async function sendOrderConfirmation(o: typeof order.$inferSelect, lowered: Fami
   const first = meetings(session).find((m) => m >= todayInAthens()) ?? session.startDate;
   const loc = (await getCatalog()).locationById(session.locationId);
   const firstDate = new Date(`${first}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
-  const heading = o.plan === 'waitlist' ? 'You’re on the waitlist' : 'You’re in!';
+  const email = confirmationEmail(
+    {
+      plan: o.plan,
+      kids,
+      classTitle: program.title,
+      firstDate,
+      when: `${isOneOff(session) ? oneOffWhen(program, session) : `${dayList(session.days)}, ${timeRange(session.start, session.end)}${o.plan === 'waitlist' ? '' : `, starting ${firstDate}`}`}${loc ? ` at ${loc.name}, ${loc.address.join(', ')}` : ''}.`,
+      unit,
+      totalCents: o.totalCents,
+      autopay: [o.plan === 'monthly' && o.schedule.length ? autopayLine(o.schedule) : '', ...loweredLines(await effects(o.householdId, lowered))].filter(Boolean).join(' '),
+      adult: isAdult(program),
+    },
+    o.plan === 'waitlist' ? null : await emailWording('welcome'),
+  );
+  for (const g of guardians) {
+    await sendEmail({
+      to: g.email,
+      subject: email.subject,
+      text: `${email.heading}\n\n${email.lines.join('\n\n')}`,
+      html: emailHtml(email.heading, email.lines),
+    });
+  }
+}
+
+/**
+ * Pure: the email after a sign-up ("You're in!", or "You're on the
+ * waitlist"). Hannah's wording (Settings → Emails, `welcome`) changes the
+ * subject and the first line of a sign-up's email, never a waitlist one's; who
+ * is enrolled, when and where, what was paid, autopay, what to bring and the
+ * account link are always in it.
+ */
+export function confirmationEmail(
+  d: { plan: string; kids: string[]; classTitle: string; firstDate: string; when: string; unit?: string; totalCents: number; autopay: string; adult: boolean },
+  wording: Wording | null,
+): EmailParts & { lines: string[] } {
+  const heading = d.plan === 'waitlist' ? 'You’re on the waitlist' : 'You’re in!';
+  const many = d.kids.length > 1;
   const lines = [
-    `${kids.join(' and ')} ${o.plan === 'waitlist' ? (kids.length > 1 ? 'are' : 'is') + ' on the waitlist for' : (kids.length > 1 ? 'are' : 'is') + ' enrolled in'} ${program.title}.`,
-    `${isOneOff(session) ? oneOffWhen(program, session) : `${dayList(session.days)}, ${timeRange(session.start, session.end)}${o.plan === 'waitlist' ? '' : `, starting ${firstDate}`}`}${loc ? ` at ${loc.name}, ${loc.address.join(', ')}` : ''}.`,
-    o.plan === 'trial'
-      ? unit === 'session'
+    `${d.kids.join(' and ')} ${d.plan === 'waitlist' ? (many ? 'are' : 'is') + ' on the waitlist for' : (many ? 'are' : 'is') + ' enrolled in'} ${d.classTitle}.`,
+    d.when,
+    d.plan === 'trial'
+      ? d.unit === 'session'
         ? 'Your first class is free. After it, you can stay on from your family account and pay for the classes left.'
         : 'Your first class is free. After it, you can continue with monthly tuition or pay for the season from your family account.'
-      : o.totalCents > 0
-        ? `Paid today: ${formatCents(o.totalCents)}.`
+      : d.totalCents > 0
+        ? `Paid today: ${formatCents(d.totalCents)}.`
         : '',
-    [o.plan === 'monthly' && o.schedule.length ? autopayLine(o.schedule) : '', ...loweredLines(await effects(o.householdId, lowered))].filter(Boolean).join(' '),
-    isAdult(program)
+    d.autopay,
+    d.adult
       ? 'Wear comfy clothes and bring a water bottle. Park on Minor St and walk in to our front door on W Broad St.'
       : 'Wear comfy clothes and closed-toe shoes, and bring a water bottle. Park on Minor St and walk in, or use the drop-off circle after 5 pm.',
     `Your family account: ${config.siteUrl}/account`,
   ].filter(Boolean);
-  for (const g of guardians) {
-    await sendEmail({
-      to: g.email,
-      subject: `${heading} ${program.title} · Little Characters`,
-      text: `${heading}\n\n${lines.join('\n\n')}`,
-      html: emailHtml(heading, lines),
-    });
-  }
+  const children = d.kids.join(' and ');
+  const e = worded({ subject: `${heading} ${d.classTitle} · Little Characters`, heading, lines }, d.plan === 'waitlist' ? null : wording, { child: children, class: d.classTitle, date: d.firstDate }, [
+    `Enrolled: ${children} in ${d.classTitle}.`,
+  ]);
+  return { ...e, lines: e.lines as string[] };
 }
 
 /** "We'll charge $95 to your saved card on Oct 1, Nov 1 and Dec 1." */

@@ -51,7 +51,15 @@ node tests/e2e/staff-payments.mjs       # Payments: a declined charge, Send a pa
 node tests/e2e/staff-today.mjs          # Today, Needs attention, the urgent count, sign-out, the staff-only panel
 node tests/e2e/staff-messages.mjs       # Email the class / this family, copy buttons, no double sends (SERVER_LOG=<server output> also checks reply-to)
 node tests/e2e/staff-roster.mjs         # add, remove, offer the spot on a class's page; payments stop; 390 px
-node tests/e2e/staff-settings.mjs       # Settings → Staff, a teacher's sign-in and home, shared device, turning off; 390 px (last)
+node tests/e2e/staff-settings.mjs       # Settings → Staff, a teacher's sign-in and home, shared device, turning off; 390 px
+node tests/e2e/staff-teach.mjs          # the teacher app: attendance on a phone, offline and back, the note to Hannah, substitutes; 390 px
+node tests/e2e/staff-calendar.mjs       # calendar month/week/phone list, a day off lowering December, billing on a copy, removing it; 390 px (after staff-payments' marks)
+node tests/e2e/staff-drop-ins.mjs       # drop-ins: a family books and pays, the roster's Drop-in badge, no charge, cancel, full date, day off; 390 px
+node tests/e2e/staff-refunds.mjs        # refunds (part, too much, cash), credits on the next payment, day-off credits, statements; 390 px
+node tests/e2e/staff-tags-skills.mjs    # tags on rosters, families and search, email a tag; skills on a teacher's phone (offline too); a progress note to a family; 390 px
+node tests/e2e/staff-shows.mjs          # shows: cast from the performing classes, roles, order, program download, a rehearsal on the calendar, teacher's Today and family account; 390 px
+node tests/e2e/staff-settings-rest.mjs  # Settings → Emails (preview, test, save, back to original), Reasons on Remove and absent taps, Attendance start date, Last season, rehearsals on Today; 390 px
+node tests/e2e/staff-reports.mjs        # reports: the dashboard's tiles match their reports, the library, a star, CSV/PDF after a fresh sign-in, the allergy list's fresh sign-in, a teacher refused; 390 px (last)
 ```
 
 ## Where things live
