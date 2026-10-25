@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { getDb, schema } from '@/server/db';
 import { confirmOrder, createDraftOrder, createStudent, ensureHousehold, fulfillOrder } from '@/server/family';
 import {
+  applyLateFees,
   getInstallment,
   holdForManualPayment,
   listInstallments,
@@ -260,6 +261,9 @@ describe('late fee', () => {
     // Staff can waive it.
     const pNov = await byDue(P.h.id, '2026-11-01');
     expect(await waiveLateFee(pNov.id, 'u-hannah')).toMatchObject({ lateFeeCents: 0 });
+    // It stays waived: the next day's run doesn't add it back (or email the family about it again).
+    expect(await applyLateFees('2026-11-13')).toBe(0);
+    expect((await byDue(P.h.id, '2026-11-01')).lateFeeCents).toBe(0);
     await markInstallmentPaid(pNov.id, { paymentIntentId: 'pi_p', amountCents: 10_000 });
     expect((await byDue(P.h.id, '2026-11-01')).status).toBe('failed'); // wrong amount still refused
   });

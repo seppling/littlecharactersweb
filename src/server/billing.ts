@@ -23,7 +23,7 @@
  * Charging itself is behind the Charger interface: Stripe in production
  * (payments.ts), a stand-in in development, fakes in tests.
  */
-import { and, asc, eq, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, lt, lte, notExists, or, sql } from 'drizzle-orm';
 import { getDb, schema, type DB } from './db';
 import { emailHtml, sendEmail } from './email';
 import { config } from './env';
@@ -37,7 +37,7 @@ import { getCatalog } from './content';
 import { emailWording, worded, type EmailParts } from './email-wording';
 import type { Wording } from './settings-store';
 
-const { installment, household } = schema;
+const { auditLog, installment, household } = schema;
 type Tx = Parameters<Parameters<DB['transaction']>[0]>[0];
 
 export const BILLING = {
@@ -149,13 +149,21 @@ export async function runBilling({ charge, today = todayInAthens(), limit = Infi
   return report;
 }
 
-/** The 11th: a one-time late fee on every month that's still unpaid. Returns how many were added. */
+/**
+ * The 11th: a one-time late fee on every month that's still unpaid. Returns
+ * how many were added. A fee staff waived (its `installment.late_fee_waived`
+ * entry) isn't added back by the next day's run.
+ */
 export async function applyLateFees(today = todayInAthens()) {
   const db = await getDb();
+  const waived = db
+    .select({ id: auditLog.id })
+    .from(auditLog)
+    .where(and(eq(auditLog.action, 'installment.late_fee_waived'), eq(auditLog.entityId, installment.id)));
   const added = await db
     .update(installment)
     .set({ lateFeeCents: BILLING.lateFeeCents, updatedAt: new Date() })
-    .where(and(eq(installment.status, 'failed'), eq(installment.lateFeeCents, 0), lte(installment.dueDate, addDays(today, -BILLING.lateFeeAfterDays))))
+    .where(and(eq(installment.status, 'failed'), eq(installment.lateFeeCents, 0), lte(installment.dueDate, addDays(today, -BILLING.lateFeeAfterDays)), notExists(waived)))
     .returning();
   for (const i of added) {
     await audit(null, 'installment.late_fee', 'installment', i.id);
