@@ -4,6 +4,9 @@
 # This is a demo, not production:
 #  - a throwaway database that resets when the preview sleeps or redeploys
 #    (including anything changed in the content editor at /admin/content);
+#  - made-up demo families and a term of activity, made at each deploy
+#    (scripts/demo-data.ts). Sign in as owner@example.com (staff),
+#    teacher@example.com (the teacher app) or parent@example.com (a family);
 #  - sign-in codes and all other emails appear at /dev/mailbox instead of being sent;
 #  - payments use the "test payment" button, or Stripe's real card form if you
 #    add Stripe TEST keys below (card 4242 4242 4242 4242).
