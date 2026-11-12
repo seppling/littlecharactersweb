@@ -1,6 +1,6 @@
 # Back-office research (October 19, 2026)
 
-Notes from three research passes that shaped the staff back office plan (Stephen's copy: https://claude.ai/code/artifact/d286c39d-0260-4827-bf89-9456b1f32c51). Mostly vendor help pages; review sites blocked direct reading, so review quotes are from search excerpts. Treat vendor claims as claims.
+Notes from three research passes that shaped the staff back office plan (Stephen's copy: https://claude.ai/artifact/TQygYWhcrrTSJiMBJ3Sfs3). Mostly vendor help pages; review sites blocked direct reading, so review quotes are from search excerpts. Treat vendor claims as claims.
 
 ## Research 1: staff back offices (condensed, Oct 19)
 Coverage: Jackrabbit (JR), iClassPro (iCP), Sawyer (SW), Class Manager (CM), Amilia (AM), Studio Pro (DSP), Pike13 (P13); thinner: Studio Director (TSD), Akada, ClassJuggler, Mindbody. TSD help center JS-only; its report list from Reports FAQ PDF (2013-14 examples: a floor).

@@ -286,7 +286,7 @@ Hannah's check-in form is complete. No family names were given.
 
 ### Back-office plan drafted (October 19)
 
-Stephen asked for research into the best studio portals first, then a plan for web and phone. The plan is a shared document: [Staff back office plan: web and phone](https://claude.ai/code/artifact/d286c39d-0260-4827-bf89-9456b1f32c51). The research notes are in `backoffice-research.md`.
+Stephen asked for research into the best studio portals first, then a plan for web and phone. The plan is a shared document: [Staff back office plan: web and phone](https://claude.ai/artifact/TQygYWhcrrTSJiMBJ3Sfs3). The research notes are in `backoffice-research.md`.
 
 - **Phone access:** a home-screen web app (Stephen chose it over an app-store app). Same site, phone layout, sign-in by the emailed code.
 - **Phase 1, by launch:** Today with a "Needs attention" list, Classes, a class's roster and waitlist, email the class, one search box, a family's page, payments, downloads, the phone app shell.
