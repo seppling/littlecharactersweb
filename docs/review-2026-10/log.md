@@ -664,3 +664,22 @@ Stephen said yes to the pull request into `main`. The repo's new rules (`CLAUDE.
 - **Also fixed:** the trial journey test expected the season's 15% rounded the ordinary way. The site rounds it in the family's favor, as the pricing rules say; on Oct 22 the two differ by a cent.
 - **Left for later:** a day-off discount saved while a family has the pay-now form open can be lost if they pay the old amount through that form (rare: the form is open for at most two hours).
 - **For Hannah:** when a day off is saved with **Don't change payments** (a break the tuition already allows for), should families who already paid that month still be offered a credit? Today they are, through **Give these credits**. The reviewer suggests not. It's a money rule, so it waits for her answer.
+
+## Oct 25, 2026: Phase 2 merged; demo data on the preview
+
+- **Merged:** Stephen merged PR #17, so Phase 2 is on `main`. Nothing went live: there's no production site yet.
+- **Demo data** (plan approved by Stephen: `docs/plans/preview-demo-data.md`). The Render preview's build now plays a term of made-up activity through the site's own code (`scripts/demo-data.ts`). It has 30 families and 36 children, the daily billing run, attendance, days off, a refund by check, credits, a drop-in, tags, skills, the fall show and last season's numbers.
+  - **Sign in as:** `owner@example.com`, `teacher@example.com` or `parent@example.com`.
+  - **Checked:**
+    - a unit test plays the story and checks it, including that each dashboard number equals its report;
+    - the build peaks at 347–414 MB (CI's limit is 450);
+    - it was walked in a browser as the owner (Today, Reports, a family, the Intro roster), a teacher on a phone and the parent, at both widths;
+    - the preview built it at 358 MB.
+  - **Reviewer's fixes, made before the pull request:**
+    - no demo where emails would really be sent;
+    - a failed demo is deleted, not reused;
+    - the refund is by check, so it works with the preview's Stripe test keys;
+    - a sturdier clock;
+    - more checks in the test.
+- **Found while building it: a waived late fee came back.** The daily run added the $15 to any failed month whose fee was $0, which is what **Waive late fee** sets. So the next morning the fee was back and the family was emailed about it again. It's fixed in `applyLateFees`, which now skips a month with an `installment.late_fee_waived` entry. A test shows a waiver covers only its own month. This is a billing change, so it waits for Stephen's yes in the pull request.
+- **For Stephen:** if `ADMIN_EMAILS` is set on the preview, remove it (Render → the preview → Environment). Anyone signing in as the demo owner can see that address in Settings → Staff.

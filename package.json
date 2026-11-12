@@ -13,7 +13,7 @@
     "start": "HOST=${HOST:-0.0.0.0} node dist/server/entry.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/db-migrate.mjs",
-    "db:prepare-preview": "tsx scripts/prepare-preview-db.ts",
+    "db:prepare-preview": "NODE_OPTIONS=--max-old-space-size=128 tsx scripts/prepare-preview-db.ts",
     "db:snapshot": "tsx scripts/make-pglite-snapshot.ts",
     "test": "vitest run",
     "import:studio-director": "tsx scripts/import-studio-director.ts",

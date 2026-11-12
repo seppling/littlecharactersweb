@@ -152,7 +152,7 @@ The original steps for Netlify and Neon, if the site ever moves:
 1. Sign in at [render.com](https://render.com) with GitHub, then choose **New → Blueprint**.
 2. Pick this repository and the branch to preview (`main` once PR #5 is merged).
 3. Fill in the prompts:
-   - `ADMIN_EMAILS`: your email, for the staff pages.
+   - `ADMIN_EMAILS`: leave it empty. The demo's `owner@example.com` opens the staff pages, and anyone with the link can sign in as it, so a real address here would be visible to them in Settings → Staff.
    - Optionally, the two Stripe **test** keys, to try Stripe's real card form.
 4. Deploy (about 5 minutes).
 5. Open the `…onrender.com` address it shows.
@@ -162,15 +162,20 @@ The original steps for Netlify and Neon, if the site ever moves:
 - **Environment:**
   - `APP_ENV` = `development`
   - `PGLITE_DIR` = `.data/pglite`
-  - `ADMIN_EMAILS` = your email
   - `MALLOC_ARENA_MAX` = `2` (keeps photo uploads well inside the memory limit)
   - Optionally, `STRIPE_SECRET_KEY` and `PUBLIC_STRIPE_PUBLISHABLE_KEY` (test keys only)
 
 Then choose **Save, rebuild, and deploy**.
 
-**Why the preview ships a ready-made database.** The preview's database is PGlite, the same Postgres that local development uses, running inside the server. Creating a new database briefly needs 550–700 MB of memory, over the free plan's 512 MB. That limit applies to the build as well as the running server, and Render stops anything that goes over. Opening an existing database needs far less: the build step peaks around 375 MB (it also copies in the starting content), and the server around 370 MB through the enrollment journey, the editor test and three full-size photo uploads. So `npm run db:prepare-preview` unpacks `scripts/pglite-empty.tar.gz`, a brand-new empty database, into the project folder (not `/tmp`, which doesn't survive from build to start), then applies migrations. If an `@electric-sql/pglite` upgrade moves to a new Postgres version, CI's "Render preview database" step fails. To fix it, run `npm run db:snapshot` on a laptop and commit the new file.
+**Why the preview ships a ready-made database.** The preview's database is PGlite, the same Postgres that local development uses, running inside the server. Creating a new database briefly needs 550–700 MB of memory, over the free plan's 512 MB. That limit applies to the build as well as the running server, and Render stops anything that goes over. Opening an existing database needs far less: the build step peaks around 350–410 MB (it also copies in the starting content and makes the demo data, with Node's heap capped at 128 MB in `package.json`), and the server around 370 MB through the enrollment journey, the editor test and three full-size photo uploads (about 300 MB clicking through the demo data). So `npm run db:prepare-preview` unpacks `scripts/pglite-empty.tar.gz`, a brand-new empty database, into the project folder (not `/tmp`, which doesn't survive from build to start), then applies migrations. If an `@electric-sql/pglite` upgrade moves to a new Postgres version, CI's "Render preview database" step fails. To fix it, run `npm run db:snapshot` on a laptop and commit the new file.
 
 What to expect on the preview:
+- **Demo data** (`scripts/demo-data.ts`, plan in `docs/plans/preview-demo-data.md`): 30 made-up families with 36 children, and a term of made-up activity from August to the day it was built. That covers sign-ups, monthly payments (two failed, one paid by check), a refund, credits, days off, attendance, a drop-in, tags, skills, the fall show and last season's numbers. Sign in as:
+  - `owner@example.com` at `/admin` (Hannah's view: Today, Reports, every staff page);
+  - `teacher@example.com` or `teacher2@example.com` at `/admin/teach` (the teacher app; best on a phone);
+  - `parent@example.com` at `/account` (a family with two children).
+- The story's dates are the Fall 2026 term's (sign-ups from Aug 3, billing from Sep 1), and it stops at the moment the preview was built. After a few weeks without a deploy, "today" drifts past the data; to bring it up to date: Render dashboard → the preview → **Manual Deploy → Deploy latest commit**. Once Fall 2026 ends (Dec 18, 2026) or its classes leave `src/content/seed/programs.ts`, the story needs new dates (`docs/todo.md`); until then the build fails loudly rather than making a wrong demo.
+- It's only made where emails stay at `/dev/mailbox`. With `RESEND_API_KEY` set, the build skips it and says so, because its 180-odd emails would really be sent.
 - Sign-in codes appear at `/dev/mailbox`.
 - Without Stripe keys, payment is a "test payment" button.
 - Data resets whenever the preview sleeps (after 15 idle minutes on the free plan) or redeploys. That includes anything changed in the content editor: the preview is for trying the editor, not for real edits.
